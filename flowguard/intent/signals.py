@@ -272,7 +272,9 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
     and without an entry it is `before`. An ignore entry covers only a family that may be ignored, and an entry
     of another act beside it keeps the member shown. Fields several files write without an agreement (family 'writers')
     have no line of their own except with `everything`. A known entry whose finding belongs to a family that ran
-    (`ran`) and is not among the findings is `known fixed?`; any other entry, except an ignore entry, whose
+    (`ran`: a family whose checks judged the whole project, or a finding name whose own check ran, as a pytest
+    session's sealed comparison of the copies of one same name) and is not among the findings is `known fixed?`
+    (`copies of NAME now agree` for same-name copies); any other entry, except an ignore entry, whose
     sites this change touches (`Known.nodes` in `touched_functions` or `Known.files` in `touched_files`, every
     entry with `everything`) and that has no line yet is `known`. `extra` are lines already of their kind
     (changed, impact, loosened, not compared). Lines are unique by (kind, name, function), the first one kept.
@@ -333,8 +335,10 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
     for entry in entries:
         if entry.id in said:
             continue
-        if entry.finding and family_of(entry.finding) in ran and entry.finding not in names:
-            lines.append(Line('known fixed?', f'known.{entry.id}', '', f'known.{entry.id}: {entry.finding} no longer found',
+        if entry.finding and (family_of(entry.finding) in ran or entry.finding in ran) and entry.finding not in names:
+            gone = (f'copies of {entry.finding.partition(":")[2]} now agree' if family_of(entry.finding) == 'same'
+                    else f'{entry.finding} no longer found')
+            lines.append(Line('known fixed?', f'known.{entry.id}', '', f'known.{entry.id}: {gone}',
                               FIXED_STEPS[entry.act].format(id=entry.id), (), _known_detail(entry)))
         elif entry.act != 'ignore' and (everything or entry.nodes & touched_functions or entry.files & touched_files):
             lines.append(Line('known', f'known.{entry.id}', '', f'known.{entry.id} at {", ".join(entry.sites)}',
@@ -570,31 +574,35 @@ def not_compared(subject, reasons, *, function='', places=()):
                 tuple(places), tuple(dict.fromkeys(reasons)) or ('no reason recorded',))
 
 
-def delivery(issues=(), lines=(), *, touched_functions=(), touched_files=()):
+def delivery(issues=(), lines=(), *, touched_functions=(), touched_files=(), ran=()):
     """What one run (one pytest session, a vitest report, a check batch) gives the block: its own findings (Issues of
     the families that need no map: rule, flow, same, test, input, ledger, source), lines already of their kind
-    (changed, not compared) and what it knows the change touches. `collect` merges several."""
+    (changed, not compared), what it knows the change touches and what its checks judged in full (`ran`, families or
+    finding names, as `deliver` reads them). `collect` merges several."""
     return dict(issues=list(issues), lines=list(lines), touched_functions=frozenset(touched_functions),
-                touched_files=frozenset(touched_files))
+                touched_files=frozenset(touched_files), ran=frozenset(ran))
 
 
 def collect(deliveries, found=None, *, everything=False):
     """(lines, ignored) of the deliveries of a run and its static findings (`owners.static_findings`, or None when the
     map checks did not run): every finding, the lines of their kind, the known entries, the families that ran and
-    what the change touches, through `deliver`. `ignored` adds the issues a `[structure]` decision closed."""
-    issues, extra, functions, files = [], [], set(), set()
+    what the change touches, through `deliver`; the families and names that ran are those of the deliveries and the
+    static findings together. `ignored` adds the issues a `[structure]` decision closed."""
+    issues, extra, functions, files, ran = [], [], set(), set(), set()
     for part in deliveries:
         issues += part['issues']
         extra += part['lines']
         functions |= part['touched_functions']
         files |= part['touched_files']
-    known, ran, decided = (), frozenset(), 0
+        ran |= part['ran']
+    known, decided = (), 0
     if found is not None:
         issues += found.issues
         extra += found.lines
         functions |= found.touched_functions
         files |= found.touched_files
-        known, ran, decided = found.known, found.ran, len(found.decided)
+        known, decided = found.known, len(found.decided)
+        ran |= found.ran
     lines, ignored = deliver(issues, touched_functions=functions, touched_files=files, known=known, ran=ran,
                              everything=everything, extra=extra)
     return lines, ignored + decided

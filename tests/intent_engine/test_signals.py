@@ -596,6 +596,74 @@ def test_a_known_entry_naming_an_old_same_name_disagreement_is_its_known_line_in
     ], result.stdout
 
 
+def test_a_known_entry_whose_same_name_copies_now_agree_in_the_pytest_session_is_known_fixed(tmp_path):
+    """Design 4.7's own example: the session compared the copies sealed and they agree now, so the entry naming their
+    disagreement asks whether it is fixed; a session that could not compare every copy does not ask."""
+    from tests.intent_engine.test_default_runtime_signals import _git, _project, _run
+    from tests.intent_engine._cli_fixture import block
+    root = tmp_path / 'weeks'
+    policy = _project(root, '''
+        # flowguard: same WEEKS
+        def weeks(year: int) -> int:
+            return 52
+        # flowguard: same WEEKS
+        def iso_weeks(year: int) -> int:
+            return 53 if year == 2025 else 52
+    ''', '''
+        from policy import weeks, iso_weeks
+        def test_weeks():
+            assert weeks(2024) == iso_weeks(2024) == 52
+    ''')
+    (root / '.flowguard').mkdir()
+    (root / '.flowguard/known.toml').write_text(
+        '[known.iso-weeks]\nsites = ["policy.py:weeks", "policy.py:iso_weeks"]\n'
+        'why = "the two copies disagree on 2025; the owner has not said which is right"\nact = "leave"\n'
+        'finding = "same:WEEKS"\n', encoding='utf-8')
+    _git(root, 'add', '.')
+    _git(root, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'known disagreement')
+    policy.write_text(policy.read_text().replace('return 53 if year == 2025 else 52', 'return 52'))
+    result = _run(root)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert block(result)[1:] == ['known fixed?: known.iso-weeks: copies of WEEKS now agree -> the owner deferred it: '
+                                 'revert, or say why in your report'], result.stdout
+    # One copy that cannot run sealed: the copies were not all compared, so nothing is said to be fixed.
+    policy.write_text(policy.read_text().replace('def iso_weeks(year: int) -> int:\n    return 52',
+                                                 'def iso_weeks(year: int) -> int:\n    return len(open(__file__).read()) * 0 + 52'))
+    result = _run(root)
+    shown = block(result)
+    assert result.returncode == 0 and not any(line.startswith('known fixed?') for line in shown), result.stdout
+    assert any(line.startswith('not compared: ') and 'WEEKS' in line for line in shown), result.stdout
+
+
+def test_a_known_entry_naming_a_rule_whose_items_all_pass_in_the_session_is_known_fixed(tmp_path):
+    from tests.intent_engine.test_default_runtime_signals import _git, _project, _run
+    from tests.intent_engine._cli_fixture import block
+    root = tmp_path / 'days'
+    policy = _project(root, '# flowguard: sensor STANDING\ndef standing(days: int) -> bool:\n    return days <= 3\n',
+                      'from policy import standing\ndef test_native():\n    assert standing(0) is True\n', rule='''
+        from flowguard.intent import rule, row
+        @rule('STANDING_RULE', decides='standing', fields={'days': int}, anchor='STANDING',
+              source='doc policy.txt "At most three days."')
+        def STANDING_RULE(days):
+            return days <= 3
+        STANDING_RULE.rows(row(days=4, expect=False, why='the fourth day must remain refused'))
+    ''')
+    (root / '.flowguard').mkdir()
+    (root / '.flowguard/known.toml').write_text('[known.days]\nsites = ["policy.py:standing"]\nwhy = "deferred"\nact = "leave"\n'
+                                                'finding = "rule:STANDING_RULE"\n', encoding='utf-8')
+    _git(root, 'add', '.')
+    _git(root, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'known rule finding')
+    policy.write_text(policy.read_text().replace('days <= 3', '3 >= days'))
+    result = _run(root)
+    assert result.returncode == 0 and block(result)[1:] == [
+        'known fixed?: known.days: rule:STANDING_RULE no longer found -> the owner deferred it: revert, or say why in your report'
+    ], result.stdout
+    # The rule's items not run (another test selected): nothing says it is fixed; the touched site is known.
+    result = _run(root, 'tests/test_case.py')
+    assert result.returncode == 0 and block(result)[1:] == [
+        'known: known.days at policy.py:standing -> leave it (the owner deferred it)'], result.stdout
+
+
 def test_an_intent_item_failing_only_on_a_source_broken_at_task_start_passes_and_is_before_where_touched(tmp_path):
     """Design 6.1: the exit code follows red only. A quote already gone from its document at the baseline makes no
     verdict red; it is a before line where the change touches the file declaring the rule, else nothing."""

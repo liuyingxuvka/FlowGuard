@@ -148,7 +148,13 @@ def test_writers_findings_have_lines_of_their_own_only_with_everything():
 def test_known_fixed_needs_a_finding_whose_family_ran_and_that_is_gone(act, step):
     known = [entry('k', act, 'same:ISO_WEEKS', nodes={'m:f'})]
     lines, _ = deliver([], touched_functions=(), touched_files=(), known=known, ran={'same'})
-    assert lines == [Line('known fixed?', 'known.k', '', 'known.k: same:ISO_WEEKS no longer found', step, (), lines[0].detail)]
+    assert lines == [Line('known fixed?', 'known.k', '', 'known.k: copies of ISO_WEEKS now agree', step, (), lines[0].detail)]
+    # A run that compared only some names (a pytest session's sealed copies) names them: only those ran.
+    assert deliver([], touched_functions=(), touched_files=(), known=known, ran={'same:ISO_WEEKS'})[0] == lines
+    assert deliver([], touched_functions=(), touched_files=(), known=known, ran={'same:OTHER'}) == ([], 0)
+    rule = [entry('r', act, 'rule:GRACE')]
+    assert [(line.kind, line.text) for line in deliver([], touched_functions=(), touched_files=(), known=rule, ran={'rule:GRACE'})[0]] == [
+        ('known fixed?', 'known.r: rule:GRACE no longer found')]
     # The family did not run: nothing is said to be fixed (a touched site still gives the known line).
     assert deliver([], touched_functions=(), touched_files=(), known=known, ran={'pair'}) == ([], 0)
     touched = deliver([], touched_functions={'m:f'}, touched_files=(), known=known, ran=frozenset())[0]

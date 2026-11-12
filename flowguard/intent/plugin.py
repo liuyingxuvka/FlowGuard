@@ -34,6 +34,8 @@ NO_SKIP = 'this suite allows no skip, expected failure or early exit: a check th
 _CURRENT = None
 _SIGNALS = ContextVar('flowguard_signals', default=None)
 _TRY = ContextVar('flowguard_try', default=None)
+# the finding family of a declaration's intent items by their kind (a rule's are `rule:`)
+ITEM_KINDS = {'flow': 'flow', 'states': 'states', 'structure': 'structure', 'anchor_distinct': 'distinct'}
 SCHEMA = '''
 CREATE TABLE IF NOT EXISTS reading(test TEXT PRIMARY KEY, outcome TEXT, kind TEXT, reason TEXT,
   phase TEXT, seconds REAL, stamp REAL);
@@ -124,6 +126,7 @@ class Session:
         self.source_items = ()
         self.complete_collection = None
         self.ledger_result = None
+        self.ledger_judged = False      # the ledger was compared with the map in full (a known entry's `known fixed?`)
         self.sentinel_ledger = False
         self.session_red = []            # reds only the session decides: a failed JUnit testcase
         from . import deprecation
@@ -285,6 +288,7 @@ class Session:
             try:
                 baseline = self.config.getoption('--flowguard-base', default=None) or cache.session_baseline(self.cfg)
                 self.ledger_result = ledger.evaluate(self.cfg, self.get_map(), baseline=baseline)
+                self.ledger_judged = True
             except (MapError, OSError, UnicodeError) as error:
                 self.ledger_result = ledger.Result(present=True, red=[ledger.Finding(
                     f'fallback ledger check did not complete: {type(error).__name__}: {error}', ('correct this error and rerun the tests',))])
@@ -474,6 +478,9 @@ class Observations:
         self.lines, self.ignored, self.hidden, self.carried = [], 0, [], set()
         self.copies = []            # the same-name findings of `_compare` (`signals.copies_issue`)
         self.issues = []            # other findings made whole: a source that failed at the baseline, catalog problems
+        # what this session's own checks judged in full, for a known entry's `known fixed?` (`signals.deliver`): the
+        # ledger family, and by name the same-name copies compared sealed, the declarations whose items all ran
+        self.ran = set()
         self.rules = {}
         for rule in state.model.rules.values():
             for home in rule.homes:
@@ -668,6 +675,7 @@ class Observations:
             owner = next((places[point['target']] for point in points if point['anchor'].owner), None)
             named = {point['target']: f'{point["file"]}:{point["qual"]}' for point in points}     # the 4.3 places
             rows = []       # (input, current answers, baseline answers, places whose baseline could not run)
+            unavailable = False     # a copy that could not run sealed on an input: the copies were not all compared
             for row in inputs:
                 answered = []       # (point, current outcome, baseline outcome or None) of each copy that ran sealed
                 for point in points:
@@ -679,6 +687,7 @@ class Observations:
                     if now['status'] == 'unavailable':
                         # This copy is not compared; the copies that ran still are (design 4.5, 6.4).
                         self.grey.append(name + ': ' + places[point['target']] + ' ' + now.get('reason', ''))
+                        unavailable = True
                         continue
                     past_text = source(point, True)
                     existed = past_text is not None and point['qual'] in dict(R._functions(ast.parse(past_text)))
@@ -714,6 +723,8 @@ class Observations:
             if fresh or old:
                 self.copies.append(signals.copies_issue(name, fresh, old, places=list(named.values()),
                                                         files={point['file'] for point in points}))
+            if rows and not unavailable and not open_lines:
+                self.ran.add(f'same:{name}')        # every copy answered every compared input sealed
         return items, before
 
     @contextmanager
@@ -930,6 +941,7 @@ class Observations:
                     self.carried.add(self._item_red(result))
             if result.get('before'):
                 self._item_before(item, result)
+        self._judged_names()
         # Each violated rule names the next step: correct the code, or the rule first when the need changed.
         for rule in model.rules.values():
             if any(str(message).partition('：')[0].partition(': ')[0].partition(' source')[0].partition(' 出处')[0] == rule.id for message in self.red):
@@ -982,6 +994,8 @@ class Observations:
                         'correct this declaration; until then none of its file is checked', places=(place,), files=(error['file'],))
         items = [dict(name='uncovered', status='grey', complete=False, changes=[], changed=0, total=0, reasons=[reason]) for reason in dict.fromkeys([*self.grey, *syntax])] + items
         fallbacks = self.state.ledger()
+        if self.state.ledger_judged and not fallbacks.grey:
+            self.ran.add('ledger')          # every entry and handler compared with the map
         from .ledger import LEDGER
         # a [structure] entry of a later FlowGuard is unverified, never red, also in a run without a source change
         unverified.extend(fallbacks.later)
@@ -1038,7 +1052,8 @@ class Observations:
         touched |= {part[0] for issue in self.copies if issue.files & self.touched for part in issue.parts}
         unchecked = [signals.not_compared(subject, entry['reasons'], function=function, places=entry['places'])
                      for (subject, function), entry in self.unchecked.items()]
-        return signals.delivery(issues, [*self.changes, *unchecked], touched_functions=touched, touched_files=self.touched)
+        return signals.delivery(issues, [*self.changes, *unchecked], touched_functions=touched, touched_files=self.touched,
+                                ran=self.ran)
 
     def seconds(self):
         """FlowGuard's own time in this session so far: its setup, collection and recording, and its judgement."""
@@ -1117,6 +1132,28 @@ class Observations:
         entry['detail'] = [*steps, f'{rule.id} source: {source.quote or source.text}']
         return key
 
+    def _item_name(self, identifier, kind):
+        """The finding name of a declaration's intent item (`_item_red`): `rule:ID` of a rule, else its kind's."""
+        if identifier in self.state.model.rules:
+            return f'rule:{identifier}'
+        return f'{ITEM_KINDS.get(kind, "rule")}:{identifier}'
+
+    def _judged_names(self):
+        """Put into `ran` the finding names of the declarations every intent item of which this session judged (none
+        unverified, nor its check on the observed calls): `rule:ID` (or `flow:ID`, ...), and `source:ID` when every
+        item passed, which no source of its that fails does."""
+        verdicts, kinds = {}, {}
+        for result in self.state.results.values():
+            if result['rule']:
+                verdicts.setdefault(result['rule'], []).append(result['verdict'])
+                kinds.setdefault(result['rule'], result.get('kind'))
+        for identifier, found in verdicts.items():
+            if 'grey' in found or any(str(reason).startswith(identifier + ': ') for reason in self.grey):
+                continue
+            self.ran.add(self._item_name(identifier, kinds[identifier]))
+            if all(verdict == 'ok' for verdict in found):
+                self.ran.add(f'source:{identifier}')
+
     def _item_red(self, result):
         """The red of a failed intent item: its rule's or flow's (the item's target its member), already a failed test."""
         from . import signals
@@ -1127,7 +1164,7 @@ class Observations:
             for message in result['red']:
                 key = self._rule_red(model.rules[identifier], str(message), place=self._site(target) if target else None)
             return key
-        kind = {'flow': 'flow', 'states': 'states', 'structure': 'structure', 'anchor_distinct': 'distinct'}.get(result.get('kind'), 'rule')
+        kind = ITEM_KINDS.get(result.get('kind'), 'rule')
         step = FLOW_STEP.format(id=identifier) if kind == 'flow' else \
             f'correct the code or {kind} {identifier} at {self._declared_at(identifier)}'
         key = None
