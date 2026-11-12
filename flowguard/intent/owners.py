@@ -20,7 +20,7 @@ import re
 import threading
 import time
 
-from flowguard.map.common import git_blob, git_run, is_test_file, read_source, sha256_bytes
+from flowguard.map.common import git_blob, git_renames, git_run, is_test_file, read_source, sha256_bytes
 
 SIMILAR_SHAPE = 0.5          # 3-gram Jaccard of two function bodies that counts as a similar structure
 SIMILAR_FOREIGN = 0.8        # the same for JS/TS, whose copies are found by structure alone (no replay)
@@ -165,21 +165,10 @@ class Change:
 
     def renamed(self):
         """{old path: new path} of the renames Git reports between the baseline and the working tree (a rename
-        staged with `git mv`; an untracked file is no rename to Git). Read once."""
+        staged with `git mv`; an untracked file is no rename to Git), as `git_renames` reads them. Read once."""
         if not hasattr(self, '_renamed'):
-            self._renamed = {}
-            if self.baseline:
-                listed = git_run(self.graph.root, 'diff', '-M', '--name-status', '-z', '--relative', self.baseline, '--').stdout
-                parts = [os.fsdecode(part) for part in listed.split(b'\0')]
-                at = 0
-                while at < len(parts) and parts[at]:
-                    status = parts[at]
-                    if status[:1] in ('R', 'C'):
-                        if status[:1] == 'R':
-                            self._renamed[parts[at + 1]] = parts[at + 2]
-                        at += 3
-                    else:
-                        at += 2
+            found = git_renames(self.graph.root, self.baseline) if self.baseline else {}
+            self._renamed = {old: new for new, old in found.items()}
         return self._renamed
 
     def baseline_paths(self):
