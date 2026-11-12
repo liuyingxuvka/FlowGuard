@@ -1003,7 +1003,9 @@ class Runtime:
     def _tree(self, file, old):
         try:
             return self._parsed(self._text(file, old), file)
-        except (SyntaxError, ValueError) as error:      # ValueError: a null byte on Python 3.11
+        except SyntaxError as error:    # its own words: str() names the file differently on Windows
+            raise Refused(f'{file} does not parse: {error.msg} (line {error.lineno})') from None
+        except ValueError as error:     # a null byte on Python 3.11
             raise Refused(f'{file} does not parse: {error}') from None
 
     def _literals(self, file, old):

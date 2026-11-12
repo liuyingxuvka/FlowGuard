@@ -84,7 +84,7 @@ def test_a_problem_in_an_imported_module_leaves_functions_that_do_not_read_it_co
 def test_a_module_that_does_not_parse_refuses_only_the_names_read_from_it(tmp_path):
     policy = 'from shop.models import LIMIT\ndef allows(days):\n    return days <= LIMIT\n'
     answer = _policy(tmp_path, {'shop/models.py': 'LIMIT = 3\ndef broken(:\n'}, policy)
-    assert answer == {'status': 'unavailable', 'reason': 'uses LIMIT: shop/models.py does not parse: invalid syntax (models.py, line 2)'}
+    assert answer == {'status': 'unavailable', 'reason': 'uses LIMIT: shop/models.py does not parse: invalid syntax (line 2)'}
 
 
 def test_a_star_import_in_an_imported_module_hides_only_the_literals_assigned_before_it(tmp_path):
