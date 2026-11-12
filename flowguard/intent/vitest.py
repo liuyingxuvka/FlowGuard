@@ -1124,8 +1124,10 @@ NOT_RUN = 'map checks did not run in this vitest run'
 
 
 def static_lines(observations):
-    """The saved map checks of this vitest run (the `signals.last_run` payload flowguard.static.test.mjs writes into the
-    observations folder), its lines as `signals.Line`; None when the static test did not run in it."""
+    """The saved map checks of this vitest run (the `signals.last_run` payload with its `title_parts` that
+    `check --static` writes for flowguard.static.test.mjs into the observations folder), its lines as `signals.Line`;
+    None when the static test did not run in it. The report reads its lines, seconds, ignored count, deprecated
+    features and hidden leads."""
     from .signals import KINDS, Line
     path = Path(observations) / STATIC
     if not path.is_file():
@@ -1170,15 +1172,17 @@ def _save_last(cfg, payload):
 
 def report(root, plan_path, observations, package=None, *, in_test=False):
     """Judge this run's observations, merge the map checks the static test saved in this run, print the 4.3 block
-    (`signals.render_block`) and keep its lines for `show --last`; 1 when a line is red. The first line's time is
-    FlowGuard's own: the preparation, the recording, this report and the static test's map checks. `in_test` is the
-    session test (session.test.mjs, run after the project's tests): it keeps the observations and saves the block,
-    its status and the number of its reds the static test did not already fail on, for the session test and the
-    teardown, which prints the block after vitest's summary instead of judging again."""
+    (`signals.render_block`, a place named by the shortest end of its path no other file of the repository has) and
+    keep its lines for `show --last`; 1 when a line is red. The first line's time is FlowGuard's own: the preparation,
+    the recording, this report and the static test's map checks. `in_test` is the session test (session.test.mjs,
+    run after the project's tests): it keeps the observations and saves the block, its status and the number of its
+    reds the static test did not already fail on, for the session test and the teardown, which prints the block after
+    vitest's summary instead of judging again."""
     import os
     from . import deprecation, signals
     from .config import load_config
     from .differences import display
+    from ..map.common import git_files
     started = time.perf_counter()
     since = deprecation.mark()
     cfg = load_config(root)
@@ -1196,11 +1200,12 @@ def report(root, plan_path, observations, package=None, *, in_test=False):
     carried = {(line.kind, line.name, line.function) for line in static['lines']} if static else set()
     red = sum(line.kind == 'red' for line in lines)
     mine = sum(line.kind == 'red' and (line.kind, line.name, line.function) not in carried for line in lines)
+    files = git_files(cfg.root)         # the repository's files, which no shortened path of the block may name
     seconds = (float(os.environ.get('FLOWGUARD_VITEST_PREPARE_SECONDS', 0)) + recorded + (static['seconds'] if static else 0)
                + time.perf_counter() - started)
     heading = signals.title(lines, baseline=result['baseline'], kind=result['baseline_kind'], ahead=result['baseline_ahead'],
                             seconds=seconds)
-    text = signals.render_block(lines, title=heading)
+    text = signals.render_block(lines, title=heading, files=files)
     _save_last(cfg, signals.last_run(lines, ignored + (static['ignored'] if static else 0), run='vitest', stamp=time.time(),
                                      baseline=result['baseline'], kind=result['baseline_kind'], title=heading, seconds=seconds,
                                      deprecated=list(dict.fromkeys([*deprecation.used(since), *(static['deprecated'] if static else ())])),

@@ -136,6 +136,16 @@ def git_renames(root, revision: str) -> dict[str, str]:
             for index in range(0, len(parts) - 2, 3) if parts[index].startswith(b"R")}
 
 
+def git_files(root) -> frozenset[str]:
+    """The files of the work tree under root that Git lists, tracked ones and untracked ones it does not ignore,
+    relative to root; none outside Git. A run reads them once for its block, whose shortened paths may name no other
+    of these files (`signals.render_block`)."""
+    if git_common_directory(root) is None:
+        return frozenset()
+    listed = git_run(root, "ls-files", "-z").stdout + git_run(root, "ls-files", "--others", "--exclude-standard", "-z").stdout
+    return frozenset(os.fsdecode(name) for name in listed.split(b"\0") if name)
+
+
 
 def atomic_write_text(path: Path, text: str) -> None:
     """Replace a disposable cache atomically, leaving no partial shared file."""

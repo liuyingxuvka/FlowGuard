@@ -421,6 +421,32 @@ def test_a_violated_rule_has_the_next_step_of_its_kind_in_pytest_and_every_check
             assert shown == every, (run, text)
         assert 'show the rule' not in text and 'correct its source' not in text, (run, text)
         assert detail(root) == full, run
+        # check keeps its own lines for show --last, which names the run and prints the first line check printed
+        shown = cli_fixture.last(root).splitlines()
+        assert shown[0].startswith('FlowGuard last run: check at ') and shown[1] == cli_fixture.block(text)[0], (run, shown)
+
+
+def test_check_says_known_fixed_for_a_rule_whose_results_pass_also_when_it_reuses_them(tmp_path, capsys, monkeypatch):
+    # A known entry names a rule's red, and the rule now passes: the entry may be fixed. check says so where its pytest
+    # batch ran the rule and where it reused the results pytest saved, as a pytest session judges them (`ran`).
+    import subprocess
+    root, cfg = project(tmp_path)
+    (root / '.gitignore').write_text('.flowguard/cache/\n__pycache__/\n.pytest_cache/\n')
+    (root / '.flowguard').mkdir()
+    (root / '.flowguard/known.toml').write_text(f'[known.limit]\nsites = ["{root.name}.py:accept"]\nwhy = "accept took a fourth day"\n'
+                                                'act = "leave"\nfinding = "rule:LIMIT"\n')
+    cli.init(cfg)
+    for command in (['init', '-q', '-b', 'main'], ['add', '.'],
+                    ['-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'base']):
+        subprocess.run(['git', '-C', str(root), *command], check=True, capture_output=True)
+    capsys.readouterr()
+    observed = cli_fixture.calls(monkeypatch)
+    for batch in (True, False):         # the batch runs the rule; the next check, with nothing changed, reuses it
+        assert cli_fixture.check(cfg) == 0
+        text = capsys.readouterr().out
+        assert bool(observed) is batch and cli_fixture.block(text)[1:] == [
+            'known fixed?: known.limit: rule:LIMIT no longer found -> the owner deferred it: revert, or say why in your report'], text
+        observed.clear()
 
 
 def test_a_red_that_is_no_rule_keeps_a_next_step_in_pytest_and_check(tmp_path, capsys):

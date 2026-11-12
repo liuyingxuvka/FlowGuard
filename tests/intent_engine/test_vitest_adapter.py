@@ -368,6 +368,17 @@ def test_the_report_title_says_how_far_head_lies_after_the_task_start_as_pytest_
                                       _cli_fixture.block(text)[0]), text
 
 
+def test_the_report_names_a_file_by_an_end_no_other_file_of_the_repository_has(tmp_path):
+    # As in pytest's block (D17): src/limits.ts never prints as limits.ts in a repository that also has a limits.ts,
+    # though no line of the block names that other file.
+    limit = '// flowguard: sensor LIMIT\nexport function limit(days: number) {{ return days <= {}; }}\n'
+    _commit(tmp_path, {'src/limits.ts': limit.format(3), 'limits.ts': 'export const LIMIT = 3;\n'})
+    (tmp_path / 'src/limits.ts').write_text(limit.format(4), encoding='utf-8')
+    code, text = _report(tmp_path, _prepare(tmp_path)['plan'])
+    assert code == 0 and _cli_fixture.block(text)[1:] == [
+        'not compared: LIMIT (src/limits.ts:2) (not reached by any test) -> not a failure'], text
+
+
 def test_a_function_reading_a_changed_constant_or_table_is_planned_as_changed(tmp_path):
     _commit(tmp_path, {
         'src/limits.ts': "export const LIMIT = 3;\nexport const LABELS = { TEAM: 'Team', AREA: 'Area' };\n",

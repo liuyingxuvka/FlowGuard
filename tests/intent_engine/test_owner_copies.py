@@ -356,6 +356,24 @@ def test_check_leaves_the_choice_between_copies_when_none_is_the_owner(tmp_path)
                    '-> decide which copy is right, then make the others agree'], text
 
 
+KNOWN_LIMIT = (
+    '[known.limit]\nsites = ["limits.py:chart", "limits.py:calendar"]\nwhy = "the copies disagree at 4"\nact = "ask"\n'
+    'ask = "which limit is right?"\nfinding = "same:LIMIT"\n')
+
+
+def test_check_says_known_fixed_for_same_name_copies_it_compared_and_found_agreeing(tmp_path):
+    # D24: check runs the same-name copies no test reached on their current code. Copies that already disagreed and
+    # that this change leaves alone say nothing; once they agree, the known entry naming their disagreement may be
+    # fixed, as a pytest session or a vitest run that compared every copy says it (`ran`).
+    _project(tmp_path, {'limits.py': _copies(3, 4), '.flowguard/known.toml': KNOWN_LIMIT})
+    code, text = _check(tmp_path)
+    assert code == 0 and _block(text)[1:] == [], text
+    (tmp_path / 'limits.py').write_text(_copies(3, 3), encoding='utf-8')
+    code, text = _check(tmp_path)
+    assert code == 0 and _block(text)[1:] == [
+        'known fixed?: known.limit: copies of LIMIT now agree -> the owner has not decided: revert, or say why in your report'], text
+
+
 # Round 22 F1, second review: chart is the owner, report already differs from it at days=3 (`days < 3`), and this
 # task changes calendar only (`days <= 4`). The red named the first copy that differs and listed report with the
 # owner on that input (`2 份得 F（负责人 limits.py:2 chart、limits.py:12 report）`); 4.2.0 named both.

@@ -15,7 +15,7 @@ import tomllib
 import typing
 
 from flowguard import __version__
-from flowguard.map.common import MapError
+from flowguard.map.common import MapError, git_files
 from flowguard.map.requests import owner_word, owner_words, retire_request, store_request
 from flowguard.structure import build
 from flowguard.structure.query import may_share, tokens
@@ -690,11 +690,14 @@ def watch(cfg, command):
 
 class _Own:
     """What `check` finds itself, beside the deliveries of its pytest batch (`signals.delivery`): findings
-    (`health.Issue`) of the families that need no map, lines already of their kind, and its batch's pytest exit code,
-    seconds (FlowGuard's own share of them is in the batch's report), output file and the end of that output."""
+    (`health.Issue`) of the families that need no map, lines already of their kind, the families and finding names
+    its own checks judged in full (`ran`: a known entry naming one that is no longer found is `known fixed?`), and
+    its batch's pytest exit code, seconds (FlowGuard's own share of them is in the batch's report), output file and
+    the end of that output."""
 
     def __init__(self):
         self.issues, self.lines, self.code, self.seconds, self.output, self.tail = [], [], 0, 0.0, None, []
+        self.ran = set()        # what check's own checks judged in full (`signals.deliver`'s `ran`)
 
     def red(self, family, name, subject, what, step, *, places=(), files=(), detail=()):
         from .signals import finding
@@ -710,7 +713,7 @@ class _Own:
 
     def delivery(self):
         from .signals import delivery
-        return delivery(self.issues, self.lines)
+        return delivery(self.issues, self.lines, ran=self.ran)
 
 
 def _step_of(message, step):
@@ -740,16 +743,18 @@ def _index_findings(index):
 
 
 def _ledger_findings(result):
-    """The fallback ledger's findings, in the words of a pytest session: each red one line, the entry to copy in its
-    detail (`ledger check` prints it as well); the entries of a later FlowGuard, which check nothing here, not
-    compared."""
+    """The fallback ledger's findings, in the words of a pytest session, as (issues, lines, ran): each red one line,
+    the entry to copy in its detail (`ledger check` prints it as well); the entries of a later FlowGuard, which check
+    nothing here, not compared; and the ledger family in `ran` when a ledger was compared with the map in full, none
+    of it unverified, as a pytest session names it (a known entry naming a ledger finding no longer found is then
+    `known fixed?`)."""
     from .ledger import LEDGER
     from .signals import LEDGER_STEP, ascii_text, finding, not_compared
     issues = [finding('ledger', f'ledger:{red.text}', 'ledger', [ascii_text(red.text)], LEDGER_STEP,
                       places=(LEDGER, *re.findall(r'(?<![\w./-])[\w./-]+\.[A-Za-z]\w*:\d+', red.text)), files=(LEDGER,),
                       detail=list(red.fix)) for red in result.red]
     lines = [not_compared(LEDGER, [ascii_text(reason) for reason in result.later], places=(LEDGER,))] if result.later else []
-    return issues, lines
+    return issues, lines, {'ledger'} if result.present and not result.grey else set()
 
 
 def _legacy_lines(listed):
@@ -884,6 +889,23 @@ def _cache_findings(cfg, model, data):
     return own.issues, own.lines
 
 
+def _judged_names(model, data):
+    """The finding names of the declarations every intent result of which check ran or reused judged (none
+    unverified), as a pytest session names them (`plugin.Observations._judged_names`): `rule:ID` (`flow:ID`, ...),
+    and `source:ID` when every result passed, which none does whose source fails. A known entry naming one of them
+    that is no longer found is `known fixed?`."""
+    from .plugin import ITEM_KINDS
+    judged = set()
+    for rid, group in data['results'].items():
+        results = list(group.get('items', {}).values())
+        if rid is None or not results or any(value.get('verdict') == 'grey' for value in results):
+            continue
+        judged.add(f'rule:{rid}' if rid in model.rules else f'{ITEM_KINDS.get(results[0].get("kind"), "rule")}:{rid}')
+        if all(value.get('verdict') == 'ok' for value in results):
+            judged.add(f'source:{rid}')
+    return judged
+
+
 def _same_name_findings(cfg, index, compared, touched, baseline):
     """D24: the same-name copies check's pytest batch did not compare (`compared`: the names it did), run on their
     current code only (`differences._compare_pairs`): what each copy answers where they differ, the reference first
@@ -891,11 +913,12 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
     this change leaves alone already disagreed at task start (no line; before with --all), and copies one of whose
     files it touches (`touched`) are this change's (red, fail-closed); never red because they are old. Without a
     `baseline` no copy existed there, as a pytest session judges them: red. Copies of another signature are red where
-    they are this change's, and what could not be compared is not compared. (issues, lines)."""
+    they are this change's, and what could not be compared is not compared. (issues, lines, ran): `ran` names the
+    groups whose every pair was compared and agreed (`same:NAME`), whose known entry is then `known fixed?`."""
     from .calibration import outcome_equal
     from .differences import _compare_pairs
     from .signals import copies_issue, copy_lines, copy_says, finding, not_compared, value_text
-    issues, lines = [], []
+    issues, lines, ran = [], [], set()
     for name in sorted({anchor.name for anchor in index.entries if anchor.kind == 'sensor'} - compared):
         # A function owner is the reference its same-name copies are compared with.
         copies = sorted((anchor for anchor in index.named(name, 'sensor') if anchor.source_role == 'production'),
@@ -929,7 +952,9 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
                                       function='signature', places=tuple(place.values()), files=files))
         elif reasons:
             lines.append(not_compared(name, reasons))
-    return issues, lines
+        elif result['status'] == 'ok' and result['complete']:
+            ran.add(f'same:{name}')         # every copy compared on its current code, and they agree
+    return issues, lines, ran
 
 
 def _keep_last(cfg, payload):
@@ -949,8 +974,10 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=Fal
     same-name copies no batch compared) and the static ones with copy discovery (`_owner_findings`), through one
     `signals.collect`, one line per (kind, name, function); `everything` (`--all`) lists every old finding and has no
     budget, as `leads` (`--leads`, deprecated) has none. The first line counts FlowGuard's own seconds: its batch's
-    and check's own work besides pytest. Exit 1 for a red line only. Without `base` the first check of a task
-    records HEAD as its baseline when none is recorded; a recorded one stays, as in pytest (`cache.task_start`)."""
+    and check's own work besides pytest; the lines are kept for `show --last` with that first line, and a place is
+    named by the shortest end of its path that no other file of the repository has. Exit 1 for a red line only.
+    Without `base` the first check of a task records HEAD as its baseline when none is recorded; a recorded one
+    stays, as in pytest (`cache.task_start`)."""
     started, timing = time.time(), time.perf_counter()
     from . import deprecation, signals
     from .differences import _source_index
@@ -974,9 +1001,10 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=Fal
     compared = {item['name'] for part in reports for item in part['items'] if item.get('file')}
     compared |= {issue.name.partition(':')[2] for part in deliveries for issue in part['issues'] if issue.family == 'same'}
     from .owners import baseline as owner_baseline
-    issues, lines = _same_name_findings(cfg, index, compared, touched, owner_baseline(cfg, base))
+    issues, lines, ran = _same_name_findings(cfg, index, compared, touched, owner_baseline(cfg, base))
     own.issues += issues
     own.lines += lines
+    own.ran |= ran
     lines, ignored = signals.collect([*deliveries, own.delivery()], found, everything=everything)
     if own.code and not any(line.kind == 'red' for line in lines):
         # pytest failed where no finding says why (an internal or usage error, an interruption): never a quiet pass.
@@ -985,12 +1013,13 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=Fal
         lines, ignored = signals.collect([*deliveries, own.delivery()], found, everything=everything)
     batch = next((part for part in reports if part.get('baseline')), None)
     baseline, kind, ahead = (batch['baseline'], batch['baseline_kind'], batch['baseline_ahead']) if batch else start
+    files = git_files(cfg.root)         # the repository's files, which no shortened path of the block may name
     seconds = time.perf_counter() - timing - own.seconds + sum(part['seconds'] for part in reports)
     heading = signals.title(lines, baseline=baseline, kind=kind, ahead=ahead, option='--base', seconds=seconds)
     _keep_last(cfg, signals.last_run(lines, ignored, run='check', stamp=started, baseline=baseline, kind=kind, title=heading,
                                      seconds=seconds, deprecated=deprecation.used(mark), hidden=found.hidden))
     status = int(any(line.kind == 'red' for line in lines))
-    _show_signals(signals.render_block(lines, title=heading, everything=everything or leads), status)
+    _show_signals(signals.render_block(lines, title=heading, everything=everything or leads, files=files), status)
     return status
 
 
@@ -1015,13 +1044,14 @@ def static_check(cfg, *, everything=False, base=None, leads=False):
     the catalog and touched structure problems (`owners.static_findings`), with the flowguard comments, as the 4.3
     block (`signals.collect`, `render_block`). Only what this change adds is red; `everything` (`--all`) lists every
     old finding as before and has no budget, as `leads` (`--leads`, deprecated) has none. The first line always
-    prints, with the whole command's seconds; the lines are kept for `show --last`. With FLOWGUARD_LINES set (the
-    static test inside a vitest run, `NPM_CHECK`) the lines, seconds, title parts and deprecated features go to that
-    JSON file for the vitest report's block, and nothing to stdout. Exit 1 for a red line only. Without `base` the
-    first run of a task records HEAD as its baseline when none is recorded; a recorded one stays, as in pytest
-    (`cache.task_start`); the title names it as pytest does."""
+    prints, with the whole command's seconds; the lines are kept for `show --last`, and a place is named by the
+    shortest end of its path that no other file of the repository has. With FLOWGUARD_LINES set (the static test
+    inside a vitest run, `NPM_CHECK`) the payload `show --last` keeps (`signals.last_run`) and the parts of its first
+    line (`title_parts`, the keywords of `signals.title`) go to that JSON file for the vitest report's block, and
+    nothing to stdout. Exit 1 for a red line only. Without `base` the first run of a task records HEAD as its
+    baseline when none is recorded; a recorded one stays, as in pytest (`cache.task_start`); the title names it as
+    pytest does."""
     started, timing = time.time(), time.perf_counter()
-    from dataclasses import asdict
     from . import anchors, deprecation, ledger as fallbacks, owners, signals
     mark = deprecation.mark()
     if leads:
@@ -1034,29 +1064,29 @@ def static_check(cfg, *, everything=False, base=None, leads=False):
         result = fallbacks.evaluate(cfg, graph, baseline=baseline) if fallbacks.path(cfg).is_file() \
             else fallbacks.absent(cfg, baseline)
         comments, unparsed = _index_findings(index)
-        ledger_reds, later = _ledger_findings(result)
+        ledger_reds, later, ran = _ledger_findings(result)
         legacy = _legacy_lines(fallbacks.open_legacy(cfg, graph)) if everything else []
-        lines, ignored = signals.collect([signals.delivery([*comments, *ledger_reds], [*unparsed, *later, *legacy])], found,
-                                         everything=everything)
+        lines, ignored = signals.collect([signals.delivery([*comments, *ledger_reds], [*unparsed, *later, *legacy], ran=ran)],
+                                         found, everything=everything)
+        target = os.environ.get('FLOWGUARD_LINES')       # the static test inside a vitest run (NPM_CHECK)
+        files = frozenset() if target else git_files(cfg.root)      # the vitest report prints these lines
         seconds = time.perf_counter() - timing
-        heading = signals.title(lines, baseline=start[0], kind=start[1], ahead=start[2], option='--base', seconds=seconds)
-        deprecated = deprecation.used(mark)
+        parts = dict(baseline=start[0], kind=start[1], ahead=start[2], option='--base')
+        heading = signals.title(lines, **parts, seconds=seconds)
+        payload = signals.last_run(lines, ignored, run='check --static', stamp=started, baseline=start[0], kind=start[1],
+                                   title=heading, seconds=seconds, deprecated=deprecation.used(mark), hidden=found.hidden)
         with graph.con:
             cache.save_structure(graph.con, found.summary)
-            cache.save_last(graph.con, signals.last_run(lines, ignored, run='check --static', stamp=started, baseline=start[0],
-                                                        kind=start[1], title=heading, seconds=seconds, deprecated=deprecated,
-                                                        hidden=found.hidden))
+            cache.save_last(graph.con, payload)
     status = int(any(line.kind == 'red' for line in lines))
-    target = os.environ.get('FLOWGUARD_LINES')       # the static test inside a vitest run (NPM_CHECK)
     if target:
+        # the vitest report reads this file (`vitest.static_lines`): the payload show --last reads, and the parts of
+        # its first line (`signals.title`)
         target = Path(target)
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(dict(lines=[asdict(line) for line in lines], seconds=seconds,
-                                          title=dict(baseline=start[0], kind=start[1], ahead=start[2], option='--base'),
-                                          deprecated=deprecated, ignored=ignored, hidden=list(found.hidden)),
-                                     ensure_ascii=False, sort_keys=True), encoding='utf-8')
+        target.write_text(json.dumps(dict(payload, title_parts=parts), ensure_ascii=False, sort_keys=True), encoding='utf-8')
     else:
-        _show_signals(signals.render_block(lines, title=heading, everything=everything or leads), status)
+        _show_signals(signals.render_block(lines, title=heading, everything=everything or leads, files=files), status)
     return status
 
 
@@ -1200,9 +1230,10 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
     if not model.declared_items() and not everything and not retry_incomplete:
         # No intent item runs, so the ledger the plugin would report is compared here without pytest.
         from .owners import baseline as owner_baseline
-        issues, lines = _ledger_findings(_ledger_result(cfg, owner_baseline(cfg, base)))
+        issues, lines, ran = _ledger_findings(_ledger_result(cfg, owner_baseline(cfg, base)))
         own.issues += issues
         own.lines += lines          # a [structure] entry of a later FlowGuard: not compared, as in pytest
+        own.ran |= ran
         own.history(historical)
         return 0
     sentinel = cfg.root / 'tests/test_flowguard_intent.py'
@@ -1306,6 +1337,7 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
     issues, lines = _cache_findings(cfg, model, data)
     own.issues += issues + (_owner_rules_unverified(cfg, data) if stream_all else [])
     own.lines += lines
+    own.ran |= _judged_names(model, data)
     return process_code
 
 
