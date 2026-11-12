@@ -304,7 +304,7 @@ def test_the_report_merges_the_map_checks_the_static_test_saved_and_fails_only_o
     plan = _prepare(tmp_path)['plan']
     records = [dict(id='typescript/web/src/a.ts:over', args=[4], result=True)]
     red = 'red: same LIMIT: on x=3: a.ts:over returns False, b.ts:enough returns True -> decide which copy is right, then make the other agree'
-    entry = 'red: known.gone: known.toml:known.gone site web/src/a.ts:missing names nothing in web/src/a.ts: '
+    entry = 'red: known.gone: site web/src/a.ts:missing names nothing in web/src/a.ts: '
     code, text = _report(tmp_path, plan, package='web', records=records)
     block = _cli_fixture.block(text)
     assert code == 1 and block[1] == red and block[2].startswith(entry) and block[3:] == [

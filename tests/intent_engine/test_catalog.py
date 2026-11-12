@@ -122,14 +122,15 @@ def test_every_invalid_rule_entry_is_an_input_finding_and_counts_nothing(tmp_pat
     assert list(found.rules) == ['ok']
     assert problem in _problems(found, 'rules-entry:rule.x').split('; ')
     issue = next(issue for issue in found.issues if issue.name == 'rules-entry:rule.x')
-    assert issue.parts[0][1] == '.flowguard/rules.toml:rule.x' and issue.subject == 'rule.x' and issue.files == {'.flowguard/rules.toml'}
+    # the entry is the line's subject and place, named once: `red: rule.x: missing source -> ...`
+    assert issue.parts[0][1] == ('.flowguard/rules.toml:rule.x',) and issue.subject == 'rule.x' and issue.files == {'.flowguard/rules.toml'}
     assert issue.rank == 0 and issue.new          # only the 4.3 lines report it: no structure count, listing or lead
 
 
 @pytest.mark.parametrize('text, name, problem', [
-    ('[rule.x\n', 'rules-file:.flowguard/rules.toml', '.flowguard/rules.toml is not TOML: '),
-    ('[rules.x]\ntext = "x"\n', 'rules-file:.flowguard/rules.toml', '.flowguard/rules.toml holds only [rule.<id>] tables, not rules'),
-    ('rule = "x"\n', 'rules-file:.flowguard/rules.toml', ".flowguard/rules.toml holds only [rule.<id>] tables, not 'x'"),
+    ('[rule.x\n', 'rules-file:.flowguard/rules.toml', 'not TOML: '),
+    ('[rules.x]\ntext = "x"\n', 'rules-file:.flowguard/rules.toml', 'holds only [rule.<id>] tables, not rules'),
+    ('rule = "x"\n', 'rules-file:.flowguard/rules.toml', "holds only [rule.<id>] tables, not 'x'"),
     ('[rule]\nx = "y"\n', 'rules-entry:rule.x', "[rule.x] is a table of keys, not 'y'"),
     ('[rule."a b"]\ntext = "x"\nsource = \'R1 "w"\'\n', 'rules-entry:rule.a b', "the id 'a b' is letters, digits, - and _"),
 ])
@@ -143,8 +144,23 @@ def test_bytes_that_are_not_utf8_are_an_input_finding_too(tmp_path):
     (tmp_path / '.flowguard').mkdir()
     (tmp_path / '.flowguard/known.toml').write_bytes(b'[known.x]\nwhy = "\xff"\n')
     found = sources.catalog(cfg)
-    assert found.known == {} and _problems(found, 'known-file:.flowguard/known.toml').startswith('.flowguard/known.toml is not TOML: ')
+    assert found.known == {} and _problems(found, 'known-file:.flowguard/known.toml').startswith('not TOML: ')
 
+
+
+def test_the_red_of_an_invalid_entry_or_file_names_it_once(tmp_path, capsys):
+    """The entry (or file) is the line's subject; the line does not name it a second time as its place."""
+    _project(tmp_path, rules='rule = 1\n', known=KNOWN + '''
+        [known.night-transfer]
+        sites = ["src/fees.py:fee"]
+        why = "transfers after midnight"
+        act = "later"
+    ''')
+    _commit(tmp_path)
+    assert cli.main(['--root', str(tmp_path), 'check', '--static']) == 1
+    assert capsys.readouterr().out.splitlines()[1:] == [
+        "red: rules.toml: holds only [rule.<id>] tables, not 1 -> move each entry under [rule.<id>] in rules.toml",
+        "red: known.night-transfer: act is one of leave, ask, fix, ignore, not 'later' -> correct [known.night-transfer] in known.toml"]
 
 BASE = 'sites = ["src/fees.py:fee"]\nwhy = "w"\nact = "leave"\n'
 
@@ -548,7 +564,7 @@ def test_show_of_an_entry_names_the_problem_of_its_file(tmp_path, capsys):
     assert cli.show(cfg, 'rule.three-days') == 1
     lines = capsys.readouterr().out.splitlines()
     assert len(lines) == 1 and lines[0].startswith('input rules-file:.flowguard/rules.toml: .flowguard/rules.toml '
-                                                   '.flowguard/rules.toml is not TOML: '), lines
+                                                   'not TOML: '), lines
     # The other file's problem is not this entry's.
     assert cli.show(cfg, 'known.scale') == 0 and 'rules-file' not in capsys.readouterr().out
 

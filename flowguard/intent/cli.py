@@ -441,7 +441,7 @@ def show_catalog(cfg, query, full=False):
             valid, reason = catalog_authority(parse(entry.source, strict=True), cfg, archive)
             lines.append(f'    source: {entry.source} ' + ('(holds)' if valid else f'(does not hold: {reason})'))
     for issue in problems:
-        _, place, what, step = issue.parts[0]
+        _, (place,), what, step = issue.parts[0]
         lines.append(f'input {issue.name}: {place} {what} -> {step}')
     if query != 'rules' and not rules and not entries and not problems:
         lines.append(f'{query} is not in {RULES if table == "rule" else KNOWN}: python -m flowguard show rules lists every entry')
