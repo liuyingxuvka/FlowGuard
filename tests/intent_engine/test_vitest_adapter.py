@@ -1454,6 +1454,40 @@ def test_an_edit_of_spacing_alone_touches_no_known_site_as_in_pytest(vitest_home
     assert code == 0 and 'known: known.limit at a.ts:over, b.ts:enough -> ask owner (not asked yet)' in _block(text), text
 
 
+def test_init_says_npm_test_runs_the_static_test_only_when_the_vitest_config_includes_it(vitest_home):
+    # Review of 4.3: with `include: ['tests/**/*.test.ts']` init said "npm test runs python -m flowguard check
+    # --static", but vitest never ran the file and every run said only that the map checks did not run. init reads
+    # test.include (and test.exclude) when they are literals; otherwise it says it cannot confirm the claim.
+    configs = {
+        'left-out': "export default defineConfig({\n  plugins: [],\n  test: { include: ['tests/**/*.test.ts'] },\n});\n",
+        'taken': "export default defineConfig({\n  plugins: [],\n  test: { include: ['tests/**/*.test.ts', 'flowguard.static.test.mjs'] },\n});\n",
+        'unread': "const include = ['tests/**/*.test.ts'];\nexport default defineConfig({\n  plugins: [],\n  test: { include },\n});\n",
+    }
+    said = {
+        'left-out': ('Generated flowguard.static.test.mjs (vitest), but test.include in vitest.config.ts (tests/**/*.test.ts) '
+                     'leaves it out: add "flowguard.static.test.mjs" to test.include there, so npm test runs python -m '
+                     'flowguard check --static and fails on red.'),
+        'taken': 'Generated flowguard.static.test.mjs (vitest): npm test runs python -m flowguard check --static and fails on red.',
+        'unread': ('Generated flowguard.static.test.mjs (vitest): init cannot read test.include in vitest.config.ts, so it cannot '
+                   'confirm that npm test runs python -m flowguard check --static: test.include must take flowguard.static.test.mjs.'),
+    }
+    for label, config in configs.items():
+        root = vitest_home / f'include-{label}'
+        _commit(root, {
+            'package.json': '{"name":"include","private":true,"type":"module","scripts":{"test":"vitest run"},'
+                            '"devDependencies":{"vitest":"' + VITEST + '"}}',
+            'vitest.config.ts': "import { defineConfig } from 'vitest/config';\n" + config,
+            'src/a.ts': 'export function over(x: number) { return x > 3; }\n',
+            'tests/app.test.ts': "import {it,expect} from 'vitest'; import {over} from '../src/a'; it('real',()=>expect(over(4)).toBe(true));\n",
+        })
+        code, text = _flowguard(root, 'init')
+        assert code == 0 and said[label] in text.splitlines(), (label, text)
+        _commit(root, message='wired')
+        code, text = _vitest(root, vitest_home)     # what vitest does with the file: only the claim made holds
+        ran = not [line for line in _block(text) if 'map checks did not run' in line]
+        assert code == 0 and ran == (label == 'taken'), (label, text)
+
+
 def test_a_recorded_function_keeps_its_stack_positions_after_a_line_or_paragraph_separator(vitest_home):
     # JavaScript ends a line at U+2028 and U+2029 too: the recorder's source map counts lines the same way,
     # so a stack position inside a recorded function is the one vitest gives without FlowGuard (line 7, column 13).

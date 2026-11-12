@@ -668,6 +668,129 @@ MARK = 'flowguard: vitest'
 IMPORT = "import flowguard from './flowguard.vitest.mjs'; // " + MARK + " (python -m flowguard init; delete this line and flowguard() to undo)"
 
 
+DEFAULT_INCLUDE = ('**/*.{test,spec}.?(c|m)[jt]s?(x)',)      # vitest's test.include and test.exclude when a config names none
+DEFAULT_EXCLUDE = ('**/node_modules/**', '**/.git/**')
+_DEFAULT_LISTS = {'configDefaults.include': DEFAULT_INCLUDE, 'defaultInclude': DEFAULT_INCLUDE,
+                  'configDefaults.exclude': DEFAULT_EXCLUDE, 'defaultExclude': DEFAULT_EXCLUDE}
+_UNREAD_TEST_KEYS = {'root', 'dir', 'projects', 'workspace'}       # the files of such a config are another folder's
+
+
+def _glob(pattern):
+    """A regex for a vitest (picomatch) glob of the syntax read here: `**`, `*`, `?`, `[...]`, `{a,b}` and the extglobs
+    `?(a|b)`, `*(..)`, `+(..)`, `@(..)`; None for any other (a negation, `!(..)`, an escape)."""
+    out, groups, at = [], [], 0
+    closers = {'?': ')?', '*': ')*', '+': ')+', '@': ')'}
+    while at < len(pattern):
+        char = pattern[at]
+        if char in '!\\':
+            return None
+        if char in closers and pattern[at + 1:at + 2] == '(':
+            out.append('(?:')
+            groups.append(closers[char])
+            at += 2
+            continue
+        if pattern.startswith('**/', at) and (at == 0 or pattern[at - 1] == '/'):
+            out.append('(?:[^/]*/)*')
+            at += 3
+        elif pattern.startswith('**', at):
+            out.append('.*')
+            at += 2
+        elif char == '*':
+            out.append('[^/]*')
+            at += 1
+        elif char == '?':
+            out.append('[^/]')
+            at += 1
+        elif char == '[':
+            end = pattern.find(']', at + 1)
+            if end < 0:
+                return None
+            out.append('[' + re.escape(pattern[at + 1:end]) + ']')
+            at = end + 1
+        elif char == '{':
+            out.append('(?:')
+            groups.append(')')
+            at += 1
+        elif char in ',|' and groups:
+            out.append('|')
+            at += 1
+        elif char in '})' and groups:
+            out.append(groups.pop())
+            at += 1
+        else:
+            out.append(re.escape(char))
+            at += 1
+    return None if groups else re.compile(''.join(out))
+
+
+def _literal_list(node, source):
+    """The strings of a config's array of string literals and of vitest's default lists spread into it
+    (`...configDefaults.include`); None for anything else."""
+    from ..structure.readers.common import text
+    while node is not None and node.type in ('as_expression', 'satisfies_expression', 'parenthesized_expression'):
+        node = node.named_children[0]
+    if node is None or node.type != 'array':
+        return None
+    found = []
+    for item in node.named_children:
+        if item.type == 'string' and all(child.type == 'string_fragment' for child in item.named_children):
+            found.append(text(item, source)[1:-1])
+        elif item.type == 'spread_element' and text(item.named_children[0], source) in _DEFAULT_LISTS:
+            found.extend(_DEFAULT_LISTS[text(item.named_children[0], source)])
+        elif item.type != 'comment':
+            return None
+    return found
+
+
+def static_test_runs(folder, name):
+    """Whether vitest started in `folder` runs the test file `name` there, by the test.include and test.exclude of
+    the config it reads there (vitest.config.*, then vite.config.*; vitest's defaults for a list the config does not
+    name, and with no config, where init writes one with the defaults): (True, config, include) or (False, config,
+    include), `config` the file's name or None; (None, config, ()) when init cannot read that from the config: its
+    default export is no object literal (or defineConfig of one), a list is no literal of strings or vitest's
+    default lists, a glob has syntax not read here (`_glob`), or the config names its own root, dir, projects or
+    workspace."""
+    from ..structure.readers.common import parse, text
+    from ..structure.readers.registry import language_for
+    config = next((file for file in CONFIGS if (folder / file).is_file()), None)
+    if config is None:
+        return True, None, DEFAULT_INCLUDE
+    unread = None, config, ()
+    source, tree = parse((folder / config).read_bytes(), language_for(config))
+    value = next((statement.child_by_field_name('value') for statement in tree.root_node.named_children
+                  if statement.type == 'export_statement' and any(child.type == 'default' for child in statement.children)), None)
+    if value is not None and value.type == 'call_expression' and text(value.child_by_field_name('function'), source) == 'defineConfig':
+        arguments = value.child_by_field_name('arguments').named_children
+        value = arguments[0] if len(arguments) == 1 else None
+    if value is None or value.type != 'object':
+        return unread
+    def pairs(node):
+        found = {}
+        for item in node.named_children:
+            key = item.child_by_field_name('key') if item.type == 'pair' else None
+            if key is not None and key.type in ('property_identifier', 'string'):
+                found[text(key, source).strip('\'"')] = item.child_by_field_name('value')
+            elif item.type not in ('comment', 'method_definition'):
+                return None             # a spread, a shorthand or a computed key: what it holds is not read here
+        return found
+    top = pairs(value)
+    if top is None or 'root' in top:
+        return unread
+    test = top.get('test')
+    lists = {} if test is None else pairs(test) if test.type == 'object' else None
+    if lists is None or _UNREAD_TEST_KEYS & lists.keys():
+        return unread
+    include = _literal_list(lists['include'], source) if 'include' in lists else list(DEFAULT_INCLUDE)
+    exclude = _literal_list(lists['exclude'], source) if 'exclude' in lists else list(DEFAULT_EXCLUDE)
+    if include is None or exclude is None:
+        return unread
+    taken, left = ([_glob(glob.removeprefix('./')) for glob in globs] for globs in (include, exclude))
+    if None in taken or None in left:
+        return unread
+    runs = any(pattern.fullmatch(name) for pattern in taken) and not any(pattern.fullmatch(name) for pattern in left)
+    return runs, config, tuple(include)
+
+
 def wire(cfg, package):
     """Write `flowguard.vitest.mjs` next to package.json and add it to the vitest config; the text init prints."""
     import os

@@ -1846,8 +1846,20 @@ def _npm_check(cfg, package):
         static = (f'Generated {cfg.rel(target)} ({runner}), but {found}: add "&& {call}" to the script you run your tests '
                   f'with, so it runs python -m flowguard check --static and fails on red ({_from_shell(call)} runs it alone).')
     else:
-        static = (f'Generated {cfg.rel(target)} ({runner}): {"npm test" if runs == "test" else "npm run " + runs} runs '
-                  'python -m flowguard check --static and fails on red.')
+        script = 'npm test' if runs == 'test' else 'npm run ' + runs
+        # vitest runs a file only when its config's test.include takes it, whatever the script names
+        from .vitest import static_test_runs
+        taken, config, include = static_test_runs(package.parent, target.name) if runner == 'vitest' else (True, None, ())
+        where = cfg.rel(package.parent / config) if config else ''
+        if taken:
+            static = f'Generated {cfg.rel(target)} ({runner}): {script} runs python -m flowguard check --static and fails on red.'
+        elif taken is None:
+            static = (f'Generated {cfg.rel(target)} ({runner}): init cannot read test.include in {where}, so it cannot confirm '
+                      f'that {script} runs python -m flowguard check --static: test.include must take {target.name}.')
+        else:
+            static = (f'Generated {cfg.rel(target)} ({runner}), but test.include in {where} ({", ".join(include)}) leaves it '
+                      f'out: add "{target.name}" to test.include there, so {script} runs python -m flowguard check --static and '
+                      'fails on red.')
     static += ''.join('\n' + line for line in lines)
     if runner == 'jest':
         return static + '\nThe execution side supports vitest only: this jest project runs check --static alone.'
