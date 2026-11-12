@@ -310,7 +310,7 @@ def test_the_report_merges_the_map_checks_the_static_test_saved_and_fails_only_o
     code, text = _report(tmp_path, plan, package='web', records=records)
     block = _cli_fixture.block(text)
     assert code == 1 and block[1] == red and block[2].startswith(entry) and block[3:] == [
-        'not compared: flowguard.static.test.mjs (map checks did not run in this vitest run) -> not a failure'], text
+        'not compared: flowguard.static.test.mjs (map checks did not report to this vitest run) -> not a failure'], text
     # the static test's map checks: a red of their own, and the input red of known.toml this run found too
     static = last_run([Line('red', 'known-entry:known.gone', '', 'known.gone: the map checks found it too', 'correct it'),
                        Line('red', 'pair:Order.total>Order.tax', 'shop/orders.ts:save',
@@ -1579,7 +1579,7 @@ def test_init_says_npm_test_runs_the_static_test_only_when_the_vitest_config_inc
         assert code == 0 and said[label] in text.splitlines(), (label, text)
         _commit(root, message='wired')
         code, text = _vitest(root, vitest_home)     # what vitest does with the file: only the claim made holds
-        ran = not [line for line in _block(text) if 'map checks did not run' in line]
+        ran = not [line for line in _block(text) if 'map checks did not report' in line]
         assert code == 0 and ran == (label == 'taken'), (label, text)
 
 
@@ -1838,7 +1838,7 @@ def test_a_same_name_red_names_an_input_next_to_the_one_the_test_used_and_fails_
     text = display_text(ANSI.sub('', run.stderr + run.stdout))     # a path filter leaves the session test out:
     assert run.returncode == 1 and red in _block(text) and 'FlowGuard execution side' not in text, text   # the teardown judges
     # ... and the static test: its map checks are not part of this run's block (D19)
-    assert _cli_fixture.unchecked(root)['flowguard.static.test.mjs'] == ['map checks did not run in this vitest run'], text
+    assert _cli_fixture.unchecked(root)['flowguard.static.test.mjs'] == ['map checks did not report to this vitest run'], text
 
 
 def test_three_same_name_copies_are_counted_by_answer_and_the_red_leaves_the_choice(vitest_home):
