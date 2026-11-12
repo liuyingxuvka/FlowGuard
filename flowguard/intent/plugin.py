@@ -103,8 +103,7 @@ class Session:
     def __init__(self, config):
         timing = time.perf_counter()
         from . import deprecation
-        # pytest captures the collection's stderr: the session's own notices wait for the end of its block (`say_notices`)
-        self.notices = deprecation.hold([])
+        self.notices = []               # the session's own deprecation notices, said after its block (`say_notices`)
         self.config = config
         self.owns_host = False
         self.owns_root = False
@@ -1281,6 +1280,10 @@ def _session(config):
         state.owns_root = hold_root(state.cfg.root)
         state.previous_session, _CURRENT = _CURRENT, state
         config.add_cleanup(state.close)
+        # pytest captures the collection's stderr: from here the session's notices wait for the end of its block, and
+        # its close says those a session that ends earlier still holds
+        from .deprecation import hold
+        hold(state.notices)
     config._flowguard_intent.guard_process_exit(config)
     return config._flowguard_intent
 
