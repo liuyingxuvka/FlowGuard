@@ -1107,10 +1107,11 @@ def judge(cfg, data, records, package=None):
     lines += [signals.not_compared(subject, entry['reasons'], function=function, places=entry['places'])
               for (subject, function), entry in unchecked.items()]
     # What the change touches: the files it changed (read now: an intent file's or a document's change does not
-    # change the plan), the TS/JS declarations it added, edited or removed, the changed points, and the members of
+    # change the plan), the TS/JS declarations whose node it added, edited or removed (D31, as pytest reads them: an
+    # edit of a function's spacing alone, which changes its sealed text, touches nothing), and the members of
     # same-name copies one of whose files it changed (a before line needs that, 4.7).
     touched_files = frozenset(_differs(cfg, commit)) if commit else frozenset()
-    touched = {*data['touched'], *(ident for ident, point in points.items() if point['changed'])}
+    touched = set(data['touched'])
     touched |= {part[0] for issue in issues if issue.family == 'same' and issue.files & touched_files for part in issue.parts}
     # How far HEAD lies after a recorded task start is read now, by the one git call of pytest's title, and not
     # kept in the plan, whose key is the commit and its kind: the title says it as pytest's does.

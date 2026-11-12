@@ -1424,6 +1424,36 @@ def test_deprecation_notices_print_once_on_stderr_after_the_block(vitest_home):
     assert 'deprecated features used (5.0): sensor, precedes' in _cli_fixture.last(root), _cli_fixture.last(root)
 
 
+def test_an_edit_of_spacing_alone_touches_no_known_site_as_in_pytest(vitest_home):
+    # Review of 4.3: a trailing space inside a known entry's site changed the function's sealed text, which vitest
+    # counted as touching the site (`known: ...`), while pytest, which counts only the node delta (D31), said nothing.
+    root = vitest_home / 'spacing'
+    _commit(root, {
+        'package.json': '{"name":"spacing","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/a.ts': '// flowguard: same LIMIT\nexport function over(x: number): boolean {\n  return x > 3;\n}\n',
+        'src/b.ts': '// flowguard: same LIMIT\nexport const enough = (x: number): boolean => x >= 3;\n',
+        'tests/app.test.ts': "import { it, expect } from 'vitest';\nimport { over } from '../src/a';\nit('real', () => { expect(over(4)).toBe(true); });\n",
+        '.flowguard/known.toml': '''
+            [known.limit]
+            sites = ["src/a.ts:over", "src/b.ts:enough"]
+            why = "the copies disagree at 3"
+            act = "ask"
+            ask = "which limit is right?"
+            finding = "same:LIMIT"
+        ''',
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired')
+    assert _flowguard(root, 'new-task')[0] == 0
+    first = root / 'src/a.ts'
+    first.write_text(first.read_text(encoding='utf-8').replace('return x > 3;', 'return x  >  3; '), encoding='utf-8', newline='\n')
+    code, text = _vitest(root, vitest_home)
+    assert code == 0 and not [line for line in _block(text) if 'known.limit' in line], text
+    first.write_text(first.read_text(encoding='utf-8').replace('return x  >  3; ', 'return 3 < x;'), encoding='utf-8', newline='\n')
+    code, text = _vitest(root, vitest_home)       # the node changed: the site is touched
+    assert code == 0 and 'known: known.limit at a.ts:over, b.ts:enough -> ask owner (not asked yet)' in _block(text), text
+
+
 def test_a_recorded_function_keeps_its_stack_positions_after_a_line_or_paragraph_separator(vitest_home):
     # JavaScript ends a line at U+2028 and U+2029 too: the recorder's source map counts lines the same way,
     # so a stack position inside a recorded function is the one vitest gives without FlowGuard (line 7, column 13).
