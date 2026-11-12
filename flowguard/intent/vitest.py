@@ -573,7 +573,7 @@ def prepare(root, package=None):
     map checks in its block (design 4.7), and a run without a baseline commit (outside Git, before the first commit, a
     recorded task start this repository lacks) compares its same-name copies as pytest does and says in its title
     that nothing was compared with a baseline (D13)."""
-    from . import cache
+    from . import cache, deprecation
     from .config import load_config
     from ..map.common import atomic_write_text, git_common_directory, git_run
     started = time.perf_counter()
@@ -592,8 +592,11 @@ def prepare(root, package=None):
     path = cfg.cache / 'vitest' / f'plan-{key}.json'
     # Without a baseline commit no diff names the files a plan has read, so such a plan is made again on every run.
     if commit is None or not path.is_file():
-        data = plan(cfg, commit, changed, key)
-        data.update(baseline=label, baseline_kind=kind)
+        # what the plan read with a deprecated spelling: the report says it after the block, on every run of this plan
+        since = deprecation.mark()
+        with deprecation.held() as notices:
+            data = plan(cfg, commit, changed, key)
+        data.update(baseline=label, baseline_kind=kind, deprecated=deprecation.used(since), notices=notices)
         path.parent.mkdir(parents=True, exist_ok=True)
         for old in path.parent.glob('plan-*.json'):
             old.unlink()                # one current plan; an older one belongs to another change
@@ -1145,7 +1148,7 @@ def static_lines(observations):
     """The saved map checks of this vitest run (the `signals.last_run` payload with its `title_parts` that
     `check --static` writes for flowguard.static.test.mjs into the observations folder), its lines as `signals.Line`;
     None when the static test did not run in it. The report reads its lines, seconds, ignored count, deprecated
-    features and hidden leads."""
+    features, deprecation notices (`notices`, which the static test held for the end of the block) and hidden leads."""
     from .signals import KINDS, Line
     path = Path(observations) / STATIC
     if not path.is_file():
@@ -1193,14 +1196,16 @@ def _save_last(cfg, payload):
             save_last(con, payload)
 
 
-def report(root, plan_path, observations, package=None, *, in_test=False):
+def report(root, plan_path, observations, package=None, *, in_test=False, notices=()):
     """Judge this run's observations, merge the map checks the static test saved in this run, print the 4.3 block
     (`signals.render_block`, a place named by the shortest end of its path no other file of the repository has) and
     keep its lines for `show --last`; 1 when a line is red. The first line's time is FlowGuard's own: the preparation,
     the recording, this report and the static test's map checks. `in_test` is the session test (session.test.mjs,
     run after the project's tests): it keeps the observations and saves the block, its status and the number of its
     reds the static test did not already fail on, for the session test and the teardown, which prints the block after
-    vitest's summary instead of judging again."""
+    vitest's summary instead of judging again. The deprecation notices of the plan, of this report (`notices`, those
+    `main` holds) and of the static test print once, on stderr, after the block (design 4.7): the teardown prints those
+    the session test's report saved."""
     import os
     from . import deprecation, signals
     from .config import load_config
@@ -1231,15 +1236,18 @@ def report(root, plan_path, observations, package=None, *, in_test=False):
     text = signals.render_block(lines, title=heading, files=files)
     _save_last(cfg, signals.last_run(lines, ignored + (static['ignored'] if static else 0), run='vitest', stamp=time.time(),
                                      baseline=result['baseline'], kind=result['baseline_kind'], title=heading, seconds=seconds,
-                                     deprecated=list(dict.fromkeys([*deprecation.used(since), *(static['deprecated'] if static else ())])),
+                                     deprecated=list(dict.fromkeys([*data['deprecated'], *deprecation.used(since),
+                                                                    *(static['deprecated'] if static else ())])),
                                      hidden=static['hidden'] if static else ()))
     status = 1 if red else 0
+    deprecated = list(dict.fromkeys([*data['notices'], *notices, *(static['notices'] if static else ())]))
     if in_test:
-        (Path(observations) / SESSION).write_text(json.dumps(dict(text=text, status=status, red=mine), ensure_ascii=False),
-                                                  encoding='utf-8')
+        (Path(observations) / SESSION).write_text(json.dumps(dict(text=text, status=status, red=mine, deprecated=deprecated),
+                                                             ensure_ascii=False), encoding='utf-8')
     else:
         shutil.rmtree(observations)     # this run's records are read; the next run starts empty
         display(text)
+        deprecation.say(deprecated)
     return status
 
 
@@ -1257,7 +1265,10 @@ def main(argv=None):
         return 0
     if not options.plan or not options.observations:
         parser.error('report needs --plan and --observations')
-    return report(options.root, options.plan, options.observations, options.package, in_test=options.in_test)
+    from . import deprecation
+    with deprecation.held() as notices:     # said after the block, never inside the session test's output
+        return report(options.root, options.plan, options.observations, options.package, in_test=options.in_test,
+                      notices=notices)
 
 
 if __name__ == '__main__':

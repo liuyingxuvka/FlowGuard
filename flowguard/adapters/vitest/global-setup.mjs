@@ -44,9 +44,10 @@ export function teardown() {
   }
   const saved = path.join(observations, 'report.json');
   if (exists(saved)) {
-    const { text, status } = JSON.parse(read(saved, 'utf8'));
+    const { text, status, deprecated } = JSON.parse(read(saved, 'utf8'));
     remove(observations, { recursive: true });
     if (text) print('\n' + text);
+    if (deprecated.length) console.error(deprecated.join('\n'));      // design 4.7: on stderr, after the block
     if (status === 1) process.exitCode = 1;
     return;
   }

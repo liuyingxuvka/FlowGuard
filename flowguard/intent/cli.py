@@ -1048,9 +1048,18 @@ def static_check(cfg, *, everything=False, base=None, leads=False):
     shortest end of its path that no other file of the repository has. With FLOWGUARD_LINES set (the static test
     inside a vitest run, `NPM_CHECK`) the payload `show --last` keeps (`signals.last_run`) and the parts of its first
     line (`title_parts`, the keywords of `signals.title`) go to that JSON file for the vitest report's block, and
-    nothing to stdout. Exit 1 for a red line only. Without `base` the first run of a task records HEAD as its
-    baseline when none is recorded; a recorded one stays, as in pytest (`cache.task_start`); the title names it as
-    pytest does."""
+    nothing to stdout; its deprecation notices go there too (`notices`), and the vitest block prints them at its end.
+    Exit 1 for a red line only. Without `base` the first run of a task records HEAD as its baseline when none is
+    recorded; a recorded one stays, as in pytest (`cache.task_start`); the title names it as pytest does."""
+    from . import deprecation
+    if not os.environ.get('FLOWGUARD_LINES'):
+        return _static_check(cfg, everything=everything, base=base, leads=leads, notices=())
+    with deprecation.held() as notices:
+        return _static_check(cfg, everything=everything, base=base, leads=leads, notices=notices)
+
+
+def _static_check(cfg, *, everything, base, leads, notices):
+    """`static_check`, with the deprecation notices it holds for static.json (`notices`)."""
     started, timing = time.time(), time.perf_counter()
     from . import anchors, deprecation, ledger as fallbacks, owners, signals
     mark = deprecation.mark()
@@ -1084,7 +1093,8 @@ def static_check(cfg, *, everything=False, base=None, leads=False):
         # its first line (`signals.title`)
         target = Path(target)
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(dict(payload, title_parts=parts), ensure_ascii=False, sort_keys=True), encoding='utf-8')
+        target.write_text(json.dumps(dict(payload, title_parts=parts, notices=list(notices)), ensure_ascii=False, sort_keys=True),
+                          encoding='utf-8')
     else:
         _show_signals(signals.render_block(lines, title=heading, everything=everything or leads, files=files), status)
     return status
