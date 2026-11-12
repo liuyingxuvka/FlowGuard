@@ -417,8 +417,9 @@ def _sealed_point(scope, item, binding, test, definition, events, entry, changed
                              if isinstance(value, (types.ModuleType, types.FunctionType, type))}
         stored, tainted = _stored(definition), _tainted(definition, set(passed), immutable)
         # An unchanged inert input the test never assigns has its recorded value at every input.
-        scope.sealed[facts] = (sorted(set(passed) & stored), tainted, _spans(definition, tainted), fixed - stored)
-    assigned, tainted, calls, kept = scope.sealed[facts]
+        scope.sealed[facts] = (sorted(set(passed) & stored), tainted, _spans(definition, tainted), fixed - stored,
+                               stored)
+    assigned, tainted, calls, kept, stored = scope.sealed[facts]
     if assigned:
         return _unavailable(f'not compared: the scenario test assigns {assigned[0]}; another input cannot be put '
                             'into its calls')
@@ -434,7 +435,8 @@ def _sealed_point(scope, item, binding, test, definition, events, entry, changed
     made = {tuple(event.caller[3]) for event in reads if len(event.caller) >= 4}    # the calls evaluated here
     evaluated = {}
     for event in reads:
-        point = _sealed_call(scope, item, index, test, calls, event, passed, changed, tainted, kept, made)
+        point = _sealed_call(scope, item, index, test, calls, event, entry.values, passed, changed,
+                             (tainted, kept, stored), made)
         if isinstance(point, dict):
             return point
         evaluated[event.anchor, event.site, event.occurrence] = point
@@ -475,15 +477,19 @@ def _sealed_point(scope, item, binding, test, definition, events, entry, changed
     return observed
 
 
-def _sealed_call(scope, item, index, test, calls, event, passed, changed, tainted, kept, made):
+def _sealed_call(scope, item, index, test, calls, event, inputs, passed, changed, known, made):
     """(anchor values, outcome, whether its error leaves the test) of one production anchor call the scenario
     test made itself: its recorded JSON call with each argument the test passes straight from a changed input
-    replaced, evaluated sealed. Every other argument must be a literal or an unchanged input in `kept`, so that
-    its recorded value is its value at every input, and nothing the changed inputs may steer decides whether or
-    how often the test makes the call, except the earlier calls this point evaluates itself (`made`, by span).
-    The recorded call's own sealed outcome must be the recorded one first. Or why it is not compared. `calls`:
-    the test's call expressions by source span (`_spans`)."""
+    replaced, evaluated sealed. The call expression must name the anchor function itself, and each argument it
+    passes from an input must have that input's recorded value (`inputs`) in the recorded call, so the expression
+    binds to the function's parameters as Python binds it. Every other argument must be a literal or an unchanged
+    input the test never assigns, so that its recorded value is its value at every input, and nothing the changed
+    inputs may steer decides whether or how often the test makes the call, except the earlier calls this point
+    evaluates itself (`made`, by span). The recorded call's own sealed outcome must be the recorded one first. Or
+    why it is not compared. `calls`: the test's call expressions by source span (`_spans`); `known`: the test's
+    names that may depend on a changed input, its fixed inputs and every name it binds."""
     from .flow import _resolved
+    tainted, kept, stored = known
     anchors = [anchor for anchor in index.named(event.anchor) if anchor.target == event.site]
     if len(anchors) != 1:
         return _unavailable(f'not compared: {event.anchor} has no unique indexed source anchor')
@@ -529,6 +535,17 @@ def _sealed_call(scope, item, index, test, calls, event, passed, changed, tainte
     arguments, failure = _passed_arguments(call, signature, passed, tainted, kept, anchor.name)
     if failure:
         return failure
+    for parameter, name in arguments.items():
+        sample = reading.sample['inputs']
+        if parameter not in sample or not outcome_equal(sample[parameter], inputs[name]):
+            has = f'{parameter}={sample[parameter]!r}' if parameter in sample else f'no {parameter}'
+            return _unavailable(f'not compared: the recorded call of {anchor.name} has {has} while the scenario test\'s '
+                                f'input {name} is {inputs[name]!r}; the call does not pass that input straight to '
+                                f'{anchor.name}')
+    if _callee(call.func, test, stored) is not function:
+        return _unavailable(f'not compared: the scenario test calls {anchor.name} through {ast.unparse(call.func)}, '
+                            'not by a module name for the function itself; how that passes its arguments was not '
+                            'recorded')
     for how, names, statement in steering:
         if statement is None or statement not in made:
             return _unavailable(_STEERED[how].format(call=anchor.name, names=', '.join(sorted(names))))
@@ -623,6 +640,23 @@ def _passed_arguments(call, signature, passed, tainted, kept, name):
             if not _fixed(part, kept):
                 return unknown(parameter, part)
     return arguments, None
+
+
+def _callee(node, test, stored):
+    """What the test's call expression `node` calls, read without running anything: a module-level name of the
+    test that the test never binds itself (`stored`), or a chain of module attributes from one; else None."""
+    path = []
+    while isinstance(node, ast.Attribute):
+        path.append(node.attr)
+        node = node.value
+    if not isinstance(node, ast.Name) or node.id in stored or node.id not in test.__globals__:
+        return None
+    value = test.__globals__[node.id]
+    for attribute in reversed(path):
+        if not isinstance(value, types.ModuleType) or attribute not in vars(value):
+            return None
+        value = vars(value)[attribute]
+    return value
 
 
 def _fixed(node, kept):

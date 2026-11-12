@@ -138,6 +138,39 @@ def test_a_call_the_changed_input_may_steer_is_not_compared_at_another_input(tmp
     assert actual.status == 'grey' and actual.value is None and actual.reasons == (reason,), actual.reasons
 
 
+TWO = """# flowguard: sensor choice(x: count, y: count) -> allowed: bool
+def choice(x: int, y: int = 0) -> bool:
+    return x <= y
+"""
+
+
+@pytest.mark.parametrize('call,reason', [
+    # partial(choice, 3)(x) calls choice(3, x): at x=4 the real call is choice(3, 4), which is True. Read
+    # against choice's own parameters, the call expression would put 4 into choice's x.
+    ("None\n    f = functools.partial(choice, 3)\n    answer = f(x)",
+     "not compared: the recorded call of choice has x=3 while the scenario test's input x is 2; the call does not "
+     "pass that input straight to choice"),
+    # partial(choice, 2)(x) at x=2 is choice(2, 2), so the values agree; at x=4 the real call is choice(2, 4).
+    ("None\n    f = functools.partial(choice, 2)\n    answer = f(x)",
+     'not compared: the scenario test calls choice through f, not by a module name for the function itself; how '
+     'that passes its arguments was not recorded'),
+])
+def test_a_call_expression_that_is_not_the_anchor_itself_is_not_compared_at_another_input(tmp_path, call, reason):
+    binding = scenario(tmp_path, call=call, code=TWO, extra='import functools\n')
+    bind_scenario(tmp_path, binding)
+    recorded = calibration._observe_scenario_current(tmp_path, binding, {'x': 2})
+    assert recorded.status == 'ok', recorded.reasons
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 4})
+    assert actual.status == 'grey' and actual.value is None and actual.reasons == (reason,), actual.reasons
+
+
+def test_a_call_of_the_anchor_through_its_module_is_put_in_place_at_another_input(tmp_path):
+    binding = scenario(tmp_path, call='policy.choice(x)', extra='import policy\n')
+    bind_scenario(tmp_path, binding)
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 4})
+    assert actual.status == 'ok' and actual.value is False, actual.reasons      # the real test calls choice(4)
+
+
 def test_a_literal_argument_is_the_recorded_call_at_every_input(tmp_path):
     # choice(2) does not read x: at x=4 the real test calls choice(2) again, which is True.
     binding = scenario(tmp_path, call='choice(2)')
