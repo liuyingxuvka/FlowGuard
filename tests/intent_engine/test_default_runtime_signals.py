@@ -207,6 +207,29 @@ def test_a_function_reading_a_constant_derived_from_a_changed_one_is_changed(tmp
         'changed: over (policy.py:5): (x=20) was False, now True; 1/1 inputs differ -> if you meant it, say so'], text
 
 
+def test_a_project_below_the_repository_top_folder_compares_its_changed_function(tmp_path):
+    """The project is a folder of a larger repository (a monorepo's app/): Git names the changed files relative to the
+    project's root (`--relative`), so its changed function is compared as at the top folder, never silently not at
+    all (vitest's side: test_vitest_adapter.test_a_package_below_the_repository_top_folder_plans_its_changed_function)."""
+    app = tmp_path / 'app'
+    (app / 'tests').mkdir(parents=True)
+    (app / 'policy.py').write_text('def over(x: int) -> bool:\n    return x > 3\n', encoding='utf-8')
+    (app / 'tests/test_case.py').write_text('from policy import over\n\n\ndef test_native():\n'
+                                            '    assert over(3) in (True, False)\n', encoding='utf-8')
+    (app / 'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath=["."]\ntestpaths=["tests"]\n', encoding='utf-8')
+    (tmp_path / '.gitignore').write_text('.flowguard/cache/\n__pycache__/\n.pytest_cache/\n', encoding='utf-8')
+    (tmp_path / 'README.md').write_text('The repository holds more than the project.\n', encoding='utf-8')
+    _git(tmp_path, 'init', '-q', '-b', 'main')
+    _git(tmp_path, 'add', '.')
+    _git(tmp_path, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'fixture baseline')
+    policy = app / 'policy.py'
+    policy.write_text(policy.read_text().replace('x > 3', 'x >= 3'))
+    result = _run(app)
+    assert result.returncode == 0, _text(result)
+    assert _block(result)[1:] == [
+        'changed: over (policy.py:1): (x=3) was False, now True; 1/1 inputs differ -> if you meant it, say so'], _text(result)
+
+
 def test_fixed_4_changed_function_needs_no_anchor_to_report_member_changes(tmp_path):
     policy = _project(tmp_path, '''
         def late_fee(days: int, member: bool) -> int:

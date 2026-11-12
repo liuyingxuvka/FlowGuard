@@ -417,6 +417,25 @@ def test_a_function_reading_a_constant_derived_from_a_changed_one_is_changed(tmp
         'changed: over (limits.ts:4): (x=20) was False, now True; 1/1 inputs differ -> if you meant it, say so'], text
 
 
+def test_a_package_below_the_repository_top_folder_plans_its_changed_function(tmp_path):
+    """The package is a folder of a larger repository (a monorepo's app/): Git names the changed files relative to the
+    package's root (`--relative`), so its changed function is planned and compared, never silently not at all, as
+    pytest's side compares it (test_default_runtime_signals.test_a_project_below_the_repository_top_folder_compares_its_changed_function)."""
+    _commit(tmp_path, {'app/src/limits.ts': 'export function over(x: number): boolean {\n  return x > 3;\n}\n',
+                       'README.md': 'The repository holds more than the package.\n'})
+    app = tmp_path / 'app'
+    limits = app / 'src/limits.ts'
+    limits.write_text(limits.read_text(encoding='utf-8').replace('x > 3', 'x >= 3'), encoding='utf-8', newline='\n')
+    answer = _prepare(app)
+    assert answer['status'] == 'on', answer
+    points = [point for entry in json.loads(Path(answer['plan']).read_text(encoding='utf-8'))['files'].values()
+              for point in entry['points']]
+    assert [(point['rel'], point['fn'], point['changed']) for point in points] == [('src/limits.ts', 'over', True)], points
+    code, text = _report(app, answer['plan'], records=[dict(id='typescript/src/limits.ts:over', args=[3], result=True)])
+    assert code == 0 and _cli_fixture.block(text)[1:] == [
+        'changed: over (limits.ts:1): (x=3) was False, now True; 1/1 inputs differ -> if you meant it, say so'], text
+
+
 @pytest.mark.parametrize('edit', [('BASE = 10', 'BASE = 9'), ('LIMIT = BASE * 2', 'LIMIT = BASE * 2 - 2')])
 def test_a_constant_derived_from_an_imported_changed_one_marks_its_readers_in_both_files(tmp_path, edit):
     # limits.ts: BASE changed and LIMIT = BASE * 2 did not, or LIMIT's own right side changed; use.ts imports LIMIT,

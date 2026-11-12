@@ -513,7 +513,8 @@ class Observations:
         # the project's files, which no shortened path of the block may name: Git's list, else the map's walk
         self.repository = git_files(self.cfg.root)
         try:
-            changed = git_run(self.cfg.root, 'diff', '--name-only', '-z', baseline).stdout
+            # paths relative to the project's root, also below the repository's top folder, as every other reader's
+            changed = git_run(self.cfg.root, 'diff', '--name-only', '-z', '--relative', baseline, '--').stdout
             added = git_run(self.cfg.root, 'ls-files', '--others', '--exclude-standard', '-z').stdout
             self.files = {os.fsdecode(value) for value in (changed + added).split(b'\0')
                           if value and value.endswith(b'.py') and state.is_project(str(self.cfg.root / os.fsdecode(value)))}
