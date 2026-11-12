@@ -419,6 +419,7 @@ def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no 
     named = {point['target']: f'{point["file"]}:{point["qual"]}' for point in points}     # the 4.3 places
     rows = []       # (input, current answers, baseline answers, places whose baseline could not run)
     unavailable = False     # a copy that could not run sealed on an input: the copies were not all compared
+    unrun = {}      # {place: why its baseline could not run}, said where a pair it is in is not compared
     for row in inputs:
         answered = []       # (point, current outcome, baseline outcome or None) of each copy that ran sealed
         for point in points:
@@ -433,9 +434,13 @@ def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no 
                 unavailable = True
                 continue
             past_text = source(point, True)
-            existed = past_text is not None and point['qual'] in dict(R._functions(ast.parse(past_text)))
+            # a baseline that does not parse may have had the copy: it runs there, which says why it is not compared
+            existed = past_text is not None and _baseline_defines(past_text, point['qual']) is not False
             answered.append((point, now, run(point, sample, True) if existed else None))
         outcomes = [result for _, result, _ in answered]
+        for point, _, past in answered:
+            if past is not None and past['status'] == 'unavailable':
+                unrun.setdefault(places[point['target']], past.get('reason', ''))
         if len(outcomes) < 2:
             continue
         if all(result['status'] == 'raised' for result in outcomes) and all(equal(result, outcomes[0]) for result in outcomes[1:]):
@@ -454,7 +459,8 @@ def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no 
                 for row, now, old, unknown in rows]
     open_lines = signals.copy_partition(spelled(places, C.show), equal, C.show, owner, len(points))[2]
     if open_lines:
-        out.grey.append(name + ': baseline comparison unavailable; current copies disagree ('
+        why = '; '.join(f'{place}: {reason}' for place, reason in unrun.items() if reason)
+        out.grey.append(name + ': baseline comparison unavailable' + (f' ({why})' if why else '') + '; current copies disagree ('
                         + '; '.join(f'{where}, {text}' for where, text, _, _ in open_lines) + ')')
     reference = next((named[point['target']] for point in points if point['anchor'].owner), None)
     fresh, old, _ = signals.copy_partition(spelled(named, signals.value_text), equal, signals.value_text, reference, len(points),
@@ -463,6 +469,26 @@ def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no 
         out.issue = signals.copies_issue(name, fresh, old, places=list(named.values()), files={point['file'] for point in points})
     out.ran = bool(rows) and not unavailable and not open_lines
     return out
+
+
+def _parse_baseline(text):
+    """(tree, '') of a file's source at the baseline; (None, the parser's words) when it does not parse there, as in a
+    commit that held a syntax error. A comparison at the baseline is then not compared, with these words, never a
+    crash and never a pass."""
+    import ast
+    try:
+        return ast.parse(text), ''
+    except (SyntaxError, ValueError) as error:      # ValueError: a null byte on Python 3.11
+        words = f'{error.msg} (line {error.lineno})' if isinstance(error, SyntaxError) else str(error)
+        return None, 'does not parse at the baseline: ' + words
+
+
+def _baseline_defines(text, qual):
+    """Whether the baseline source `text` defines the module-level function `qual`; None when it does not parse
+    (`_parse_baseline`): what it defined then is unknown."""
+    from .runtime import _functions
+    tree, _ = _parse_baseline(text)
+    return None if tree is None else qual in dict(_functions(tree))
 
 
 def _numeric(node):
@@ -517,6 +543,7 @@ class Observations:
         self.index = state.model.anchor_index or differences._source_index(self.cfg.root)
         state.model.anchor_index = self.index
         self.renamed = {}       # a moved file's baseline version is at its old path
+        self.unparsed = {}      # {changed file: why its baseline version does not parse}, each comparison's reason there
         # the project's files, which no shortened path of the block may name: Git's list, else the map's walk
         self.repository = git_files(self.cfg.root)
         try:
@@ -566,12 +593,18 @@ class Observations:
         views, trees = {}, {}
         def parsed(file):
             """(tree now, tree at the baseline) of a changed file; of another file, which reads a changed constant
-            through an import, its one tree twice."""
+            through an import, its one tree twice. A baseline version that does not parse reads as an empty module:
+            every function and constant of the file counts as changed, and each comparison at the baseline is not
+            compared, in the parser's words (`self.unparsed`, `_compare`; an importer's sealed run says them too)."""
             if file not in trees:
                 tree = ast.parse(read_source(self.cfg.root / file))
                 if file in self.files:
-                    old = self.runtime._source(self.renamed.get(file, file))
-                    trees[file] = tree, ast.parse(old) if old else ast.Module(body=[], type_ignores=[])
+                    path = self.renamed.get(file, file)
+                    old = self.runtime._source(path)
+                    old_tree, why = _parse_baseline(old) if old else (None, '')
+                    if why:
+                        self.unparsed[file] = f'{path} {why}'
+                    trees[file] = tree, old_tree or ast.Module(body=[], type_ignores=[])
                 else:
                     trees[file] = tree, tree
             return trees[file]
@@ -729,6 +762,8 @@ class Observations:
                     if old else read_source(self.cfg.root / key[0])
             return sources[key]
         def run(point, sample, old=False):
+            if old and point['file'] in self.unparsed:      # its baseline does not parse: not compared, in its words
+                return dict(status='unavailable', reason=self.unparsed[point['file']])
             text = source(point, old)
             file, module = point['file'], point['module']
             if old and file in self.renamed:        # at the baseline a moved file imported from its old place

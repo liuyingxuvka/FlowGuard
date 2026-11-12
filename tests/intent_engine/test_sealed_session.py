@@ -6,7 +6,7 @@ import textwrap
 
 import pytest
 
-from tests.intent_engine._cli_fixture import last
+from tests.intent_engine._cli_fixture import block, last
 from tests.intent_engine.test_default_runtime_signals import _git, _project, _run, _text
 
 
@@ -534,3 +534,72 @@ def test_the_retired_comparison_table_has_neither_a_writer_nor_a_reader(tmp_path
     with sqlite3.connect(tmp_path / '.flowguard/cache/map.sqlite') as con:
         assert not con.execute("SELECT 1 FROM sqlite_master WHERE name='comparison'").fetchone()
     assert 'save_comparisons' not in Path(plugin.__file__).read_text(encoding='utf-8')
+
+
+# ---- a baseline version that does not parse: not compared, in the parser's words, never a crash ------------
+
+def _unparsed(root, expected):
+    """The not compared line `expected` of the last run, its reason the parser's words for the baseline version."""
+    shown = last(root).splitlines()
+    line = shown.index(expected)
+    return shown[line + 1].strip()
+
+
+def test_a_changed_function_whose_baseline_file_does_not_parse_is_not_compared_in_the_parsers_words(tmp_path):
+    # The baseline commit held a syntax error the change fixes: 4.3 stopped with INTERNALERROR in Observations.__init__.
+    path = _project(tmp_path, 'def late_fee(days: int) -> int:\n    return days * 2\n\ndef broken(:\n', '''
+        from policy import late_fee
+        def test_fee():
+            assert late_fee(2) in (4, 6)
+    ''')
+    path.write_text('def late_fee(days: int) -> int:\n    return days * 3\n')
+    result = _run(tmp_path)
+    text = _text(result)
+    assert result.returncode == 0 and '1 passed' in result.stdout and 'INTERNALERROR' not in text, text
+    said = [line for line in block(result)[1:]]
+    assert len(said) == 1 and said[0].startswith('not compared: late_fee (policy.py:1) (policy.py does not parse at the baseline: '), said
+    assert _unparsed(tmp_path, 'not compared: late_fee (policy.py:1) -> not a failure').startswith(
+        'policy.py does not parse at the baseline: ') and '(line 4)' in last(tmp_path), last(tmp_path)
+
+
+def test_a_function_reading_a_constant_of_a_module_whose_baseline_does_not_parse_is_not_compared(tmp_path):
+    # The round-2 change parses the baseline of a constants-only module another file imports, here limits.py.
+    _project(tmp_path, 'from limits import LIMIT\n\ndef standing(days: int) -> bool:\n    return days <= LIMIT\n', '''
+        from policy import standing
+        def test_standing():
+            assert standing(2)
+    ''')
+    (tmp_path / 'limits.py').write_text('LIMIT = = 3\n')
+    _git(tmp_path, 'add', 'limits.py')
+    _git(tmp_path, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'a constant that does not parse')
+    (tmp_path / 'limits.py').write_text('LIMIT = 3\n')
+    result = _run(tmp_path)
+    text = _text(result)
+    assert result.returncode == 0 and '1 passed' in result.stdout and 'INTERNALERROR' not in text, text
+    assert _unparsed(tmp_path, 'not compared: standing (policy.py:3) -> not a failure').startswith(
+        'uses LIMIT: limits.py does not parse at the baseline: '), last(tmp_path)
+
+
+def test_same_name_copies_whose_baseline_does_not_parse_are_not_compared_in_pytest_and_check_alike(tmp_path):
+    _project(tmp_path, '# flowguard: same STANDING\ndef standing(days: int) -> bool:\n    return days <= 3\n', '''
+        from policy import standing
+        from other import preview
+        def test_copies():
+            assert standing(2) and preview(2)
+    ''')
+    (tmp_path / 'other.py').write_text('# flowguard: same STANDING\ndef preview(days: int) -> bool:\n    return days <= 3\n\ndef broken(:\n')
+    _git(tmp_path, 'add', 'other.py')
+    _git(tmp_path, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'a copy that does not parse')
+    (tmp_path / 'other.py').write_text('# flowguard: same STANDING\ndef preview(days: int) -> bool:\n    return days <= 4\n')
+    result = _run(tmp_path)
+    text = _text(result)
+    # whether the copies agreed at the baseline is unknown: not compared, neither red nor before
+    assert result.returncode == 0 and 'INTERNALERROR' not in text and not _lines(tmp_path, 'red'), text
+    reason = _unparsed(tmp_path, 'not compared: STANDING -> not a failure')
+    assert reason.startswith('baseline comparison unavailable (other.py:2 preview: other.py does not parse at the baseline: '), reason
+    # check compares the copies its pytest batch did not: the same words
+    from tests.intent_engine._cli_fixture import main
+    (tmp_path / 'tests/test_case.py').write_text('def test_nothing():\n    assert True\n')
+    assert main(['--root', str(tmp_path), 'check'], cwd=tmp_path) == 0
+    assert _unparsed(tmp_path, 'not compared: STANDING -> not a failure').startswith(
+        'baseline comparison unavailable (other.py:2 preview: other.py does not parse at the baseline: '), last(tmp_path)

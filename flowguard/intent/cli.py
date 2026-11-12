@@ -921,7 +921,7 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
     import math
     from ..map.common import git_renames, read_source
     from .differences import _compare_pairs
-    from .plugin import compare_copies
+    from .plugin import _parse_baseline, compare_copies
     from .runtime import Runtime, _module_at, sealed
     from .signals import finding, not_compared
     issues, lines, ran, members = [], [], set(), set()
@@ -939,6 +939,8 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
         file, module = point['file'], point['module']
         if old and file in renamed:         # at the baseline a moved file imported from its old place
             file, module = renamed[file], _module_at(renamed[file], file, module)
+        if old and text and (why := _parse_baseline(text)[1]):       # in the words a pytest session gives
+            return dict(status='unavailable', reason=f'{file} {why}')
         return sealed(text, point['qual'], sample['args'], sample['kwargs'], runtime.imports(file, module, old)) \
             if text is not None else dict(status='unavailable', reason='no baseline source')
     def json_input(row):
