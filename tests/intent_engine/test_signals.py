@@ -563,7 +563,8 @@ def test_every_stdout_line_of_a_pytest_block_has_one_of_the_shapes(tmp_path):
     kinds = {line.partition(': ')[0] for line in block[1:]}
     assert {'red', 'changed', 'not compared'} <= kinds, block
     assert not any(line.startswith('deprecated') for line in lines), lines
-    assert 'deprecated: old-value leads goes in 5.0 -> do not use it' in result.stderr.splitlines(), result.stderr
+    # the project uses nothing deprecated: the old-value lead FlowGuard makes itself prints no notice
+    assert 'deprecated' not in result.stderr, result.stderr
 
 
 def test_the_block_follows_pytests_summary_with_every_reporter_option_and_after_an_interrupt(tmp_path):
