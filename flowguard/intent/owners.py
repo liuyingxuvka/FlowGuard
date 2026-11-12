@@ -1308,9 +1308,9 @@ def rule_old_values(cfg, old, *, declarations=None):
             judged = sorted({n.lineno for n in item['judged'] if holds(n)})
             rows = sorted({n.lineno for n in item['literals'] if holds(n)})
             if judged or rows:
-                parts = ([f'decision line {"、".join(map(str, judged))}'] if judged else []) + \
-                        ([f'regression row line {"、".join(map(str, rows))}'] if rows else [])
-                found.append(f'rule {item["id"]} still uses old value {old!r}({cfg.rel(path)} {"、".join(parts)}): if requirements changed, update the rule first')
+                parts = ([f'decision line {", ".join(map(str, judged))}'] if judged else []) + \
+                        ([f'regression row line {", ".join(map(str, rows))}'] if rows else [])
+                found.append(f'rule {item["id"]} still uses old value {old!r}({cfg.rel(path)} {", ".join(parts)}): if requirements changed, update the rule first')
     return found
 
 
@@ -1333,8 +1333,8 @@ def copies_without_rule(change, index):
         changed = [anchor for name in item['anchors'] for anchor in copies.get(name, ())]
         if not changed or file in change.files:
             continue
-        names = '、'.join(dict.fromkeys(anchor.name for anchor in changed))
-        places = '、'.join(dict.fromkeys(f'{anchor.file}:{anchor.qual}' for anchor in changed))
+        names = ', '.join(dict.fromkeys(anchor.name for anchor in changed))
+        places = ', '.join(dict.fromkeys(f'{anchor.file}:{anchor.qual}' for anchor in changed))
         _hide(found, '', f'{names} copies at {places} changed; rule {item["id"]} is unchanged -> if requirements changed, first use '
                          f'python -m flowguard req add to store the new owner words, then update rule {file}:{item["line"]}; otherwise '
                          'confirm that this code change is correct')       # no 4.3 line and no deprecation (D6): `show --last` only
@@ -1503,7 +1503,7 @@ def literal_drift(change, *, everything=False):
             continue
         parts = []
         for value, rows in group['spellings'].items():
-            places = '、'.join(f'{row["file"]}:{row["line"]}' for row in rows)
+            places = ', '.join(f'{row["file"]}:{row["line"]}' for row in rows)
             parts.append(f'{value!r}({places}' + (', spelling added in this task' if value in fresh else '') + ')')
         # --all also lists the spellings the baseline already had, as the old ledger.
         _hide(found, 'label-spelling leads', ('' if fresh else 'before: ') + 'label spellings differ: ' + ' and '.join(parts)
@@ -1947,7 +1947,7 @@ def _example(rows, names, mine, reference, label='reference'):
                  if _same(mine[index], reference[index]) is False]
     finite = [item for item in differing if all(not (type(item[0][n]) is float and not math.isfinite(item[0][n])) for n in names)]
     chosen = finite[:1] + [item for item in differing if item not in finite][:1]
-    text = '；'.join(', '.join(f'{name}={_show(row[name])}' for name in names) + f' → {_outcome(a)}({label} returns {_outcome(b)}）'
+    text = '; '.join(', '.join(f'{name}={_show(row[name])}' for name in names) + f' -> {_outcome(a)}({label} returns {_outcome(b)})'
                     for row, a, b in chosen)
     return text + (f'; plus {len(differing) - len(chosen)} other differences' if len(differing) > len(chosen) else '')
 
@@ -2128,7 +2128,7 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
         # One row set for all: the owner's classes, fixed representatives and every compared function's literals.
         rows, kinds, reason = _classes(cfg, owner, list(dict.fromkeys(
             value for row in (home, *shown) for value in row['literals'])))
-        label = f'{owner.name}（{owner.file}:{owner.target_line}）'
+        label = f'{owner.name} ({owner.file}:{owner.target_line})'
         if reason:
             _hide(found, 'unregistered copy discovery', f'reference {label} suspected copy {len(shown)} copies were not compared: {reason}')
             complete = False
@@ -2142,7 +2142,7 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
         for row in shown:
             result, why = _replay(row, rows, names)
             if result is None:
-                unclear.append(f'{row["file"]}:{row["line"]}（{why}）')
+                unclear.append(f'{row["file"]}:{row["line"]} ({why})')
                 continue
             outcomes = result['now']
             compared = [_same(a, b) for a, b in zip(outcomes, reference['now']) if _same(a, b) is not None]
@@ -2169,7 +2169,7 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
                 _hide(found, 'unregistered copy discovery', text)
         lead(f'reference {label} has {total} suspected copies (candidates: {len(candidates)}; time: {seconds:.2f} seconds; '
                            f'{len(rows)} representative values; only comparable JSON inputs count; call-site reachability was not checked)'
-                           f'-> choose one for each copy: call the reference; or write above the copy: # flowguard: same {owner.name}；'
+                           f'-> choose one for each copy: call the reference; or write above the copy: # flowguard: same {owner.name}; '
                            f'or declare distinct("{owner.name}", "<copy-anchor-name>", why="...", source="...")')
         order = {'copy': 0, 'diverged copy': 1, 'similar': 2}
         for (category, _), group in sorted(groups.items(), key=lambda item: (order[item[0][0]], item[1][0][0]['id'])):
@@ -2180,7 +2180,7 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
                 text = f'{category}: {len(members)} copies (match the reference on {compared_count} representative values; not a proof): {places}'
             else:
                 apart = len({tuple(str(value) for value in outcomes) for _, outcomes in group}) > 1
-                text = (f'{category} {len(members)} copies: {_example(rows, names, group[0][1], reference["now"])}：{places}'
+                text = (f'{category} {len(members)} copies: {_example(rows, names, group[0][1], reference["now"])}: {places}'
                         + ('(same first difference; these copies also differ on other representative values)' if apart else ''))
             fresh = [row for row in members if row['id'] in added]
             lead(('before: ' if everything and not new_owner and not fresh else '') + text)
@@ -2357,14 +2357,14 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
         if similar:
             parts.append(f'similar (structure or shared constant): {len(similar)} copies also unchanged: '
                          + '  '.join(f'{peer["file"]}:{peer["line"]}' + (f'(unavailable: {why})' if why else '') for peer, why in similar))
-        text = ('、'.join(f'{item["qual"]}（{item["file"]}:{item["line"]}）' for item in changed)
-                + (f' ({len(changed)} locations)' if len(changed) > 1 else '') + ' changed behavior; ' + '；'.join(parts))
+        text = (', '.join(f'{item["qual"]} ({item["file"]}:{item["line"]})' for item in changed)
+                + (f' ({len(changed)} locations)' if len(changed) > 1 else '') + ' changed behavior; ' + '; '.join(parts))
         if anchor and twins:
             # The owner is the reference: its copies follow it, and a copy that left it goes back to it. Without
             # one among them no copy is chosen: an intended change goes to every copy, any other is undone.
             owner = next((peer for peer in twins if peer['id'] in anchored and anchored[peer['id']].owner
                           and anchored[peer['id']].name == anchor.name), None)
-            quals = '、'.join(item['qual'] for item in changed)
+            quals = ', '.join(item['qual'] for item in changed)
             if anchor.owner:
                 step = f'update together, or call {row["qual"]}'
             elif owner:

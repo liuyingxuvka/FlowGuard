@@ -2561,10 +2561,10 @@ def test_a_later_field_leaves_the_known_fields_checked_and_a_misspelt_field_stay
     ledger.write_text(entry + decision.replace('decision', 'decison', 1) + 'source = "R1"\n', encoding='utf-8')
     _commit(tmp_path, message='a misspelt entry')
     code, text = _flowguard(tmp_path, 'ledger', 'check')
-    assert code == 1 and ('red: Structure decision [structure."writers:Job.status"]: unknown field decison (did you mean decision?)；missing decision；source "R1" is not stored owner wording') in text, text
+    assert code == 1 and ('red: Structure decision [structure."writers:Job.status"]: unknown field decison (did you mean decision?); missing decision; source "R1" is not stored owner wording') in text, text
     ledger.write_text(entry + decision + 'sorce = "R1"\n', encoding='utf-8')
     code, text = _flowguard(tmp_path, 'ledger', 'check')
-    assert code == 1 and ': unknown field sorce (did you mean source?)；missing source' in text, text
+    assert code == 1 and ': unknown field sorce (did you mean source?); missing source' in text, text
     # A field of a later FlowGuard beside an unstored source: unverified, the source's error on the same line.
     ledger.write_text(entry + decision + 'source = "R1"\nevidence = "the owner said so in the review"\n', encoding='utf-8')
     code, text = _flowguard(tmp_path, 'ledger', 'check')
@@ -2582,7 +2582,7 @@ def test_a_later_field_leaves_the_known_fields_checked_and_a_misspelt_field_stay
     # Without the field it is near, it is that field misspelt, as before.
     ledger.write_text(entry + decision + 'sources = "R1"\n', encoding='utf-8')
     code, text = _flowguard(tmp_path, 'ledger', 'check')
-    assert code == 1 and ': unknown field sources (did you mean source?)；missing source' in text, text
+    assert code == 1 and ': unknown field sources (did you mean source?); missing source' in text, text
 
 
 def test_the_session_brief_names_the_heaviest_open_structure_problems_in_one_line(tmp_path):

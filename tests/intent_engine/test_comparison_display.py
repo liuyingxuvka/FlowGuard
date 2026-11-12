@@ -64,7 +64,7 @@ def test_real_comparison_displays_survive_cp1252_and_keep_unicode_data(tmp_path)
     report=D.compare(root, 'app:accept', 'app:other')
     assert report['status']=='red'and report['changed']==1
     rendered=D.render(report)
-    assert 'GRACE'in rendered and '↔'in rendered and '→'in rendered and 'total 3 classes'in rendered
+    assert 'GRACE'in rendered and '<->'in rendered and '->'in rendered and 'total 3 classes'in rendered
     original_json=json.dumps(report,ensure_ascii=False,sort_keys=True).encode('utf-8')
     for name in ('pytest','check','compare'):
         result=run_public_entry(root,name)
@@ -73,7 +73,8 @@ def test_real_comparison_displays_survive_cp1252_and_keep_unicode_data(tmp_path)
         assert result.returncode==1,(name,result.returncode,shown,result.stderr)
         assert 'GRACE'in shown and 'AFTER_GRACE_DISPLAY'in shown,(name,shown)
         if name=='compare':
-            assert r'\u2194'in shown and r'\u2192'in shown,(name,shown)
+            # FlowGuard's own words are ASCII (D18): the comparison prints without an escape
+            assert '<->'in shown and '->'in shown and '\\u'not in shown,(name,shown)
             assert 'total 3 classes'in shown,(name,shown)
         else:
             # The 4.3 block of pytest and check reports the actual same-name contradiction: what each copy answered on

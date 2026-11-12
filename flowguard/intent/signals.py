@@ -12,7 +12,7 @@ from .sources import ACTS, SHA
 
 def _short(text, width=100):
     text = ' '.join(str(text).split())
-    return text if len(text) <= width else text[:width - 1] + '…'
+    return text if len(text) <= width else text[:width - 3] + '...'
 
 
 def _shown(value):
@@ -44,9 +44,9 @@ def _points(values):
             if value == last + 1:
                 last = value
             else:
-                spans.append(str(first) if first == last else f'{first}–{last}')
+                spans.append(str(first) if first == last else f'{first}..{last}')
                 first = last = value
-        spans.append(str(first) if first == last else f'{first}–{last}')
+        spans.append(str(first) if first == last else f'{first}..{last}')
         return ','.join(spans)
     return ','.join(dict.fromkeys(_shown(value) for value in values))
 
@@ -91,9 +91,9 @@ def _region(rows):
             for name in rest:
                 product *= len(values[name])
             if product == len(actual):
-                return '，'.join([f'{left}={right}（{_points(values[left])}）', *(f'{name}={_points(values[name])}' for name in rest)])
+                return ', '.join([f'{left}={right} ({_points(values[left])})', *(f'{name}={_points(values[name])}' for name in rest)])
         return _example(rows[0])
-    return '，'.join(f'{name}={_points(choices)}' for name, choices in values.items())
+    return ', '.join(f'{name}={_points(choices)}' for name, choices in values.items())
 
 
 def _cause(cause):
@@ -101,8 +101,8 @@ def _cause(cause):
         return ''
     if isinstance(cause, str):
         return 'cause: ' + cause
-    return (f'cause: {cause.get("name", "code")} {_shown(cause.get("before"))} → {_shown(cause.get("after"))}'
-            f'（{cause["file"]}:{cause["line"]}）')
+    return (f'cause: {cause.get("name", "code")} {_shown(cause.get("before"))} -> {_shown(cause.get("after"))}'
+            f' ({cause["file"]}:{cause["line"]})')
 
 
 def _unknown(item):
@@ -120,17 +120,17 @@ def _facts(item, *, comparison=False):
     name = item.get('name', item.get('anchor', changes[0].get('anchor', '') if changes else ''))
     if item.get('unanchored'):
         name += '(unanchored, automatic)'
-    location = f'（{item["file"]}:{item["line"]}）' if item.get('file') and item.get('line') else ''
+    location = f' ({item["file"]}:{item["line"]})' if item.get('file') and item.get('line') else ''
     if comparison:
         first = changes[0] if changes else item
         left, right = first.get('before_target'), first.get('after_target')
-        location = f'（{left} ↔ {right}）' if left and right else location
+        location = f' ({left} <-> {right})' if left and right else location
     status = item.get('comparison_status', item.get('status'))
     reasons = list(dict.fromkeys([*item.get('comparison_reasons', ()), *item.get('reasons', ())]))
     unknown = not item.get('complete', False) or status not in (None, 'ok', 'red') or bool(reasons)
     checked = item.get('checked', len(item.get('rows', ())) if status == 'ok' else len(changes))
     summary = (f'candidate classes: {total}; compared: {checked}; comparison incomplete; proven changed classes: {count}' if unknown
-               else f'total {total} classes，changed {count} classes')
+               else f'total {total} classes, changed {count} classes')
     change = overall = ''
     if changes:
         groups = defaultdict(list)
@@ -146,20 +146,20 @@ def _facts(item, *, comparison=False):
             return row
         members = next(iter(groups.values()))
         row = smallest(members)
-        change = (f'{_region(members)}; function result {row["before"]} → {row["after"]}(example: {_example(row)}）'
+        change = (f'{_region(members)}; function result {row["before"]} -> {row["after"]}(example: {_example(row)})'
                   + (f'; plus {len(groups) - 1} outcome-change groups' if len(groups) > 1 else ''))
         overall = change
         if len(groups) > 1:
             row = smallest(changes)
             overall = (f'{_region(changes)}; function result has {len(groups)} kinds of change (example: {_example(row)}: '
-                       f'{row["before"]} → {row["after"]}）')
+                       f'{row["before"]} -> {row["after"]})')
     return dict(name=name, location=location, count=count, total=total, checked=checked, unknown=unknown,
                 summary=summary, change=change, overall=overall, cause=_cause(item.get('cause')), reasons=reasons, status=status)
 
 
 def _block(item, *, comparison=False, same_name=False):
     facts = _facts(item, comparison=comparison)
-    title = f'{facts["name"]}{facts["location"]}：' if facts['name'] or facts['location'] else ''
+    title = f'{facts["name"]}{facts["location"]}: ' if facts['name'] or facts['location'] else ''
     if comparison and facts['count']:
         title = ('red same-name anchor ' if same_name else 'red comparison ') + title
     lines = [title + facts['summary']]
@@ -747,7 +747,7 @@ def copy_answers(answers, same, show, owner=None, total=None, apart=()):
                if aside else ''))
     if owner is not None:
         others = [place for value, places in groups if owner not in places for place in places]
-        return text, f'make {"、".join(others)} agree with the reference'
+        return text, f'make {", ".join(others)} agree with the reference'
     return text, 'first decide which copy is correct, then make ' + ('the other copy' if len(answers) == 2 else 'the remaining copies') + ' agree with it'
 
 
@@ -994,11 +994,10 @@ def _listed(places):
 
 
 def _grey(text):
-    """(subject, reason) of a grey line written as `NAME: reason` or `NAME：reason`."""
-    for separator in ('：', ': '):
-        head, found, rest = text.partition(separator)
-        if found and head and len(head) <= 80 and '=' not in head and ' ' not in head.strip('[]:.'):
-            return head, rest
+    """(subject, reason) of a grey line written as `NAME: reason` (a FlowGuard text in ASCII, `ascii_text`)."""
+    head, found, rest = text.partition(': ')
+    if found and head and len(head) <= 80 and '=' not in head and ' ' not in head.strip('[]:.'):
+        return head, rest
     return '', text
 
 
@@ -1035,7 +1034,7 @@ def _render(report, limit):
     blocks([item for item in items if not any(item is other for other in unverified)])
     blocks(unverified)
     if not lines:
-        lines.append(f'total {report.get("total", 0)} classes，changed {report.get("changed", 0)} classes'
+        lines.append(f'total {report.get("total", 0)} classes, changed {report.get("changed", 0)} classes'
                      if report.get('complete') else 'not compared: no observations available')
     # Red lines carry full names, places and the next step to copy: never shortened.
     return '\n'.join(line if line.startswith('red') else _short(line) for line in lines)
@@ -1228,20 +1227,20 @@ def class_label(atoms, truth, kinds, witness):
         if equal or low and high and low[0] == high[0] and low[1] and high[1]:
             parts.append(f'{expression}={_shown(equal[0] if equal else low[0])}')
         elif low and high:
-            parts.append(f'{expression}={_shown(low[0])}–{_shown(high[0])}' if integer else
-                         f'{_shown(low[0])} {"≤" if low[1] else "<"} {expression} {"≤" if high[1] else "<"} {_shown(high[0])}')
+            parts.append(f'{expression}={_shown(low[0])}..{_shown(high[0])}' if integer else
+                         f'{_shown(low[0])} {"<=" if low[1] else "<"} {expression} {"<=" if high[1] else "<"} {_shown(high[0])}')
         elif low:
-            parts.append(f'{expression}{"≥" if low[1] else ">"}{_shown(low[0])}')
+            parts.append(f'{expression}{">=" if low[1] else ">"}{_shown(low[0])}')
         elif high:
-            parts.append(f'{expression}{"≤" if high[1] else "<"}{_shown(high[0])}')
+            parts.append(f'{expression}{"<=" if high[1] else "<"}{_shown(high[0])}')
         for op, value in conditions:
             if op == '!=' and not (low and value < low[0] or high and value > high[0]):
-                parts.append(f'{expression}≠{_shown(value)}')
+                parts.append(f'{expression}!={_shown(value)}')
     for (left, right), operators in relations.items():
         if '=' in operators or {'<=', '>='} <= operators:
             parts.append(f'{left}={right}')
         else:
-            parts.extend(f'{left}{op.replace("<=", "≤").replace(">=", "≥").replace("!=", "≠")}{right}' for op in sorted(operators))
+            parts.extend(f'{left}{op}{right}' for op in sorted(operators))
     parts.extend(f'{name}={_shown(witness[name])}' for name, kind in kinds.items()
                  if kind.name in ('bool', 'enum', 'str') or witness[name] is None)
-    return '，'.join(dict.fromkeys(parts + other)) or C.show_cell(witness)
+    return ', '.join(dict.fromkeys(parts + other)) or C.show_cell(witness)

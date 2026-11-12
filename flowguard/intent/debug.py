@@ -151,7 +151,7 @@ def _evaluate(cfg, anchor, function, bound, grid):
         return _result('grey', [f'{anchor.name}: not compared: {reason}'], reasons=[reason])
     point = {parameter.name: bound.arguments[parameter.source] for parameter in anchor.inputs}
     if not grid:
-        return _result('ok', [f'{anchor.name}: {point!r} → {value!r}'], value=value, rows=[(point, value)], tested=1, reasons=[])
+        return _result('ok', [f'{anchor.name}: {point!r} -> {value!r}'], value=value, rows=[(point, value)], tested=1, reasons=[])
     decision = anchors.decision_reading(cfg.root, anchor)
     space = cells.build_space(decision.kinds, decision.reading.consts, decision.reading.planes,
                               decision.reading.links, decision.reading.reasons, decision.reading.hints)
@@ -171,7 +171,7 @@ def _evaluate(cfg, anchor, function, bound, grid):
         else:
             rows.append((incoming, outcome))
     lines = [f'{anchor.name}: {len(rows)} representatives evaluated' + ('; source partition incomplete' if not complete else '')]
-    lines.extend(f'{incoming!r} → {outcome!r}' for incoming, outcome in rows)
+    lines.extend(f'{incoming!r} -> {outcome!r}' for incoming, outcome in rows)
     lines.extend('grey: ' + reason for reason in reasons)
     return _result('ok' if complete and not reasons else 'grey', lines, value=value, rows=rows, tested=len(rows), reasons=reasons)
 
@@ -231,7 +231,7 @@ def show_observation(cfg, name, index, last_events=(), *, model=None):
         edge_counts.update(zip(path, path[1:]))
     lines = [f'{name}: historical model observations (not a new verification)']
     lines.extend(f'{node.name}: {node.reference}/{node.phase}, observed {node_counts[node.name]}' for node in flow.nodes)
-    lines.extend(f'{a} → {b}: {edge_counts[a, b]}' + ('; unobserved' if not edge_counts[a, b] else '') for a, b in flow.edges)
+    lines.extend(f'{a} -> {b}: {edge_counts[a, b]}' + ('; unobserved' if not edge_counts[a, b] else '') for a, b in flow.edges)
     lines.extend('red: ' + reason for reason in checked['red'])
     lines.extend('grey: ' + reason for reason in checked['grey'])
     if stale:

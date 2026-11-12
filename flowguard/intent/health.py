@@ -197,7 +197,7 @@ def values(change):
         allowed = '|'.join(map(str, declared['values']))
         text = ('Value outside the declared set: ' + '  '.join(f'{row["file"]}:{row["line"]} {name}={value!r}' for row, value in items)
                 + f'; allowed {allowed} ({where})')
-        step = 'use a value from the declared set; to add a value, change its declaration first (' + where + '）'
+        step = 'use a value from the declared set; to add a value, change its declaration first (' + where + ')'
         members = {}
         for row, value in items:
             members.setdefault(row_function(row), (row, {}))[1].setdefault(repr(value), (row, declared, value))
@@ -385,12 +385,12 @@ def columns(change):
             if item['kind'].endswith('-table'):
                 parts.append(f'missing table {item["table"]}')
             else:
-                parts.append(f'{item["table"]}' + (f'（{item["file"]}:{item["line"]}）' if item.get('file') else '')
+                parts.append(f'{item["table"]}' + (f' ({item["file"]}:{item["line"]})' if item.get('file') else '')
                              + (f' missing {", ".join(item["missing"])}' if item['missing'] else '')
                              + (f'{"; " if item["missing"] else " "}extra {", ".join(item["extra"])}' if item.get('extra') else ''))
             fresh = fresh or before is not None and any((_gap_key(item), name) not in before
                                                          for name in [*item['missing'], *item['extra']])
-        text = f'Columns missing between descriptions: {description} against {schema}: ' + '；'.join(parts)
+        text = f'Columns missing between descriptions: {description} against {schema}: ' + '; '.join(parts)
         step = f'add the missing columns and tables; if this description is obsolete, mark it unused or remove it ({description})'
         found.issues.append(Issue(f'columns:{description}~{schema}', 3, f'missing columns {_short_path(description)}',
                                   text, step, frozenset(), _schema_files(change.graph, schema, description),
@@ -427,7 +427,7 @@ def delete_rules(change):
         return {(pair, 'key', key, rules), (pair, 'name', name, rules)}
 
     def listed(relations):
-        return '、'.join(f'{name}（{NO_KEY if rule is None else rule} / {NO_KEY if other is None else other}）'
+        return ', '.join(f'{name} ({NO_KEY if rule is None else rule} / {NO_KEY if other is None else other})'
                         for name, rule, other, _ in relations)
 
     before = None
@@ -515,7 +515,7 @@ def copies(change, index, *, before=False):
     for files, items in sorted(by_files.items(), key=lambda item: sorted(item[0])):
         names = [name for name, _ in items]
         text = (f'Same-named functions have different bodies (structural similarity at least {SIMILAR_COPY:g}): '
-                + '；'.join(f'{name} ' + '  '.join(f'{file}:{line}' for _, file, _, line, _ in members) for name, members in items))
+                + '; '.join(f'{name} ' + '  '.join(f'{file}:{line}' for _, file, _, line, _ in members) for name, members in items))
         label = names[0].strip('_').upper()
         step = (f'keep one implementation and call it elsewhere; to bind agreement, write same {label} ref above the reference and same {label} above each copy'
                 f' (# or // flowguard:); rename intentionally different functions')
@@ -690,7 +690,7 @@ def uncreated(change):
         then = {model: {row_function(row) for items in verbs.values() for row in items}
                 for model, verbs in _uses(graph, models, change.baseline_writes(), _baseline_queries(change, models)).items()}
     for model, verbs in sorted(uses.items()):
-        text = (f'Table whose rows are never created by this code: {model} ' + '，'.join(f'{verb} {_places(verbs[verb])}' for verb in ('read', 'delete', 'update') if verb in verbs)
+        text = (f'Table whose rows are never created by this code: {model} ' + ', '.join(f'{verb} {_places(verbs[verb])}' for verb in ('read', 'delete', 'update') if verb in verbs)
                 + '; no create/upsert/INSERT exists')
         step = 'ask the owner where these rows come from (seeds, migrations or external systems); if there is no source, remove these reads and deletes; if intentional, record the decision in .flowguard/ledger.toml:'
         members = {}
@@ -720,16 +720,16 @@ def labels(change):
         tables = family['tables']
         names = [table['name'] for table in tables]
         def ref(i):
-            return names[i] if names.count(names[i]) == 1 else f'{names[i]}（{tables[i]["file"].rpartition("/")[2]}:{tables[i]["line"]}）'
-        parts = [f'{key} ' + ' versus '.join(f'{label!r}（{"、".join(ref(i) for i in where)}）' for label, where in spelled.items())
+            return names[i] if names.count(names[i]) == 1 else f'{names[i]} ({tables[i]["file"].rpartition("/")[2]}:{tables[i]["line"]})'
+        parts = [f'{key} ' + ' versus '.join(f'{label!r} ({", ".join(ref(i) for i in where)})' for label, where in spelled.items())
                  for key, spelled in family['differ'].items()]
         parts += [f'{ref(i)} lacks {", ".join(keys)}' for i, keys in family['lacking'].items()]
-        text = ('Label tables disagree: ' + '、'.join(f'{table["file"]}:{table["line"]} {table["name"]}' for table in tables)
-                + '：' + '；'.join(parts))
+        text = ('Label tables disagree: ' + ', '.join(f'{table["file"]}:{table["line"]} {table["name"]}' for table in tables)
+                + ': ' + '; '.join(parts))
         head = tables[0]
         name = f'labels:{head["file"]}:{head["name"]}'
         step = ('derive these tables from one source, or align labels and add missing keys; if differences are intentional (abbreviations or another purpose), record the decision in '
-                '.flowguard/ledger.toml：')
+                '.flowguard/ledger.toml:')
         fresh = bool(change.baseline) and any(_table_changed(change, table) for table in tables)
         found.issues.append(Issue(name, 8, f'labels {head["name"]}', text, step, frozenset(),
                                   frozenset(table['file'] for table in tables),
@@ -796,7 +796,7 @@ def brief_line(cfg):
     if not data or not data['count'] and not data['writers']:
         return ''
     return (f'{data["count"]} open structure issues' + (f' ({data["writers"]} other fields have multiple writers and no writer agreement)' if data['writers'] else '')
-            + '; highest severity: ' + '；'.join(data['top']) + ' (last check; check --static --all lists every issue and next step)')
+            + '; highest severity: ' + '; '.join(data['top']) + ' (last check; check --static --all lists every issue and next step)')
 
 
 def assess(cfg, change, index, found):

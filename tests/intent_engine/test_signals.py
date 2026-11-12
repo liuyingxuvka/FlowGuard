@@ -17,7 +17,7 @@ def too_available(stock, reserved):
 def test_multifield_bounds_form_readable_intervals_and_keep_boolean_identity():
     _, report = compare(original_flag, unintended_flag, {'days': int, 'active': bool})
     regions = {row['region'] for row in report['changes']}
-    assert 'days=4–7，active=F' in regions
+    assert 'days=4..7, active=F' in regions
     assert any('active=T' in label for label in regions)
     assert not any('not (' in label for label in regions)
 
@@ -35,28 +35,28 @@ def test_tuple_readings_print_interval_minimal_example_and_exact_cause():
                 cause=dict(name='GRACE_DAYS', before=3, after=7, file='shop/policy.py', line=1))
     lines = signals.render(dict(items=[item], source_changed=True)).splitlines()
     assert len(lines) == 3
-    assert 'days=4–7' in lines[1] and 'example: days=4' in lines[1]
-    assert '; function result False → True(example: ' in lines[1]
-    assert lines[2] == 'cause: GRACE_DAYS 3 → 7（shop/policy.py:1）'
+    assert 'days=4..7' in lines[1] and 'example: days=4' in lines[1]
+    assert '; function result False -> True(example: ' in lines[1]
+    assert lines[2] == 'cause: GRACE_DAYS 3 -> 7 (shop/policy.py:1)'
 
 
 def test_correlated_or_disconnected_samples_do_not_become_a_cartesian_interval():
     for inputs in ([{'x': 4}, {'x': 6}], [{'x': 0, 'y': 1}, {'x': 1, 'y': 0}]):
         text = signals.render(dict(name='point', rows=[(row, False) for row in inputs],
                                    changed=[(row, False, True) for row in inputs], comparison_status='ok'))
-        assert 'x=4–6' not in text and 'x=0–1，y=0–1' not in text
+        assert 'x=4..6' not in text and 'x=0..1, y=0..1' not in text
 
 
 def test_a_quiet_comparison_prints_nothing_and_a_complete_one_its_count():
     assert signals.render(dict(source_changed=False, changes=[], complete=True, total=0, changed=0)) == ''
-    assert signals.render(dict(source_changed=True, changes=[], complete=True, total=12, changed=0)) == 'total 12 classes，changed 0 classes'
+    assert signals.render(dict(source_changed=True, changes=[], complete=True, total=12, changed=0)) == 'total 12 classes, changed 0 classes'
 
 
 def test_old_code_unavailable_never_becomes_a_verified_zero_change():
     text = signals.render(dict(name='check', comparison_status='unavailable', comparison_reasons=['旧函数不可读取'],
                                status='ok', rows=[({'x': 1}, True)], changed=[]))
     assert 'comparison incomplete' in text and 'uncovered: 旧函数不可读取' in text
-    assert 'total 1 classes，changed 0 classes' not in text
+    assert 'total 1 classes, changed 0 classes' not in text
 
 
 def test_red_constraints_cannot_be_crowded_out_by_information():
@@ -75,7 +75,7 @@ def test_same_name_disagreement_is_red_but_source_copies_are_only_leads():
                   changes=[dict(anchor='STANDING', region='days=4–7', witness={'days': '4'},
                                 before='F', after='T', before_target='policy:one', after_target='preview:two')])
     text = signals.render(report)
-    assert text.startswith('red same-name anchor STANDING') and 'policy:one ↔ preview:two' in text
+    assert text.startswith('red same-name anchor STANDING') and 'policy:one <-> preview:two' in text
     assert len(text.splitlines()) <= 3
 
 
@@ -159,7 +159,7 @@ def test_successful_comparison_grid_is_not_a_claim_of_complete_partition():
                                comparison_reasons=[]))
     assert 'candidate classes: 1; compared: 1; comparison incomplete; proven changed classes: 0' in text
     assert 'not a proof of partition completeness' in text
-    assert 'total 1 classes，changed 0 classes' not in text
+    assert 'total 1 classes, changed 0 classes' not in text
 
 
 def test_constraint_red_remains_visible_without_source_changes():
@@ -180,7 +180,7 @@ def test_readable_labels_do_not_mutate_the_source_constant_environment():
     from flowguard.intent import cells as C
     env = {'GRACE': 7}
     kinds = {'days': C.kind_of(int)}
-    assert signals.class_label([('days <= GRACE', None, env)], [True], kinds, {'days': 4}) == 'days≤7'
+    assert signals.class_label([('days <= GRACE', None, env)], [True], kinds, {'days': 4}) == 'days<=7'
     assert env == {'GRACE': 7}
 
 

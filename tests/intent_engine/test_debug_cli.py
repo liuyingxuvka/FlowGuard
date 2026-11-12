@@ -64,7 +64,7 @@ def test_watch_cli_checks_real_path_and_saves_historical_view(tmp_path, capsys):
     assert records['events'] and records['events'][0]['anchor'] == 'ENTER'
     assert cli.main(['--root', str(tmp_path), 'show', 'PIPELINE']) == 1
     text = capsys.readouterr().out
-    assert 'historical model observations' in text and 'enter → save: 0; unobserved' in text
+    assert 'historical model observations' in text and 'enter -> save: 0; unobserved' in text
     assert 'runtime path enter -> publish is not allowed' in text
 
 
@@ -190,7 +190,7 @@ def test_limit():
     # The deprecated command runs the named test once, ordinarily, in its own process, never more.
     assert (tests / 'runs.log').read_text(encoding='utf-8').split() == ['run']
     # a Windows console escapes the arrow (`\u2192`): read the text a reader sees, as the test above does
-    assert "{'days': 4} → False" in display_text(result.stdout) and 'ordinary call unchanged' in result.stdout
+    assert "{'days': 4} -> False" in display_text(result.stdout) and 'ordinary call unchanged' in result.stdout
 
 
 def test_watch_and_model_show_never_hide_a_model_load_error(tmp_path, capsys):
