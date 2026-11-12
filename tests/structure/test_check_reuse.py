@@ -116,6 +116,7 @@ def test_the_ledger_reads_the_python_calls_alone_as_calls_has_them(tmp_path):
         python = graph.python_calls()
         assert python == [row for row in graph.calls() if language_for(row['file']) == 'python']
         assert {row['resolved'] for row in python} >= {'warnings.simplefilter'}
+        assert graph.python_calls() == python and graph.python_calls() is not python      # read once, a list of its own
         graph.reset_query_coverage()
         graph.python_calls()
         alone = graph.query_coverage()

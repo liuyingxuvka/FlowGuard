@@ -1326,18 +1326,20 @@ class MapHandle:
 
     def python_calls(self):
         """The rows of `calls()` that Python files make (each row's `file` is the file whose facts hold it), read from
-        those files' parts alone: a JS/TS project's calls are not unpacked for them. The query counts as `calls()`
-        (`query_coverage`): its other rows are only left out."""
+        those files' parts alone, once per handle and build: a JS/TS project's calls are not unpacked for them. The
+        query counts as `calls()` (`query_coverage`): its other rows are only left out."""
         from .readers.registry import language_for
         self._mark_query('calls')
-        wanted = [path for (path,) in self.con.execute('SELECT path FROM file ORDER BY path') if language_for(path) == 'python']
-        rows = []
-        for start in range(0, len(wanted), 500):
-            chunk = wanted[start:start + 500]
-            found = dict(self.con.execute(f"SELECT path, data FROM part WHERE kind='syntax_calls' AND path IN "
-                                          f"({','.join('?' * len(chunk))})", chunk))
-            rows.extend(row for path in chunk for row in store.unpack(found.get(path)) or ())
-        return Rows(rows)
+        if 'python_calls' not in self._derived:
+            wanted = [path for (path,) in self.con.execute('SELECT path FROM file ORDER BY path') if language_for(path) == 'python']
+            rows = []
+            for start in range(0, len(wanted), 500):
+                chunk = wanted[start:start + 500]
+                found = dict(self.con.execute(f"SELECT path, data FROM part WHERE kind='syntax_calls' AND path IN "
+                                              f"({','.join('?' * len(chunk))})", chunk))
+                rows.extend(row for path in chunk for row in store.unpack(found.get(path)) or ())
+            self._derived['python_calls'] = rows
+        return Rows(self._derived['python_calls'])
 
     def imports(self, *, declarations=False, language=None):
         """Dependency links, or literal source declarations including external imports.
