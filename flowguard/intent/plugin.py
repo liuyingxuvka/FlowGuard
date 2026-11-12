@@ -380,19 +380,6 @@ def _sealed_numbers(tree, qual):
     return list({(type(number), number): number for number in [*numbers, *read]}.values())
 
 
-def _module_at(path, file, module):
-    """The module name `path` has under the import root that names `file` `module` (a moved file's name at
-    the baseline); '' when `path` is outside that root, so no project import resolves from it."""
-    def names(rel):
-        parts = list(Path(rel).with_suffix('').parts)
-        return parts[:-1] if parts and parts[-1] == '__init__' else parts
-    own, old, dotted = names(file), names(path), module.split('.') if module else []
-    if not dotted or own[len(own) - len(dotted):] != dotted:
-        return ''
-    root = own[:len(own) - len(dotted)]
-    return '.'.join(old[len(root):]) if old[:len(root)] == root and len(old) > len(root) else ''
-
-
 def _numeric(node):
     import ast
     return isinstance(node, ast.Constant) and type(node.value) in (int, float)
@@ -620,7 +607,7 @@ class Observations:
             text = source(point, old)
             file, module = point['file'], point['module']
             if old and file in self.renamed:        # at the baseline a moved file imported from its old place
-                file, module = self.renamed[file], _module_at(self.renamed[file], file, module)
+                file, module = self.renamed[file], R._module_at(self.renamed[file], file, module)
             return R.sealed(text, point['qual'], sample['args'], sample['kwargs'], self.runtime.imports(file, module, old)) \
                 if text is not None else dict(status='unavailable', reason='no baseline source')
         def value(out):

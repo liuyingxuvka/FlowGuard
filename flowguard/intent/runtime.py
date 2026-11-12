@@ -587,6 +587,19 @@ def _closed(source, qual, imports=None):
     return env[qual]
 
 
+def _module_at(path, file, module):
+    """The module name `path` has under the import root that names `file` `module` (a moved file's name at
+    the baseline); '' when `path` is outside that root, so no project import resolves from it."""
+    def names(rel):
+        parts = list(Path(rel).with_suffix('').parts)
+        return parts[:-1] if parts and parts[-1] == '__init__' else parts
+    own, old, dotted = names(file), names(path), module.split('.') if module else []
+    if not dotted or own[len(own) - len(dotted):] != dotted:
+        return ''
+    root = own[:len(own) - len(dotted)]
+    return '.'.join(old[len(root):]) if old[:len(root)] == root and len(old) > len(root) else ''
+
+
 def sealed(source, qual, args, kwargs, imports=None):
     """Evaluate one source-only function in fresh globals and strict JSON values. `imports` finds the source
     of a project module the function's file imports constants from (`Runtime.imports`)."""
@@ -1097,6 +1110,7 @@ class Runtime:
         self.patches, self.constants, self.unavailable, self.current_constants = {}, {}, {}, {}
         self._sources, self._trees, self._imported, self._projects, self._bindings = {}, {}, {}, {}, {}
         self._texts, self._exported, self._loaded = {}, {}, {}     # project modules the sealed environment reads
+        self._renames = None        # {path now: path at the baseline} of the files this change moved (`baseline_place`)
         self._seen, self._test, self.ran, self.seconds = {}, '', set(), 0.0
         self.outcomes = {}          # each ordinary test's phases that did not pass: [(when, outcome, error)]
 
@@ -1205,13 +1219,28 @@ class Runtime:
             self._loaded[file, old] = reason
         return self._loaded[file, old]
 
+    def baseline_place(self, file, module):
+        """(path, module name) a project file had at the baseline: its old path and the module name that path has
+        under the same import root when this change moved it (`git_renames`, read once per runtime), else its own.
+        A runtime given its `previous` sources reads no renames."""
+        if self._renames is None:
+            from flowguard.map.common import git_renames
+            self._renames = git_renames(self.root, self.baseline) if self.previous is None and self.baseline else {}
+        old = self._renames.get(file)
+        return (old, _module_at(old, file, module)) if old else (file, module)
+
     def _input(self, function, historical=False):
+        """(fn, file, module, source) of a function's source: its file now, or (`historical`) its baseline version,
+        which a file this change moved has at its old path, with that path's module name (`baseline_place`), so the
+        imports of the baseline source resolve as they did there."""
         fn = sites.unwrap(function)
-        file = Path(inspect.getsourcefile(fn)).resolve().relative_to(self.root).as_posix()
+        file, module = Path(inspect.getsourcefile(fn)).resolve().relative_to(self.root).as_posix(), fn.__module__
+        if historical:
+            file, module = self.baseline_place(file, module)
         source = self._source(file) if historical else (self.root / file).read_text(encoding='utf-8-sig')
         if source is None:
             raise ValueError('function has no baseline source')
-        return fn, file, source
+        return fn, file, module, source
 
     def full(self, function):
         """Twenty distinct encoded inputs of the function are recorded: its hook comes off."""
@@ -1222,8 +1251,8 @@ class Runtime:
         owner = self if historical else (_HISTORICAL.get() or self)
         try:
             old = historical or _HISTORICAL.get() is not None
-            fn, file, source = owner._input(function, historical=old)
-            _closed(source, fn.__qualname__, owner.imports(file, fn.__module__, old))
+            fn, file, module, source = owner._input(function, historical=old)
+            _closed(source, fn.__qualname__, owner.imports(file, module, old))
             if arguments is not None:
                 _json(dict(arguments))
             return ''
@@ -1237,9 +1266,9 @@ class Runtime:
                 return _value(fn, bound), ''
             historical = owner is not None
             owner = owner or self
-            function, file, source = owner._input(fn, historical=historical)
+            function, file, module, source = owner._input(fn, historical=historical)
             answer = sealed(source, function.__qualname__, list(bound.args), dict(bound.kwargs),
-                            owner.imports(file, function.__module__, historical))
+                            owner.imports(file, module, historical))
         except (Refused, ValueError, TypeError, OSError) as error:
             return None, str(error)
         if answer['status'] == 'unavailable':
@@ -1252,12 +1281,12 @@ class Runtime:
     def field_values(self, original, bound, fields, line, reading):
         """Explicit fields use the same closed engine; opaque context stays unavailable."""
         try:
-            fn, file, source = self._input(original)
+            fn, file, module, source = self._input(original)
             parameters = ', '.join(inspect.signature(fn, follow_wrapped=False).parameters)
             values = {}
             for name, expression in fields:
                 body = source + f'\ndef _flowguard_field({parameters}):\n    return ({expression})\n'
-                answer = sealed(body, '_flowguard_field', list(bound.args), dict(bound.kwargs), self.imports(file, fn.__module__))
+                answer = sealed(body, '_flowguard_field', list(bound.args), dict(bound.kwargs), self.imports(file, module))
                 if answer['status'] != 'ok':
                     reading.field_reasons.append('field ' + name + ': ' + answer.get('reason', str(answer.get('error'))))
                     return
@@ -1358,8 +1387,8 @@ class Runtime:
         fn = sites.unwrap(function)
         if fn not in self.patches:
             try:
-                _, file, source = self._input(fn, historical=True)
-                compiled = _closed(source, fn.__qualname__, self.imports(file, fn.__module__, True))
+                _, file, module, source = self._input(fn, historical=True)
+                compiled = _closed(source, fn.__qualname__, self.imports(file, module, True))
                 self.patches[fn] = Patch(fn, compiled.__code__, compiled.__defaults__, compiled.__kwdefaults__,
                                          dict(_functions(ast.parse(source)))[fn.__qualname__], source)
             except (Refused, ValueError, TypeError, OSError) as error:
