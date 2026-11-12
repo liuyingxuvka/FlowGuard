@@ -1160,12 +1160,13 @@ def test_two_declarations_of_one_name_with_different_members_are_a_lead(tmp_path
     code, text = _check(tmp_path)
     assert _block(text)[1:] == [], text                      # old: only the --all listing lists it
     code, text = _check(tmp_path, '--all')
+    # b/contracts.py and b/kinds.py keep the folder in the name of the a/ files (D17)
     assert _block(text)[1:] == [
-        'before: declarations AvailabilityStatus at contracts.py:4 was broken at task start -> leave it unless your task is about it'], text
+        'before: declarations AvailabilityStatus at a/contracts.py:4 was broken at task start -> leave it unless your task is about it'], text
     (tmp_path / 'b/kinds.py').write_text('from typing import Literal\nKind = Literal["member", "guest", "staff"]\n', encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 0 and _block(text)[1:] == [
-        "impact: declarations Kind: kinds.py:2 declares 'guest' | 'member'; b/kinds.py:2 declares 'guest' | 'member' | 'staff' "
+        "impact: declarations Kind: a/kinds.py:2 declares 'guest' | 'member'; b/kinds.py:2 declares 'guest' | 'member' | 'staff' "
         '-> fix it, or say why in your report'], text
 
 
@@ -1175,5 +1176,5 @@ def test_two_typescript_union_declarations_with_different_members_are_a_lead(tmp
     (tmp_path / 'frontend/src/lending.ts').write_text("export type LendingStatus = 'DRAFT' | 'ACTIVE';\n", encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 0 and _block(text)[1:] == [
-        "impact: declarations LendingStatus: lending.ts:1 declares 'ACTIVE' | 'DRAFT' | 'ENDED'; frontend/src/lending.ts:1 declares "
+        "impact: declarations LendingStatus: backend/src/lending.ts:1 declares 'ACTIVE' | 'DRAFT' | 'ENDED'; frontend/src/lending.ts:1 declares "
         "'ACTIVE' | 'DRAFT' -> fix it, or say why in your report"], text

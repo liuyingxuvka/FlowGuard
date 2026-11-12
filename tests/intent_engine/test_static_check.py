@@ -1106,12 +1106,13 @@ def test_value_sets_come_from_the_schemas_in_use_keep_checks_and_keep_typescript
     code, text = _static(tmp_path, '--all')
     # 'UPDATED' is in the CHECK the database runs (the template enum lacks it); the archived description under
     # docs/ does not add 'ARCHIVED'; 'MID' passes the CHECK but not the enum of the schema in use; the frontend
-    # Demand is judged by its own union only. Every one was there at the task start: before, with --all.
+    # Demand is judged by its own union only. Every one was there at the task start: before, with --all. The central
+    # schema's migration.sql keeps the other one's path from shortening past prisma/.
     assert code == 0 and _block(text, everything=True) == [
         f'before: {subject} at {place} was broken at task start -> leave it unless your task is about it' for subject, place in (
             ('values Gauge.level', 'notice.service.ts:notify'), ('values Notice.kind', 'notice.service.ts:notify'),
             ('values Demand.unit', 'demand.ts:3'), ('declarations Gauge.level', 'central.prisma:6'),
-            ('declarations Notice.kind', 'migration.sql:1'))], text
+            ('declarations Notice.kind', 'prisma/migrations/001/migration.sql:1'))], text
     shown = _cli_fixture.last(tmp_path).splitlines()
     assert [shown[index + 1].strip() for index, line in enumerate(shown) if line.startswith('before: values ')] == [
         'declared at enum Level (backend/prisma/central/central.prisma:6)', 'declared at CHECK backend/prisma/migrations/001/migration.sql:1',
