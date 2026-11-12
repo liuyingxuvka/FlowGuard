@@ -275,8 +275,8 @@ def _input(name, subject, place, problems, step, files):
     `file:table.id`) is the line's place without being repeated in its text."""
     from .health import Issue
     what = '; '.join(problems)
-    # Rank 0 is no rank of the structure listing (health.RANKS): the 4.3 lines report it, not the structure checks.
-    return Issue(name, 0, subject, f'{subject}: {what}', step, files=frozenset(files), new=True, family='input',
+    # Rank 0 (health.LINES_ONLY): the 4.3 lines report it, and the brief's count of structure problems leaves it out.
+    return Issue(name, 0, subject, f'{subject}: {what}', step, files=frozenset(files), family='input',
                  subject=subject, parts=(('', (place,), what, step),), fresh=frozenset({''}), detail=tuple(problems))
 
 
@@ -741,7 +741,7 @@ def _source_issue(identifier, file, entry, source, what, step, fresh):
     from .health import Issue
     subject = f'source {identifier}'
     return Issue(f'source:{identifier}', 0, subject, f'{subject}: {what}', step, files=frozenset({file, _cited_file(source)}),
-                 new=fresh, family='source', subject=subject, parts=(('', f'{file}:{identifier}', what, step),),
+                 family='source', subject=subject, parts=(('', f'{file}:{identifier}', what, step),),
                  fresh=frozenset({''}) if fresh else frozenset(), detail=(f'{identifier} source: {entry.source}',))
 
 

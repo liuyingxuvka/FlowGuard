@@ -92,14 +92,16 @@ def test_a_grey_intent_item_is_unverified_even_with_warnings_as_errors(tmp_path)
                and line.startswith('tests/')), text
 
 
-def test_the_session_report_names_an_unverified_item_and_its_reason_with_an_ascii_colon(tmp_path):
-    from flowguard.intent import cache
-    from flowguard.intent.config import load_config
+def test_the_session_names_an_unverified_item_and_its_reason_with_an_ascii_colon(tmp_path):
+    from tests.intent_engine._cli_fixture import last
     root = _project(tmp_path / 'p', ASSUMED)
     result, text = _pytest(root, '-q')
     assert result.returncode == 0 and '1 unverified' in text, text
-    said = cache.observations(load_config(root))['items']['unverified']
-    assert said and all(entry.startswith('LIMIT_RULE[rules]: ') and '：' not in entry for entry in said), said
+    # the item's not compared line, its reasons under it (show --last)
+    shown = last(root).splitlines()
+    start = shown.index('not compared: LIMIT_RULE[rules] -> not a failure')
+    said = [line.strip() for line in shown[start + 1:] if line.startswith('    ')][:1]
+    assert said and all(entry.isascii() for entry in shown[start:start + 2]), shown
 
 
 STANDING = {

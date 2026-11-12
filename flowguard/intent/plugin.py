@@ -395,15 +395,15 @@ def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no 
     (`points`: anchor, target, file, module, qual of each) run in the closed environment, never imported, on the
     inputs `signals.copy_inputs` makes of the `recorded` ones ({declared name: value}) and the numbers the copies use,
     now and at the baseline. `source(point, old)` is a copy's source text (None: no baseline source), `run(point,
-    sample, old)` one sealed run of it, `place(target)` a copy's `path:line` for the legacy words. Returns what the
-    run reports: `grey` reasons (not compared), the legacy `red` and `before` lines, the `same:NAME` finding
-    (`signals.copies_issue`: a pair red where this change broke it, old where it already differed at the baseline)
-    or None, and `ran` when every copy answered every compared input. `no_inputs` says why nothing was compared
-    when no input could be made."""
+    sample, old)` one sealed run of it, `place(target)` a copy's `path:line`, which the reason of a pair whose
+    baseline could not run names it by (`signals.copy_answers`). Returns what the run reports: `grey` reasons (not
+    compared), the `same:NAME` finding (`signals.copies_issue`: a pair red where this change broke it, old where it
+    already differed at the baseline) or None, and `ran` when every copy answered every compared input. `no_inputs`
+    says why nothing was compared when no input could be made."""
     import ast
     from types import SimpleNamespace
     from . import cells as C, runtime as R, signals
-    out = SimpleNamespace(grey=[], red=[], before=[], issue=None, ran=False)
+    out = SimpleNamespace(grey=[], issue=None, ran=False)
     def value(result):
         return result.get('value') if result['status'] == 'ok' else {'raises': result.get('error')}
     def equal(left, right):
@@ -452,11 +452,7 @@ def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no 
         return [(', '.join(f'{key}={show(value)}' for key, value in row.items()), [(labels[target], value) for target, value in now],
                  {labels[target]: past for target, past in old.items()}, {labels[target] for target in unknown})
                 for row, now, old, unknown in rows]
-    new_lines, previous_lines, open_lines = signals.copy_partition(spelled(places, C.show), equal, C.show, owner, len(points))
-    if previous_lines:
-        out.before.append(signals.copy_red(name, previous_lines))
-    if new_lines:
-        out.red.append(signals.copy_red(name, new_lines))
+    open_lines = signals.copy_partition(spelled(places, C.show), equal, C.show, owner, len(points))[2]
     if open_lines:
         out.grey.append(name + ': baseline comparison unavailable; current copies disagree ('
                         + '; '.join(f'{where}, {text}' for where, text, _, _ in open_lines) + ')')
@@ -545,8 +541,7 @@ class Observations:
                                      name=a.name, kind=a.kind, node=None)
                        for a in self.index.entries if a.kind in ('sensor', 'event') and a.source_role != 'test'
                        and a.file.endswith('.py')}
-        self.changed, self.records, self.pairs, self.red, self.grey, self.paths = bool(self.files), [], [], [], [], []
-        self.steps = {}         # the next steps to copy under a red line, by its subject
+        self.changed, self.records, self.grey = bool(self.files), [], []
         self.metadata, self.bound, self.event_codes, self.payload = {}, {}, {}, None
         self.structure = None
         self.event_record = self.capture = None
@@ -726,7 +721,7 @@ class Observations:
         import ast
         from . import runtime as R
         from ..map.common import read_source
-        sources, samples, items, before = {}, {}, [], []
+        sources, samples, items = {}, {}, []
         def source(point, old=False):
             key = point['file'], old
             if key not in sources:
@@ -790,13 +785,11 @@ class Observations:
             recorded = [_declared(point, sample['inputs']) for point in points for sample in samples.get(point['target'], {}).values()]
             found = compare_copies(name, points, recorded, source, run, self._place)
             self.grey.extend(found.grey)
-            before.extend(found.before)
-            self.red.extend(found.red)
             if found.issue is not None:
                 self.copies.append(found.issue)
             if found.ran:
                 self.ran.add(f'same:{name}')        # every copy answered every compared input sealed
-        return items, before
+        return items
 
     @contextmanager
     def scope(self, item):
@@ -855,7 +848,7 @@ class Observations:
         from . import cells as C
         from .engine import CONFLICT, PredicateError, outcome_eq
         from .loader import item_names
-        engine, checked, quoted = self.state.engine, {}, set()
+        engine, checked = self.state.engine, {}
         for index, point, part, unknown, cause in self.records:
             if index >= len(self.runtime.readings):
                 continue
@@ -882,7 +875,6 @@ class Observations:
                 if reasons := [reason for guard in guards for reason in guard['grey']]:
                     self.grey.extend(rule.id + ': ' + reason for reason in reasons)
                     continue
-                self.red.extend(rule.id + ': ' + message for guard in guards for message in guard['red'])
                 for message in (message for guard in guards for message in guard['red']):
                     self._rule_red(rule, message)
                 required = {field for other in active for field in other.fields}
@@ -893,27 +885,22 @@ class Observations:
                     try:
                         expected = engine.effective(rule, inputs)
                     except PredicateError as error:
-                        self.red.append(str(error))
                         self._rule_red(rule, str(error).removeprefix(rule.id + ': '), place=self._site(point['target']))
                         continue
                     if expected is CONFLICT:
                         continue  # The independent rule conflict above owns this red.
                     if expected is not None and not outcome_eq(expected, actual):
                         said = f'{C.show_cell(inputs)} -> rule {C.show_value(expected)}, code {C.show_value(actual)}'
-                        self.red.append(f'{rule.id}: {said}')
                         self._rule_red(rule, f'{said} at {self._site(point["target"])}', place=self._site(point['target']))
-                        if rule.id not in quoted:
-                            source = self._parsed(rule)
-                            self.red.append(rule.id + ' source: ' + (source.quote or source.text))
-                            quoted.add(rule.id)
                         break
 
     def _flow_signals(self):
-        """Check actual projected readings without proving or replaying a contract."""
+        """Check actual projected readings without proving or replaying a contract: a red relation is the flow's red
+        finding, what could not be checked is not compared."""
         from dataclasses import replace
         from .flow import runtime_check, _rule, _test_entry_references, Unverified
         from .sources import authority
-        state, results, guards = self.state, [], {}
+        state, guards = self.state, {}
         self.grey.extend(state.anchor_issues)
         observed_anchors = {event.anchor for event in state.events}
         observed_calls = {event.anchor for event in state.events if event.phase == 'call'}
@@ -959,33 +946,25 @@ class Observations:
             source = self._parsed(model)
             valid, reason = authority(source, None, self.cfg, state.engine.archive, None)
             observed['grey'].extend([*grey, *([] if valid else [reason])])
-            observed['verdict'] = 'red' if observed['red'] else 'grey' if observed['grey'] else 'ok'
-            observed['info'].append('rule scope: actual input points and static project-reference checks; full independence remains an intent check')
-            observed.update(id=identifier, scope='observed paths and relations only', complete=False)
             self.grey.extend(identifier + ': ' + reason for reason in observed['grey'])
-            self.red.extend(identifier + ': ' + reason for reason in observed['red'])
             if observed['red']:
                 if (quote := source.quote or source.text) not in quotes.values():
                     quotes[identifier] = quote
-                self.red.extend(name + ' source: ' + quote for name, quote in quotes.items())
                 where = f'{state.model.file_of[identifier]}:{model.line}'
                 for reason in observed['red']:
                     cases = re.findall(r'(?<![\w./-])[\w./-]+\.py::[\w./#\[\]-]+', reason)    # the tests' cases it names
                     self._found('flow', f'flow:{identifier}', f'flow {identifier}', reason, FLOW_STEP.format(id=identifier),
                                 places=(where, *cases), detail=[f'{name} source: {quote}' for name, quote in quotes.items()])
-            results.append(observed)
-        return results
 
     def report(self):
-        """Judge the session: the legacy report dict (the runtime_observations payload, and what `check` merges from
-        its batches) and the 4.3 lines (`self.lines`, `signals.collect`) of every finding the session decides. True
-        when a line is red: FlowGuard fails a run only for red."""
+        """Judge the session: the 4.3 lines (`self.lines`, `signals.collect`) of every finding the session decides,
+        and the report the runtime_observations payload keeps and `check` reads of its batch (the baseline, the
+        compared items and FlowGuard's own seconds). True when a line is red: FlowGuard fails a run only for red."""
         timing = time.perf_counter()
         from . import signals, sources
         self._rule_signals()
-        partial_flows = self._flow_signals()
-        items, before = self._compare()
-        leads = []
+        self._flow_signals()
+        items = self._compare()
         for _, point, _, _, _ in self.records:
             if self.request and self.request['target'] == point['target']:
                 self.request['readings'].extend(reading for reading in self.runtime.readings if reading.target == point['target'])
@@ -995,37 +974,19 @@ class Observations:
         self.grey.extend(point['name'] + ': no comparable JSON result' for index, point, _, _, _ in self.records
                          if self.runtime.readings[index].sample is None
                          and (point['changed'] or copies[point['name']] > 1))
-        unverified, failed_items = [], set()      # an intent item's red is already a failed test
         model = self.state.model
         for item, result in self.state.results.items():
             if result.get('verdict') == 'grey':
-                unverified.extend(item.partition('::')[2] + ': ' + str(reason) for reason in result.get('grey', ()) or ['unverified'])
                 self._unchecked(item.partition('::')[2], [str(reason) for reason in result.get('grey', ())] or ['unverified'])
-            if result.get('red'):
-                rule = model.rules.get(result.get('rule'))
-                quote = ''
-                if rule and (source := self._parsed(rule)) is not None:
-                    quote = source.quote or source.text
-                lines = [signals.constraint(message, result.get('rule') or 'rule') for message in result['red']]
-                if quote:
-                    lines.append(str(result.get('rule') or 'rule') + ' source: ' + quote)
-                self.red.extend(lines)
-                failed_items.update(lines)
-                if result.get('kind') != 'load':           # a declaration that does not load is the model's error below
-                    self.carried.add(self._item_red(result))
+            # an intent item's red is already a failed test; a declaration that does not load is the model's error below
+            if result.get('red') and result.get('kind') != 'load':
+                self.carried.add(self._item_red(result))
             if result.get('before'):
                 self._item_before(item, result)
         self._judged_names()
-        # Each violated rule names the next step: correct the code, or the rule first when the need changed.
-        for rule in model.rules.values():
-            if any(str(message).partition('：')[0].partition(': ')[0].partition(' source')[0].partition(' 出处')[0] == rule.id for message in self.red):
-                homes = [self._place(home.target) for home in rule.homes if not hasattr(home, 'scenario')] or [rule.id + ' binding']
-                said = [str(message).partition('：')[2] for message in self.red if str(message).startswith(rule.id + '：')]
-                self.steps.setdefault(rule.id, signals.rule_steps(rule.id, homes, f'{model.file_of[rule.id]}:{rule.line}', said))
         syntax = []             # files that cannot be parsed: only they are unverified
         for issue in self.index.issues:
             if issue.level == 'red':
-                self.red.append(issue.message)
                 place = f'{issue.file}:{issue.line}' if issue.line else issue.file
                 what, step = signals.split_step(signals.ascii_text(issue.message))
                 self._found('input', f'comment:{place}:{issue.code}', f'comment {place}', what,
@@ -1038,8 +999,7 @@ class Observations:
         found = None
         catalog = sources.catalog_files(self.cfg)
         if self.changed or self.mapped or set(sources.CATALOG_FILES) & self.touched:
-            # Static leads and owner writes need no replay: an old value still elsewhere (rules too),
-            # a new spelling of a label, a new write outside a data owner's writers, a pair, a value.
+            # The map checks need no replay: owner writes and pairs, values, the catalog, structure problems.
             from . import anchors, owners
             graph = self.state.get_map()       # the map's index also holds the TS/JS owners (check --static reads it)
             collector = _SIGNALS.get()
@@ -1052,17 +1012,12 @@ class Observations:
                                               everything=everything)
                 if collector is not None:
                     collector.static[key] = found
-            self.red.extend(found.red)
-            leads.extend(found.leads)
             self.structure = found.summary         # the session brief's count of open structure problems
             self.hidden = list(found.hidden)
         elif catalog:
             # Without a change the map checks do not run; an invalid rules.toml or known.toml, or a known entry whose
             # site names nothing on the map, is red in every run (D4).
-            problems = sources.input_findings(self.cfg, self.state.get_map)
-            self.red.extend(issue.text for issue in problems)
-            self.issues.extend(problems)
-        self.red.extend(f'load {error["file"]}:{error["line"]}: {error["msg"]}' for error in model.errors)
+            self.issues.extend(sources.input_findings(self.cfg, self.state.get_map))
         for error in model.errors:
             place = f'{error["file"]}:{error["line"]}'
             self._found('input', f'load:{place}', f'load {place}', signals.ascii_text(error['msg']),
@@ -1072,8 +1027,6 @@ class Observations:
         if self.state.ledger_judged and not fallbacks.grey:
             self.ran.add('ledger')          # every entry and handler compared with the map
         from .ledger import LEDGER
-        # a [structure] entry of a later FlowGuard is unverified, never red, also in a run without a source change
-        unverified.extend(fallbacks.later)
         for finding in fallbacks.red:
             places = (LEDGER, *re.findall(r'(?<![\w./-])[\w./-]+\.[A-Za-z]\w*:\d+', finding.text))   # the code it names
             key = self._found('ledger', f'ledger:{finding.text}', 'ledger', signals.ascii_text(finding.text), signals.LEDGER_STEP,
@@ -1085,26 +1038,22 @@ class Observations:
             self._unchecked(subject or why, [why])
         for reason in fallbacks.later:              # a [structure] entry of a later FlowGuard: it checks nothing here
             self._unchecked(LEDGER, [signals.ascii_text(reason)], places=(LEDGER,))
-        report = dict(session=True, baseline=self.missing or self.runtime.baseline, baseline_kind=self.baseline_kind,
+        report = dict(baseline=self.missing or self.runtime.baseline, baseline_kind=self.baseline_kind,
                       baseline_ahead=self.baseline_ahead,
-                      # the overflow's command keeps --flowguard-base, as `--base`, so it lists these leads
-                      more_leads=signals.more_leads('check --static', base=self.requested_base),
                       source_changed=self.changed or bool(self.mapped) or bool(fallbacks.later),
-                      comparison_requested=self.comparison_requested, items=items, paths=self.paths,
-                      leads=leads, before=list(dict.fromkeys(before)), red=list(dict.fromkeys(self.red)), steps=self.steps, partial_flows=partial_flows, unverified=unverified,
-                      ledger_red=[dict(text=finding.text, fix=list(finding.fix)) for finding in fallbacks.red],
+                      comparison_requested=self.comparison_requested, items=items,
                       seconds=self.state.tool_seconds + getattr(self.runtime, 'seconds', 0) + time.perf_counter() - timing)
         delivery = self.delivery()
         self.lines, self.ignored = signals.collect([delivery], found)
         from dataclasses import fields
         from .flow import Event
         names = [field.name for field in fields(Event)]
-        self.payload = observation_payload(dict(stamp=self.state.started, baseline=self.runtime.baseline, items=report, paths=self.paths,
+        self.payload = observation_payload(dict(stamp=self.state.started, baseline=self.runtime.baseline, items=report,
                                   events=[{name: getattr(event, name) for name in names}
                                           for event in self.state.events if type(event) is Event]))
         collector = _SIGNALS.get()
         if collector is not None:
-            # `check` merges its batches' reports and renders them itself (`collector.deliveries` for the block).
+            # `check` reads its batch's report and delivery, and renders the block itself.
             collector.append(report)
             collector.deliveries.append(delivery)
         else:
@@ -1274,13 +1223,6 @@ class Observations:
         self.issues.append(Issue(f'source:{identifier}', LINES_ONLY, subject, f'{subject}: {reasons[0]}', signals.BEFORE_STEP,
                                  files=frozenset({where.partition(':')[0]}), family='source', subject=subject,
                                  parts=(('', where, reasons[0], signals.BEFORE_STEP),), detail=reasons))
-
-    def _red(self, subject, *texts, next=()):
-        from . import signals
-        message, steps = signals.red(subject, *texts, next=next)
-        self.red.append(message)
-        for key, lines in steps.items():
-            self.steps.setdefault(key, lines)
 
     def _place(self, target):
         point = self.points.get(target)
@@ -1972,7 +1914,8 @@ def _verify(session, exitstatus):
     if state.complete_collection is not None:
         attempt['complete_collection'] = dict(collected_nodeids=sorted(state.complete_collection),
                                                completed_nodeids=sorted(state.completed))
-    observed = state.observations is not None and (state.observations.records or state.observations.paths or state.observations.red)
+    observed = state.observations is not None and (state.observations.records
+                                                   or any(line.kind == 'red' for line in state.observations.lines))
     if not declared and not state.footprints and not observed:
         # Standalone pytest does not build a map, but must retire old traces
         # for a test it ran without recording. Never refresh them by implication.

@@ -11,6 +11,7 @@ import pytest
 from flowguard.intent import anchors, owners, sources
 from flowguard.intent.config import load_config
 from flowguard.intent.health import Issue
+from flowguard.intent.signals import Line
 from flowguard.map.common import git_renames
 from flowguard.structure import build
 from tests.intent_engine.test_static_check import _commit, _git, _write
@@ -136,11 +137,13 @@ def test_static_findings_take_the_catalog_loosened_and_impact_findings_and_carry
         catalog = Issue('input:known.k', 1, 'known.k', 'text', 'step', family='input', subject='known.k',
                         parts=(('', '.flowguard/known.toml:1', 'is invalid', 'fix it'),), fresh=frozenset({''}))
         monkeypatch.setattr(sources, 'findings', lambda cfg, graph, change: owners.Findings(issues=[catalog], known=[entry]))
-        monkeypatch.setattr(owners, 'loosened', lambda change, index: owners.Findings(red=['loosened red']))
-        monkeypatch.setattr(owners, 'field_impact', lambda change, index: owners.Findings(leads=['impact lead']))
+        loosened = Line('loosened', 'loosened:x', '', 'x loosened', 'name it')
+        impact = Line('impact', 'impact:f', 'app/a.ts:f', 'f now writes F', 'check them')
+        monkeypatch.setattr(owners, 'loosened', lambda change, index: owners.Findings(lines=[loosened]))
+        monkeypatch.setattr(owners, 'field_impact', lambda change, index: owners.Findings(lines=[impact]))
         found = owners.static_findings(cfg, graph, index)
     assert found.known == [entry] and catalog in found.issues
-    assert 'loosened red' in found.red and 'impact lead' in found.leads
+    assert loosened in found.lines and impact in found.lines
 
 
 PASS = """

@@ -47,9 +47,7 @@ def test_correlated_or_disconnected_samples_do_not_become_a_cartesian_interval()
         assert 'x=4–6' not in text and 'x=0–1，y=0–1' not in text
 
 
-def test_path_changes_use_named_order_and_quiet_runs_print_nothing():
-    report = dict(items=[], paths=[dict(test='test_release', before=['入口', '保存', '发布'], after=['入口', '发布'])])
-    assert signals.render(report) == 'path test_release：入口 → 保存 → 发布 became 入口 → 发布'
+def test_a_quiet_comparison_prints_nothing_and_a_complete_one_its_count():
     assert signals.render(dict(source_changed=False, changes=[], complete=True, total=0, changed=0)) == ''
     assert signals.render(dict(source_changed=True, changes=[], complete=True, total=12, changed=0)) == 'total 12 classes，changed 0 classes'
 
@@ -91,7 +89,13 @@ def test_same_name_lines_name_each_copy_where_it_first_differs_and_keep_it_apart
     assert [(where, text, step) for where, text, step, _ in lines] == [
         ('days=3', '3 copies: 1 copies return True (reference a), 1 copies return False (c), plus 1 copies differ from the reference on other inputs: b (days=4)', 'make c agree with the reference'),
         ('days=4', '3 copies: 1 copies return False (reference a), 1 copies return True (b), plus 1 copies differ from the reference on other inputs: c (days=3)', 'make b agree with the reference')]
-    assert signals.copy_red('LIMIT', lines[:1]) == ('same-name anchor LIMIT：days=3，3 copies: 1 copies return True (reference a), 1 copies return False (c), plus 1 copies differ from the reference on other inputs: b (days=4) -> make c agree with the reference; if intentionally different, use different anchor names and declare distinct')
+    # The red line of the first input, in the words of the 4.3 block: no way out besides the fix (4.7).
+    words = signals.copy_lines(inputs, lambda x, y: x == y, str, owner='a', total=3, words=signals.copy_says)
+    [red], _ = signals.deliver([signals.copies_issue('LIMIT', words[:1], [], places=['a', 'b', 'c'])], touched_functions=(),
+                               touched_files=())
+    assert (red.kind, red.text, red.step) == (
+        'red', 'same LIMIT: on days=3: the reference a returns True, c returns False; b differs from the reference on days=4',
+        'make c agree with the reference')
     # Without an owner no copy is the reference: a line is kept where it first shows two copies that differ.
     lines = signals.copy_lines(inputs, lambda x, y: x == y, str, total=3)
     assert [(where, text, step) for where, text, step, _ in lines] == [
@@ -140,10 +144,12 @@ def standing(days):
         assert {row['target']: row['line'] for row in report['locations']} == where, report['locations']
         assert all(row['file'] == 'policy.py' for row in report['locations'])
         assert {row['target'] for row in report['locations'] if row['big']} == {'policy:booking', 'policy:delivery'}
-        text = signals.render(dict(items=[], leads=[report]))
-        assert 'old values 14 remain in 6 decisions' in text and len(text.splitlines()) == 1
+        # the lead gets no line (D6): `show --last` keeps its text, every location named in full
+        from flowguard.intent.owners import _old_value_text
+        text = _old_value_text(report)
+        assert text.startswith('old values 14 remain in 6 decisions: ') and len(text.splitlines()) == 1
         assert all(f"{row['file']}:{row['line']}" in text for row in report['locations'])
-        assert '# flowguard: same NAME ref' in text and '…' not in text
+        assert '…' not in text and '...' not in text
 
 
 def test_successful_comparison_grid_is_not_a_claim_of_complete_partition():
@@ -178,51 +184,28 @@ def test_readable_labels_do_not_mutate_the_source_constant_environment():
     assert env == {'GRACE': 7}
 
 
-def _compared(number, changed=None):
-    item = dict(name=f'K{number}', file='knobs.py', line=2 + 4 * number, status='ok', comparison_status='ok',
-                complete=True, total=2, changed=0, changes=[])
-    if changed:
-        item.update(total=3, changed=1, changes=[dict(region='n=2–16', inputs={'n': 2}, before='T', after='F')],
-                    cause=dict(name=f'K{number} 的常量', before=17, after=2, file='knobs.py', line=3 + 4 * number))
-    return item
-
-
-def test_an_explicit_comparison_lists_changes_first_and_counts_unchanged_points_apart():
-    session = dict(session=True, baseline='a' * 40, baseline_kind='base', source_changed=True, comparison_requested=True)
-    lines = signals.render(dict(session, items=[_compared(number) for number in range(13)])).splitlines()
-    assert lines[0] == 'FlowGuard（since --flowguard-base aaaaaaa）' and len(lines) == 11, lines
-    assert lines[1] == 'compared: K0（knobs.py:2）total 2 classes，changed 0 classes' and all(line.startswith('compared: ') for line in lines[1:]), lines
-    assert lines[-1] == 'compared: plus 4 unchanged items: K9、K10、K11、K12', lines
-    # One change among unchanged points: its line is printed whole, before them, never in an overflow.
-    lines = signals.render(dict(session, items=[*(_compared(number) for number in range(12)), _compared(12, True)])).splitlines()
-    assert lines[1] == ('changed: K12（knobs.py:50）total 3 classes，changed 1 classes：n=2–16; function result T → F(example: n=2）  cause: K12 的常量 17 → 2（knobs.py:51）'), lines
-    assert not any(line.startswith('changed: plus ') for line in lines) and len(lines) == 11, lines
-    assert lines[2:-1] == [f'compared: K{number}（knobs.py:{2 + 4 * number}）total 2 classes，changed 0 classes' for number in range(8)], lines
-    assert lines[-1] == 'compared: plus 4 unchanged items: K8、K9、K10、K11', lines
-
-
-def test_one_unverified_point_is_said_once():
-    # Round 22 review: with one point unverified the count line repeated its only reason, which the next line gives.
-    report = dict(session=True, baseline='a' * 40, baseline_kind='task', source_changed=True, items=[],
-                  unverified=['N1: reason 1 needs a test'])
-    assert signals.render(report).splitlines()[1:] == ['unverified 1 items (not passed)', 'unverified: N1：reason 1 needs a test']
-
-
-def test_the_unverified_overflow_counts_lines_and_names_every_point_it_leaves_out():
-    report = dict(session=True, baseline='a' * 40, baseline_kind='task', source_changed=True, items=[],
-                  unverified=[f'N{number}: reason {number} needs a test' for number in range(1, 7)])
-    lines = signals.render(report).splitlines()
-    assert lines[1] == 'unverified 6 items (not passed): most common reason is "reason 1 needs a test"', lines
-    assert lines[2:4] == ['unverified: N1：reason 1 needs a test', 'unverified: N2：reason 2 needs a test'], lines
-    assert lines[-1] == 'unverified: plus 4 entries（N3、N4、N5、N6）: python -m flowguard show NAME explains why', lines
-
-
-def test_old_and_current_source_delimiters_keep_the_same_original_quote():
-    quote = 'owner R1: 会员也一样，不能例外。'
-    for marker in (' source: ', ' 出处：'):
-        rendered = signals.render(dict(session=True, items=[], red=['LIMIT' + marker + quote]))
-        assert 'red: LIMIT' in rendered
-        assert 'LIMIT source: ' + quote in rendered
+def test_an_explicit_comparison_prints_its_changes_and_keeps_the_points_it_found_unchanged_for_show_last(tmp_path):
+    from tests.intent_engine.test_default_runtime_signals import _project, _run
+    from tests.intent_engine._cli_fixture import block, last
+    policy = _project(tmp_path, '''
+        def late_fee(days: int) -> int:
+            return days * 2
+        def grace(days: int) -> int:
+            return days * 3
+    ''', '''
+        from policy import late_fee, grace
+        def test_fee():
+            assert late_fee(2) in (4, 6) and grace(1) == 3
+    ''')
+    policy.write_text(policy.read_text().replace('return days * 3', 'return 3 * days').replace('return days * 2', 'return days * 3'))
+    result = _run(tmp_path, '--flowguard-base', 'HEAD')
+    lines = block(result)
+    assert result.returncode == 0 and _re.fullmatch(rf'FlowGuard {_re.escape(VERSION)} \(since --flowguard-base [0-9a-f]{{7}}\): 0 red, '
+                                                    r'1 changed; \d+\.\d s', lines[0]), lines
+    # the change is a line; the point that answers as before is no line, show --last names it
+    assert lines[1:] == ['changed: late_fee (policy.py:1): (days=2) was 4, now 6; 1/1 inputs differ -> if you meant it, say so'], lines
+    shown = last(tmp_path).splitlines()
+    assert shown[shown.index('compared, unchanged:') + 1] == '    grace (policy.py:3): 1 inputs compared, none differs', shown
 
 
 # ---- the 4.3 block: one first line, the nine kinds, budgets (design 4.7) -----------------------------------------
@@ -539,11 +522,11 @@ def test_a_changed_line_and_the_check_view_take_list_and_dict_inputs():
     line = signals.changed_line('TOTAL', 'calc:total', 'calc.py', 2, rows, 3)
     assert line.text == 'TOTAL (calc.py:2): (items=[1, 2], order={"a": 1}) was 3, now 5; 3/3 inputs differ', line
     assert line.detail[0] == '(items=[5], order={"a": 2, "b": 1}) was 5, now 6', line
-    # check still renders a pytest batch's report with the 4.2 view of its changed points
+    # the comparison view (`compare`) reads them as well
     item = dict(name='TOTAL', file='calc.py', line=2, status='ok', complete=True, total=3, changed=rows,
                 rows=[(inputs, new) for inputs, _, new in rows])
-    text = signals.render(dict(session=True, baseline='a' * 40, baseline_kind='task', source_changed=True, items=[item]))
-    assert 'changed: TOTAL' in text and 'items=[1, 2]' in text, text
+    text = signals.render(dict(items=[item], source_changed=True))
+    assert text.startswith('TOTAL') and 'items=[5]' in text, text
 
 
 def test_a_pytest_run_whose_changed_function_takes_a_list_prints_and_keeps_its_changed_line(tmp_path):

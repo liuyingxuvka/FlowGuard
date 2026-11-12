@@ -333,19 +333,19 @@ def test_a_sibling_handler_that_writes_the_partner_does_not_hold_the_pair(tmp_pa
     issues, lines, found = _route(tmp_path, '', SIBLING)
     [member] = _red(lines)
     assert member[0] == 'pair:Project.leaderId>Member.*' and member[1].startswith('typescript/src/routes.ts:<anonymous@')
-    assert any('missing paired write' in line for line in found.red), found.red
+    assert _members(issues) == {member}         # the sibling's own write holds nothing for this handler
 
 
 def test_a_handler_that_calls_the_helper_writing_the_partner_holds_the_pair(tmp_path):
     # E1 B-r3fixCall: the handler's own calls are its operation (4.2.1 read the module's calls only).
     issues, lines, found = _route(tmp_path, '  await memberService.addLeader(prisma, project.id, req.body.id);\n')
-    assert _red(lines) == set() and not found.red, (found.red, lines)
+    assert _red(lines) == set() and _members(issues) == set(), (issues, lines)
 
 
 def test_a_handler_that_writes_the_partner_itself_holds_the_pair(tmp_path):
     # E1 B-r3fixDirect.
     issues, lines, found = _route(tmp_path, "  await prisma.member.create({ data: { projectId: project.id, id: req.body.id, role: 'LEAD' } });\n")
-    assert _red(lines) == set() and not found.red
+    assert _red(lines) == set() and _members(issues) == set(), (issues, lines)
 
 
 def test_a_service_write_is_held_by_the_handler_that_calls_it_and_writes_the_partner(tmp_path):

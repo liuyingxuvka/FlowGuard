@@ -68,24 +68,25 @@ def _findings(root, base, everything):
         return owners.static_findings(cfg, graph, anchors.collect(graph), base, everything=everything)
 
 
-def test_label_tables_that_disagree_are_listed_and_a_lead_when_this_change_edits_one(tmp_path):
+def test_label_tables_that_disagree_are_findings_new_when_this_change_edits_one(tmp_path):
     _write(tmp_path, {'.gitignore': '.flowguard/cache/\n', **FILES})
     _git(tmp_path, 'init', '-q', '-b', 'main')
     _git(tmp_path, 'add', '.')
     _git(tmp_path, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'baseline')
     base = _git(tmp_path, 'rev-parse', 'HEAD').strip()
-    found = _findings(tmp_path, base, True)
-    listed = [line.partition('labels：')[2] for line in found.section if '. labels：' in line]
-    assert listed == [ENTRY, ORG], found.section
-    entry = found.section.index(next(line for line in found.section if line.endswith(ORG)))
-    assert found.section[entry + 2] == '       [structure."labels:frontend/src/utils/type-label.ts:TYPE_LABELS"]'
-    assert not [lead for lead in found.leads if 'Label tables disagree' in str(lead)]
-    # An edit elsewhere in a file with a table is no lead; an edit of a table is one, with the entry to copy.
+    def labels(found):
+        return {issue.text: issue for issue in found.issues if issue.family == 'labels'}
+    found = labels(_findings(tmp_path, base, True))
+    assert sorted(found) == sorted([ENTRY, ORG]), found
+    assert found[ORG].entry[0] == '[structure."labels:frontend/src/utils/type-label.ts:TYPE_LABELS"]'
+    assert all(issue.fresh == frozenset() for issue in found.values())
+    # An edit elsewhere in a file with a table leaves the finding old; an edit of a table makes it new, with the entry
+    # to copy.
     detail = tmp_path / 'frontend/src/pages/Detail.tsx'
     detail.write_text(detail.read_text(encoding='utf-8') + 'export const other = 1;\n', encoding='utf-8')
-    assert not [lead for lead in _findings(tmp_path, base, False).leads if 'Label tables disagree' in str(lead)]
+    assert all(issue.fresh == frozenset() for issue in labels(_findings(tmp_path, base, False)).values())
     detail.write_text(detail.read_text(encoding='utf-8').replace("TEAM: 'Team' }", "TEAM: 'Teams' }"), encoding='utf-8')
-    leads = [lead for lead in _findings(tmp_path, base, False).leads if 'Label tables disagree' in str(lead)]
-    assert len(leads) == 1 and leads[0].startswith(ORG.replace('；DETAIL_LABELS lacks ', "；TEAM 'Team'（TYPE_LABELS） versus 'Teams'（DETAIL_LABELS）；DETAIL_LABELS lacks ")), leads
-    assert leads[0].endswith('[structure."labels:frontend/src/utils/type-label.ts:TYPE_LABELS"] decision = "Replace with the owner\'s decision: who owns this and '
-                             'why (at least 8 words)" source = "R<n>"'), leads
+    fresh = [issue for issue in labels(_findings(tmp_path, base, False)).values() if issue.fresh]
+    assert len(fresh) == 1 and fresh[0].text.startswith(ORG.replace('；DETAIL_LABELS lacks ', "；TEAM 'Team'（TYPE_LABELS） versus 'Teams'（DETAIL_LABELS）；DETAIL_LABELS lacks ")), fresh
+    assert ' '.join(fresh[0].entry).endswith('[structure."labels:frontend/src/utils/type-label.ts:TYPE_LABELS"] decision = "Replace with the owner\'s decision: who owns this and '
+                                             'why (at least 8 words)" source = "R<n>"'), fresh

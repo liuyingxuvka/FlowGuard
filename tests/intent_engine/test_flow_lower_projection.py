@@ -170,8 +170,8 @@ def test_projected_rules_keep_the_raw_sensor_behavior_difference(tmp_path):
     path = root / (module + '.py')
     path.write_text(path.read_text().replace("return 'blocked'", "return 'denied'"))
     assert run_check(model.cfg, everything=True) == 0
+    assert not [line for line in cache.read_last(model.cfg)['lines'] if line['kind'] == 'red'], cache.read_last(model.cfg)
     report = cache.observations(model.cfg)['items']
-    assert not report['red'], report
     readings = [item for item in report['items'] if item['name'] == 'LOWER_CALL']
     # The recorded call's sealed outcome before and after the edit (JSON values, 4.5).
     assert [change for reading in readings for change in reading['changed']] == [

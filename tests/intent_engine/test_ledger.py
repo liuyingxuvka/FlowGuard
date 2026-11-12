@@ -691,7 +691,6 @@ def told(work, show):
 def test_check_all_lists_unreviewed_legacy_fallbacks_of_production_code_by_how_they_end(tmp_path):
     # Planning Tool 0.6.28 kept 232 legacy entries, all "旧账，未审", the permission read that falls back to the
     # code's default table among test-script catches, with nothing that told them apart.
-    from flowguard.intent import anchors, owners
     root = tmp_path / 'shop'
     write(root, 'web/roles.ts', ENDINGS_TS)
     write(root, 'src/shop/__init__.py', '')
@@ -723,11 +722,11 @@ def test_check_all_lists_unreviewed_legacy_fallbacks_of_production_code_by_how_t
         '   Next: review each handler. If callers need the error, let it raise or propagate; otherwise make reason explain what it does, why it may remain, and point rule to a written rule']
     with closing(build(root, workers=1)) as graph:
         assert ledger.open_legacy(cfg, graph) == expected
-        index = anchors.collect(graph)
-        assert owners.static_findings(cfg, graph, index, None, everything=True).section[-len(expected):] == expected
-        assert owners.static_findings(cfg, graph, index, None).section == []
-    # check --all and check --static --all print them as before lines, one per kind of handler body
-    from flowguard.intent.cli import _legacy_lines
+    # check --all and check --static --all print them as before lines, one per kind of handler body; without --all
+    # none
+    from flowguard.intent.cli import _legacy_lines, _owner_findings
+    legacy = lambda found: [line for line in found.lines if line.name.startswith('ledger:legacy:')]
+    assert legacy(_owner_findings(cfg, everything=True)) == _legacy_lines(expected) and not legacy(_owner_findings(cfg))
     assert [(line.kind, line.text, line.step) for line in _legacy_lines(expected)] == [
         ('before', f'ledger legacy: {text}', 'leave it unless your task is about it') for text in (
             'returns or substitutes another value: 3 handlers: src/shop/stock.py:4 old_reader, web/roles.ts:2 allowedRoles, web/roles.ts:17 scopes',

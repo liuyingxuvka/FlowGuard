@@ -19,20 +19,6 @@ def _shown(value):
     return C.show(value)
 
 
-def constraint(message, rule=None):
-    """Keep the independent expected/actual witness before a long source name."""
-    if rule is None:
-        rule, separator, body = message.partition(': ')
-        if not separator:
-            return message
-    else:
-        body = message
-    if 'smallest ' in body and ' -> rule ' in body:
-        before, _, witness = body.partition('smallest ')
-        body = 'smallest ' + witness + '；' + before
-    return str(rule) + '：' + body
-
-
 def _example(row):
     if 'witness' in row:
         return ', '.join(f'{name}={value}' for name, value in row['witness'].items())
@@ -187,19 +173,9 @@ def _block(item, *, comparison=False, same_name=False):
 
 
 def render(report, limit=10):
-    """A test run's report (`session`) prints red, then changes, leads and what stayed unverified;
-    a single comparison keeps its bounded block view. Full facts remain in the report.
-
-    The fallback ledger's red lines come first, complete and untruncated, each with the entry to copy;
-    they do not count against the ten-line budget of the other signals. The `--all` listing of open
-    structure problems (`structure`) comes last, complete as well."""
-    if report.get('session'):
-        text = _session(report, limit)
-        return '\n'.join([*([text] if text else []), *report.get('structure', ())])
-    ledger = list(report.get('ledger', ()))
-    structure = list(report.get('structure', ()))
-    rest = _render(report, limit, quiet=bool(ledger or structure))
-    return '\n'.join([*ledger, *([rest] if rest else []), *structure])
+    """The bounded text of one source comparison (`differences._compare_pairs`, the deprecated `compare` command):
+    its red, then each compared pair's block, then what stayed incomplete. Full facts remain in the report."""
+    return _render(report, limit)
 
 
 # ---- the nine kinds of line (4.3) ------------------------------------------------------------------
@@ -631,7 +607,7 @@ def finding(family, name, subject, whats, step, *, function='', places=(), files
             whats[0], step = said, own
     whats = list(dict.fromkeys(what.replace(' -> ', ': ') for what in whats))
     what = whats[0] + (f' (+{len(whats) - 1} more)' if len(whats) > 1 else '')
-    return Issue(name, LINES_ONLY, subject, f'{subject}: {what}', step, files=frozenset(files), new=fresh, family=family,
+    return Issue(name, LINES_ONLY, subject, f'{subject}: {what}', step, files=frozenset(files), family=family,
                  subject=subject, parts=((function, tuple(places), what, step),), fresh=frozenset({function}) if fresh else frozenset(),
                  detail=tuple(whats[1:]) + tuple(detail))
 
@@ -739,17 +715,9 @@ def ascii_text(text):
     return _ascii(str(text))
 
 
-# ---- the end-of-test view ------------------------------------------------------------------------
-# Four kinds, in this order: red (every red, the places of one rule or owner on one line, each followed
-# by the next step to copy), changed (changed outcomes and paths), lead (leads) and unverified (grey, merged
-# and counted). The last three share ten lines; names and places are never shortened.
-
-def red(subject, *texts, next=()):
-    """One red finding as report text (`SUBJECT：text`) and its next steps keyed by the subject.
-
-    Reports keep red findings as text; `steps` carries the lines to copy under the merged red line."""
-    return (subject + '：' if subject else '') + '；'.join(texts), {subject: list(next)} if subject and next else {}
-
+# ---- same-name copies -----------------------------------------------------------------------------
+# The words of one input of same-name copies: `copy_says` for the 4.3 lines, `copy_answers` for the reason a pytest
+# session or `check` gives a pair it could not compare at the baseline (`plugin.compare_copies`).
 
 def copy_answers(answers, same, show, owner=None, total=None, apart=()):
     """What same-name copies answered one input, and the next step, without choosing which copy is right.
@@ -848,7 +816,7 @@ def copies_issue(name, fresh, old, *, places, files=()):
                 new.add(function)
     every = list(dict.fromkeys(places))
     return Issue(f'same:{name}', LINES_ONLY, f'same {name}', f'same {name}: copies disagree', parts[0][3] if parts else '',
-                 files=frozenset(files), new=bool(new), family='same', subject=f'same {name}', parts=tuple(parts),
+                 files=frozenset(files), family='same', subject=f'same {name}', parts=tuple(parts),
                  fresh=frozenset(new), detail=(f'copies: {", ".join(every)}',) if len(every) > PLACES else ())
 
 
@@ -861,7 +829,7 @@ def copy_lines(inputs, same, show, owner=None, total=None, *, only=None, words=N
     it first shows two copies that differ. `pairs` holds the pairs of places the line shows to differ. On another
     line a copy that answers as the owner but differs from it elsewhere is set apart (`copy_answers`). `only`, one
     set of pairs per input, keeps each input to those of its pairs. `words` words each line (`copy_answers` when
-    None, the 4.2 lines `check` and vitest still print; `copy_says` for the 4.3 block)."""
+    None, the reason of a pair whose baseline could not run; `copy_says` for the 4.3 block)."""
     owned = owner is not None and any(place == owner for _, answers in inputs for place, _ in answers)
     kept, seen = [], set()
     for number, (where, answers) in enumerate(inputs):
@@ -976,12 +944,6 @@ def copy_cut(name, limit, left):
     return f'{name}: compared on {limit} inputs; {" and ".join(parts)} left out' if parts else None
 
 
-def copy_red(name, lines):
-    """The one red of same-name copies `name` from its `copy_lines`: each input with its step, then the way out."""
-    return (f'same-name anchor {name}：' + '；'.join(f'{where}，{text} -> {step}' for where, text, step, _ in lines)
-            + '; if intentionally different, use different anchor names and declare distinct')
-
-
 def rule_steps(rule_id, homes, where, messages=()):
     """The next step of a violated rule by what its red `messages` say, in the same words in pytest, `check` and
     the vitest report (no messages: the code disagrees). The code disagrees with the rule (`-> rule X, code Y`):
@@ -1031,183 +993,6 @@ def _listed(places):
     return places[0] if len(places) == 1 else ', '.join(places[:-1]) + ' and ' + places[-1]
 
 
-def _red_entry(message):
-    text = str(message)
-    for source_marker in (' source: ', ' 出处：'):
-        subject, marker, quote = text.partition(source_marker)
-        if marker and subject and '：' not in subject and ': ' not in subject:
-            return dict(subject=subject, separator='：', texts=[], quote=quote)
-    for separator in ('：', ': '):
-        head, found, rest = text.partition(separator)
-        if found and head and len(head) <= 60 and '=' not in head and '\n' not in head:
-            parts = [part.strip().rstrip(';').strip().removeprefix('smallest ') for part in rest.split('；') if part.strip().rstrip(';')]
-            return dict(subject=head, separator=separator, texts=parts, quote='')
-    return dict(subject='', separator='', texts=[text], quote='')
-
-
-def _red_lines(report, items):
-    entries, order, compared = {}, [], []
-    steps = dict(report.get('steps', {}))
-    messages = [*report.get('red', ()), *(message for item in items for message in item.get('red', ()))]
-    for item in items:
-        if item.get('comparison') and _facts(item, comparison=True)['count']:
-            # A source comparison keeps its block title: `red same-name anchor NAME（left ↔ right）：counts：first change`.
-            facts = _facts(item, comparison=True)
-            same = item.get('same_name') or report.get('same_name')
-            compared.append(('red same-name anchor ' if same else 'red comparison ') + f'{facts["name"]}{facts["location"]}：{facts["summary"]}：{facts["overall"]}')
-            if same:
-                compared.append('    make these locations agree; if behavior should differ, use different anchor names and declare distinct')
-    for message in messages:
-        entry = _red_entry(message)
-        key = entry['subject'] or ('', len(order))
-        if key not in entries:
-            entries[key] = entry
-            order.append(key)
-            continue
-        merged = entries[key]
-        merged['texts'] += entry['texts']
-        merged['quote'] = merged['quote'] or entry['quote']
-    lines = []
-    for key in order:
-        entry = entries[key]
-        body = '；'.join(dict.fromkeys(entry['texts']))
-        line = 'red: ' + (entry['subject'] + (entry['separator'] + body if body else '') if entry['subject'] else body)
-        if entry['quote']:
-            line += f'  {entry["subject"]} source: {entry["quote"]}'
-        lines.append(line)
-        lines.extend('    ' + step for step in steps.get(entry['subject'], ()) if entry['subject'])
-    for finding in report.get('ledger_red', ()):
-        lines.append('red: ' + finding['text'])
-        lines.extend('    ' + step for step in finding['fix'])
-    return lines + compared
-
-
-def _lead_line(lead):
-    if not isinstance(lead, dict):
-        return 'lead: ' + str(lead)
-    locations = lead.get('locations', ())
-    if not locations:
-        return ''
-    values = ','.join(dict.fromkeys(_shown(row['old']) for row in locations))
-    return (f'lead: old values {values} remain in {lead["total"]} decisions: '
-            + '  '.join(f'{row["file"]}:{row["line"]}' + ('(in a large function)' if row.get('big') else '') for row in locations)
-            + ' -> if requirements changed, update together; to lock them, write # flowguard: same NAME ref above the reference and # flowguard: same NAME above the copies')
-
-
-def _fit(lines, room, overflow):
-    if room <= 0:
-        return []
-    if len(lines) <= room:
-        return lines
-    return lines[:room - 1] + [overflow(len(lines) - room + 1)]
-
-
-def _session(report, limit):
-    budget = min(10, max(1, limit))
-    title = _title(report)
-    if 'seconds' in report:
-        title += f'; {report["seconds"]:.3f} s'
-    items = list(report.get('items', ()))
-    reds = _red_lines(report, items)
-    requested = bool(report.get('comparison_requested'))
-    # A missing task start compares nothing, and the title alone says so with the next step.
-    alone = title if report.get('baseline_kind') == 'missing' or 'seconds' in report else ''
-    before = ['before: ' + str(message) for message in report.get('before', ())]
-    if not reds and not before and not report.get('source_changed') and not requested:
-        return alone
-    changes, names, unverified, calls = [], [], [], {}
-    compared, compared_names = [], []      # an explicit comparison's unchanged points, after every change
-    for item in items:
-        if item.get('comparison'):
-            continue
-        if item.get('name') in ('uncovered', '未覆盖') and not item.get('file'):
-            unverified.extend((*_grey(str(reason)), False) for reason in item.get('reasons', ()))
-            continue
-        facts = _facts(item)
-        subject = f'{facts["name"]}{facts["location"]}'
-        if facts['count']:
-            # Calls of one point in several contexts with the same change print once, with their count.
-            key = subject, facts['overall'], facts['cause']
-            if key in calls:
-                calls[key][1] += 1
-                continue
-            counted = facts['summary'] if not facts['unknown'] else f'compared {facts["checked"]} classes (partition incomplete); changed {facts["count"]} classes'
-            calls[key] = [len(changes), 1]
-            changes.append(f'changed: {subject}{"" if subject.endswith("）") else " "}{counted}：{facts["overall"]}'
-                           + (f'  {facts["cause"]}' if facts['cause'] else ''))
-            names.append(facts['name'])
-        elif item.get('lost'):
-            # Set only for an anchored or ruled point: its loss is red, or listed under [unverified]
-            # with its reason. A grey unanchored point has no `lost` and is listed below.
-            continue
-        elif facts['unknown'] or facts['status'] == 'grey':
-            # A point whose own code changed is listed before the others. An observed point whose
-            # comparison with the baseline did not finish says so; a point not observed gives its reason.
-            prefix = '' if item.get('status') == 'grey' else 'comparison incomplete: '
-            unverified.extend((subject, prefix + reason, bool(item.get('cause'))) for reason in facts['reasons'] or ['reason not recorded'])
-        elif requested:
-            compared.append(f'compared: {subject}{"" if subject.endswith("）") else " "}{facts["summary"]}')
-            compared_names.append(facts['name'])
-    for position, number in calls.values():
-        if number > 1:
-            changes[position] += f'（{number} identical calls)'
-    for path in report.get('paths', ()):
-        if path['before'] != path['after']:
-            changes.append(f'changed: path {path["test"]}：' + ' → '.join(path['before']) + ' became ' + ' → '.join(path['after']))
-            names.append('path ' + path['test'])
-    changes, names = _unique(changes, names)
-    compared, compared_names = _unique(compared, compared_names)
-    leads = [line for line in dict.fromkeys(_lead_line(lead) for lead in report.get('leads', ())) if line]
-    # What this change adds comes before the old ledger (`--all`): the budget never hides a new lead behind old ones.
-    leads.sort(key=lambda line: line.startswith(('lead: before', '线索：旧账')))
-    unverified.extend((*_grey(str(reason)), False) for reason in report.get('unverified', ()))
-    counted, causes = {}, {}
-    for subject, reason, changed in sorted(unverified, key=lambda entry: not entry[2]):
-        counted[(subject, reason)] = counted.get((subject, reason), 0) + 1
-        cause = re.sub(r'^(comparison incomplete: )?[A-Za-z_][\w.]*: ', r'\1', reason)
-        causes.setdefault(cause, set()).add(subject or reason)
-    if not (reds or before or changes or compared or leads or counted):
-        return alone
-    room = budget
-    # Changes come first and keep their room; an unchanged comparison never pushes a change into the overflow.
-    shown = _fit(changes, room - bool(leads) - bool(counted),
-                 lambda rest: f'changed: plus {rest} changes: ' + '、'.join(dict.fromkeys(names[len(changes) - rest:])))
-    shown += _fit(compared, room - len(shown) - bool(leads) - bool(counted),
-                  lambda rest: f'compared: plus {rest} unchanged items: ' + '、'.join(dict.fromkeys(compared_names[len(compared) - rest:])))
-    room -= len(shown)
-    # `all_leads` (check --leads) prints every lead outside the budget; otherwise the overflow names that command.
-    more = report['more_leads'] if 'more_leads' in report else more_leads('check --static')
-    if report.get('all_leads'):
-        shown_leads = leads
-    else:
-        shown_leads = _fit(leads, room - bool(counted), lambda rest: f'lead: plus {rest} entries: {more} lists all leads')
-        room -= len(shown_leads)
-    lines = [title, *reds, *before[:2], *shown, *shown_leads]
-    if counted and room > 0:
-        subjects = {subject or reason for subject, reason in counted}
-        common = max(causes, key=lambda cause: (len(causes[cause]), -list(causes).index(cause)))
-        # One point, its line right below: the count says no reason, which that line gives.
-        lines.append(f'unverified {len(subjects)} items (not passed)' + ('' if len(counted) == 1 and room > 1 else
-                     f': most common reason is "{common}"' + (f'（{len(causes[common])} items)' if len(causes[common]) > 1 else '')))
-        details = [f'unverified: {subject + "：" if subject else ""}{reason}' + (f'（{number} times)' if number > 1 else '')
-                   for (subject, reason), number in counted.items()]
-        keys = list(counted)
-
-        def hidden(rest):
-            # The detail lines left out are counted as lines, and the names they cover are listed in full.
-            names = '、'.join(dict.fromkeys(subject for subject, _ in keys[len(keys) - rest:] if subject))
-            return f'unverified: plus {rest} entries' + (f'（{names}）' if names else '') + ': python -m flowguard show NAME explains why'
-        lines.extend(_fit(details, min(3, room - 1), hidden))
-    return '\n'.join(lines)
-
-
-def _unique(lines, names):
-    """Each line once, with the name it was written for."""
-    kept = dict(zip(reversed(lines), reversed(names)))
-    ordered = list(dict.fromkeys(lines))
-    return ordered, [kept[line] for line in ordered]
-
-
 def _grey(text):
     """(subject, reason) of a grey line written as `NAME: reason` or `NAME：reason`."""
     for separator in ('：', ': '):
@@ -1217,36 +1002,13 @@ def _grey(text):
     return '', text
 
 
-def more_leads(command, everything=False, base=None):
-    """The command that prints every lead of a run: the same options, `--leads` added (an explicit baseline as
-    `--base`, also pytest's `--flowguard-base`, or it would list the leads against the task baseline instead)."""
-    return f'python -m flowguard {command}' + ' --all' * everything + (f' --base {base}' if base else '') + ' --leads'
-
-
 def missing_start(commit):
     """The one line of a run whose recorded task start this repository lacks (a shallow clone, collected history,
     another clone's cache): it compares nothing, and new-task records HEAD."""
     return f'FlowGuard(recorded task baseline {commit[:7]} is not in this repository: old/new comparison is off; first run python -m flowguard new-task)'
 
 
-def _title(report):
-    baseline, kind = report.get('baseline'), report.get('baseline_kind', 'task')
-    if not baseline:
-        return 'FlowGuard(no baseline commit: old/new comparison is off)'
-    if kind == 'missing':
-        return missing_start(baseline)
-    # An explicit baseline is named by the option that gave it: pytest's --flowguard-base, or `--base` of the
-    # CLI check (`baseline_option`).
-    option = report['baseline_option'] if 'baseline_option' in report else '--flowguard-base'
-    label = {'task': 'since task start', 'base': 'since ' + option, 'HEAD': 'since HEAD'}.get(kind, 'since')
-    ahead = report.get('baseline_ahead')
-    if kind == 'task' and ahead:
-        # A task start HEAD has moved past: the commits since are this task's, or an earlier task's without new-task.
-        return f'FlowGuard（{label} {baseline[:7]}, commits before HEAD: {ahead}; first run python -m flowguard new-task for a new task)'
-    return f'FlowGuard（{label} {baseline[:7]}）'
-
-
-def _render(report, limit, *, quiet=False):
+def _render(report, limit):
     budget = min(10, max(1, limit))
     items = report.get('items')
     items = [report] if items is None else items
@@ -1262,7 +1024,7 @@ def _render(report, limit, *, quiet=False):
     if len(red) > budget:
         lines[-1] = f'red: plus {len(red) - budget + 1} constraint violations; complete results retained in the report'
     items = sorted(items, key=lambda item: item.get('status') != 'red')
-    # Design order: red, changes, leads, then what stayed unverified.
+    # Design order: red, changes, then what stayed unverified.
     unverified = [item for item in items if item.get('status') != 'red' and _unknown(item)]
     def blocks(selected):
         for item in selected:
@@ -1271,34 +1033,12 @@ def _render(report, limit, *, quiet=False):
             lines.extend(_block(item, comparison=comparison or item.get('comparison', False),
                                 same_name=report.get('same_name', False) or item.get('same_name', False))[:budget - len(lines)])
     blocks([item for item in items if not any(item is other for other in unverified)])
-    for path in report.get('paths', ()):
-        if len(lines) >= budget:
-            break
-        if path['before'] != path['after']:
-            lines.append(f'path {path["test"]}：' + ' → '.join(path['before'])
-                         + ' became ' + ' → '.join(path['after']))
-    leads = list(report.get('leads', ()))
-    for lead in leads[:max(5, budget - len(lines))]:
-        if len(lines) >= budget:
-            break
-        if isinstance(lead, dict):
-            locations = lead.get('locations', ())
-            if not locations:
-                continue
-            values = ','.join(dict.fromkeys(_shown(row['old']) for row in locations))
-            lines.append(f'lead: old values {values} remain in {lead["total"]} decisions: '
-                         + '  '.join(f'{row["file"]}:{row["line"]}' + ('(in a large function)' if row.get('big') else '') for row in locations)
-                         + ' -> if requirements changed, update together; to lock them, write # flowguard: same NAME ref above the reference and # flowguard: same NAME above the copies')
-        else:
-            lines.append('lead: ' + str(lead))
     blocks(unverified)
-    if not lines and quiet:
-        return ''
     if not lines:
         lines.append(f'total {report.get("total", 0)} classes，changed {report.get("changed", 0)} classes'
                      if report.get('complete') else 'not compared: no observations available')
-    # Red lines and leads carry full names, places and the next step to copy: never shortened.
-    return '\n'.join(line if line.startswith(('red', 'lead')) else _short(line) for line in lines)
+    # Red lines carry full names, places and the next step to copy: never shortened.
+    return '\n'.join(line if line.startswith('red') else _short(line) for line in lines)
 
 
 def stale_copies(graph, changes):

@@ -82,9 +82,8 @@ def test_a_writers_agreement_added_over_old_writes_leaves_them_before_not_red(tm
                       'app/legacy.ts': _write_state('legacy', 'y')})
     found = _found(tmp_path)
     issue = _issue(found, 'writer:Item.state')
-    assert issue.fresh == frozenset() and not issue.new
+    assert issue.fresh == frozenset()
     assert _kinds(_deliver(found), 'writer:Item.state') == [('before', 'legacy')]
-    assert not found.red                    # 4.2.1 counted the same old write as old: the legacy red agrees
 
 
 # ---- values: a value written outside its declared set ------------------------------------------------------
@@ -121,8 +120,7 @@ def test_a_set_this_change_narrows_over_old_writes_leaves_them_before(tmp_path):
     _write(tmp_path, {'prisma/schema.prisma': STATE_ENUM % '', 'app/b.ts': old + 'export const touched = 1;\n'})
     found = _found(tmp_path)
     issue = _issue(found, 'values:Item.state')
-    assert issue.fresh == frozenset() and issue.new           # `new` is the legacy flag the 4.2.1 red line kept
-    assert any("app/b.ts:2 Item.state='gone'" in line for line in found.red)
+    assert issue.fresh == frozenset() and "app/b.ts:2 Item.state='gone'" in issue.text
     lines = _deliver(found)
     assert _kinds(lines, 'values:Item.state') == []              # oldWrite itself is untouched
     edited = _write_state('oldWrite', 'gone').replace("id: '1'", "id: '2'")
@@ -297,9 +295,9 @@ def test_a_registered_copy_changed_alone_is_a_red_finding_and_what_cannot_be_com
 GHOST = 'model Ghost {\n  id String @id\n}\n'
 
 
-def test_the_all_listing_counts_and_lists_only_the_findings_it_shows(tmp_path):
+def test_the_structure_count_leaves_out_the_findings_only_the_lines_report(tmp_path):
     # Writes outside a writers agreement and declarations that differ are findings only the 4.3 lines report: the
-    # --all listing neither counts nor lists them, as before they existed.
+    # session brief's count of open structure problems leaves them out, as before they existed; --all lists them.
     agreement = '// flowguard: writers Item.state setState\n'
     _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'app/a.ts': "export type Kind = 'a' | 'b';\n",
                        'app/b.ts': "export type Kind = 'a' | 'b' | 'c';\n",
@@ -307,8 +305,8 @@ def test_the_all_listing_counts_and_lists_only_the_findings_it_shows(tmp_path):
     _write(tmp_path, {'app/legacy.ts': _write_state('legacy', 'y')})
     found = _found(tmp_path, everything=True)
     assert {'writer:Item.state', 'declarations:Kind'} <= {issue.name for issue in found.issues}
-    assert not [line for line in found.section if 'structure issues' in line], found.section
-    # With a listed problem beside them, the header counts the entries it lists.
+    assert found.summary['count'] == 0, found.summary
+    # With a counted problem beside them, the count is that one problem's, in check --static and check alike.
     _write(tmp_path, {'prisma/schema.prisma': SCHEMA + GHOST,
                       'app/ghost.ts': "export async function readGhost(prisma: any) { return prisma.ghost.findMany({ where: { id: '1' } }); }\n"})
     cfg = load_config(tmp_path)
@@ -316,9 +314,10 @@ def test_the_all_listing_counts_and_lists_only_the_findings_it_shows(tmp_path):
         index = anchors.collect(graph)
         static = owners.static_findings(cfg, graph, index, 'HEAD', everything=True)
         checked = owners.check_findings(cfg, graph, index, 'HEAD', everything=True, static=static)
-    for section in (static.section, checked.section):
-        assert section[0].startswith('1 structure issues ') and [line for line in section if line[:1].isdigit()] == [
-            section[0], next(line for line in section if line.startswith('1. row creation'))], section
+    for found in (static, checked):
+        assert found.summary == dict(count=1, writers=0, top=['row creation Ghost']), found.summary
+    listed, _ = signals.deliver(checked.issues, touched_functions=(), touched_files=(), everything=True)
+    assert {'writer:Item.state', 'declarations:Kind', 'uncreated:Ghost'} <= {line.name for line in listed}, listed
 
 
 def test_a_typed_member_given_a_constant_this_change_alters_is_new_in_the_unchanged_function(tmp_path):
@@ -433,7 +432,6 @@ def summary(days: int) -> bool:
         found = owners.changed_alone(cfg, graph, anchors.collect(graph), owners.Change(cfg, graph, 'HEAD'))
     issue = _issue(found, 'changed-alone:LIMIT')
     assert [part[3] for part in issue.parts] == ['make report, summary match reference chart(limits.py:2)'] * 2
-    assert any('report\u3001summary' in line for line in found.red)     # the legacy red line keeps its text
     lines, _ = signals.deliver(found.issues, touched_functions=(), touched_files=(), extra=found.lines)
     assert all(ord(character) < 128 for line in lines for character in line.text + line.step)
 

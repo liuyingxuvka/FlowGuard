@@ -634,10 +634,12 @@ def test_reusing_static_findings_keeps_discovered_copies_in_the_summary_and_all_
         found = owners.check_findings(cfg, graph, index, base, everything=True, static=static)
     assert 'copies:LIMIT' in {issue.name for issue in found.issues}
     assert found.summary['count'] == 1
-    assert any('LIMIT' in line for line in found.section)
+    from flowguard.intent import signals          # --all lists every old finding
+    listed, _ = signals.deliver(found.issues, touched_functions=(), touched_files=(), everything=True)
+    assert any(line.name == 'copies:LIMIT' for line in listed), listed
 
 
-def test_reusing_static_findings_returns_its_issues_reds_and_leads_without_mutating_it(tmp_path, monkeypatch):
+def test_reusing_static_findings_returns_its_findings_and_lines_without_mutating_it(tmp_path, monkeypatch):
     from contextlib import closing
     from copy import deepcopy
     from flowguard.intent import owners
@@ -657,7 +659,7 @@ def test_reusing_static_findings_returns_its_issues_reds_and_leads_without_mutat
         index = anchors.collect(graph)
         static = owners.static_findings(cfg, graph, index, base, everything=True)
         before = deepcopy(static)
-        assert static.issues and static.red and static.leads
+        assert {issue.family for issue in static.issues} >= {'writer', 'pair'}
         def repeated_static(*args, **kwargs):
             raise AssertionError('the existing static facts must be reused')
         monkeypatch.setattr(owners, 'static_findings', repeated_static)
@@ -665,10 +667,9 @@ def test_reusing_static_findings_returns_its_issues_reds_and_leads_without_mutat
     assert static == before
     assert found is not static
     assert found.issues == static.issues
-    assert all(line in found.red for line in static.red)
-    assert all(line in found.leads for line in static.leads)
+    assert all(line in found.lines for line in static.lines) and all(lead in found.hidden for lead in static.hidden)
+    assert found.known == static.known and static.ran <= found.ran
     assert found.summary == static.summary
-    assert found.section == static.section
     assert all(found.stats[key] == value for key, value in static.stats.items())
 
 
@@ -765,7 +766,8 @@ def test_changed_alone_compares_baseline_source_without_importing_the_project(tm
     with closing(build(tmp_path, roots=cfg.roots)) as graph:
         found = owners.changed_alone(cfg, graph, anchors.collect(graph), owners.Change(cfg, graph, base))
     assert not marker.exists()
-    assert any('changed behavior' in line and 'peer.py:1' in line for line in found.leads), found
+    # an unregistered copy gets no line, only show --last's lead (D6)
+    assert any('changed behavior' in lead['text'] and 'peer.py:1' in lead['text'] for lead in found.hidden), found
 
 
 def test_changed_alone_does_not_count_the_same_raised_exception_as_agreement(tmp_path):
@@ -780,9 +782,9 @@ def test_changed_alone_does_not_count_the_same_raised_exception_as_agreement(tmp
     cfg = load_config(tmp_path)
     with closing(build(tmp_path, roots=cfg.roots)) as graph:
         found = owners.changed_alone(cfg, graph, anchors.collect(graph), owners.Change(cfg, graph, base))
-    assert not found.red
-    assert any('not compared' in line and 'same raised exception' in line for line in found.leads), found
-    assert not any('changed behavior' in line for line in found.leads), found
+    assert not found.issues
+    assert any(line.kind == 'not compared' and 'same raised exception' in line.text for line in found.lines), found
+    assert not any('changed behavior' in lead['text'] for lead in found.hidden), found
 
 
 def test_a_new_copy_of_a_registered_owner_is_an_impact(tmp_path):

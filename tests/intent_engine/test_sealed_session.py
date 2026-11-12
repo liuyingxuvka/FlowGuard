@@ -6,12 +6,18 @@ import textwrap
 
 import pytest
 
+from tests.intent_engine._cli_fixture import last
 from tests.intent_engine.test_default_runtime_signals import _git, _project, _run, _text
 
 
 def _report(root):
     with sqlite3.connect(root / '.flowguard/cache/map.sqlite') as con:
         return json.loads(con.execute("SELECT v FROM meta WHERE k='runtime_observations'").fetchone()[0])['items']
+
+
+def _lines(root, kind):
+    """The last run's lines of one kind (`red`, `before`), as `show --last` prints them."""
+    return [line for line in last(root).splitlines() if line.startswith(kind + ': ')]
 
 
 def test_changed_uses_only_the_actual_json_input_after_tests(tmp_path):
@@ -43,8 +49,8 @@ def test_same_copies_are_compared_without_importing_the_other_module(tmp_path):
     assert result.returncode == 1, _text(result)
     assert not (tmp_path / 'unwanted').exists()
     report = _report(tmp_path)
-    assert any('ANSWER' in line for line in report['red']), report
-    assert not report['before'], report
+    assert any('ANSWER' in line for line in _lines(tmp_path, 'red')), report
+    assert not _lines(tmp_path, 'before'), report
 
 
 def test_preexisting_copy_difference_is_before_and_not_a_test_failure(tmp_path):
@@ -61,7 +67,7 @@ def test_preexisting_copy_difference_is_before_and_not_a_test_failure(tmp_path):
     result = _run(tmp_path)
     assert result.returncode == 0, _text(result)
     report = _report(tmp_path)
-    assert not report['red'] and any('ANSWER' in line for line in report['before']), report
+    assert not _lines(tmp_path, 'red') and any('ANSWER' in line for line in _lines(tmp_path, 'before')), report
     assert 'before: ' in _text(result)
 
 
@@ -112,8 +118,8 @@ def test_same_copies_also_try_the_numbers_their_sealed_helpers_and_constants_use
     text = _text(result)
     assert result.returncode == 1 and '1 passed' in result.stdout, text
     report = _report(tmp_path)
-    red, = [line for line in report['red'] if 'STANDING' in line]
-    assert 'days=7' in red and not report['before'], report
+    red, = [line for line in _lines(tmp_path, 'red') if 'STANDING' in line]
+    assert 'days=7' in red and not _lines(tmp_path, 'before'), report
 
 
 def test_a_copy_that_cannot_run_sealed_does_not_hide_a_disagreement_between_the_others(tmp_path):
@@ -135,8 +141,8 @@ def test_a_copy_that_cannot_run_sealed_does_not_hide_a_disagreement_between_the_
     text = _text(result)
     assert result.returncode == 1 and '1 passed' in result.stdout, text
     report = _report(tmp_path)
-    red, = [line for line in report['red'] if 'ANSWER' in line]
-    assert 'n=3' in red and '(plus 1 copies without a result for this input)' in red, red
+    red, = [line for line in _lines(tmp_path, 'red') if 'ANSWER' in line]
+    assert 'n=3' in red and '1 other copy has no result for this input' in red, red
     assert any('ANSWER: other.py:3 answer uses unavailable binding STEP' in reason
                for item in report['items'] for reason in item.get('reasons', ())), [item.get('reasons') for item in report['items']]
 
@@ -173,8 +179,8 @@ def test_a_negative_constant_of_a_copy_is_in_the_union(tmp_path):
         def test_native():
             assert standing(0) and preview(0)
     ''', ('return days >= -5', 'return days >= -3'))
-    red, = _named(report['red'], 'STANDING')
-    assert result.returncode == 1 and 'days=-5' in red and not report['before'], text
+    red, = _named(_lines(tmp_path, 'red'), 'STANDING')
+    assert result.returncode == 1 and 'days=-5' in red and not _lines(tmp_path, 'before'), text
 
 
 def test_the_numbers_of_a_tuple_constant_a_copy_reads_are_in_the_union(tmp_path):
@@ -192,8 +198,8 @@ def test_the_numbers_of_a_tuple_constant_a_copy_reads_are_in_the_union(tmp_path)
         def test_native():
             assert standing(0) and preview(0)
     ''', ('return days <= BOUNDS[0]', 'return days <= BOUNDS[0] or days == BOUNDS[1]'))
-    red, = _named(report['red'], 'STANDING')
-    assert result.returncode == 1 and 'days=7' in red and not report['before'], text
+    red, = _named(_lines(tmp_path, 'red'), 'STANDING')
+    assert result.returncode == 1 and 'days=7' in red and not _lines(tmp_path, 'before'), text
 
 
 def test_every_constant_is_compared_even_after_many_recorded_calls(tmp_path):
@@ -214,8 +220,8 @@ def test_every_constant_is_compared_even_after_many_recorded_calls(tmp_path):
             for days in range(1000, 1200, 10):
                 assert not preview(days)
     ''', ('return days <= 3', 'return days <= 7'))
-    red, = _named(report['red'], 'STANDING')
-    assert result.returncode == 1 and 'days=7' in red and not report['before'], text
+    red, = _named(_lines(tmp_path, 'red'), 'STANDING')
+    assert result.returncode == 1 and 'days=7' in red and not _lines(tmp_path, 'before'), text
 
 
 def test_recorded_inputs_alone_over_the_cap_still_leave_every_constant_a_place(tmp_path):
@@ -230,8 +236,8 @@ def test_recorded_inputs_alone_over_the_cap_still_leave_every_constant_a_place(t
         f'    for days in range({1000 * (number + 1)}, {1000 * (number + 1) + 200}, 10):\n        assert not copy{number}(days)\n'
         for number in range(4))
     result, text, report = _copies(tmp_path, copies, test, ('return days <= 3', 'return days <= 7'))
-    red, = _named(report['red'], 'STANDING')
-    assert result.returncode == 1 and 'days=7' in red and not report['before'], text
+    red, = _named(_lines(tmp_path, 'red'), 'STANDING')
+    assert result.returncode == 1 and 'days=7' in red and not _lines(tmp_path, 'before'), text
     assert any('STANDING: compared on 64 inputs; 18 recorded inputs left out' in line
                for line in text.splitlines() + _reasons(report)), text
 
@@ -250,8 +256,8 @@ def test_the_neighbours_of_a_recorded_number_are_in_the_union(tmp_path):
         def test_native():
             assert standing(3) and preview(3)
     ''', ("return days <= len('abc')", "return days <= len('abcd')"))
-    red, = _named(report['red'], 'STANDING')
-    assert result.returncode == 1 and 'days=4' in red and not report['before'], text
+    red, = _named(_lines(tmp_path, 'red'), 'STANDING')
+    assert result.returncode == 1 and 'days=4' in red and not _lines(tmp_path, 'before'), text
 
 
 def test_a_boolean_input_never_gains_arithmetic_or_numeric_constants(tmp_path):
@@ -269,9 +275,9 @@ def test_a_boolean_input_never_gains_arithmetic_or_numeric_constants(tmp_path):
             assert shown(True, 2) == visible(True, 2) == 'open'
             assert shown(False, 2) == visible(False, 2) == 'closed'
     ''', ("flag is True and days <= 3", "flag is True and days <= 4"))
-    red, = _named(report['red'], 'SHOWN')
-    assert result.returncode == 1 and 'days=4' in red and 'flag=T' in red, text
-    assert not report['before'] and 'flag=2' not in text and 'flag=3' not in text, text
+    red, = _named(_lines(tmp_path, 'red'), 'SHOWN')
+    assert result.returncode == 1 and 'days=4' in red and 'flag=True' in red, text
+    assert not _lines(tmp_path, 'before') and 'flag=2' not in text and 'flag=3' not in text, text
 
 
 # ---- design 4.5: each input is judged on its own against the copies' versions at the baseline -------------
@@ -295,8 +301,8 @@ def test_an_input_where_the_old_copies_both_raise_does_not_hide_a_new_break_on_a
         def test_native():
             assert standing(0) and preview(0)
     ''', ('return days <= 3', 'return days <= 7'))
-    red, = _named(report['red'], 'STANDING')
-    assert result.returncode == 1 and 'days=7' in red and not report['before'], text
+    red, = _named(_lines(tmp_path, 'red'), 'STANDING')
+    assert result.returncode == 1 and 'days=7' in red and not _lines(tmp_path, 'before'), text
     assert 'baseline comparison unavailable' not in text, text
 
 
@@ -314,11 +320,12 @@ def test_an_old_disagreement_on_one_input_does_not_hide_a_new_one_on_another(tmp
         def test_native():
             assert standing(0) and preview(0)
     ''', ('return days <= 3\n', 'return days <= 7\n'))
-    red, = _named(report['red'], 'STANDING')
-    before, = _named(report['before'], 'STANDING')
+    red, = _named(_lines(tmp_path, 'red'), 'STANDING')
     assert result.returncode == 1 and 'days=7' in red and 'days=91' not in red, text
-    # At 7 both old copies returned F: the old disagreement is named only where it was.
-    assert 'days=91' in before and 'days=7' not in before, text
+    # At 7 both old copies returned F: the old disagreement at 91 is the same pair's, whose one red line speaks for
+    # it (D30: one line per member), never a before line naming 7. Each input judged on its own:
+    # test_copy_union.py::test_each_input_is_judged_against_the_baseline_of_the_same_input.
+    assert not _named(_lines(tmp_path, 'before'), 'STANDING'), text
 
 
 def _three_copies(tmp_path, other_now, policy_change, step='len("x")'):
@@ -348,8 +355,8 @@ def test_a_copy_whose_baseline_cannot_run_sealed_does_not_hide_a_new_break_betwe
     # policy and third agreed at the baseline and differ now at n=3: red. Only the pairs with other, whose
     # baseline did not run, are not compared there.
     result, text, report = _three_copies(tmp_path, 'n + 1', 'n + 1 if n != 3 else 0')
-    red, = _named(report['red'], 'ANSWER')
-    assert result.returncode == 1 and 'n=3' in red and 'third.py:2 answer' in red, text
+    red, = _named(_lines(tmp_path, 'red'), 'ANSWER')
+    assert result.returncode == 1 and 'n=3' in red and 'third.py:answer' in red, text
     assert any('ANSWER: baseline comparison unavailable' in reason and 'n=3' in reason for reason in _reasons(report)), text
 
 
@@ -357,7 +364,7 @@ def test_a_new_disagreement_where_a_baseline_could_not_run_is_not_compared_rathe
     # Only other now differs (at n=3), and its baseline could not run sealed: whether the copies agreed
     # there before is unknown, so the disagreement is not compared, neither red nor before.
     result, text, report = _three_copies(tmp_path, 'n + 1 if n != 3 else 0', None)
-    assert result.returncode == 0 and not _named(report['red'], 'ANSWER') and not report['before'], text
+    assert result.returncode == 0 and not _named(_lines(tmp_path, 'red'), 'ANSWER') and not _lines(tmp_path, 'before'), text
     assert any('ANSWER: baseline comparison unavailable' in reason and 'n=3' in reason for reason in _reasons(report)), text
 
 
@@ -365,9 +372,9 @@ def test_a_copy_whose_baseline_reads_an_imported_literal_is_compared_at_the_base
     # At the baseline other read STEP = 1 from settings, a literal the sealed run reads from its source: the
     # three copies agreed at n=3 before, so other's new answer there is red, not "baseline comparison unavailable".
     result, text, report = _three_copies(tmp_path, 'n + 1 if n != 3 else 0', None, step='1')
-    red, = _named(report['red'], 'ANSWER')
-    assert result.returncode == 1 and 'n=3' in red and '1 copies return 0 (other.py:2 answer)' in red, text
-    assert not report['before'] and not any('ANSWER: baseline comparison unavailable' in reason
+    red, = _named(_lines(tmp_path, 'red'), 'ANSWER')
+    assert result.returncode == 1 and 'n=3' in red and 'other.py:answer returns 0' in red, text
+    assert not _lines(tmp_path, 'before') and not any('ANSWER: baseline comparison unavailable' in reason
                                             for reason in _reasons(report)), text
 
 
@@ -472,8 +479,8 @@ def test_moving_a_copy_keeps_its_old_difference_before(tmp_path):
     test.write_text(test.read_text().replace('from other import', 'from moved import'))
     result = _run(tmp_path)
     text, report = _text(result), _report(tmp_path)
-    before, = _named(report['before'], 'STANDING')
-    assert result.returncode == 0 and not report['red'] and 'days=91' in before and 'moved.py' in before, text
+    before, = _named(_lines(tmp_path, 'before'), 'STANDING')
+    assert result.returncode == 0 and not _lines(tmp_path, 'red') and 'days=91' in before and 'moved.py' in before, text
     # the moved file's own function is unchanged: no before/after is due for it
     assert not [item for item in report['items'] if item.get('file') == 'moved.py'], report['items']
 
