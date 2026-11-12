@@ -495,7 +495,8 @@ class Observations:
                 anchor = point['anchor']
                 original = self.scopes.enter_context(self.runtime.hook(fn, name=point['name'],
                     recorded=lambda reading, point=point: self._recorded(point, reading),
-                    fields=anchor.fields if anchor else (), line=anchor.line if anchor else 0))
+                    fields=anchor.fields if anchor else (), line=anchor.line if anchor else 0,
+                    named=bool(anchor and anchor.calibrated_by and self._named_test(self.runtime.test, anchor.calibrated_by))))
                 point['original'] = original
             except (ValueError, TypeError, sites.NotMutable) as error:
                 self.grey.append(point['name'] + ': ' + str(error))
@@ -665,10 +666,12 @@ class Observations:
             if point['target'] != home.target or index >= len(self.runtime.readings):
                 continue
             reading = self.runtime.readings[index]
-            if selector and not any(self._named_test(test, selector) for test in reading.tests):
+            # A repeated input has one reading for every test that made it: the call is the named test's own.
+            test = next((test for test in sorted(reading.tests) if self._named_test(test, selector)), None) if selector else reading.test
+            if test is None:
                 continue
             rows, why = self._rule_rows(point, reading)
-            calls.extend((inputs, outcome, reading.test) for inputs, outcome in rows)
+            calls.extend((inputs, outcome, test) for inputs, outcome in rows)
             reasons.extend(why)
         return calls, list(dict.fromkeys(reasons))
 

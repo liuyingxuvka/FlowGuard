@@ -159,9 +159,6 @@ def _recorded(scope, item, function):
     if not found:
         if item.nodeid not in scope.runtime.ran:
             return _unavailable('not compared: the named test did not run in this session')
-        if scope.runtime.full(function):
-            return _unavailable('not compared: the named test\'s call was not recorded; '
-                                '20 distinct inputs were recorded before it ran')
     if len(found) != 1:
         return _passed(scope, item) or _unavailable('test must reach the actual anchor exactly once; '
                                                      'target may be absent or ambiguous')

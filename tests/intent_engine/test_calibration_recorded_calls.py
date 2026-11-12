@@ -63,7 +63,7 @@ def _git(root, *arguments):
                            *arguments], check=True, capture_output=True, text=True, timeout=30).stdout
 
 
-def _shop(root):
+def _shop(root, *, expect=9, files=()):
     (root / 'shop').mkdir(parents=True)
     (root / 'tests/intent').mkdir(parents=True)
     (root / 'shop/__init__.py').write_text('')
@@ -83,14 +83,16 @@ def _shop(root):
         import pytest
         from shop.fees import late_fee, choice
         def test_fee():
-            assert late_fee(5, False) == 9
+            assert late_fee(5, False) == EXPECT
         @pytest.fixture
         def x():
             return 2
         # flowguard: event CASE_CHOICE(x: int)
         def test_choice(x: int):
             assert choice(x) is True
-    ''').lstrip())
+    ''').lstrip().replace('EXPECT', str(expect)))
+    for relative, text in dict(files).items():
+        (root / relative).write_text(text)
     (root / 'tests/intent/fees.py').write_text(INTENT)
     (root / 'tests/test_flowguard_intent.py').write_text(
         'def test_flowguard_intent(request):\n    from flowguard.intent.plugin import sentinel\n    sentinel(request.config)\n')
@@ -161,3 +163,71 @@ def test_a_named_test_that_did_not_run_leaves_the_point_not_compared(tmp_path):
     scope.runtime._seen.clear()
     observed = calibration._sensor(tmp_path, anchor, {'x': 5})
     assert observed == {'status': 'grey', 'reasons': ['not compared: the named test did not run in this session']}
+
+
+def _results(root):
+    with sqlite3.connect(root / '.flowguard/cache/map.sqlite') as connection:
+        return {item.partition('::')[2]: json.loads(payload) for item, payload in connection.execute('SELECT item, payload FROM result')}
+
+
+def test_the_named_test_is_recorded_after_twenty_inputs_from_earlier_tests(tmp_path):
+    # An earlier test file calls the calibrated function with 25 distinct inputs: its hook comes off at 20
+    # (design 4.5) for every other test, but the named test's own call is still recorded and compared.
+    many = 'from shop.fees import late_fee\ndef test_many():\n    for days in range(25):\n        assert late_fee(days, True) >= 0\n'
+    root = _shop(tmp_path / 'shop', files={'tests/test_a_many.py': many})
+    result = _pytest(root)
+    assert result.returncode == 0, result.stdout + result.stderr
+    rows = _results(root)['FEE[shop.fees.late_fee:rows]']
+    assert rows['verdict'] == 'ok', rows
+    assert Counter((root / 'runs.log').read_text(encoding='utf-8').split())['tests/test_fees.py::test_fee'] == 1
+
+
+def test_a_named_test_that_fails_in_the_ordinary_run_makes_its_rows_red(tmp_path):
+    # The pytest plugin itself records the named test's failed phase as it reports it; no harness does.
+    root = _shop(tmp_path / 'shop', expect=10)
+    result = _pytest(root)
+    assert result.returncode != 0
+    rows = _results(root)['FEE[shop.fees.late_fee:rows]']
+    assert rows['verdict'] == 'red', rows
+    assert 'real calibration test did not pass completely: call failed' in rows['red'], rows
+    assert Counter((root / 'runs.log').read_text(encoding='utf-8').split())['tests/test_fees.py::test_fee'] == 1
+
+
+def test_a_repeated_input_is_the_named_tests_own_call_for_its_rule_rows(tmp_path):
+    # An earlier test made the same call first: the one reading keeps both tests, and the rule rows of a
+    # calibrated anchor attribute the call to the named test, not to the test that recorded it first.
+    from types import SimpleNamespace
+    from flowguard.intent.plugin import Observations
+    from flowguard.intent.runtime import Reading
+    reading = Reading('LATE_FEE', 'shop.fees:late_fee', test='tests/test_a_many.py::test_many',
+                      tests={'tests/test_a_many.py::test_many', 'tests/test_fees.py::test_fee'})
+    reading.actual = ({'days': 5, 'member': False}, 9)
+    anchor = SimpleNamespace(calibrated_by='tests/test_fees.py::test_fee', fields=())
+    point = dict(target='shop.fees:late_fee', anchor=anchor)
+    observations = SimpleNamespace(records=[(0, point, None, [], None)], runtime=SimpleNamespace(readings=[reading]),
+                                   state=SimpleNamespace(config=SimpleNamespace(rootpath=tmp_path)),
+                                   cfg=SimpleNamespace(root=tmp_path), _rule_rows=Observations._rule_rows)
+    observations._named_test = lambda nodeid, selector: Observations._named_test(observations, nodeid, selector)
+    calls, reasons = Observations.rule_calls(observations, None, SimpleNamespace(anchor=anchor, target='shop.fees:late_fee'))
+    assert calls == [({'days': 5, 'member': False}, 9, 'tests/test_fees.py::test_fee')] and reasons == []
+
+
+def test_a_named_test_call_that_ended_with_a_base_exception_is_not_compared(tmp_path):
+    # SystemExit is no outcome the sealed environment reports: the point is not compared, with that reason
+    # (the sealed source cannot name SystemExit; here the test passes the callable that raises it).
+    anchor = project(tmp_path, '''# flowguard: same LIMIT(x) calibrated_by=test_policy.py::test_native
+def limit(x: int, check) -> bool:
+    check(x)
+    return x <= 3
+''', '''import sys
+import pytest
+from policy import limit
+def test_native():
+    with pytest.raises(SystemExit):
+        limit(10, sys.exit)
+''')
+    scope, item = bind_anchor(tmp_path, anchor)
+    [reading] = scope.runtime.readings
+    assert type(reading.actual[1].error) is SystemExit
+    assert calibration._sensor(tmp_path, anchor, {'x': 5}) == {
+        'status': 'grey', 'reasons': ["not compared: the named test's call ended with SystemExit"]}

@@ -389,20 +389,26 @@ def test_sql_calls_run_only_for_real_and_are_not_recorded(tmp_path, query, regis
     assert hits == ([1] if register else [])
 
 
-def test_module_literal_container_of_another_module_is_read_from_source_and_never_swapped(tmp_path):
-    settings = module(tmp_path, 'POLICY = {"grace": 7}\n', 'r19_settings')
-    source = 'import r19_settings\ndef f(x: int):\n    return x <= r19_settings.POLICY["grace"]\n'
-    m = module(tmp_path, source)
-    for previous, before in (('POLICY = {"grace": 3}\n', dict(status='ok', value=False)),
-                             ('POLICY = dict(grace=3)\n', dict(status='unavailable', reason='uses unavailable attribute POLICY'))):
+def test_module_literal_container_of_another_module_is_read_from_source_only_when_immutable(tmp_path):
+    # A tuple of literals is read from each version's own source. A dict or list may change in place from
+    # any function of the program, so it is not compared; a computed one is not either. The live module's
+    # object is never read, replaced or swapped.
+    for current, previous, before, now in (
+            ('POLICY = (7,)\n', 'POLICY = (3,)\n', dict(status='ok', value=False), dict(status='ok', value=True)),
+            ('POLICY = {"grace": 7}\n', 'POLICY = {"grace": 3}\n', dict(status='unavailable', reason='uses unavailable attribute POLICY'),
+             dict(status='unavailable', reason='uses unavailable attribute POLICY')),
+            ('POLICY = (7,)\n', 'POLICY = tuple([3])\n', dict(status='unavailable', reason='uses unavailable attribute POLICY'),
+             dict(status='ok', value=True))):
+        settings = module(tmp_path, current, 'r19_settings')
+        read = '[0]' if current.startswith('POLICY = (') else '["grace"]'
+        source = f'import r19_settings\ndef f(x: int):\n    return x <= r19_settings.POLICY{read}\n'
+        m = module(tmp_path, source)
         runtime = Runtime(tmp_path, previous={'r19_candidate.py': source, 'r19_settings.py': previous})
         with runtime.hook(m.f):
             assert m.f(5)
-        # Each version reads a literal container from its own source, fresh for the call; a computed
-        # one is not compared. The live module's object is never read, replaced or swapped.
-        assert settings.POLICY == {'grace': 7}
+        assert settings.POLICY in ((7,), {'grace': 7})
         old, new = sealed_pair(runtime, runtime.readings[0], FILE, 'f')
-        assert (old, new) == (before, dict(status='ok', value=True))
+        assert (old, new) == (before, now), current
 
 
 def test_a_mutating_numeric_subclass_argument_is_not_recorded(tmp_path):

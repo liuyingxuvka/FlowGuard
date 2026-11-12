@@ -1450,6 +1450,41 @@ def test_a_literal_const_imported_from_a_relative_project_file_is_that_literal()
     assert closed == '' and why == 'uses imported or mutable binding GRACE_DAYS'
 
 
+def test_an_imported_file_is_read_once_per_plan_and_only_for_names_a_function_reads():
+    from flowguard.intent.vitest import sealed_source
+    files = {'src/constants.ts': ''.join(f'export const C{index} = {index};\n' for index in range(300)).encode()}
+    names = [f'C{index}' for index in range(0, 300, 10)]
+    policy = ('import { ' + ', '.join(names) + ' } from "./constants";\n'
+              + ''.join(f'export function f{j}(x: number) {{ return x <= C{(j % 30) * 10}; }}\n' for j in range(50))
+              + 'export function plain(x: number) { return x <= 2; }\n').encode()
+    reads = []
+    def read(path):
+        if path in files:
+            reads.append(path)
+        return files.get(path)
+    tables = {}
+    closed, why = sealed_source(policy, 'src/policy.ts', 'plain', read, tables)
+    assert not why and reads == []              # no imported name is read: the file is not even opened
+    for j in range(50):
+        closed, why = sealed_source(policy, 'src/policy.ts', f'f{j}', read, tables)
+        assert not why and f'const C{(j % 30) * 10} = {(j % 30) * 10};' in closed and closed.count('const ') == 1, (closed, why)
+    assert reads == ['src/constants.ts']        # one read and one parse for the whole plan
+
+
+def test_an_extensionless_import_resolves_in_the_order_vite_does():
+    # Vite tries .mjs, .js, .mts, .ts, .jsx, .tsx: with both settings.js and settings.ts the .js file is the one
+    # that runs; a file Vite would pick that is not a script (settings.json) is never passed over for another.
+    from flowguard.intent.vitest import sealed_source
+    source = b'import { GRACE } from "./settings";\nexport function f(x: number) { return x <= GRACE; }'
+    for files, expected in (({'src/settings.js': b'export const GRACE = 3;\n', 'src/settings.ts': b'export const GRACE = 9;\n'}, 'const GRACE = 3;'),
+                            ({'src/settings.ts': b'export const GRACE = 9;\n'}, 'const GRACE = 9;')):
+        closed, why = sealed_source(source, 'src/policy.ts', 'f', files.get)
+        assert not why and expected in closed, (files, closed, why)
+    closed, why = sealed_source(source, 'src/policy.ts', 'f', {'src/settings.json': b'{"GRACE": 3}\n',
+                                                               'src/settings/index.ts': b'export const GRACE = 9;\n'}.get)
+    assert closed == '' and why == 'uses imported or mutable binding GRACE', (closed, why)
+
+
 def test_an_unused_aliased_import_does_not_hide_the_real_builtin():
     from flowguard.intent.vitest import sealed_source
     source, reason = sealed_source(b'import { Number as Custom } from "./dep"; export function f(x: string) { return Number(x); }', 'src/f.ts', 'f')

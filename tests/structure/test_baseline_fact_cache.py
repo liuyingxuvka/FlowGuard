@@ -276,6 +276,12 @@ def test_stored_constant_facts_are_never_reused_by_another_version_of_the_code_t
     upgraded.write_text(Path(owners.__file__).read_text(encoding='utf-8') + '\n# a later FlowGuard version\n', encoding='utf-8')
     monkeypatch.setattr(owners, '__file__', str(upgraded))
     assert changes() == [(3, 4)] and len(read) == 4           # both texts are read again, nothing stale is reused
+    # The stored bytes are in the format of structure/store.py (`pack`/`unpack`): its own upgrade does the same.
+    from flowguard.map import common
+    digest = common.content_digest
+    monkeypatch.setattr(common, 'content_digest', lambda path, **options: digest(path, **options)
+                        + ('-upgraded' if Path(path).name == 'store.py' else ''))
+    assert changes() == [(3, 4)] and len(read) == 6
 
 
 def test_parse_error_in_old_source_is_preserved_on_cold_and_hot_read(tmp_path):

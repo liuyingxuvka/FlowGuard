@@ -300,13 +300,13 @@ def _project_settings(tmp_path, settings, policy):
     ('from shop.settings import GRACE_DAYS\ndef allows(days): return days <= GRACE_DAYS\n', True),
     ('from shop.settings import GRACE_DAYS as G\ndef allows(days): return days <= G\n', True),
     ('from .settings import GRACE_DAYS\ndef allows(days): return days <= GRACE_DAYS\n', True),
-    ('from shop.settings import LIMITS\ndef allows(days): return days <= LIMITS["grace"]\n', False),
+    ('from shop.settings import LIMITS\ndef allows(days): return days <= LIMITS[0]\n', False),
     ('import shop.settings\ndef allows(days): return days <= shop.settings.GRACE_DAYS\n', True),
     ('import shop.settings as config\ndef allows(days): return days <= config.GRACE_DAYS\n', True),
     ('from shop import settings\ndef allows(days): return days <= settings.GRACE_DAYS\n', True),
 ])
 def test_a_literal_constant_of_a_project_module_is_read_from_its_source(tmp_path, policy, value):
-    runtime, source, imports = _project_settings(tmp_path, 'GRACE_DAYS = 3\nLIMITS = {"grace": 2}\n', policy)
+    runtime, source, imports = _project_settings(tmp_path, 'GRACE_DAYS = 3\nLIMITS = (2, 5)\n', policy)
     assert sealed(source, 'allows', [3], {}, imports) == {'status': 'ok', 'value': value}
     # Without the project resolver the name stays unavailable, as before.
     assert sealed(source, 'allows', [3], {})['status'] == 'unavailable'
@@ -337,7 +337,7 @@ def test_anything_but_a_literal_project_constant_stays_not_compared(tmp_path, se
 def test_an_installed_module_of_the_same_name_is_never_read(tmp_path, monkeypatch):
     # `pathlib` is an interpreter module: the resolver finds only project files under the importer's root.
     runtime, source, imports = _project_settings(tmp_path, 'X = 1\n', 'from pathlib import sep\ndef allows(days): return sep\n')
-    assert imports('pathlib', 0) is None and imports('shop.settings', 0)[2] == 'shop/settings.py'
+    assert imports('pathlib', 0) is None and imports('shop.settings', 0).file == 'shop/settings.py'
     assert sealed(source, 'allows', [3], {}, imports) == {'status': 'unavailable', 'reason': 'uses unavailable binding sep'}
 
 
@@ -417,3 +417,37 @@ def test_the_clock_raises_inside_the_sealed_environment():
         with pytest.raises(Refused, match='uses current time'):
             read()
     assert namespace['date'](2026, 1, 2).isoformat() == '2026-01-02'
+
+
+@pytest.mark.parametrize('argument', [
+    lambda index: (index % 3,),                         # a tuple
+    lambda index: __import__('datetime').date(2026, 1, 1 + index % 3),
+    lambda index: {index % 3: 1},                       # a dict with an int key
+])
+def test_calls_whose_inputs_are_not_json_count_toward_the_limit_and_the_hook_comes_off(tmp_path, monkeypatch, argument):
+    # A call that cannot be encoded cannot be looked up again: each one counts as a distinct input, so a
+    # function called only that way is recorded twenty times at most and then runs with no hook.
+    found = module(tmp_path, monkeypatch, 'def fee(days):\n    return 3\n')
+    original_code = found.fee.__code__
+    runtime = Runtime(tmp_path, previous={})
+    with runtime.hook(found.fee):
+        assert sum(found.fee(argument(index)) for index in range(3000)) == 9000
+        assert runtime.full(found.fee) and found.fee.__code__ is original_code
+    assert len(runtime.readings) == 20
+    assert all(reading.sample is None and reading.reasons for reading in runtime.readings)
+
+
+def test_a_method_call_is_looked_up_by_its_arguments_without_the_receiver(tmp_path, monkeypatch):
+    found = module(tmp_path, monkeypatch, 'class Cart:\n    def fee(self, days):\n        return days * 3\n'
+                   '    @classmethod\n    def rate(cls, days):\n        return days\n')
+    runtime = Runtime(tmp_path, previous={})
+    carts = [found.Cart(), found.Cart()]
+    with runtime.hook(found.Cart.fee), runtime.hook(found.Cart.rate.__func__):
+        assert sum(carts[index % 2].fee(index % 3) for index in range(5000)) == 3 * sum(index % 3 for index in range(5000))
+        assert sum(found.Cart.rate(index % 3) for index in range(500)) == sum(index % 3 for index in range(500))
+    fees = [reading for reading in runtime.readings if reading.name.endswith('fee')]
+    rates = [reading for reading in runtime.readings if reading.name.endswith('rate')]
+    assert [reading.actual_inputs['days'] for reading in fees] == [0, 1, 2]
+    assert [reading.actual_inputs['days'] for reading in rates] == [0, 1, 2]
+    # The receiver is no JSON input: a method call is kept for its real outcome, never compared sealed.
+    assert all(reading.sample is None and reading.reasons == ['not JSON data'] for reading in fees + rates)

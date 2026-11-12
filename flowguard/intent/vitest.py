@@ -96,23 +96,34 @@ def declarations(data, rel):
     return found
 
 
-def _imported_literal(read, rel, specifier, name):
-    """The text of `const NAME = literal` (a string, number, boolean or null) at the top level of the project
-    file a relative import names, read with `read(path)` and never run; None for anything else."""
+_VITE_EXTENSIONS = ('.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json')     # Vite's default resolve.extensions
+
+
+def _literal_table(read, rel, specifier, tables):
+    """{name: text} of each `const NAME = literal` (a string, number, boolean or null) at the top level of the
+    project file a relative import names, read with `read(path)` and never run; {} for anything else. The file
+    is the first that exists in the order Vite tries: the exact path, each default extension, then an index
+    file; one Vite would load that is not a script gives {}. `tables` keeps each file's table, so one plan
+    reads and parses each imported file once."""
     import posixpath
     from ..structure.readers.common import parse, text
     from ..structure.readers.registry import language_for
     if read is None or not specifier.startswith('.'):
-        return None
+        return {}
     base = posixpath.normpath(posixpath.join(posixpath.dirname(rel), specifier))
-    stem = base[:-3] if base.endswith(('.js', '.mjs', '.cjs')) else base
-    for path in (base, *(stem + suffix for suffix in ('.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs',
-                                                       '/index.ts', '/index.js'))):
-        if path.startswith('../') or path == '..' or language_for(path) is None:
+    if base in tables:
+        return tables[base]
+    stem = base.rpartition('.')[0] if base.endswith(('.js', '.mjs', '.cjs')) else base   # TS: ./x.js names x.ts
+    found = {}
+    for path in (base, *(stem + suffix for suffix in (*_VITE_EXTENSIONS, '.cts', '.cjs')),
+                 *(base + '/index' + suffix for suffix in _VITE_EXTENSIONS)):
+        if path.startswith('../') or path == '..':
             continue
         data = read(path)
         if data is None:
             continue
+        if language_for(path) is None:
+            break
         source, tree = parse(data, language_for(path))
         for statement in tree.root_node.named_children:
             inner = statement.child_by_field_name('declaration') if statement.type == 'export_statement' else statement
@@ -122,19 +133,23 @@ def _imported_literal(read, rel, specifier, name):
                 key, value = item.child_by_field_name('name'), item.child_by_field_name('value')
                 while value is not None and value.type in ('as_expression', 'satisfies_expression', 'parenthesized_expression'):
                     value = value.named_children[0]
-                if key is None or value is None or key.type != 'identifier' or text(key, source) != name:
+                if key is None or value is None or key.type != 'identifier':
                     continue
                 negative = value.type == 'unary_expression' and text(value, source)[:1] == '-' \
                     and [child.type for child in value.named_children] == ['number']
-                return text(value, source) if value.type in ('string', 'number', 'true', 'false', 'null') or negative else None
-        return None
-    return None
+                found.setdefault(text(key, source), text(value, source) if value.type in ('string', 'number', 'true', 'false', 'null')
+                                 or negative else None)
+        break
+    tables[base] = {name: value for name, value in found.items() if value is not None}
+    return tables[base]
 
 
-def sealed_source(data, rel, name, read=None):
+def sealed_source(data, rel, name, read=None, tables=None):
     """Only the selected function, same-file helpers, and literal constants; never module imports. A name
     imported from a relative project file whose top level declares it `const NAME = literal` is that literal
-    (`read(path)` gives a file's bytes, or None); any other import stays unavailable."""
+    (`read(path)` gives a file's bytes, or None), read only when the closed source reads the name; any other
+    import stays unavailable. `tables` keeps the imported files' literals across calls (`_literal_table`)."""
+    tables = {} if tables is None else tables
     from ..structure.readers.common import parse, text, walk
     from ..structure.readers.registry import language_for
     source, tree = parse(data, language_for(rel))
@@ -158,13 +173,12 @@ def sealed_source(data, rel, name, read=None):
                         alias = spec.child_by_field_name('alias') or spec.child_by_field_name('name')
                         if alias is None:
                             continue
-                        value = None if text(inner, source).startswith('import type') or text(spec, source).startswith('type ') \
-                            else _imported_literal(read, rel, specifier, text(spec.child_by_field_name('name'), source))
-                        if value is None:
+                        if text(inner, source).startswith('import type') or text(spec, source).startswith('type ') \
+                                or read is None or not specifier.startswith('.'):
                             blocked.add(text(alias, source))
                             imported.pop(text(alias, source), None)
-                        else:
-                            imported[text(alias, source)] = value
+                        else:       # a relative project file: read when the closed source reads the name
+                            imported[text(alias, source)] = specifier, text(spec.child_by_field_name('name'), source)
         if inner.type in ('class_declaration', 'abstract_class_declaration', 'enum_declaration', 'internal_module'):
             name_node = inner.child_by_field_name('name')
             if name_node is not None:
@@ -274,8 +288,15 @@ def sealed_source(data, rel, name, read=None):
             function = found[current]
             node = function['node']
             bad = next((child.type for child in walk(node) if child.type in forbidden), None)
-            shadowed = sorted({text(child, source) for child in walk(node)
-                               if child.type in ('identifier', 'shorthand_property_identifier') and text(child, source) in blocked})
+            spelled = {text(child, source) for child in walk(node) if child.type in ('identifier', 'shorthand_property_identifier')}
+            for alias in spelled & {alias for alias, value in imported.items() if type(value) is tuple}:
+                value = _literal_table(read, rel, imported[alias][0], tables).get(imported[alias][1])
+                if value is None:       # not a literal: unavailable, as any other import
+                    blocked.add(alias)
+                    del imported[alias]
+                else:
+                    imported[alias] = value
+            shadowed = sorted(spelled & blocked)
             if shadowed:
                 return '', 'uses imported or mutable binding ' + shadowed[0]
             if function['is_async'] or 'generator' in node.type or bad:
@@ -364,6 +385,7 @@ def plan(cfg, commit, changed, key):
         for row in graph.lookup_keys():
             strings.setdefault((row['file'], row['function']), []).extend(row['keys'])
         parsed, points, unplanned = {}, [], []
+        tables, old_tables = {}, {}         # each imported file's literals, read once per version
         for ident, (name, anchored, rel, qual) in sorted(wanted.items()):
             if rel not in parsed:
                 parsed[rel] = declarations((cfg.root / rel).read_bytes(), rel)
@@ -374,7 +396,7 @@ def plan(cfg, commit, changed, key):
                                       reason='only module-level function f and const f = (...) => are observed; this function is not wrapped'))
                 continue
             closed, skip = sealed_source((cfg.root / rel).read_bytes(), rel, qual,
-                                         lambda path: (cfg.root / path).read_bytes() if (cfg.root / path).is_file() else None)
+                                         lambda path: (cfg.root / path).read_bytes() if (cfg.root / path).is_file() else None, tables)
             from ..structure.readers.common import parse, walk, text
             from ..structure.readers.ecma import literal
             code, closed_tree = parse(closed.encode(), 'javascript')
@@ -387,7 +409,7 @@ def plan(cfg, commit, changed, key):
                     extra_numbers.append(number)
             old = old_sources.get(rel) if rel in old_sources else git_blob(cfg.root, commit, rel)
             prior, old_skip = (sealed_source(old, rel, qual, lambda path: old_sources.get(path) if path in old_sources
-                                             else git_blob(cfg.root, commit, path)) if old is not None and qual in declarations(old, rel)
+                                             else git_blob(cfg.root, commit, path), old_tables) if old is not None and qual in declarations(old, rel)
                                else ('', 'function absent at baseline'))
             points.append(dict(id=ident, name=name, anchored=anchored, owner=ident in owners, rel=rel, file=(cfg.root / rel).as_posix(), fn=qual,
                                line=found['line'], target_line=line, form=found['form'], params=found['params'], skip=skip,
