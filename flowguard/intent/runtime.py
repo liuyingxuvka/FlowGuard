@@ -661,9 +661,12 @@ def _literal_equal(left, right):
     return None if None in outcomes else all(outcomes)
 
 def _binding_facts(tree):
-    """Top-level binding identity; function bodies have their own fingerprints."""
+    """Top-level binding identity; function bodies have their own fingerprints. A bare annotation (`LIMIT: int`)
+    binds nothing, as `_scope` reads it."""
     result = {}
     for statement in tree.body:
+        if isinstance(statement, ast.AnnAssign) and statement.value is None:
+            continue
         if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
             result[statement.name] = ('function', statement.name)
         elif isinstance(statement, ast.ClassDef):

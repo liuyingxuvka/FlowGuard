@@ -155,6 +155,28 @@ def test_fixed_3_old_function_uses_old_module_constant_on_the_recorded_call(tmp_
     assert item['changed'] == [[{'days': 5, 'suspended': False, 'owed': 0}, False, True]], item
 
 
+def test_a_changed_module_with_a_bare_annotation_is_compared(tmp_path):
+    # `LIMIT: int` alone binds nothing (Python only notes the annotation): it is no binding a function reads, and
+    # reading the module's bindings once crashed the whole session on it (an INTERNALERROR, exit code 3).
+    policy = _project(tmp_path, '''
+        LIMIT: int
+        LIMIT = 3
+
+        def over(x: int) -> bool:
+            return x > LIMIT
+    ''', '''
+        from policy import over
+        def test_native():
+            assert over(3) in (True, False)
+    ''')
+    policy.write_text(policy.read_text().replace('x > LIMIT', 'x >= LIMIT'))
+    result = _run(tmp_path)
+    text = _text(result)
+    assert result.returncode == 0, text
+    assert ('changed: over (policy.py:4): (x=3) was False, now True; 1/1 inputs differ '
+            '-> if you meant it, say so') in text.splitlines(), text
+
+
 def test_fixed_4_changed_function_needs_no_anchor_to_report_member_changes(tmp_path):
     policy = _project(tmp_path, '''
         def late_fee(days: int, member: bool) -> int:
