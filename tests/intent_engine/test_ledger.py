@@ -481,7 +481,7 @@ def test_other_languages_supply_rows_through_the_same_fields(tmp_path):
                     dict(node='typescript/src/employee.service.ts:forward', file='src/employee.service.ts', line=9,
                          kind='catch', type='any', function='forward', non_raising=False, ends='handed')]
 
-        def calls(self, *, language=None):
+        def python_calls(self):
             return []
 
         def query_coverage(self):

@@ -1,4 +1,5 @@
 """Language selection and delivery metadata; no grammar is imported here."""
+from functools import lru_cache
 from pathlib import Path
 
 SUFFIXES = {
@@ -12,7 +13,10 @@ ECMA = ('javascript', 'typescript', 'tsx')
 OTHER_SOURCE = {'.go', '.rs', '.java', '.kt', '.swift', '.m', '.rb', '.php'}
 
 
+@lru_cache(maxsize=1 << 16)
 def language_for(path):
+    """The reader language of a path by its suffix (None for none); a path's answer is kept, as every check asks
+    again for the same files."""
     suffix = Path(path).suffix
     return 'cpp' if suffix == '.C' else SUFFIXES.get(suffix.lower())
 

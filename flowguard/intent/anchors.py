@@ -211,7 +211,7 @@ def _indexed_agreement(anchor, kind, modules, positions=None):
         target, colon, qual = position.rpartition(':')
         target = modules.get(target, target)
         if positions is not None:
-            matches = positions.get(target, {}).get(qual, ())
+            matches = positions[target].get(qual, ())
             if len(matches) == 1:
                 return matches[0]
             issues.append(Issue('red', 'position', f'cannot resolve {position} to one declared function; '
@@ -223,19 +223,32 @@ def _indexed_agreement(anchor, kind, modules, positions=None):
     return replace(anchor, writers=writers, alone=alone, issues=tuple(issues))
 
 
+class _Positions(dict):
+    """{module: {declared qual: [function id]}}, each module's entry read from the map when first asked for."""
+
+    def __init__(self, graph, foreign):
+        super().__init__()
+        self.graph, self.foreign = graph, foreign
+
+    def __missing__(self, module):
+        from ..structure import store
+        declared = {}
+        for qual, raw in self.graph.con.execute(
+                "SELECT qual, raw FROM node WHERE module = ? AND kind IN ('function', 'method') ORDER BY nid", (module,)):
+            name = qual
+            if module in self.foreign:
+                data = store.unpack(raw)
+                name = (data['holder'] + '.' + data['name']) if data.get('holder') else data['declared_qual']
+            declared.setdefault(name, []).append(module + ':' + qual)
+        self[module] = declared
+        return declared
+
+
 def _agreement_positions(graph, modules):
-    """Actual function ids, retaining the foreign reader's named object holders."""
-    from ..structure import store
+    """Actual function ids, retaining the foreign reader's named object holders: {module: {declared qual: [id]}}, a
+    module's read when it is first asked for (`positions[module]`; one that is no module of the map has none)."""
     from ..structure.readers.registry import ECMA, language_for
-    foreign = {module for file, module in modules.items() if language_for(file) in ECMA}
-    positions = {module: {} for module in modules.values()}
-    for module, qual, raw in graph.con.execute("SELECT module, qual, raw FROM node WHERE kind IN ('function', 'method')"):
-        declared = qual
-        if module in foreign:
-            data = store.unpack(raw)
-            declared = (data['holder'] + '.' + data['name']) if data.get('holder') else data['declared_qual']
-        positions[module].setdefault(declared, []).append(module + ':' + qual)
-    return positions
+    return _Positions(graph, {module for file, module in modules.items() if language_for(file) in ECMA})
 
 
 def _spelling_at(lines, number, file):

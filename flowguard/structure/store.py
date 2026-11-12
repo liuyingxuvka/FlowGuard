@@ -27,7 +27,7 @@ from . import decide, roots as rootmod
 from .extract import extract, syntax_tree
 from .roots import syspath_entries
 from .paths import project_files
-from .readers.registry import language_for, module_name, OTHER_SOURCE
+from .readers.registry import ECMA, language_for, module_name, OTHER_SOURCE
 
 FORMAT = "flowguard-map-1"
 SCHEMA = """
@@ -87,16 +87,30 @@ def save_facts(con, path: str, facts: dict) -> None:
     """A file's stored facts: the whole record in `file.data`, and each kind once more in `part`.
 
     A query that needs one or two kinds of every file (languages, anchors, writes) reads those parts
-    instead of unpacking every file's whole record. Two derived parts index the record: `facts.imports`
-    is the `imports` of the `facts` kind, `assignments.fields` the fields its assignments write."""
+    instead of unpacking every file's whole record. Four derived parts index the record: `facts.imports`
+    is the `imports` of the `facts` kind, `assignments.fields` the fields its assignments write,
+    `assignments.writes` the assignment rows `MapHandle.writes` reads (every row of a Python record, the
+    member assignments with a field of a JS/TS one) and `syntax_calls.unresolved` [node, file, text] of each
+    JS/TS syntax call the linker left unresolved, a JSX element aside (what `MapHandle.call_index` resolves
+    by name). A derived part with nothing in it is not stored; a reader reads its absence as empty."""
     con.execute("UPDATE file SET data=? WHERE path=?", (pack(facts), path))
     con.execute("DELETE FROM part WHERE path=?", (path,))
     rows = [(kind, path, pack(value)) for kind, value in facts.items()]
     if isinstance(facts.get("facts"), dict) and "imports" in facts["facts"]:
         rows.append(("facts.imports", path, pack(facts["facts"]["imports"])))
+    language = facts.get("language", "python")
     if facts.get("assignments"):
         fields = {row.get("field") for row in facts["assignments"]}
         rows.append(("assignments.fields", path, pack(sorted(fields - {None}) + ([None] if None in fields else []))))
+        written = facts["assignments"] if language == "python" else \
+            [row for row in facts["assignments"] if row.get("form") == "member" and row.get("field")] if language in ECMA else []
+        if written:
+            rows.append(("assignments.writes", path, pack(written)))
+    if language in ECMA:
+        unresolved = [[call["node"], call["file"], call["text"]] for call in facts.get("syntax_calls", ())
+                      if not (call.get("resolved") or call.get("kind") == "jsx-element")]
+        if unresolved:
+            rows.append(("syntax_calls.unresolved", path, pack(unresolved)))
     con.executemany("INSERT INTO part VALUES(?,?,?)", rows)
 
 
