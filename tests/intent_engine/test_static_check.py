@@ -1239,7 +1239,10 @@ def test_pytest_reports_a_pair_that_a_typescript_change_breaks(tmp_path):
     assert code == 1, text
     assert ('red: together Central.orgUnitId: admin.ts:editCentral writes Central.orgUnitId without Local.unitId '
             '-> also write Local.unitId in editCentral') in text.splitlines(), text
-    assert _cli_fixture.last(tmp_path).splitlines()[2] == '    JS/TS calls resolved by name'
+    shown = _cli_fixture.last(tmp_path).splitlines()          # the red line in full, its detail under it
+    red = shown.index('red: together Central.orgUnitId: src/admin.ts:editCentral writes Central.orgUnitId without '
+                      'Local.unitId -> also write Local.unitId in editCentral')
+    assert shown[red + 1] == '    JS/TS calls resolved by name', shown
 
 
 def test_the_value_gate_reads_the_fallback_of_a_nullish_default(tmp_path):
