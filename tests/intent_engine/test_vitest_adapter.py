@@ -1399,16 +1399,68 @@ def test_a_build_and_the_dev_server_never_load_flowguard_only_a_vitest_run_does(
     # R85: FlowGuard never changes the maintained software. The vite config that vitest reads is also the one
     # `vite build` and the dev server read: outside vitest no plugin applies, no Python starts and the code served
     # or bundled is the project's own, also with no FlowGuard installed and with a flowguard.vitest.mjs of an
-    # older init (no VITEST check of its own).
+    # older init (no VITEST check of its own). Review of 4.3: VITEST alone does not say that: a build or server that
+    # a test or a global setup starts inside a vitest run, and a `vite build` child that inherits VITEST, read the
+    # same config, and got the plugin (`globalThis.__flowguard_vitest_runtime__.wrap(...)` in their bundle). Only
+    # vitest's own servers apply it, and the generated wrapper starts no Python in a vitest worker.
     root = vitest_home / 'built'
     _commit(root, {
         'package.json': '{"name":"built","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
         'vite.config.mjs': ("import { defineConfig } from 'vite';\n\nexport default defineConfig({\n  plugins: [],\n"
-                            "  build: { lib: { entry: 'src/grade.ts', formats: ['es'], fileName: 'grade' } },\n});\n"),
+                            "  build: { lib: { entry: 'src/grade.ts', formats: ['es'], fileName: 'grade' } },\n"
+                            "  test: { globalSetup: ['./tests/serve.setup.mjs'] },\n});\n"),
         'src/grade.ts': '// flowguard: same PASS_MARK\nexport function grade(n: number): string {\n  return n >= 5 ? "pass" : "fail";\n}\n',
         'src/mark.ts': '// flowguard: same PASS_MARK\nexport function passed(n: number): boolean {\n  return n >= 5;\n}\n',
         'tests/grade.test.ts': ("import { expect, it } from 'vitest';\nimport { grade } from '../src/grade';\n"
                                 "it('grades', () => expect(grade(5)).toBe('pass'));\n"),
+        # a dev server a global setup starts in vitest's own process (VITEST set, no worker)
+        'tests/serve.setup.mjs': '''
+            import fs from 'node:fs';
+            import { createServer } from 'vite';
+            export async function setup() {
+              const server = await createServer({ root: process.cwd(), logLevel: 'silent', server: { middlewareMode: true, hmr: false, ws: false } });
+              const served = await server.transformRequest('/src/grade.ts');
+              await server.close();
+              fs.writeFileSync('served-by-setup.js', served.code);
+            }
+        ''',
+        # a build and a server a test starts in its worker, a `vite build` it starts as a child, and the wrapper there
+        'tests/inside.test.ts': '''
+            import { expect, it } from 'vitest';
+            import { spawnSync } from 'node:child_process';
+            import fs from 'node:fs';
+            import { createRequire } from 'node:module';
+            import path from 'node:path';
+            import { build, createServer } from 'vite';
+
+            const root = process.cwd();
+            it('builds the project as it is', async () => {
+              const result: any = await build({ root, logLevel: 'silent', build: { write: false } });
+              const code = [result].flat().flatMap((item: any) => item.output).map((chunk: any) => chunk.code ?? '').join('\\n');
+              expect(code).toContain('pass');
+              expect(code).not.toContain('__flowguard');
+            });
+            it('serves the project as it is', async () => {
+              const server = await createServer({ root, logLevel: 'silent', server: { middlewareMode: true, hmr: false, ws: false } });
+              const served = await server.transformRequest('/src/grade.ts');
+              await server.close();
+              expect(served!.code).toContain('function grade');
+              expect(served!.code).not.toContain('__flowguard');
+            });
+            it('a vite build it starts bundles the project as it is', () => {
+              const vite = path.join(path.dirname(createRequire(import.meta.url).resolve('vite/package.json')), 'bin/vite.js');
+              const run = spawnSync(process.execPath, [vite, 'build', '--outDir', 'dist-child', '--logLevel', 'silent'], { cwd: root, encoding: 'utf8' });
+              expect(run.status, run.stdout + run.stderr).toBe(0);
+              const files = fs.readdirSync(path.join(root, 'dist-child'), { recursive: true }).map(String).filter((name) => /\\.m?js$/.test(name));
+              const bundle = files.map((name) => fs.readFileSync(path.join(root, 'dist-child', name), 'utf8')).join('');
+              expect(bundle).toContain('pass');
+              expect(bundle).not.toContain('__flowguard');
+            });
+            it('the generated wrapper starts nothing in a worker', async () => {
+              const { default: flowguard } = await import('../flowguard.vitest.mjs');
+              expect(await flowguard()).toBe(null);
+            });
+        ''',
     })
     assert _flowguard(root, 'init')[0] == 0
     _commit(root, message='wired')
@@ -1423,17 +1475,22 @@ def test_a_build_and_the_dev_server_never_load_flowguard_only_a_vitest_run_does(
            "process.stdout.write(result.code);")
     wrapper = root / 'flowguard.vitest.mjs'
     current = wrapper.read_text(encoding='utf-8')
-    older = current.replace('  if (!process.env.VITEST) return null;\n', '')
+    older = current.replace('  if (!process.env.VITEST || process.env.VITEST_WORKER_ID) return null;\n', '')
     assert older != current
-    plain = {key: item for key, item in _environment().items() if key not in ('VITEST', 'TEST')}
-    for label, text, python in (('current', current, sys.executable), ('current, no FlowGuard', current, str(root / 'no-python')),
-                                ('older init', older, sys.executable)):
+    plain = {key: item for key, item in _environment().items() if key not in ('VITEST', 'TEST', 'VITEST_WORKER_ID', 'VITEST_POOL_ID')}
+    vitest_env, worker_env = dict(VITEST='true', TEST='true'), dict(VITEST='true', TEST='true', VITEST_WORKER_ID='1', VITEST_POOL_ID='1')
+    for index, (label, text, python, extra) in enumerate((
+            ('current', current, sys.executable, {}), ('current, no FlowGuard', current, str(root / 'no-python'), {}),
+            ('older init', older, sys.executable, {}),
+            # a child process of vitest, which inherits VITEST, and of one of its workers
+            ('current, VITEST set', current, sys.executable, vitest_env), ('older init, VITEST set', older, sys.executable, vitest_env),
+            ("current, a worker's child", current, sys.executable, worker_env))):
         wrapper.write_text(text, encoding='utf-8', newline='\n')
-        env = dict(plain, FLOWGUARD_PYTHON=python)
-        built = subprocess.run([_tool('node'), str(vite), 'build', '--outDir', 'dist-' + str(len(label))], cwd=root,
+        env = dict(plain, FLOWGUARD_PYTHON=python, **extra)
+        built = subprocess.run([_tool('node'), str(vite), 'build', '--outDir', f'dist-{index}'], cwd=root,
                                capture_output=True, encoding='utf-8', timeout=600, env=env)
         assert built.returncode == 0, (label, built.stdout + built.stderr)
-        bundle = ''.join(path.read_text(encoding='utf-8') for path in (root / ('dist-' + str(len(label)))).rglob('*.*js'))
+        bundle = ''.join(path.read_text(encoding='utf-8') for path in (root / f'dist-{index}').rglob('*.*js'))
         assert '"pass"' in bundle and '__flowguard' not in bundle and '__fg_rt' not in bundle, (label, bundle)
         served = subprocess.run([_tool('node'), '--input-type=module', '-e', dev], cwd=root, capture_output=True,
                                 encoding='utf-8', timeout=600, env=env)
@@ -1441,7 +1498,9 @@ def test_a_build_and_the_dev_server_never_load_flowguard_only_a_vitest_run_does(
         assert 'function grade' in served.stdout and '__flowguard' not in served.stdout, (label, served.stdout)
     wrapper.write_text(current, encoding='utf-8', newline='\n')
     code, text = _vitest(root, vitest_home)  # the same config in a vitest run: FlowGuard records and reports
-    assert code == 0 and 'FlowGuard' in text, text
+    assert code == 0 and re.search(r'Tests +7 passed \(7\)', text) and _block(text)[0].startswith('FlowGuard '), text
+    served = (root / 'served-by-setup.js').read_text(encoding='utf-8')
+    assert 'function grade' in served and '__flowguard' not in served, served
 
 
 ISO_WEEK = '''

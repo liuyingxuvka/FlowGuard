@@ -613,8 +613,9 @@ GENERATED = INIT_MARK + ': FlowGuard\'s execution side for vitest (minimal: vite
 MODULE = GENERATED + '''
 // The vitest config imports this file and lists flowguard() in its plugins: two lines marked `flowguard: vitest`.
 // Delete those two lines to undo. Only a vitest run loads FlowGuard (vitest sets VITEST before it reads the
-// config): `vite build`, `vite` and `vite preview` get no plugin and start no Python, so the software itself is
-// never changed. In a vitest run it records functions marked `flowguard: same NAME` and changed functions;
+// config): `vite build`, `vite` and `vite preview` get no plugin and start no Python, nor does a build or server
+// that a test starts (in a vitest worker, VITEST_WORKER_ID is set, also for its child processes), and the plugin
+// applies only to the servers vitest itself starts, so the software itself is never changed. In a vitest run it records functions marked `flowguard: same NAME` and changed functions;
 // without either it adds nothing, unless flowguard.static.test.mjs is next to this file or there is no baseline
 // commit: then it adds the block only. Comparison runs after the tests, and FlowGuard's lines follow the test
 // summary. Python is found as flowguard.static.test.mjs finds it: FLOWGUARD_PYTHON, then the
@@ -638,7 +639,7 @@ function interpreters() {
 }
 
 export default async function flowguard() {
-  if (!process.env.VITEST) return null;
+  if (!process.env.VITEST || process.env.VITEST_WORKER_ID) return null;
   const tried = [];
   for (const [command, ...prefix] of interpreters()) {
     const run = spawnSync(command, [...prefix, '-m', 'flowguard.intent.vitest', 'prepare', '--root', ROOT, '--package', HERE], {

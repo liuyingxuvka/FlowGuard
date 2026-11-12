@@ -3,7 +3,8 @@
 // a const function becomes let so the recorder can remove itself. No old or copy module is imported.
 // It also adds FlowGuard's own test project (session.test.mjs), run after the project's tests
 // (sequence.groupOrder): its one test case fails on a red, so the red is in vitest's results (JSON, junit) too.
-// It applies only in a vitest run: what `vite build` and the dev server serve is never changed.
+// It applies only to the vite servers vitest itself starts for a run (R85): what `vite build` and the dev server
+// serve is never changed, nor a build or server that a test or a global setup starts inside a vitest run.
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -22,6 +23,20 @@ export function normalize(file, windows = process.platform === 'win32') {
   if (windows && /^\/[A-Za-z]:\//.test(text)) text = text.slice(1);
   if (windows && /^[A-Za-z]:\//.test(text)) text = text[0].toLowerCase() + text.slice(1);
   return windows ? text.toLowerCase() : text;
+}
+
+// Whether a vite config being resolved is one of vitest's own servers (the root's or a project's): vitest passes its
+// plugin (`vitest`, `vitest:project`) among the inline plugins of exactly those. A build, a dev server, and a server
+// or build a test or a global setup starts read the same config file without it, also with VITEST in their
+// environment (a worker's child process inherits it).
+export function vitestServer(config) {
+  const pending = [...(config.plugins ?? [])];
+  while (pending.length) {
+    const item = pending.pop();
+    if (Array.isArray(item)) pending.push(...item);
+    else if (item && typeof item === 'object' && (item.name === 'vitest' || item.name === 'vitest:project')) return true;
+  }
+  return false;
 }
 
 function sourceMap(code, file) {
@@ -62,9 +77,9 @@ export function flowguardPlugin({ plan: planFile, python, root, prepareSeconds }
   return {
     name: 'flowguard',
     enforce: 'pre',
-    // vitest sets VITEST before it reads the config: a build or dev server never applies this plugin, also
-    // through a flowguard.vitest.mjs written by an older init
-    apply: () => Boolean(process.env.VITEST),
+    // vitest sets VITEST before it reads the config; only its own servers serve the test modules (`vitestServer`): a
+    // build or dev server never applies this plugin, also through a flowguard.vitest.mjs written by an older init
+    apply: (config, env) => Boolean(process.env.VITEST) && env.command === 'serve' && vitestServer(config),
     config() {
       process.env.FLOWGUARD_VITEST_PLAN = planFile;
       process.env.FLOWGUARD_VITEST_PYTHON = JSON.stringify(python);
