@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import textwrap
@@ -1365,6 +1366,8 @@ def test_a_run_with_nothing_to_observe_still_prints_the_map_checks_and_a_run_wit
     assert code == 1 and block[1:] == [red], text
     assert block[0].startswith(f'FlowGuard {signals.version()} (since bbbbbbb, not in this repository: nothing compared; '
                                'run python -m flowguard new-task): 1 red; '), block
+    for path in (copies / '.git').rglob('*'):      # Git writes its objects read-only, which Windows will not delete
+        path.chmod(path.stat().st_mode | stat.S_IWRITE)
     shutil.rmtree(copies / '.git')
     shutil.rmtree(copies / '.flowguard/cache')
     code, text = _vitest(copies, vitest_home)
