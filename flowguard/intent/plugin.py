@@ -932,7 +932,7 @@ class Observations:
         model = self.state.model
         for item, result in self.state.results.items():
             if result.get('verdict') == 'grey':
-                unverified.extend(item.partition('::')[2] + '：' + str(reason) for reason in result.get('grey', ()) or ['unverified'])
+                unverified.extend(item.partition('::')[2] + ': ' + str(reason) for reason in result.get('grey', ()) or ['unverified'])
                 self._unchecked(item.partition('::')[2], [str(reason) for reason in result.get('grey', ())] or ['unverified'])
             if result.get('red'):
                 rule = model.rules.get(result.get('rule'))

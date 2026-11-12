@@ -92,6 +92,16 @@ def test_a_grey_intent_item_is_unverified_even_with_warnings_as_errors(tmp_path)
                and line.startswith('tests/')), text
 
 
+def test_the_session_report_names_an_unverified_item_and_its_reason_with_an_ascii_colon(tmp_path):
+    from flowguard.intent import cache
+    from flowguard.intent.config import load_config
+    root = _project(tmp_path / 'p', ASSUMED)
+    result, text = _pytest(root, '-q')
+    assert result.returncode == 0 and '1 unverified' in text, text
+    said = cache.observations(load_config(root))['items']['unverified']
+    assert said and all(entry.startswith('LIMIT_RULE[rules]: ') and '：' not in entry for entry in said), said
+
+
 STANDING = {
     'policy.py': '''
         # flowguard: sensor STANDING
