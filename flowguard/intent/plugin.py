@@ -129,6 +129,7 @@ class Session:
         from . import deprecation
         self.deprecations = deprecation.mark()      # the deprecated features this session uses (`show --last`)
         self.finishing = None            # when the session's own judgement began (`pytest_sessionfinish`)
+        self._timing = False             # inside `timed`
         self.tool_seconds = time.perf_counter() - timing
 
     @property
@@ -191,9 +192,23 @@ class Session:
             pytest.fail(reason + '; ' + guidance, pytrace=False)
         return refused
 
+    @contextmanager
+    def timed(self):
+        """FlowGuard's own work in the session (`tool_seconds`, the first line's time): counted once where timed parts
+        nest (the model's load inside the collection's finish)."""
+        if self._timing:
+            yield
+            return
+        self._timing, started = True, time.perf_counter()
+        try:
+            yield
+        finally:
+            self._timing = False
+            self.tool_seconds += time.perf_counter() - started
+
     def get_model(self):
         if self.model is None:
-            with self.verification():
+            with self.timed(), self.verification():
                 self.model = load(self.cfg)
                 self.model.deep = self.config.getoption('--flowguard-deep', default=False)
                 self.engine = Engine(self.model)
@@ -1363,8 +1378,12 @@ def pytest_collection_modifyitems(config, items):
 
 @pytest.hookimpl(trylast=True)
 def pytest_collection_finish(session):
-    timing = time.perf_counter()
     state = session.config._flowguard_intent
+    with state.timed():
+        _finish_collection(session, state)
+
+
+def _finish_collection(session, state):
     if state.complete_collection is not None and {item.nodeid for item in session.items} != state.complete_collection:
         raise pytest.UsageError('another selection changed the full ordinary collection')
     state.get_model()
@@ -1377,7 +1396,6 @@ def pytest_collection_finish(session):
     session.items[:] = [*state.source_items, *(item for item in intent if item.kind != 'flow'),
                        *(item for item in intent if item.kind == 'flow'),
                        *(item for item in session.items if item.name == SENTINEL)]
-    state.tool_seconds += time.perf_counter() - timing
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -1494,29 +1512,31 @@ def pytest_runtest_protocol(item, nextitem):
         from .calibration import session as source_session
         try:
             state.get_model()
-            with state.verification(), source_session(state.runtime, state.source_items, nextitem=item, events=state.events):
+            with state.timed(), state.verification(), source_session(state.runtime, state.source_items, nextitem=item,
+                                                                     events=state.events):
                 item._prepared_result = item.evaluate_verified()
         except Exception as error:
             item._evaluation_error = error, error.__traceback__
     state.last_test = item.nodeid
     capture = None
     with ExitStack() as scopes:
-        if not isinstance(item, IntentItem) and item.name != SENTINEL and state.observations is not None:
-            scopes.enter_context(state.observations.scope(item))
-        from .calibration import probe_context
-        # Anchor events are always recorded (local events on anchored code only), so
-        # show NAME and model draft have data after a plain pytest run. A source change keeps the
-        # Flows' test-entry filter: no old-code rerun reads the other events (design 6.5). Without
-        # one (no Flows, or a Flow that starts in production code) an anchor no Flow reads is sampled.
-        if (not isinstance(item, IntentItem) and item.name != SENTINEL and state.model is not None
-                and state.model.anchor_index.entries and not probe_context(item.config)):
-            from .flow import Capture
-            capture = scopes.enter_context(Capture(state.cfg.root, state.model.anchor_index, item.nodeid,
-                                                   models=state.model.flows.values(), _ordinary=True))
-            if state.observations is not None:
-                # Modules imported during this test add their anchored code to the capture.
-                state.observations.capture = capture
-                scopes.callback(setattr, state.observations, 'capture', None)
+        with state.timed():         # entering the test's observation scopes is FlowGuard's own work
+            if not isinstance(item, IntentItem) and item.name != SENTINEL and state.observations is not None:
+                scopes.enter_context(state.observations.scope(item))
+            from .calibration import probe_context
+            # Anchor events are always recorded (local events on anchored code only), so
+            # show NAME and model draft have data after a plain pytest run. A source change keeps the
+            # Flows' test-entry filter: no old-code rerun reads the other events (design 6.5). Without
+            # one (no Flows, or a Flow that starts in production code) an anchor no Flow reads is sampled.
+            if (not isinstance(item, IntentItem) and item.name != SENTINEL and state.model is not None
+                    and state.model.anchor_index.entries and not probe_context(item.config)):
+                from .flow import Capture
+                capture = scopes.enter_context(Capture(state.cfg.root, state.model.anchor_index, item.nodeid,
+                                                       models=state.model.flows.values(), _ordinary=True))
+                if state.observations is not None:
+                    # Modules imported during this test add their anchored code to the capture.
+                    state.observations.capture = capture
+                    scopes.callback(setattr, state.observations, 'capture', None)
         try:
             if (isinstance(item, IntentItem) or item.name == SENTINEL
                     or not any(item.iter_markers('rule'))):
@@ -1527,9 +1547,10 @@ def pytest_runtest_protocol(item, nextitem):
                     yield
         finally:
             if capture:
-                scopes.close()
-                state.events.extend(capture.events)
-                state.anchor_issues.extend(capture.issues)
+                with state.timed():
+                    scopes.close()
+                    state.events.extend(capture.events)
+                    state.anchor_issues.extend(capture.issues)
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -1687,10 +1708,10 @@ def pytest_sessionfinish(session, exitstatus):
     """The session's verdict and its transaction; the block prints later, after pytest's summary (`Block`)."""
     state = session.config._flowguard_intent
     state.finishing = time.perf_counter()
-    with state.verification():
-        result = finish_verified(session, exitstatus)
-    _junit_session(session, state)
-    state.tool_seconds += time.perf_counter() - state.finishing
+    with state.timed():
+        with state.verification():
+            result = finish_verified(session, exitstatus)
+        _junit_session(session, state)
     return result
 
 

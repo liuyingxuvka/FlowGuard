@@ -18,7 +18,10 @@ def project(root, files, policy='forbid', collect_only=False):
 
 
 def summary(result):
-    return result.stdout.strip().splitlines()[-1]
+    """pytest's own summary line: the last line, or the line before the FlowGuard block that follows it."""
+    lines = result.stdout.strip().splitlines()
+    blocks = [index for index, line in enumerate(lines) if line.startswith('FlowGuard ')]
+    return lines[blocks[-1] - 1] if blocks else lines[-1]
 
 
 def test_forbid_retains_the_original_worldguard_three_runtime_skip_outcomes(tmp_path):

@@ -483,3 +483,49 @@ def test_the_block_follows_pytests_summary_with_every_reporter_option_and_after_
     start = next(index for index, line in enumerate(lines) if line.startswith('FlowGuard '))
     assert result.returncode == 2 and lines[start + 1:] == [changed], lines
     assert any('KeyboardInterrupt' in line for line in lines[:start]) and _re.search(r'\d+ passed in ', lines[start - 1]), lines
+
+
+def test_a_known_entry_naming_an_old_same_name_disagreement_is_its_known_line_in_pytest(tmp_path):
+    """The PT frontend case (design 6.1): copies that already disagreed, a known.toml entry naming them and a change
+    touching their file give the entry's line with its step, never red or before, and the run passes."""
+    from tests.intent_engine.test_default_runtime_signals import _git, _project, _run
+    from tests.intent_engine._cli_fixture import block, last
+    root = tmp_path / 'weeks'
+    policy = _project(root, '''
+        # flowguard: same WEEKS
+        def weeks(year: int) -> int:
+            return 52
+        # flowguard: same WEEKS
+        def iso_weeks(year: int) -> int:
+            return 53 if year == 2025 else 52
+    ''', '''
+        from policy import weeks, iso_weeks
+        def test_weeks():
+            assert weeks(2024) == iso_weeks(2024) == 52
+    ''')
+    (root / '.flowguard').mkdir()
+    (root / '.flowguard/known.toml').write_text(
+        '[known.iso-weeks]\nsites = ["policy.py:weeks", "policy.py:iso_weeks"]\n'
+        'why = "the two copies disagree on 2025; the owner has not said which is right"\nact = "ask"\n'
+        'ask = "Has 2025 52 or 53 ISO weeks?"\nfinding = "same:WEEKS"\n', encoding='utf-8')
+    _git(root, 'add', '.')
+    _git(root, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'known disagreement')
+    untouched = _run(root)
+    assert untouched.returncode == 0 and block(untouched)[1:] == [], untouched.stdout     # nothing touches the copies
+    # A comment below the copies touches their file, not the entry's sites (D31): neither known nor before.
+    policy.write_text(policy.read_text() + '# a documentation-only edit\n')
+    commented = _run(root)
+    assert commented.returncode == 0 and block(commented)[1:] == [], commented.stdout
+    policy.write_text(policy.read_text().replace('    return 52\n', '    return 50 + 2\n', 1))     # one site, same answers
+    result = _run(root)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert block(result)[1:] == ['known: known.iso-weeks at policy.py:weeks, policy.py:iso_weeks -> ask owner (not asked yet)'], result.stdout
+    shown = last(root).splitlines()
+    assert '    ask: Has 2025 52 or 53 ISO weeks?' in shown, shown
+    # Without the entry the same disagreement is before, with the input it is about.
+    (root / '.flowguard/known.toml').unlink()
+    result = _run(root)
+    assert result.returncode == 0 and block(result)[1:] == [
+        'before: same WEEKS disagreed at task start on year=2025: policy.py:weeks returns 52, policy.py:iso_weeks returns 53 '
+        '-> leave it unless your task is about it', "loosened: known.iso-weeks removed from known.toml -> name it in your report; needs the owner's yes"
+    ], result.stdout
