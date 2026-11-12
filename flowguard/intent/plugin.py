@@ -444,9 +444,12 @@ class Observations:
         self.index = state.model.anchor_index or differences._source_index(self.cfg.root)
         state.model.anchor_index = self.index
         self.renamed = {}       # a moved file's baseline version is at its old path
+        self.repository = frozenset()   # the repository's files, which no shortened path of the block may name
         try:
             changed = git_run(self.cfg.root, 'diff', '--name-only', '-z', baseline).stdout
             added = git_run(self.cfg.root, 'ls-files', '--others', '--exclude-standard', '-z').stdout
+            tracked = git_run(self.cfg.root, 'ls-files', '-z').stdout
+            self.repository = frozenset(os.fsdecode(value) for value in (tracked + added).split(b'\0') if value)
             self.files = {os.fsdecode(value) for value in (changed + added).split(b'\0')
                           if value and value.endswith(b'.py') and state.is_project(str(self.cfg.root / os.fsdecode(value)))}
             self.differs = {os.fsdecode(value) for value in changed.split(b'\0') if value}
@@ -1064,7 +1067,7 @@ class Observations:
         from . import signals
         heading = signals.title(self.lines, baseline=self.missing or self.runtime.baseline, kind=self.baseline_kind,
                                 ahead=self.baseline_ahead, seconds=seconds)
-        return signals.render_block(self.lines, title=heading)
+        return signals.render_block(self.lines, title=heading, files=self.repository)
 
     def last(self, seconds):
         """The payload `cache.save_last` keeps for `show --last` (`signals.last_run`)."""

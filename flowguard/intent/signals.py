@@ -405,15 +405,16 @@ def title(lines, *, baseline, kind, ahead=None, option='--flowguard-base', secon
     return f'FlowGuard {version()} ({baseline_label(baseline, kind, ahead, option)}): {", ".join(told)}; {seconds:.1f} s'
 
 
-def render_block(lines, *, title, everything=False):
+def render_block(lines, *, title, everything=False, files=()):
     """The block a run prints: `title`, then the lines in KINDS order. red, loosened and known fixed? are listed in
     full; of the others at most ten: changed 3, before and known 2 and one line counting the rest, impact 2, not
     compared one line summing every such line up, and one `+N more` for the changed and impact lines left out. One
     line keeps at most 200 characters besides its paths (the middle of its text gives way, never its subject, places
     or step) and names at most three places; a place's path is its file name (the shortest unique end of the path
-    where two places share one). `everything` (`--all`): every line, uncut. `deprecated` lines are never part of it."""
+    where another path has that name, of the block or of the repository's file list `files`, read once per run).
+    `everything` (`--all`): every line, uncut. `deprecated` lines are never part of it."""
     lines = sorted((line for line in lines if line.kind != 'deprecated'), key=lambda line: KINDS.index(line.kind))
-    names = _short_paths(path for line in lines for path in map(_path_of, line.places) if path)
+    names = _short_paths((path for line in lines for path in map(_path_of, line.places) if path), files)
     out = [title]
     if everything:
         return '\n'.join(out + [_said(line, names, cap=False) for line in lines])
@@ -480,18 +481,28 @@ def _path_of(place):
     return str(place).partition(':')[0].strip()
 
 
-def _short_paths(paths):
-    """{path: what the block prints}: its file name, or where two paths of the block share one, the shortest end of
-    each that no other of them shares."""
+def _ends(path):
+    """The ends of a repository path, its file name first and the whole path last (a folder's keep their '/')."""
+    folder = '/' if path.endswith('/') else ''
+    parts = path.removesuffix('/').split('/')
+    return ['/'.join(parts[-size:]) + folder for size in range(1, len(parts) + 1)]
+
+
+def _short_paths(paths, files=()):
+    """{path: what the block prints}: its file name (a folder's name with its '/'), or the shortest end of it that no
+    other path has, of the block or of the repository (`files`, its file list): an end that is another file's whole
+    path, or that another file's path ends with, would name that file too. Without `files` only the block's own
+    paths count."""
     paths = sorted(set(paths))
+    counts = dict.fromkeys((end for path in paths for end in _ends(path)), 0)
+    for other in set(paths) | set(files):
+        for end in _ends(other):
+            if end in counts:
+                counts[end] += 1
     shown = {}
     for path in paths:
-        parts = path.split('/')
-        for size in range(1, len(parts) + 1):
-            end = '/'.join(parts[-size:])
-            if not any(other != path and (other == end or other.endswith('/' + end)) for other in paths):
-                break
-        shown[path] = end
+        ends = _ends(path)
+        shown[path] = next((end for end in ends if counts[end] == 1), ends[-1])
     return shown
 
 

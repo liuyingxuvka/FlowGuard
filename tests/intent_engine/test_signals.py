@@ -325,6 +325,41 @@ def test_a_line_names_at_most_three_places_and_paths_are_file_names_unless_two_s
     assert signals._short_paths(['a/b/c.py', 'x/y/c.py']) == {'a/b/c.py': 'b/c.py', 'x/y/c.py': 'y/c.py'}
 
 
+def test_a_path_never_shortens_to_an_end_another_file_of_the_repository_is_or_shares():
+    """D17 over the repository's file list: `util.py` is the whole path of another file and `lib/util.py` ends the same
+    way, so neither name may stand for `src/util.py`; without the list only the block's own paths count."""
+    files = ['util.py', 'src/util.py', 'src/a/util.py', 'lib/a/util.py', 'pkg/only.py', 'x/b/c.py']
+    assert signals._short_paths(['src/util.py', 'src/a/util.py', 'pkg/only.py'], files) == {
+        'src/util.py': 'src/util.py', 'src/a/util.py': 'src/a/util.py', 'pkg/only.py': 'only.py'}
+    assert signals._short_paths(['a/b/c.py'], files) == {'a/b/c.py': 'a/b/c.py'}
+    assert signals._short_paths(['src/util.py']) == {'src/util.py': 'util.py'}
+    line = Line('changed', 'changed:m:f', 'm:f', 'f (src/util.py:3): (n=1) was 1, now 2; 1/1 inputs differ', 'if you meant it, say so',
+                ('src/util.py:3',))
+    assert signals.render_block([line], title='T', files=files).splitlines()[1] == \
+        'changed: f (src/util.py:3): (n=1) was 1, now 2; 1/1 inputs differ -> if you meant it, say so'
+    assert signals.render_block([line], title='T').splitlines()[1].startswith('changed: f (util.py:3)')
+
+
+def test_a_pytest_block_names_a_file_by_an_end_no_other_file_of_the_repository_has(tmp_path):
+    from tests.intent_engine.test_default_runtime_signals import _git, _run
+    from tests.intent_engine._cli_fixture import block
+    files = {'policy.py': 'def late_fee(days: int) -> int:\n    return days\n', 'pkg/__init__.py': '',
+             'pkg/policy.py': 'def late_fee(days: int) -> int:\n    return days * 2\n',
+             'tests/test_fee.py': 'from pkg.policy import late_fee\ndef test_fee():\n    assert late_fee(2) in (4, 6)\n',
+             '.gitignore': '.flowguard/cache/\n__pycache__/\n.pytest_cache/\n',
+             'pyproject.toml': '[tool.pytest.ini_options]\npythonpath=["."]\ntestpaths=["tests"]\n'}
+    for name, text in files.items():
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_text(text, encoding='utf-8')
+    _git(tmp_path, 'init', '-q', '-b', 'main')
+    _git(tmp_path, 'add', '.')
+    _git(tmp_path, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'two policies')
+    (tmp_path / 'pkg/policy.py').write_text(files['pkg/policy.py'].replace('days * 2', 'days * 3'), encoding='utf-8')
+    result = _run(tmp_path)
+    assert result.returncode == 0 and block(result)[1:] == [
+        'changed: late_fee (pkg/policy.py:1): (days=2) was 4, now 6; 1/1 inputs differ -> if you meant it, say so'], result.stdout
+
+
 def test_the_not_compared_line_names_up_to_three_items_and_the_most_common_reasons():
     one = [signals.not_compared('STANDING (src/policy.py:2)', ['uses attribute close'], function='m:standing', places=('src/policy.py:2',))]
     assert _block(one)[1] == 'not compared: STANDING (policy.py:2) (uses attribute close) -> not a failure'
