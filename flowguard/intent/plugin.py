@@ -1006,8 +1006,9 @@ class Observations:
             self.structure = found.summary         # the session brief's count of open structure problems
             self.hidden = list(found.hidden)
         elif catalog:
-            # Without a change the map checks do not run; an invalid rules.toml or known.toml is red in every run (D4).
-            problems = sources.catalog(self.cfg).issues
+            # Without a change the map checks do not run; an invalid rules.toml or known.toml, or a known entry whose
+            # site names nothing on the map, is red in every run (D4).
+            problems = sources.input_findings(self.cfg, self.state.get_map)
             self.red.extend(issue.text for issue in problems)
             self.issues.extend(problems)
         self.red.extend(f'load {error["file"]}:{error["line"]}: {error["msg"]}' for error in model.errors)

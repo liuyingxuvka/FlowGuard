@@ -667,13 +667,14 @@ NO_BASELINE = {'outside Git': 'no baseline: nothing compared', 'unborn branch': 
 
 def _without_baseline(root, state):
     """`PLAIN` with no commit to compare with: in no repository, on a branch before its first commit, or with a
-    recorded task start this repository lacks."""
+    recorded task start this repository lacks; or committed, with no source change since."""
     from flowguard.intent import cache
     _write(root, PLAIN)
     if state != 'outside Git':
         _git(root, 'init', '-q', '-b', 'main')
-    if state == 'recorded start missing':
+    if state in ('recorded start missing', 'no source change'):
         _commit(root)
+    if state == 'recorded start missing':
         cache._record_baseline(load_config(root), 'b' * 40)
     return root
 
@@ -691,3 +692,18 @@ def test_check_reports_an_invalid_or_unresolvable_known_entry_without_a_baseline
         assert result.returncode == 1 and shown[0].startswith(f'FlowGuard {signals.version()} ({NO_BASELINE[state]}): 2 red; '), (
             arguments, result.stdout + result.stderr)
         assert shown[1:] == BROKEN_REDS, (arguments, result.stdout)
+
+
+@pytest.mark.parametrize('state', ['no source change', *NO_BASELINE])
+def test_pytest_without_a_source_change_reports_a_known_site_that_names_nothing_as_check_does(tmp_path, state):
+    """A pytest run whose map checks do not run (no source change, or no baseline) still resolves the known sites on
+    the map: an entry whose site names nothing is red, as the invalid entry beside it, in check and check --static
+    too (D4)."""
+    from tests.intent_engine.test_unverified_outcome import _cli, _pytest
+    from tests.intent_engine._cli_fixture import block
+    root = _without_baseline(tmp_path / 'p', state)
+    for run, (result, _) in (('pytest', _pytest(root, '-q')), ('check', _cli(root, 'check')),
+                             ('check --static', _cli(root, 'check', '--static'))):
+        shown = block(result)
+        assert result.returncode == 1 and ': 2 red; ' in shown[0], (run, result.stdout + result.stderr)
+        assert shown[1:] == BROKEN_REDS, (run, result.stdout)
