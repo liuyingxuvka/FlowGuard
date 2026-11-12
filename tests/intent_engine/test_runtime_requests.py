@@ -82,8 +82,9 @@ raise SystemExit(pytest.main(sys.argv[1:]))
         payload = json.loads(con.execute("SELECT v FROM meta WHERE k='runtime_observations'").fetchone()[0])
         attempt = json.loads(con.execute("SELECT v FROM meta WHERE k='intent_attempt'").fetchone()[0])
     assert attempt['exit'] == 1 and payload['display_unavailable'] == error
-    assert any('STANDING_RULE' in message and 'days=4' in message and 'code True' in message
-               for message in payload['items']['red']), payload
+    from tests.intent_engine._cli_fixture import last      # the committed red, as show --last keeps it
+    assert any(line.startswith('red: rule STANDING_RULE: ') and 'days=4' in line and 'code True' in line
+               for line in last(tmp_path).splitlines()), last(tmp_path)
 
 
 def test_unknown_payload_types_do_not_invoke_their_string_or_class_hooks():

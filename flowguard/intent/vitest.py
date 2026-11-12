@@ -483,10 +483,10 @@ def plan(cfg, commit, changed, key):
         index = collect(graph)
         owners = {anchor.target for anchor in index.entries if anchor.owner}
         modules = {row['file']: row['module'] for row in graph.nodes(kind='module')}
-        wanted = {}                     # id -> (name, anchored, rel, qual)
+        wanted = {}                     # id -> (name, anchored, rel, qual, why an unanchored function is planned)
         for anchor in index.entries:
             if anchor.kind == 'sensor' and _ecma(anchor.file) and anchor.source_role != 'test':
-                wanted[anchor.target] = (anchor.name, True, anchor.file, anchor.qual)
+                wanted[anchor.target] = (anchor.name, True, anchor.file, anchor.qual, '')
         old_sources, readers, touched, constants = {}, {}, set(), {}
         renamed = git_renames(cfg.root, commit) if commit else {}    # a moved file's baseline version is at its old path
         for rel in changed:
@@ -507,7 +507,7 @@ def plan(cfg, commit, changed, key):
             for row in now['nodes']:
                 ident = modules[rel] + ':' + row['qual']
                 if row['kind'] == 'function' and _top_level(row['qual']) and prior.get(row['qual']) != row['fp'] and ident not in wanted:
-                    wanted[ident] = (row['qual'], False, rel, row['qual'])
+                    wanted[ident] = (row['qual'], False, rel, row['qual'], 'its code changed')
             names = _constants_changed(before, now, _const_reads(old, renamed.get(rel, rel)) if old is not None else {}, constants[rel])
             if names:               # like the pytest side: a function reading a changed constant changed too
                 readers.setdefault(rel, set()).update(names)
@@ -522,9 +522,11 @@ def plan(cfg, commit, changed, key):
             lines = (cfg.root / rel).read_text(encoding='utf-8').splitlines()
             spelled = re.compile(r'\b(?:' + '|'.join(map(re.escape, sorted(names))) + r')\b')
             for row in graph.nodes(file=rel):
-                if row['kind'] == 'function' and _top_level(row['qual']) and row['id'] not in wanted \
-                        and spelled.search('\n'.join(lines[row['line'] - 1:row['end_line']])):
-                    wanted[row['id']] = (row['qual'], False, rel, row['qual'])
+                if row['kind'] != 'function' or not _top_level(row['qual']) or row['id'] in wanted:
+                    continue
+                read = sorted(set(spelled.findall('\n'.join(lines[row['line'] - 1:row['end_line']]))))
+                if read:
+                    wanted[row['id']] = (row['qual'], False, rel, row['qual'], 'a constant it reads changed: ' + ', '.join(read))
         numbers, strings = {}, {}
         for row in graph.numbers():
             numbers.setdefault((row['file'], row['function']), []).append(row['value'])
@@ -536,7 +538,7 @@ def plan(cfg, commit, changed, key):
         parsed, points, unplanned = {}, [], []
         tables, old_tables = {}, {}         # each imported file's literals, read once per version
         baseline_files = {renamed.get(rel, rel): data for rel, data in old_sources.items()}    # by baseline path
-        for ident, (name, anchored, rel, qual) in sorted(wanted.items()):
+        for ident, (name, anchored, rel, qual, why) in sorted(wanted.items()):
             if rel not in parsed:
                 parsed[rel] = declarations((cfg.root / rel).read_bytes(), rel)
             found = parsed[rel].get(qual)
@@ -562,7 +564,7 @@ def plan(cfg, commit, changed, key):
             prior, old_skip = (sealed_source(old, old_rel, qual, lambda path: baseline_files.get(path) if path in baseline_files
                                              else git_blob(cfg.root, commit, path), old_tables) if old is not None and qual in declarations(old, old_rel)
                                else ('', ABSENT if commit else NO_BASELINE))
-            points.append(dict(id=ident, name=name, anchored=anchored, owner=ident in owners, rel=rel, file=(cfg.root / rel).as_posix(), fn=qual,
+            points.append(dict(id=ident, name=name, anchored=anchored, why=why, owner=ident in owners, rel=rel, file=(cfg.root / rel).as_posix(), fn=qual,
                                line=found['line'], target_line=line, form=found['form'], params=found['params'], skip=skip,
                                recordable=(not found['is_async'] and 'generator' not in found['node'].type
                                            and skip != 'uses imported or mutable binding ' + qual),
@@ -1171,7 +1173,7 @@ def judge(cfg, data, records, package=None):
         if changes:
             lines.append(signals.changed_line(point['fn'], ident, point['rel'], point['target_line'],
                                               [({name: _plain(item) for name, item in row['in']}, _plain(row['old']), _plain(row['now']))
-                                               for row in changes], len(compared), unanchored=not point['anchored']))
+                                               for row in changes], len(compared), why=point['why']))
         elif reasons or {row['label'] for row in compared} != {row['label'] for row in actual_rows}:
             # a replayed case class none of whose inputs could be compared is no evidence that it did not change
             skipped(subject, reasons or ['a case class could not be compared at the baseline'], function=ident, places=(where,))

@@ -45,7 +45,7 @@ def test_try_grid_evaluates_and_prints_all_rows_when_explicitly_requested(tmp_pa
     assert result['status'] == 'ok', result
     assert result['tested'] == len(result['rows']) == 512
     assert len(result['lines']) == 513
-    assert sum('→' in line for line in result['lines']) == 512
+    assert sum('->' in line for line in result['lines']) == 512
     assert sum(value is True for _, value in result['rows']) == 256
 
 
@@ -121,7 +121,7 @@ def test_show_model_reuses_path_checks_and_counts_unobserved_edges(tmp_path):
     assert shown['status'] == 'red' and shown['node_counts'] == {'a': 1, 'c': 1}
     assert shown['edge_counts'] == {('a', 'c'): 1}
     assert any('runtime path a -> c is not allowed' in line for line in shown['lines'])
-    assert any('a → b: 0; unobserved' in line for line in shown['lines'])
+    assert any('a -> b: 0; unobserved' in line for line in shown['lines'])
 
 
 def test_try_untyped_positional_only_input_and_default(tmp_path):

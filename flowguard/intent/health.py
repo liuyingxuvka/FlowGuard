@@ -1,32 +1,27 @@
 """Structure health: the map checks that need no test run, and the open structure problems they leave.
 
 Each check reads the one map (`MapHandle.writes()`, `value_sets()`, `queries()`, `children()`,
-`schema_gaps()`, `label_tables()`, `call_tree()`) and reports only what this change adds: red for a value
-outside its declared set, leads for a delete that leaves restricting children, a column one description of a table
-lacks and two same-name functions whose bodies differ. Every problem, old ones too, is also an `Issue`
-with a stable name; `check --all` and `check --static --all` list them by severity, and a change that
-touches an open one gets a single lead. The owner's decision in the `[structure]` section of
+`schema_gaps()`, `label_tables()`, `call_tree()`): a value outside its declared set, a delete that leaves
+restricting children, a column one description of a table lacks, two same-name functions whose bodies differ.
+Every problem, old ones too, is an `Issue` with a stable name and its members, those this change added fresh;
+`signals.deliver` gives each member its line. The owner's decision in the `[structure]` section of
 `.flowguard/ledger.toml` (eight words or more, sourced from stored owner words or a written rule)
-closes an issue and the lead a change that adds to it would get; a decision on who writes a field also
-needs its `owner ... writers=` anchor.
-Fields that several files write without an owner are issues only (`--all`, `show`).
+closes an issue; a decision on who writes a field also needs its `owner ... writers=` anchor.
 """
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 from flowguard.map.common import is_test_file
 
-RANKS = {1: 'value', 2: 'together', 3: 'missing columns', 4: 'delete', 5: 'copy', 6: 'write', 7: 'row creation', 8: 'labels'}
-LINES_ONLY = 0               # the rank of a finding only the 4.3 lines report: no --all listing, brief count or touched lead
+LINES_ONLY = 0               # the rank of a finding only the 4.3 lines report: no brief count
 BOOKKEEPING = {'id', 'createdat', 'updatedat', 'created_at', 'updated_at', 'createdbyid', 'updatedbyid',
                'created_by', 'updated_by', 'revision', 'version'}     # written by every writer on purpose
 WRITER_FILES = 3             # files writing one field without an owner before it is an issue
 SIMILAR_COPY = 0.8           # shape similarity of two same-name functions that makes them copies
 CREATING = ('create', 'createMany', 'createManyAndReturn', 'upsert:create', 'upsert:update', 'update', 'updateMany',
             'updateManyAndReturn', 'sql:insert', 'sql:update')   # code that makes or keeps rows of a table
-SHOWN_GROUPS = 3             # copies or unowned fields the --all listing shows one by one; more become one line
 DELETING = ('delete', 'deleteMany', 'nested:delete', 'nested:deleteMany', 'sql:delete')
 INSERTING = ('create', 'createMany', 'createManyAndReturn', 'upsert:create', 'sql:insert')      # code that makes rows
 RESTRICTING = ('NoAction', 'Restrict')
@@ -45,19 +40,14 @@ class Issue:
     step: str
     nodes: frozenset = frozenset()
     files: frozenset = frozenset()
-    new: bool = False            # this change added it: it is already a red line or a lead
-    entry: tuple = ()            # lines to copy (a ledger entry), shown indented under the step
-    lead: str = ''               # the lead this change got for it (also in Findings.leads; `assess` drops it once decided)
-    # The 4.3 lines (`signals.deliver`); a producer that fills none of these keeps its legacy text only.
+    entry: tuple = ()            # lines to copy (a ledger entry), which `show Model.field` prints after the step
+    # The 4.3 lines (`signals.deliver`)
     family: str = ''             # a key of `signals.FAMILIES` ('pair', 'values', 'delete', ...)
     subject: str = ''            # what the finding is about: 'together Project.leaderId', 'same ISO_WEEKS_IN_YEAR'
     parts: tuple = ()            # one (function, place, what, red_step) per member; function '' for a file-level finding,
                                  # place 'path:symbol' (or 'path:line') relative to the repository
     fresh: frozenset = frozenset()   # the members' functions absent from the baseline result: this change added them
     detail: tuple = ()           # further lines only `show --last` and `show NAME` print
-
-    def next_step(self):
-        return '\n'.join([self.step, *('    ' + line for line in self.entry)])
 
 
 def _findings():
@@ -176,9 +166,10 @@ def _issue_names(sets):
     return out
 
 
-def values(change, *, everything=False):
-    """A value written outside its declared set is red when this change adds the write or changes the
-    declaration; every one is an issue. One gate decides (`anchors.outside_sets`)."""
+def values(change):
+    """A value written outside its declared set is a `values` finding, one member per function writing it; a member
+    is new where its function writes that value outside the set more often than the baseline code did. One gate
+    decides (`anchors.outside_sets`)."""
     from .anchors import declared_sets, outside_sets
     from .owners import place, row_function
     found = _findings()
@@ -192,12 +183,6 @@ def values(change, *, everything=False):
     if not outside:
         return found
     key = lambda row, declared, value: (row['file'], row_function(row), row['field'], declared['where'], repr(value))
-    before = Counter()
-    for file in {row['file'] for row, _, _ in outside} & change.files:
-        facts = change.old_facts(file)
-        if facts:
-            before.update(key(row, declared, value) for row, declared, value
-                          in outside_sets(table, _foreign_writes(change, [facts])))
     now = Counter(key(row, declared, value) for row, declared, value in outside)
     # The 4.3 baseline (D2): the sets declared now, applied to the baseline code with its own constants and schemas.
     # A write is new when its function writes that value outside the set more often than the baseline code did; a
@@ -209,16 +194,10 @@ def values(change, *, everything=False):
         by_field.setdefault((row.get('gate', row['field']), declared['where']), (declared, []))[1].append((row, value))
     for (gate, where), (declared, items) in sorted(by_field.items()):
         name, issue_name = declared['name'], names[gate, where]
-        changed_set = bool(change.files.intersection(declared['files']))
-        fresh = [(row, value) for row, value in items if changed_set or row['file'] in change.files
-                 and now[key(row, declared, value)] > before[key(row, declared, value)]]
         allowed = '|'.join(map(str, declared['values']))
-        def line(chosen):
-            return ('Value outside the declared set: ' + '  '.join(f'{row["file"]}:{row["line"]} {name}={value!r}' for row, value in chosen)
-                    + f'; allowed {allowed} ({where})')
-        step = 'use a value from the declared set; to add a value, change its declaration first (' + where + '）'
-        if fresh and change.baseline:
-            found.red.append(line(fresh) + ' → ' + step)
+        text = ('Value outside the declared set: ' + '  '.join(f'{row["file"]}:{row["line"]} {name}={value!r}' for row, value in items)
+                + f'; allowed {allowed} ({where})')
+        step = 'use a value from the declared set; to add a value, change its declaration first (' + where + ')'
         members = {}
         for row, value in items:
             members.setdefault(row_function(row), (row, {}))[1].setdefault(repr(value), (row, declared, value))
@@ -227,9 +206,9 @@ def values(change, *, everything=False):
                       for function, (row, written) in sorted(members.items()))
         new = frozenset(function for function, (_, written) in members.items() if then is not None
                         and any(now[key(*item)] > then[key(*item)] for item in written.values()))
-        found.issues.append(Issue(issue_name, 1, f'value {name}', line(items), step,
+        found.issues.append(Issue(issue_name, 1, f'value {name}', text, step,
                                   frozenset(row_function(row) for row, _ in items), frozenset(row['file'] for row, _ in items),
-                                  new=bool(fresh and change.baseline), family='values', subject=f'values {items[0][0]["field"]}',
+                                  family='values', subject=f'values {items[0][0]["field"]}',
                                   parts=parts, fresh=new, detail=(f'declared at {where}',)))
     return found
 
@@ -259,12 +238,12 @@ def _handled(child, parent, rows, queries, back):
     return False
 
 
-def deletes(change, *, everything=False):
+def deletes(change):
     """A Prisma delete of a parent whose restricting children (NoAction/Restrict) are not deleted, nulled
     or counted anywhere in the same operation: the function's callers three levels up and what they call
     three levels down (JS/TS calls resolved by name). Tables the code never creates rows in are left out, and
     so is a self relation whose parent key can be null (a tree) unless one row is deleted and code creates rows
-    with that self reference. One lead per (function, parent); a lead only when this change adds it."""
+    with that self reference. One finding per (function, parent), new when this change adds it."""
     from .owners import named, operation, place, row_function
     found = _findings()
     found.ran.add('delete')
@@ -332,14 +311,10 @@ def deletes(change, *, everything=False):
         member = named(ident)
         what = (f'deletes {parent}; {actions} child tables {", ".join(parts)} are not deleted, cleared or counted in the same operation'
                 + (' (calls resolved by name)' if by_name else ''))
-        issue = Issue(f'delete:{file}:{function}:{parent}', 4, f'delete {parent} ({function})', text, step,
-                      frozenset({member}), frozenset({file}), new=fresh, entry=entry,
-                      family='delete', subject=f'delete {parent}', parts=((member, place(calls[0]), what, step),),
-                      fresh=frozenset({member}) if fresh else frozenset(), detail=(f'delete at {_places(calls)}',))
-        if fresh:
-            issue = replace(issue, lead=text + ' → ' + issue.next_step())
-            found.leads.append(issue.lead)
-        found.issues.append(issue)
+        found.issues.append(Issue(f'delete:{file}:{function}:{parent}', 4, f'delete {parent} ({function})', text, step,
+                                  frozenset({member}), frozenset({file}), entry=entry,
+                                  family='delete', subject=f'delete {parent}', parts=((member, place(calls[0]), what, step),),
+                                  fresh=frozenset({member}) if fresh else frozenset(), detail=(f'delete at {_places(calls)}',)))
     return found
 
 
@@ -380,9 +355,9 @@ def _gap_key(item):
     return item['table'].casefold(), item['description'], item['schema']
 
 
-def columns(change, *, everything=False):
-    """Columns (and tables) one description has and another lacks (`MapHandle.schema_gaps()`), one line per
-    pair of descriptions with every table and column: a lead when this change adds a gap; each pair is an issue."""
+def columns(change):
+    """Columns (and tables) one description has and another lacks (`MapHandle.schema_gaps()`): one issue per pair of
+    descriptions with every table and column, new when this change adds a gap."""
     found = _findings()
     found.ran.add('columns')
     gaps = change.graph.schema_gaps()
@@ -410,19 +385,16 @@ def columns(change, *, everything=False):
             if item['kind'].endswith('-table'):
                 parts.append(f'missing table {item["table"]}')
             else:
-                parts.append(f'{item["table"]}' + (f'（{item["file"]}:{item["line"]}）' if item.get('file') else '')
+                parts.append(f'{item["table"]}' + (f' ({item["file"]}:{item["line"]})' if item.get('file') else '')
                              + (f' missing {", ".join(item["missing"])}' if item['missing'] else '')
                              + (f'{"; " if item["missing"] else " "}extra {", ".join(item["extra"])}' if item.get('extra') else ''))
             fresh = fresh or before is not None and any((_gap_key(item), name) not in before
                                                          for name in [*item['missing'], *item['extra']])
-        text = f'Columns missing between descriptions: {description} against {schema}: ' + '；'.join(parts)
+        text = f'Columns missing between descriptions: {description} against {schema}: ' + '; '.join(parts)
         step = f'add the missing columns and tables; if this description is obsolete, mark it unused or remove it ({description})'
-        lead = text + ' → ' + step if fresh else ''
-        if fresh:
-            found.leads.append(lead)
         found.issues.append(Issue(f'columns:{description}~{schema}', 3, f'missing columns {_short_path(description)}',
                                   text, step, frozenset(), _schema_files(change.graph, schema, description),
-                                  new=fresh, lead=lead, family='columns', subject=f'columns {description} against {schema}',
+                                  family='columns', subject=f'columns {description} against {schema}',
                                   parts=(('', description, 'lacks ' + '; '.join(_ascii_part(part) for part in parts), step),),
                                   fresh=frozenset({''}) if fresh else frozenset()))
     return found
@@ -438,8 +410,7 @@ def delete_rules(change):
     foreign key included (`MapHandle.schema_delete_rules()`): code tested against one deletes rows the other
     refuses to delete, or nulls what the other keeps. One issue per pair, named by its two schemas (a file, or
     a schema folder `prisma/schema/`) in path order (whichever the pair is read against), listing every
-    relation (`check --all`); a lead naming the relations this change adds, and the touched lead when it
-    edits a file of either schema."""
+    relation, new when this change adds a relation that differs."""
     found = _findings()
     found.ran.add('ondelete')
     rules = change.graph.schema_delete_rules()
@@ -456,7 +427,7 @@ def delete_rules(change):
         return {(pair, 'key', key, rules), (pair, 'name', name, rules)}
 
     def listed(relations):
-        return '、'.join(f'{name}（{NO_KEY if rule is None else rule} / {NO_KEY if other is None else other}）'
+        return ', '.join(f'{name} ({NO_KEY if rule is None else rule} / {NO_KEY if other is None else other})'
                         for name, rule, other, _ in relations)
 
     before = None
@@ -481,14 +452,10 @@ def delete_rules(change):
                 'record the decision in .flowguard/ledger.toml:')
         entry = tuple(_structure_lines(name))
         fresh = [relation for relation in relations if before is not None and before.isdisjoint(idents(item, relation))]
-        lead = (head + f'{len(fresh)} relations added in this change ({len(relations)} total; {legend}): ' + listed(fresh)
-                + ' → ' + step + ' ' + ' '.join(entry)) if fresh else ''
-        if fresh:
-            found.leads.append(lead)
         what = (f'differs on {len(relations)} relations from {schema}'
                 + (f', {len(fresh)} added in this change' if fresh else '') + ': ' + _ascii_part(listed(fresh or relations)))
         found.issues.append(Issue(name, 4, f'onDelete {_short_path(description)}', text, step, frozenset(),
-                                  _schema_files(change.graph, schema, description), new=bool(fresh), entry=entry, lead=lead,
+                                  _schema_files(change.graph, schema, description), entry=entry,
                                   family='ondelete', subject=f'onDelete {description} against {schema}',
                                   parts=(('', description, what, step),), fresh=frozenset({''}) if fresh else frozenset(),
                                   detail=(f'parentheses show the rule of {schema} first, then that of {description}',)))
@@ -548,7 +515,7 @@ def copies(change, index, *, before=False):
     for files, items in sorted(by_files.items(), key=lambda item: sorted(item[0])):
         names = [name for name, _ in items]
         text = (f'Same-named functions have different bodies (structural similarity at least {SIMILAR_COPY:g}): '
-                + '；'.join(f'{name} ' + '  '.join(f'{file}:{line}' for _, file, _, line, _ in members) for name, members in items))
+                + '; '.join(f'{name} ' + '  '.join(f'{file}:{line}' for _, file, _, line, _ in members) for name, members in items))
         label = names[0].strip('_').upper()
         step = (f'keep one implementation and call it elsewhere; to bind agreement, write same {label} ref above the reference and same {label} above each copy'
                 f' (# or // flowguard:); rename intentionally different functions')
@@ -706,9 +673,8 @@ def _baseline_queries(change, models):
 def uncreated(change):
     """A Prisma model production code reads or deletes (also updates) while no production code or live SQL
     makes its rows (create, createMany, upsert, a nested create, INSERT): the rows come from elsewhere or the
-    reads are dead. A Prisma `view` has no rows to make. One issue per model (`check --all`, `show`); a change
-    that edits one of its readers gets the touched lead. A member (a function that uses the model) is new when
-    the baseline code did not use it so, or made its rows."""
+    reads are dead. A Prisma `view` has no rows to make. One issue per model. A member (a function that uses the
+    model) is new when the baseline code did not use it so, or made its rows."""
     from .owners import place, row_function
     found = _findings()
     found.ran.add('uncreated')
@@ -724,7 +690,7 @@ def uncreated(change):
         then = {model: {row_function(row) for items in verbs.values() for row in items}
                 for model, verbs in _uses(graph, models, change.baseline_writes(), _baseline_queries(change, models)).items()}
     for model, verbs in sorted(uses.items()):
-        text = (f'Table whose rows are never created by this code: {model} ' + '，'.join(f'{verb} {_places(verbs[verb])}' for verb in ('read', 'delete', 'update') if verb in verbs)
+        text = (f'Table whose rows are never created by this code: {model} ' + ', '.join(f'{verb} {_places(verbs[verb])}' for verb in ('read', 'delete', 'update') if verb in verbs)
                 + '; no create/upsert/INSERT exists')
         step = 'ask the owner where these rows come from (seeds, migrations or external systems); if there is no source, remove these reads and deletes; if intentional, record the decision in .flowguard/ledger.toml:'
         members = {}
@@ -746,31 +712,28 @@ def uncreated(change):
 
 def labels(change):
     """Label tables that disagree (`MapHandle.label_tables()`): copies of one table of labels that spell a
-    key's label differently, and lookup tables that lack a key their copies have. One issue per family
-    (`check --all`); a change that edits or adds one of its tables gets it as a lead."""
+    key's label differently, and lookup tables that lack a key their copies have. One issue per family, new when this
+    change edits or adds one of its tables."""
     found = _findings()
     found.ran.add('labels')
     for family in change.graph.label_tables():
         tables = family['tables']
         names = [table['name'] for table in tables]
         def ref(i):
-            return names[i] if names.count(names[i]) == 1 else f'{names[i]}（{tables[i]["file"].rpartition("/")[2]}:{tables[i]["line"]}）'
-        parts = [f'{key} ' + ' versus '.join(f'{label!r}（{"、".join(ref(i) for i in where)}）' for label, where in spelled.items())
+            return names[i] if names.count(names[i]) == 1 else f'{names[i]} ({tables[i]["file"].rpartition("/")[2]}:{tables[i]["line"]})'
+        parts = [f'{key} ' + ' versus '.join(f'{label!r} ({", ".join(ref(i) for i in where)})' for label, where in spelled.items())
                  for key, spelled in family['differ'].items()]
         parts += [f'{ref(i)} lacks {", ".join(keys)}' for i, keys in family['lacking'].items()]
-        text = ('Label tables disagree: ' + '、'.join(f'{table["file"]}:{table["line"]} {table["name"]}' for table in tables)
-                + '：' + '；'.join(parts))
+        text = ('Label tables disagree: ' + ', '.join(f'{table["file"]}:{table["line"]} {table["name"]}' for table in tables)
+                + ': ' + '; '.join(parts))
         head = tables[0]
         name = f'labels:{head["file"]}:{head["name"]}'
         step = ('derive these tables from one source, or align labels and add missing keys; if differences are intentional (abbreviations or another purpose), record the decision in '
-                '.flowguard/ledger.toml：')
+                '.flowguard/ledger.toml:')
         fresh = bool(change.baseline) and any(_table_changed(change, table) for table in tables)
-        lead = text + ' → ' + step + ' ' + ' '.join(_structure_lines(name)) if fresh else ''
-        if fresh:
-            found.leads.append(lead)
         found.issues.append(Issue(name, 8, f'labels {head["name"]}', text, step, frozenset(),
-                                  frozenset(table['file'] for table in tables), new=fresh,
-                                  entry=tuple(_structure_lines(name)), lead=lead, family='labels', subject=f'labels {head["name"]}',
+                                  frozenset(table['file'] for table in tables),
+                                  entry=tuple(_structure_lines(name)), family='labels', subject=f'labels {head["name"]}',
                                   parts=(('', f'{head["file"]}:{head["name"]}', 'disagrees with '
                                           + ', '.join(f'{table["file"]}:{table["name"]}' for table in tables[1:]) + ': '
                                           + _ascii_part('; '.join(parts)), 'derive these tables from one source'),),
@@ -789,87 +752,33 @@ def _table_changed(change, table):
 # ---- decisions, touched issues, the --all section and the brief ----------------------------------
 
 def decided(cfg, index, issues, decisions=None):
-    """(open issues, red findings, input findings): issues the `[structure]` section decides are closed; a decision
-    on who writes a field without its owner anchor is red, with the anchor line to copy, also as an input finding
-    for the 4.3 lines. The section itself is a 5.0-deprecated feature: reading it prints the deprecated line
-    (`ledger.structure_decisions`); `decisions` are the decisions a change already read (`owners.Change.decisions`)."""
+    """(open issues, input findings): issues the `[structure]` section decides are closed; a decision on who writes a
+    field without its owner anchor is an input finding, red, with the anchor line to copy. The section itself is a
+    5.0-deprecated feature: reading it prints the deprecated line (`ledger.structure_decisions`); `decisions` are the
+    decisions a change already read (`owners.Change.decisions`)."""
     from .ledger import LEDGER, STRUCTURE, structure_decisions
     if decisions is None:
         decisions = structure_decisions(cfg)[0]    # malformed decisions are the ledger's red lines
     owned = {anchor.name.casefold() for anchor in index.entries if anchor.kind == 'owner'}
-    red, wrong = [], []
+    wrong = []
     for name in sorted(decisions):
         kind, _, target = name.partition(':')
         if kind == 'writers' and target.casefold() not in owned:
             issue = next((item for item in issues if item.name == name), None)
             anchor = issue.step.partition('then write ')[2].partition(' (retain only')[0] if issue else \
                 f'# flowguard: writers {target} <function,...> (use // for JS/TS)'
-            red.append(f'Structure decision [structure."{name}"] records responsibility but has no writers agreement -> add beside the responsible function: {anchor}')
-            wrong.append(Issue(f'structure-decision:{name}', LINES_ONLY, f'decision {name}', red[-1], f'add {anchor}',
+            wrong.append(Issue(f'structure-decision:{name}', LINES_ONLY, f'decision {name}',
+                               f'Structure decision [structure."{name}"] records responsibility but has no writers agreement '
+                               f'-> add beside the responsible function: {anchor}', f'add {anchor}',
                                files=frozenset({LEDGER}), family='input', subject=f'ledger [{STRUCTURE}."{name}"]',
                                parts=(('', f'{LEDGER}:[{STRUCTURE}."{name}"]', 'records who writes the field, but no writers agreement exists',
                                        f'add beside the responsible function: {anchor}'),), fresh=frozenset({''})))
-    return [issue for issue in issues if issue.name not in decisions], red, wrong
-
-
-def touched(change, issues):
-    """One lead per open issue this change touches (a write, delete or copy it edits, or a schema file it
-    changes), unless the change already reported it."""
-    if not change.baseline or not change.files:
-        return []
-    edited = change.touched()
-    out = []
-    for issue in issues:
-        if issue.new or issue.rank == LINES_ONLY:
-            continue
-        hit = issue.nodes & edited or issue.rank == 3 and issue.files & change.files \
-            or issue.name.startswith('ondelete:') and issue.files & change.files \
-            or issue.rank == 1 and any(file in change.files for file in issue.files if file.endswith(('.prisma', '.sql')))
-        if hit:
-            out.append(f'Open structure issue: {issue.text} -> {issue.next_step()}')
-    return out
+    return [issue for issue in issues if issue.name not in decisions], wrong
 
 
 def _order(issues):
     """By severity; fields without an owner by how many files write them, the most first."""
     return sorted(issues, key=lambda issue: (issue.rank, -len(issue.files) if issue.rank == 6 else 0, issue.name))
-
-
-def section(issues):
-    """The `--all` listing: every open issue by severity, each with its next step, untruncated. Copies and
-    fields without an owner wait for the owner's choice: more than SHOWN_GROUPS of either become one line
-    (by name, the most copies or writer files first); `show NAME` lists any one of them in full. A finding only the
-    4.3 lines report (rank LINES_ONLY) is neither counted nor listed."""
-    ordered = _order([issue for issue in issues if issue.rank != LINES_ONLY])
-    if not ordered:
-        return []
-    lines = [f'{len(ordered)} structure issues (by severity; a sourced owner decision in .flowguard/ledger.toml [structure] closes an issue):']
-    number = 0
-    for rank in sorted(RANKS):
-        group = [issue for issue in ordered if issue.rank == rank]
-        if rank in (5, 6) and len(group) > SHOWN_GROUPS:
-            number += 1
-            if rank == 5:
-                group.sort(key=lambda issue: (-len(issue.nodes), issue.name))
-                names = '、'.join(f'{issue.name.partition(":")[2]} ({len(issue.nodes)} copies)' for issue in group)
-                lines.append(f'{number}. Copies: {len(group)} groups of same-named functions with different bodies (structural similarity at least {SIMILAR_COPY:g}): {names}')
-                lines.append('   Next: show NAME lists copy locations; keep one implementation and call it elsewhere, bind a same agreement, or rename intentional differences')
-            else:
-                models = {}
-                for issue in group:
-                    models.setdefault(issue.name.partition(':')[2].rpartition('.')[0], []).append(issue)
-                parts = sorted(models.items(), key=lambda item: (-max(len(issue.files) for issue in item[1]), item[0]))
-                names = '、'.join(f'{model} ({len(items)} fields, up to {max(len(issue.files) for issue in items)} files)'
-                                 for model, items in parts)
-                lines.append(f'{number}. Writers: {len(group)} fields written by at least {WRITER_FILES} files without a writer agreement: {names}')
-                lines.append('   Next: ask the owner who is responsible; show Model.field lists writes, a writers agreement and a [structure] entry')
-            continue
-        for issue in group:
-            number += 1
-            lines.append(f'{number}. {RANKS[issue.rank]}：{issue.text}')
-            lines.append(f'   Next: {issue.step}')
-            lines.extend('       ' + line for line in issue.entry)
-    return lines
 
 
 def summary(issues):
@@ -887,27 +796,19 @@ def brief_line(cfg):
     if not data or not data['count'] and not data['writers']:
         return ''
     return (f'{data["count"]} open structure issues' + (f' ({data["writers"]} other fields have multiple writers and no writer agreement)' if data['writers'] else '')
-            + '; highest severity: ' + '；'.join(data['top']) + ' (last check; check --static --all lists every issue and next step)')
+            + '; highest severity: ' + '; '.join(data['top']) + ' (last check; check --static --all lists every issue and next step)')
 
 
-def assess(cfg, change, index, found, *, everything=False):
-    """Close decided issues, with the leads their checks gave them (the owner already chose), and add the
-    touched leads and decision reds to `found`; `found.summary` is for the session brief, `found.section`
-    the `--all` listing. For the 4.3 lines a decided issue leaves `found.issues` (its name goes to
-    `found.decided`, counted as an ignore entry is) only when its family may be ignored: a decision never closes a
-    finding that can be red."""
+def assess(cfg, change, index, found):
+    """Close the issues the owner decided and add the decision findings to `found`; `found.summary` is for the
+    session brief. For the 4.3 lines a decided issue leaves `found.issues` (its name goes to `found.decided`, counted
+    as an ignore entry is) only when its family may be ignored: a decision never closes a finding that can be red."""
     from .signals import FAMILIES
-    issues, red, wrong = decided(cfg, index, found.issues, change.decisions())
+    issues, wrong = decided(cfg, index, found.issues, change.decisions())
     still = {issue.name for issue in issues}
-    for issue in found.issues:
-        if issue.lead and issue.name not in still:
-            found.leads.remove(issue.lead)
     closed = [issue for issue in found.issues if issue.name not in still and issue.family in FAMILIES and FAMILIES[issue.family][2]]
     found.decided.extend(dict.fromkeys(issue.name for issue in closed))
     gone = {id(issue) for issue in closed}
     found.issues = [issue for issue in found.issues if id(issue) not in gone] + wrong
-    found.red.extend(red)
-    found.leads.extend(touched(change, issues))
     found.summary = summary(issues)
-    found.section = section(issues) if everything else []
     return found

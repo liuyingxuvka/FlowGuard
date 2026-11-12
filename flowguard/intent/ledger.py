@@ -132,7 +132,7 @@ def _python_refusal(kind, caught):
         types = ast.parse(caught, mode='eval').body
         names = {ast.unparse(item) for item in (types.elts if isinstance(types, ast.Tuple) else [types])}
         if names & BROAD:
-            return 'catching ' + '、'.join(sorted(names & BROAD)) + ' hides unrelated programming errors together'
+            return 'catching ' + ', '.join(sorted(names & BROAD)) + ' hides unrelated programming errors together'
         return ''
     return {'suppress': 'contextlib.suppress silently swallows errors',
             'warning_filter': 'a warning filter hides warnings',
@@ -198,7 +198,7 @@ def open_legacy(cfg, graph):
     for ends in order:
         if ends in groups:
             lines.append(f"""   {OPEN_ENDS[ends]}: {len(groups[ends])} handlers:"""
-                         + '、'.join(f'{_where(items)} {items[0].function}' for items in groups[ends]))
+                         + ', '.join(f'{_where(items)} {items[0].function}' for items in groups[ends]))
     lines.append('   Next: review each handler. If callers need the error, let it raise or propagate; otherwise make reason explain what it does, why it may remain, and point rule to a written rule')
     return lines
 
@@ -260,7 +260,7 @@ def parse(text):
             else:
                 rule = (rule['file'], rule['text'])
         if problems:
-            red.append(Finding(f"""Fallback ledger entry {_quote(key)}: """ + '；'.join(problems),
+            red.append(Finding(f"""Fallback ledger entry {_quote(key)}: """ + '; '.join(problems),
                                ('correct this entry following the instructions at the start of ledger.toml',)))
             malformed.add(key)
             continue
@@ -402,7 +402,7 @@ def evaluate(cfg, graph, *, baseline=None) -> Result:
     reference = _legacy_reference(cfg, baseline, notes) if legacy else {}
     if reference is None:
         result.grey.append(f"""{len(legacy)} legacy entries are unverified: the baseline contains neither a ledger nor a ledger init record"""
-                           + ''.join('；' + note for note in notes))
+                           + ''.join('; ' + note for note in notes))
     for key in sorted((set(found) | set(entries)) - malformed):
         items, entry = found.get(key, []), entries.get(key)
         file = key.partition(':')[0]
@@ -538,10 +538,10 @@ def structure_decisions(cfg):
             # Fields of a later FlowGuard: the entry is not judged and closes nothing; what is wrong with the fields
             # this version knows is said on its unverified line.
             later.append(f"""Structure entry [{STRUCTURE}.{_quote(name)}] has fields this version does not recognize: {", ".join(newer)}; these fields require a newer FlowGuard; upgrade before reviewing them. This entry closes no issue in the current version"""
-                         + ''.join('；' + problem for problem in problems))
+                         + ''.join('; ' + problem for problem in problems))
             continue
         if problems:
-            red.append(Finding(f"""Structure decision [{STRUCTURE}.{_quote(name)}]: """ + '；'.join(problems), ('correct this entry following the ledger.toml format',)))
+            red.append(Finding(f"""Structure decision [{STRUCTURE}.{_quote(name)}]: """ + '; '.join(problems), ('correct this entry following the ledger.toml format',)))
             continue
         decisions[name] = Decision(name, decision, source if isinstance(source, str) else (source['file'], source['text']))
     return decisions, red, later

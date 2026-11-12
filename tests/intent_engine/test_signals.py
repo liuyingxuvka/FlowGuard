@@ -17,7 +17,7 @@ def too_available(stock, reserved):
 def test_multifield_bounds_form_readable_intervals_and_keep_boolean_identity():
     _, report = compare(original_flag, unintended_flag, {'days': int, 'active': bool})
     regions = {row['region'] for row in report['changes']}
-    assert 'days=4–7，active=F' in regions
+    assert 'days=4..7, active=F' in regions
     assert any('active=T' in label for label in regions)
     assert not any('not (' in label for label in regions)
 
@@ -35,30 +35,28 @@ def test_tuple_readings_print_interval_minimal_example_and_exact_cause():
                 cause=dict(name='GRACE_DAYS', before=3, after=7, file='shop/policy.py', line=1))
     lines = signals.render(dict(items=[item], source_changed=True)).splitlines()
     assert len(lines) == 3
-    assert 'days=4–7' in lines[1] and 'example: days=4' in lines[1]
-    assert '; function result False → True(example: ' in lines[1]
-    assert lines[2] == 'cause: GRACE_DAYS 3 → 7（shop/policy.py:1）'
+    assert 'days=4..7' in lines[1] and 'example: days=4' in lines[1]
+    assert '; function result False -> True(example: ' in lines[1]
+    assert lines[2] == 'cause: GRACE_DAYS 3 -> 7 (shop/policy.py:1)'
 
 
 def test_correlated_or_disconnected_samples_do_not_become_a_cartesian_interval():
     for inputs in ([{'x': 4}, {'x': 6}], [{'x': 0, 'y': 1}, {'x': 1, 'y': 0}]):
         text = signals.render(dict(name='point', rows=[(row, False) for row in inputs],
                                    changed=[(row, False, True) for row in inputs], comparison_status='ok'))
-        assert 'x=4–6' not in text and 'x=0–1，y=0–1' not in text
+        assert 'x=4..6' not in text and 'x=0..1, y=0..1' not in text
 
 
-def test_path_changes_use_named_order_and_quiet_runs_print_nothing():
-    report = dict(items=[], paths=[dict(test='test_release', before=['入口', '保存', '发布'], after=['入口', '发布'])])
-    assert signals.render(report) == 'path test_release：入口 → 保存 → 发布 became 入口 → 发布'
+def test_a_quiet_comparison_prints_nothing_and_a_complete_one_its_count():
     assert signals.render(dict(source_changed=False, changes=[], complete=True, total=0, changed=0)) == ''
-    assert signals.render(dict(source_changed=True, changes=[], complete=True, total=12, changed=0)) == 'total 12 classes，changed 0 classes'
+    assert signals.render(dict(source_changed=True, changes=[], complete=True, total=12, changed=0)) == 'total 12 classes, changed 0 classes'
 
 
 def test_old_code_unavailable_never_becomes_a_verified_zero_change():
     text = signals.render(dict(name='check', comparison_status='unavailable', comparison_reasons=['旧函数不可读取'],
                                status='ok', rows=[({'x': 1}, True)], changed=[]))
     assert 'comparison incomplete' in text and 'uncovered: 旧函数不可读取' in text
-    assert 'total 1 classes，changed 0 classes' not in text
+    assert 'total 1 classes, changed 0 classes' not in text
 
 
 def test_red_constraints_cannot_be_crowded_out_by_information():
@@ -77,7 +75,7 @@ def test_same_name_disagreement_is_red_but_source_copies_are_only_leads():
                   changes=[dict(anchor='STANDING', region='days=4–7', witness={'days': '4'},
                                 before='F', after='T', before_target='policy:one', after_target='preview:two')])
     text = signals.render(report)
-    assert text.startswith('red same-name anchor STANDING') and 'policy:one ↔ preview:two' in text
+    assert text.startswith('red same-name anchor STANDING') and 'policy:one <-> preview:two' in text
     assert len(text.splitlines()) <= 3
 
 
@@ -91,7 +89,13 @@ def test_same_name_lines_name_each_copy_where_it_first_differs_and_keep_it_apart
     assert [(where, text, step) for where, text, step, _ in lines] == [
         ('days=3', '3 copies: 1 copies return True (reference a), 1 copies return False (c), plus 1 copies differ from the reference on other inputs: b (days=4)', 'make c agree with the reference'),
         ('days=4', '3 copies: 1 copies return False (reference a), 1 copies return True (b), plus 1 copies differ from the reference on other inputs: c (days=3)', 'make b agree with the reference')]
-    assert signals.copy_red('LIMIT', lines[:1]) == ('same-name anchor LIMIT：days=3，3 copies: 1 copies return True (reference a), 1 copies return False (c), plus 1 copies differ from the reference on other inputs: b (days=4) -> make c agree with the reference; if intentionally different, use different anchor names and declare distinct')
+    # The red line of the first input, in the words of the 4.3 block: no way out besides the fix (4.7).
+    words = signals.copy_lines(inputs, lambda x, y: x == y, str, owner='a', total=3, words=signals.copy_says)
+    [red], _ = signals.deliver([signals.copies_issue('LIMIT', words[:1], [], places=['a', 'b', 'c'])], touched_functions=(),
+                               touched_files=())
+    assert (red.kind, red.text, red.step) == (
+        'red', 'same LIMIT: on days=3: the reference a returns True, c returns False; b differs from the reference on days=4',
+        'make c agree with the reference')
     # Without an owner no copy is the reference: a line is kept where it first shows two copies that differ.
     lines = signals.copy_lines(inputs, lambda x, y: x == y, str, total=3)
     assert [(where, text, step) for where, text, step, _ in lines] == [
@@ -140,10 +144,12 @@ def standing(days):
         assert {row['target']: row['line'] for row in report['locations']} == where, report['locations']
         assert all(row['file'] == 'policy.py' for row in report['locations'])
         assert {row['target'] for row in report['locations'] if row['big']} == {'policy:booking', 'policy:delivery'}
-        text = signals.render(dict(items=[], leads=[report]))
-        assert 'old values 14 remain in 6 decisions' in text and len(text.splitlines()) == 1
+        # the lead gets no line (D6): `show --last` keeps its text, every location named in full
+        from flowguard.intent.owners import _old_value_text
+        text = _old_value_text(report)
+        assert text.startswith('old values 14 remain in 6 decisions: ') and len(text.splitlines()) == 1
         assert all(f"{row['file']}:{row['line']}" in text for row in report['locations'])
-        assert '# flowguard: same NAME ref' in text and '…' not in text
+        assert '…' not in text and '...' not in text
 
 
 def test_successful_comparison_grid_is_not_a_claim_of_complete_partition():
@@ -153,7 +159,7 @@ def test_successful_comparison_grid_is_not_a_claim_of_complete_partition():
                                comparison_reasons=[]))
     assert 'candidate classes: 1; compared: 1; comparison incomplete; proven changed classes: 0' in text
     assert 'not a proof of partition completeness' in text
-    assert 'total 1 classes，changed 0 classes' not in text
+    assert 'total 1 classes, changed 0 classes' not in text
 
 
 def test_constraint_red_remains_visible_without_source_changes():
@@ -174,55 +180,32 @@ def test_readable_labels_do_not_mutate_the_source_constant_environment():
     from flowguard.intent import cells as C
     env = {'GRACE': 7}
     kinds = {'days': C.kind_of(int)}
-    assert signals.class_label([('days <= GRACE', None, env)], [True], kinds, {'days': 4}) == 'days≤7'
+    assert signals.class_label([('days <= GRACE', None, env)], [True], kinds, {'days': 4}) == 'days<=7'
     assert env == {'GRACE': 7}
 
 
-def _compared(number, changed=None):
-    item = dict(name=f'K{number}', file='knobs.py', line=2 + 4 * number, status='ok', comparison_status='ok',
-                complete=True, total=2, changed=0, changes=[])
-    if changed:
-        item.update(total=3, changed=1, changes=[dict(region='n=2–16', inputs={'n': 2}, before='T', after='F')],
-                    cause=dict(name=f'K{number} 的常量', before=17, after=2, file='knobs.py', line=3 + 4 * number))
-    return item
-
-
-def test_an_explicit_comparison_lists_changes_first_and_counts_unchanged_points_apart():
-    session = dict(session=True, baseline='a' * 40, baseline_kind='base', source_changed=True, comparison_requested=True)
-    lines = signals.render(dict(session, items=[_compared(number) for number in range(13)])).splitlines()
-    assert lines[0] == 'FlowGuard（since --flowguard-base aaaaaaa）' and len(lines) == 11, lines
-    assert lines[1] == 'compared: K0（knobs.py:2）total 2 classes，changed 0 classes' and all(line.startswith('compared: ') for line in lines[1:]), lines
-    assert lines[-1] == 'compared: plus 4 unchanged items: K9、K10、K11、K12', lines
-    # One change among unchanged points: its line is printed whole, before them, never in an overflow.
-    lines = signals.render(dict(session, items=[*(_compared(number) for number in range(12)), _compared(12, True)])).splitlines()
-    assert lines[1] == ('changed: K12（knobs.py:50）total 3 classes，changed 1 classes：n=2–16; function result T → F(example: n=2）  cause: K12 的常量 17 → 2（knobs.py:51）'), lines
-    assert not any(line.startswith('changed: plus ') for line in lines) and len(lines) == 11, lines
-    assert lines[2:-1] == [f'compared: K{number}（knobs.py:{2 + 4 * number}）total 2 classes，changed 0 classes' for number in range(8)], lines
-    assert lines[-1] == 'compared: plus 4 unchanged items: K8、K9、K10、K11', lines
-
-
-def test_one_unverified_point_is_said_once():
-    # Round 22 review: with one point unverified the count line repeated its only reason, which the next line gives.
-    report = dict(session=True, baseline='a' * 40, baseline_kind='task', source_changed=True, items=[],
-                  unverified=['N1: reason 1 needs a test'])
-    assert signals.render(report).splitlines()[1:] == ['unverified 1 items (not passed)', 'unverified: N1：reason 1 needs a test']
-
-
-def test_the_unverified_overflow_counts_lines_and_names_every_point_it_leaves_out():
-    report = dict(session=True, baseline='a' * 40, baseline_kind='task', source_changed=True, items=[],
-                  unverified=[f'N{number}: reason {number} needs a test' for number in range(1, 7)])
-    lines = signals.render(report).splitlines()
-    assert lines[1] == 'unverified 6 items (not passed): most common reason is "reason 1 needs a test"', lines
-    assert lines[2:4] == ['unverified: N1：reason 1 needs a test', 'unverified: N2：reason 2 needs a test'], lines
-    assert lines[-1] == 'unverified: plus 4 entries（N3、N4、N5、N6）: python -m flowguard show NAME explains why', lines
-
-
-def test_old_and_current_source_delimiters_keep_the_same_original_quote():
-    quote = 'owner R1: 会员也一样，不能例外。'
-    for marker in (' source: ', ' 出处：'):
-        rendered = signals.render(dict(session=True, items=[], red=['LIMIT' + marker + quote]))
-        assert 'red: LIMIT' in rendered
-        assert 'LIMIT source: ' + quote in rendered
+def test_an_explicit_comparison_prints_its_changes_and_keeps_the_points_it_found_unchanged_for_show_last(tmp_path):
+    from tests.intent_engine.test_default_runtime_signals import _project, _run
+    from tests.intent_engine._cli_fixture import block, last
+    policy = _project(tmp_path, '''
+        def late_fee(days: int) -> int:
+            return days * 2
+        def grace(days: int) -> int:
+            return days * 3
+    ''', '''
+        from policy import late_fee, grace
+        def test_fee():
+            assert late_fee(2) in (4, 6) and grace(1) == 3
+    ''')
+    policy.write_text(policy.read_text().replace('return days * 3', 'return 3 * days').replace('return days * 2', 'return days * 3'))
+    result = _run(tmp_path, '--flowguard-base', 'HEAD')
+    lines = block(result)
+    assert result.returncode == 0 and _re.fullmatch(rf'FlowGuard {_re.escape(VERSION)} \(since --flowguard-base [0-9a-f]{{7}}\): 0 red, '
+                                                    r'1 changed; \d+\.\d s', lines[0]), lines
+    # the change is a line; the point that answers as before is no line, show --last names it
+    assert lines[1:] == ['changed: late_fee (policy.py:1): (days=2) was 4, now 6; 1/1 inputs differ -> if you meant it, say so'], lines
+    shown = last(tmp_path).splitlines()
+    assert shown[shown.index('compared, unchanged:') + 1] == '    grace (policy.py:3): 1 inputs compared, none differs', shown
 
 
 # ---- the 4.3 block: one first line, the nine kinds, budgets (design 4.7) -----------------------------------------
@@ -527,8 +510,9 @@ def test_a_changed_line_shows_the_smallest_changed_input_and_how_many_differ():
         'changed', 'changed:policy:standing', 'policy:standing',
         'STANDING (shop/policy.py:3): (days=5) was False, now True; 3/12 inputs differ', 'if you meant it, say so', ('shop/policy.py:3',))
     assert line.detail == ('(days=9) was False, now True', '(days=5) was False, now True', "(days=7) was 'x', now raises ValueError: no")
-    assert signals.changed_line('late', 'm:late', 'm.py', 0, [({}, 1, 2)], 1, unanchored=True).detail[-1] == \
+    assert signals.changed_line('late', 'm:late', 'm.py', 0, [({}, 1, 2)], 1, why='its code changed').detail[-1] == \
         'no flowguard comment: compared because its code changed'
+    assert signals.changed_line('late', 'm:late', 'm.py', 0, [({}, 1, 2)], 1).detail == ('() was 1, now 2',)    # a comment
 
 
 def test_a_changed_line_and_the_check_view_take_list_and_dict_inputs():
@@ -539,11 +523,11 @@ def test_a_changed_line_and_the_check_view_take_list_and_dict_inputs():
     line = signals.changed_line('TOTAL', 'calc:total', 'calc.py', 2, rows, 3)
     assert line.text == 'TOTAL (calc.py:2): (items=[1, 2], order={"a": 1}) was 3, now 5; 3/3 inputs differ', line
     assert line.detail[0] == '(items=[5], order={"a": 2, "b": 1}) was 5, now 6', line
-    # check still renders a pytest batch's report with the 4.2 view of its changed points
+    # the comparison view (`compare`) reads them as well
     item = dict(name='TOTAL', file='calc.py', line=2, status='ok', complete=True, total=3, changed=rows,
                 rows=[(inputs, new) for inputs, _, new in rows])
-    text = signals.render(dict(session=True, baseline='a' * 40, baseline_kind='task', source_changed=True, items=[item]))
-    assert 'changed: TOTAL' in text and 'items=[1, 2]' in text, text
+    text = signals.render(dict(items=[item], source_changed=True))
+    assert text.startswith('TOTAL') and 'items=[5]' in text, text
 
 
 def test_a_pytest_run_whose_changed_function_takes_a_list_prints_and_keeps_its_changed_line(tmp_path):
@@ -566,12 +550,74 @@ def test_a_pytest_run_whose_changed_function_takes_a_list_prints_and_keeps_its_c
     assert changed in last(tmp_path).splitlines()
 
 
-def test_every_stdout_line_of_a_pytest_block_has_one_of_the_shapes(tmp_path):
-    """Design 4.7 over real pytest runs: the block is the last thing on stdout, each of its lines starts with the
-    first line, one of the kinds or `+N more:`; deprecation notices go to stderr only."""
-    from tests.intent_engine.test_default_runtime_signals import _project, _run
-    from tests.intent_engine._cli_fixture import display_text
-    policy = _project(tmp_path / 'copies', '''
+def _entry_point(root, *arguments, vitest=None):
+    """(exit code, stdout, stderr) of one real run in `root`: pytest (no arguments), `python -m flowguard ARGUMENTS`
+    (check, check --static) or, with `vitest` (the vitest home folder), `vitest run`; escapes decoded, and the
+    colours vitest writes where it detects CI removed."""
+    import os
+    import subprocess
+    import sys
+    from tests.intent_engine import _cli_fixture
+    from tests.intent_engine.test_default_runtime_signals import _run
+    from tests.intent_engine.test_vitest_adapter import ANSI, _environment, _tool
+    if vitest is not None:
+        result = subprocess.run([_tool('node'), str(vitest / 'node_modules/vitest/vitest.mjs'), 'run'], cwd=root,
+                                capture_output=True, encoding='utf-8', timeout=600, env=_environment())
+    elif arguments:
+        result = subprocess.run([sys.executable, '-c', _cli_fixture._BOOT, _cli_fixture.SOURCE, 'unused-marker', '', '--root',
+                                 str(root), *arguments], cwd=root, capture_output=True, encoding='utf-8', timeout=300,
+                                env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1', PYTHONIOENCODING='utf-8'))
+    else:
+        result = _run(root)
+    clean = lambda text: _cli_fixture.display_text(ANSI.sub('', text))
+    return result.returncode, clean(result.stdout), clean(result.stderr)
+
+
+def _shaped(stdout, stderr):
+    """The block a run printed last on stdout, after asserting design 4.7's shapes over a real run: every line is the
+    first line, one of the kinds or `+N more:`, with at most one ` -> ` (before its step); nothing follows it on
+    stdout; `deprecated:` is said on stderr only."""
+    lines = stdout.splitlines()
+    start = max(index for index, line in enumerate(lines) if _re.match(r'FlowGuard \d+\.\d+ \(', line))
+    block = lines[start:]
+    assert all(SHAPE.match(line) and line.count(' -> ') <= 1 for line in block), block
+    assert not any('deprecated' in line for line in lines), lines
+    assert any(line.startswith('deprecated: ') for line in stderr.splitlines()), stderr
+    return block
+
+
+def _counted(root, block):
+    """{(kind, finding name): lines} of the run `show --last` keeps, whose first line is the block's and counts every
+    kind as many times as the run has lines of it (before the budget)."""
+    from flowguard.intent import cache
+    from flowguard.intent.config import load_config
+    from collections import Counter
+    last = cache.read_last(load_config(root))
+    assert last['title'] == block[0], (last['title'], block)
+    kinds = Counter(line['kind'] for line in last['lines'])
+    counts = block[0].partition('): ')[2].rpartition('; ')[0]          # `1 red, 2 known; 3.4 s`: before the seconds
+    said = {kind: int(number) for number, kind in _re.findall(r'(\d+) (known fixed\?|not compared|[a-z]+)', counts)}
+    assert said == {kind: kinds[kind] for kind in [*kinds, 'red'] if kinds[kind] or kind == 'red'}, (said, kinds)
+    return Counter((line['kind'], line['name']) for line in last['lines'])
+
+
+def _alike(seen, situations):
+    """Each situation (a finding name) has the same kinds and counts in every entry point that can see it, and is
+    there: `situations` {name: the entry points that see it}."""
+    for name, runs in situations.items():
+        found = {run: sorted((kind, number) for (kind, other), number in seen[run].items() if other == name) for run in runs}
+        assert len(set(map(tuple, found.values()))) == 1 and all(found.values()), (name, found)
+
+
+def test_every_block_line_has_one_shape_and_each_entry_point_counts_a_situation_alike(tmp_path):
+    """Design 4.7 over real runs of one change through pytest, check and check --static: every line of each block
+    has one of the shapes and at most one ` -> `; the block is the last thing on stdout and `deprecated:` goes to
+    stderr only; the first line counts each kind of the run's lines; and a situation each of them can see (a pair
+    this change broke, the field impact of that write: all three; copies this change made disagree and a function
+    whose recorded call now answers otherwise: the two that run the tests) is the same kind, as often, in each."""
+    from tests.intent_engine.test_default_runtime_signals import _project
+    root = tmp_path / 'copies'
+    policy = _project(root, """
         import sqlite3
         # flowguard: same STANDING
         def standing(days: int) -> bool:
@@ -584,35 +630,68 @@ def test_every_stdout_line_of_a_pytest_block_has_one_of_the_shapes(tmp_path):
         # flowguard: sensor AVAILABLE
         def available(db: sqlite3.Connection, stock: int) -> bool:
             return stock > 0
-    ''', '''
+        # flowguard: together account.status account.changed
+        def close(db):
+            db.execute("UPDATE account SET status = 'closed', changed = 1")
+    """, """
         import sqlite3
         from policy import standing, preview, late_fee, available
         def test_native():
             assert standing(0) and preview(0) and late_fee(2) in (4, 6)
             with sqlite3.connect(':memory:') as db:
                 assert available(db, 1)
-    ''', rule='''
+    """, rule="""
         from flowguard.intent import rule, row
         @rule('STANDING_RULE', decides='standing', fields={'days': int}, anchor='STANDING',
               source='doc policy.txt "At most three days."')
         def STANDING_RULE(days):
             return days <= 3
         STANDING_RULE.rows(row(days=4, expect=False, why='the fourth day must remain refused'))
-    ''')
-    policy.write_text(policy.read_text().replace('return days <= 3', 'return days <= 7', 1)
-                      .replace('days * 2', 'days * 3').replace('stock > 0', 'stock >= 0'))
-    result = _run(tmp_path / 'copies')
-    lines = display_text(result.stdout).splitlines()
-    start = next(index for index, line in enumerate(lines) if line.startswith('FlowGuard '))
-    block = lines[start:]
-    assert result.returncode == 1 and all(SHAPE.match(line) for line in block), block
-    kinds = {line.partition(': ')[0] for line in block[1:]}
-    assert {'red', 'changed', 'not compared'} <= kinds, block
-    assert not any(line.startswith('deprecated') for line in lines), lines
-    # stderr says the one deprecated spelling the project uses (`sensor`), once; the old-value lead FlowGuard makes
-    # itself says none
-    assert [line for line in result.stderr.splitlines() if 'deprecated' in line] == [
-        'deprecated: sensor goes in 5.0 -> write same NAME'], result.stderr
+    """)
+    policy.write_text(policy.read_text().replace('return days <= 3', 'return days <= 7', 1).replace('days * 2', 'days * 3')
+                      .replace('stock > 0', 'stock >= 0').replace(', changed = 1', ''))
+    seen = {}
+    for run in ('pytest', 'check', 'check --static'):
+        code, stdout, stderr = _entry_point(root, *([] if run == 'pytest' else run.split()))
+        block = _shaped(stdout, stderr)
+        assert code == 1, (run, stdout, stderr)
+        # stderr says the one deprecated spelling the project uses (`sensor`), once; the old-value lead FlowGuard
+        # makes itself says none
+        assert [line for line in stderr.splitlines() if 'deprecated' in line] == [
+            'deprecated: sensor goes in 5.0 -> write same NAME'], (run, stderr)
+        seen[run] = _counted(root, block)
+    assert {'red', 'changed', 'impact', 'not compared'} <= {kind for kind, _ in seen['pytest']}, seen
+    every, tests = ('pytest', 'check', 'check --static'), ('pytest', 'check')
+    _alike(seen, {'pair:account.status>account.changed': every, 'impact:policy:close': every,
+                  'same:STANDING': tests, 'changed:policy:late_fee': tests})
+
+
+def test_a_vitest_block_has_the_shapes_and_counts_the_map_checks_as_check_and_check_static_do(vitest_home):
+    """The same over a TypeScript change through check --static, check and a real vitest run, whose block joins the
+    map checks of its static test: two declarations this change made differ (all three), copies it made disagree
+    and a changed function's recorded call (vitest alone runs the TypeScript)."""
+    from tests.intent_engine.test_vitest_adapter import VITEST, _commit, _flowguard
+    root = vitest_home / 'shapes'
+    _commit(root, {
+        'package.json': '{"name":"shapes","private":true,"type":"module","scripts":{"test":"vitest run"},'
+                        '"devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/a.ts': "export type Kind = 'a' | 'b';\n// flowguard: sensor LIMIT\nexport function over(x: number): boolean {\n  return x > 3;\n}\n",
+        'src/b.ts': "export type Kind = 'a' | 'b';\n// flowguard: sensor LIMIT\nexport const enough = (x: number): boolean => x > 3;\n",
+        'tests/app.test.ts': ("import { it, expect } from 'vitest';\nimport { over } from '../src/a';\nimport { enough } from '../src/b';\n"
+                              "it('real', () => { expect(over(4)).toBe(true); expect(typeof enough(4)).toBe('boolean'); });\n"),
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired')
+    other = root / 'src/b.ts'
+    other.write_text(other.read_text(encoding='utf-8').replace("'a' | 'b';", "'a' | 'b' | 'c';").replace('x > 3', 'x > 4'),
+                     encoding='utf-8', newline='\n')
+    seen = {}
+    for run in ('check --static', 'check', 'vitest'):
+        code, stdout, stderr = (_entry_point(root, vitest=vitest_home) if run == 'vitest' else _entry_point(root, *run.split()))
+        assert code == (run == 'vitest'), (run, stdout, stderr)
+        seen[run] = _counted(root, _shaped(stdout, stderr))
+    _alike(seen, {'declarations:Kind': ('check --static', 'check', 'vitest'), 'same:LIMIT': ('vitest',),
+                  'changed:typescript/src/b.ts:enough': ('vitest',)})
 
 
 def test_the_block_follows_pytests_summary_with_every_reporter_option_and_after_an_interrupt(tmp_path):

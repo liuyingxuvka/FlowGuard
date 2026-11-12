@@ -96,56 +96,69 @@ def exercise(root, *, passed='1 passed'):
     # Actual partial observations are not a receipt for the complete intent suite.
     assert 'intent_collection' not in metadata
     assert not json.loads(metadata['intent_attempt']).get('complete_collection')
-    return result,text,report,payload['events']
+    return result,text,report,payload['events'],reds(root)
+
+
+def reds(root):
+    """Each red line of the last run as `show --last` prints it, its detail joined to it."""
+    found, current = [], None
+    for line in last(root).splitlines():
+        if line.startswith('    ') and current is not None:
+            found[current] += ' ' + line.strip()
+        else:
+            current = len(found) if line.startswith('red: ') else None
+            if current is not None:
+                found.append(line)
+    return found
 
 
 def test_unchanged_partial_scenario_violation_reports_rule_and_original_quote(tmp_path):
     rule = project(tmp_path)
-    result,text,report,events = exercise(tmp_path)
+    result,text,report,events,red = exercise(tmp_path)
     assert any(e['anchor']=='CASE' and e['phase']=='call' and e['values']['x']==4 for e in events),events
     assert any(e['anchor']=='OUTCOME' and e['phase']=='return' and e['result'] is True for e in events),events
     assert result.returncode != 0,text
     assert rule in text and QUOTE in last(tmp_path),text            # the owner's words are the red's detail
     assert 'x=4' in text and 'False' in text and 'True' in text,text
-    assert report['red'],report
-    witness = ' '.join(report['red']).lower()
+    assert red,report
+    witness = ' '.join(red).lower()
     assert 'false' in witness and 'true' in witness,report
 
 
 def test_unchanged_partial_projection_keeps_real_none_and_string_without_false_red(tmp_path):
     project(tmp_path,projection=True)
-    result,text,report,events = exercise(tmp_path,passed='2 passed')
+    result,text,report,events,red = exercise(tmp_path,passed='2 passed')
     outcomes = [e['result'] for e in events if e['anchor']=='OUTCOME' and e['phase']=='return']
     assert len(outcomes)==2 and None in outcomes and 'blocked' in outcomes,events
-    assert result.returncode == 0 and not report['red'],text
+    assert result.returncode == 0 and not red,text
 
 
 def test_partial_scenario_missing_actual_input_reading_is_grey(tmp_path):
     project(tmp_path,missing_read=True)
-    result,text,report,events = exercise(tmp_path)
+    result,text,report,events,red = exercise(tmp_path)
     assert any(e['anchor']=='CASE' and e['phase']=='call' for e in events),events
     assert any(e['anchor']=='OUTCOME' and e['phase']=='return' for e in events),events
     grey = [item for item in report['items'] if item.get('status')=='grey']
-    assert result.returncode == 0 and not report['red'],text
+    assert result.returncode == 0 and not red,text
     assert grey and 'arg.missing' in json.dumps(grey),report
 
 
 def test_partial_scenario_unwalked_sensor_edge_is_grey(tmp_path):
     project(tmp_path,skip_sensor=True)
-    result,text,report,events = exercise(tmp_path)
+    result,text,report,events,red = exercise(tmp_path)
     assert any(e['anchor']=='CASE' and e['phase']=='call' for e in events),events
     assert not any(e['anchor']=='OUTCOME' for e in events),events
     grey = [item for item in report['items'] if item.get('status')=='grey']
-    assert result.returncode == 0 and not report['red'],text
+    assert result.returncode == 0 and not red,text
     assert grey and 'unobserved edge' in json.dumps(grey),report
 
 
 def test_actual_partial_violation_survives_an_unverified_lower_without_full_verification(tmp_path):
     rule = project(tmp_path,lower=True,forbid_contracts=True)
-    result,text,report,events = exercise(tmp_path)
+    result,text,report,events,red = exercise(tmp_path)
     assert any(e['anchor']=='OUTCOME' and e['phase']=='return' and e['result'] is True for e in events),events
     assert result.returncode != 0 and rule in text and QUOTE in last(tmp_path),text
-    witness = ' '.join(report['red']).lower()
+    witness = ' '.join(red).lower()
     assert 'false' in witness and 'true' in witness,report
     assert not (tmp_path / '.flowguard/cache/forbidden-contract.txt').exists(),text
     assert 'partial scenario must not start full contract verification' not in text,text
@@ -153,9 +166,9 @@ def test_actual_partial_violation_survives_an_unverified_lower_without_full_veri
 
 def test_partial_rule_predicate_error_is_red_instead_of_an_invented_pass(tmp_path):
     rule = project(tmp_path,broken_rule=True)
-    result,text,report,events = exercise(tmp_path)
+    result,text,report,events,red = exercise(tmp_path)
     assert any(e['anchor']=='CASE' and e['phase']=='call' for e in events),events
     assert any(e['anchor']=='OUTCOME' and e['phase']=='return' and e['result'] is True for e in events),events
     assert result.returncode != 0 and rule in text,text
-    reasons = ' '.join(report['red']).lower()
+    reasons = ' '.join(red).lower()
     assert reasons and any(word in reasons for word in ('zero','division','predicate')),report

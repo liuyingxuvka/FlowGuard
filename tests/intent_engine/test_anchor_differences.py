@@ -94,15 +94,15 @@ def test_union_boundary_runs_one_representative_for_four_to_seven():
     assert part.complete and part.representative_points > len(part.regions)
     assert len(part.regions) == result['total'] == 3
     assert result['changed'] == 1
-    assert result['changes'] == [dict(anchor='grace', region='days=4–7',
+    assert result['changes'] == [dict(anchor='grace', region='days=4..7',
                                       witness={'days': '4'}, before='F', after='T')]
-    assert D.render(result) == 'grace：total 3 classes，changed 1 classes\ndays=4–7; function result F → T(example: days=4）'
+    assert D.render(result) == 'grace: total 3 classes, changed 1 classes\ndays=4..7; function result F -> T(example: days=4)'
 
 
 def test_pure_refactor_has_zero_behavior_changes():
     _, result = compare(before, refactored, {'days': int})
     assert result['complete'] and result['changed'] == 0
-    assert D.render(result) == 'total 2 classes，changed 0 classes'
+    assert D.render(result) == 'total 2 classes, changed 0 classes'
 
 
 def test_old_numeric_truth_test_is_part_of_the_joint_partition():
@@ -114,7 +114,7 @@ def test_old_numeric_truth_test_is_part_of_the_joint_partition():
 def test_optional_absence_keeps_its_own_class_without_evaluating_a_guarded_atom():
     part, result = compare(optional_before, optional_after, {'days': int | None})
     assert part.complete and result['total'] == 4 and result['changed'] == 1
-    assert result['changes'][0]['region'] == 'days=4–7'
+    assert result['changes'][0]['region'] == 'days=4..7'
 
 
 def test_extra_boolean_edit_is_visible_and_labels_keep_its_identity():
@@ -129,7 +129,7 @@ def test_extra_boolean_edit_is_visible_and_labels_keep_its_identity():
 def test_disconnected_class_is_not_presented_as_a_continuous_interval():
     part = D.joint_partition(view(equal_three, {'days': int}), view(equal_three, {'days': int}))
     assert part.complete and len(part.regions) == 2
-    assert {region.label for region in part.regions} == {'days=3', 'days≠3'}
+    assert {region.label for region in part.regions} == {'days=3', 'days!=3'}
 
 
 def test_finite_input_keeps_its_actual_domain_despite_an_internal_call():
@@ -162,7 +162,7 @@ def test_observation_unknown_does_not_turn_into_zero_verified_changes():
     assert result['checked'] == 0 and result['unknown'] == 3
     assert 'test never entered' in D.render(result)
     assert 'comparison incomplete; proven changed classes: 0' in D.render(result)
-    assert 'total 3 classes，changed 0 classes' not in D.render(result)
+    assert 'total 3 classes, changed 0 classes' not in D.render(result)
 
 
 def test_partial_observations_keep_a_proven_change_and_unknown_classes():
@@ -179,7 +179,7 @@ def test_short_output_caps_changed_lines_without_losing_the_total():
     report = dict(changes=[dict(anchor='point', region=f'n={i}', before='F', after='T') for i in range(30)],
                   total=31, changed=30, complete=True, reasons=[])
     lines = D.render(report, limit=100).splitlines()
-    assert len(lines) <= 10 and 'total 31 classes，changed 30 classes' in lines[0]
+    assert len(lines) <= 10 and 'total 31 classes, changed 30 classes' in lines[0]
     assert all(len(line) <= 100 for line in lines)
 
 
@@ -223,7 +223,7 @@ def test_real_calls_at_the_union_representatives_give_the_class_report(tmp_path)
     report = historical_result(root, runtime, readings, partition)
     assert report['status'] == 'ok' and report['complete'], report
     assert report['total'] == 3 and report['changed'] == 1
-    assert report['changes'][0]['region'] == 'days=4–7'
+    assert report['changes'][0]['region'] == 'days=4..7'
 
 
 def test_unrelated_same_file_edit_does_not_create_a_runtime_behavior_change(tmp_path):
@@ -277,7 +277,7 @@ def test_same_name_copies_compare_actual_callables_without_any_intent_rule(tmp_p
     assert report['status'] == 'red' and report['selected'] == 1, report
     assert report['changed'] == 1 and report['total'] == 3
     assert report['changes'][0]['witness'] == {'days': '4'}
-    assert 'decision:allowed ↔ decision:copy' in D.render(report)
+    assert 'decision:allowed <-> decision:copy' in D.render(report)
 
 
 def test_differently_named_sensors_keep_separate_identity_until_an_explicit_comparison(tmp_path):
@@ -455,7 +455,7 @@ def test_current_short_and_full_same_name_comments_share_one_actual_domain(tmp_p
     report = D.compare(root, 'decision:allowed', 'decision:copy')
     assert report['status'] == 'red' and report['complete'], report
     assert report['total'] == 3 and report['changed'] == 1
-    assert report['changes'][0]['region'] == 'days=4–7'
+    assert report['changes'][0]['region'] == 'days=4..7'
 
 
 def test_current_exception_message_difference_uses_real_native_outcomes(tmp_path):

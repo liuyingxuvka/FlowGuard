@@ -3,10 +3,11 @@
 A function owner (`# flowguard: owner NAME`) is the reference its same-name sensors follow; the
 existing same-name comparison checks those. Copy discovery runs unregistered look-alikes on the
 owner's case classes, through the runtime's source-only sealed executor, only in
-`check`. A data owner (`owner Table.column writers=...`) turns a new write outside its writers red.
-Static leads (an old value still elsewhere, also in rules; a new spelling of a label) never replay.
-Only what this change adds is reported; older findings are the old ledger (`check --all`, `show`).
-Grouping is a finite sample of representative values, never a proof of equal behavior.
+`check`. A data owner (`owner Table.column writers=...`) makes a write outside its writers a finding.
+Every finding names its members, those this change added fresh (`signals.deliver` gives each its line);
+static leads (an old value still elsewhere, also in rules; a new spelling of a label) never replay and get
+no line, only `show --last`. Grouping is a finite sample of representative values, never a proof of equal
+behavior.
 """
 from __future__ import annotations
 
@@ -31,14 +32,11 @@ PEERS = 40                   # look-alikes of one changed function replayed at m
 
 @dataclass
 class Findings:
-    """Red lines and leads for the existing signal report, each with the next step to copy; and, for the 4.3
-    lines (`signals.deliver`), the findings with their members, the lines already of their kind, what this change
-    touches and which families ran."""
-    red: list = field(default_factory=list)
-    leads: list = field(default_factory=list)
+    """What the map checks found, for the 4.3 lines (`signals.deliver`): the findings with their members, the lines
+    already of their kind, what this change touches and which families ran; the session brief's count of open
+    structure problems; and the leads that get no line, for `show --last`."""
     stats: dict = field(default_factory=dict)
     issues: list = field(default_factory=list)      # health.Issue: open structure problems, old ones too
-    section: list = field(default_factory=list)     # the --all listing of open structure problems
     summary: dict | None = None                     # count and heaviest names for the session brief
     known: list = field(default_factory=list)       # sources.Known: the entries of known.toml, sites resolved
     lines: list = field(default_factory=list)       # signals.Line of their final kind (impact, loosened, not compared)
@@ -51,8 +49,6 @@ class Findings:
     decided: list = field(default_factory=list)     # the issues a `[structure]` decision closed (counted, no line)
 
     def extend(self, other):
-        self.red.extend(other.red)
-        self.leads.extend(other.leads)
         self.issues.extend(other.issues)
         self.known.extend(other.known)
         self.lines.extend(other.lines)
@@ -355,11 +351,6 @@ def _write_key(row):
     return row['file'], row['function'], row['kind'], str(row.get('model') or row.get('table')), str(row.get('field') or row.get('db_column'))
 
 
-def _write_text(row):
-    value = f', value {row["value"]!r}' if 'value' in row else ''
-    return f'{row["file"]}:{row["line"]} {row["function"]}（{row["kind"]}{value}）'
-
-
 def _agreement_place(graph, owner, role):
     """A role's original declaration, before complementary data agreements were combined."""
     facts = graph.file_facts(owner.file)
@@ -370,39 +361,16 @@ def _agreement_place(graph, owner, role):
     return f'canonical registration {owner.file}:{owner.line}'
 
 
-def owner_writes(change, index, *, everything=False):
-    """A write outside a data owner's writers that this change adds is red; older ones are the old ledger."""
+def owner_writes(change, index):
+    """The `writer:` finding of each data owner's writers agreement that code writes outside (`_writer_issue`)."""
     found, written = Findings(ran={'writer'}), None
     for owner in (a for a in index.entries if a.kind == 'owner' and a.writers):
         if written is None:
             written = change.graph.writes(by_name=True)        # read once for every owner
         rows = [row for row in change.graph.writes_to(written, owner.name) if not row.get('unclear')]
         outside = [row for row in rows if not _allowed(row, owner.writers)]
-        if not outside:
-            continue
-        before = Counter()
-        for file in {row['file'] for row in outside} & change.files:
-            facts = change.old_facts(file)
-            if facts:
-                before.update(_write_key(row) for row in change.graph.writes(owner.name, by_name=True, facts=[facts])
-                              if not row.get('unclear'))
-        now, new, old = Counter(_write_key(row) for row in outside), [], []
-        for row in outside:
-            key = _write_key(row)
-            fresh = change.baseline and row['file'] in change.files and now[key] > before[key]
-            (new if fresh else old).append(row)
-        allowed = '、'.join(owner.writers)
-        where = _agreement_place(change.graph, owner, 'writers')
-        if new:
-            functions = '、'.join(dict.fromkeys(row['node'] if row.get('language', 'python') == 'python' else row['function']
-                                                for row in new))     # TS/JS writers are function names
-            found.red.append(f'new write outside the declared writer for {owner.name}：' + '  '.join(_write_text(row) for row in new)
-                             + f'; allowed only: {allowed} -> call {allowed}, or, if necessary, add {functions} to '
-                               f'the writers agreement (comment at {where}）')
-        if old and everything:
-            found.leads.append(f'before: {owner.name} writes outside the declared writer: ' + '  '.join(_write_text(row) for row in old)
-                               + f'; allowed only: {allowed}(agreement at {where}）')
-        found.issues.append(_writer_issue(change, owner, outside, where))
+        if outside:
+            found.issues.append(_writer_issue(change, owner, outside, _agreement_place(change.graph, owner, 'writers')))
     return found
 
 
@@ -444,7 +412,7 @@ def _writer_issue(change, owner, outside, where):
     parts = tuple((function, place(rows[0]), what, step) for function, rows in sorted(now.items()))
     return Issue(f'writer:{owner.name}', LINES_ONLY, f'writer {owner.name}',
                  f'{owner.name} is written outside its writers agreement ({where}): ' + '  '.join(place(rows[0]) for _, rows in sorted(now.items())),
-                 step, frozenset(now), frozenset(row['file'] for row in outside), new=bool(fresh),
+                 step, frozenset(now), frozenset(row['file'] for row in outside),
                  family='writer', subject=f'writers {owner.name}', parts=parts, fresh=frozenset(fresh),
                  detail=(f'agreement: {where}', 'if the owner agrees that a function may write it, add it to that writers agreement'))
 
@@ -923,7 +891,7 @@ def _pair_step(row, partner):
         f'also write {partner} in the code at line {row["line"]}'
 
 
-def owner_pairs(change, index, *, everything=False):
+def owner_pairs(change, index):
     """`with=` (`together A B`): each write of a registered field also writes its partner in the same operation
     (`operation`: callers three levels up, then three levels down from them; a JS/TS module-level callback is an
     operation of its own), unless its function is listed in `alone=`; `on=update` holds only the writes that change
@@ -935,8 +903,7 @@ def owner_pairs(change, index, *, everything=False):
     A part is fresh (this change added it) unless the baseline result has it: the current registration applied to
     the baseline code (the writes of every changed file at the baseline, `Change.baseline_writes`, a module-level
     callback by its counterpart), judged with the current operation tree, and only while that tree lost no call the
-    baseline had (`_Calls`; else the part is fresh, fail-closed). Without a baseline nothing is fresh. The legacy red
-    line names the misses of changed files, or every miss of an agreement this change added.
+    baseline had (`_Calls`; else the part is fresh, fail-closed). Without a baseline nothing is fresh.
 
     The finding's detail notes a hold that counts but is not confirmed (a `where` that cannot be read, D20; two
     conditions not compared, D21) for each function that has one; an agreement whose every trigger is held has no
@@ -964,7 +931,6 @@ def owner_pairs(change, index, *, everything=False):
             return [row for row in written if bound(row) and row['file'] not in tests and not is_test_file(row['file'])
                     and (not owner.on or creates(row) == (owner.on == 'create')) and not _allowed(row, alone)]
         rows = triggers(writes(owner.name))
-        new_rule = change.baseline and not _owner_at_baseline(change, owner)
         for pair in owner.pairs:
             target, _, value = pair.partition('=')
             model, _, column = target.rpartition('.')
@@ -988,10 +954,6 @@ def owner_pairs(change, index, *, everything=False):
                     + ('(JS/TS calls resolved by name)' if any(calls[id(row)] for row in rows) else '') \
                     + {'update': '(updates only)', 'create': '(creates only)'}.get(owner.on, '')
             step = (f'write the paired value; if intentionally independent, ask the owner before adding except=path:function(reason) to the together agreement (comment at {_agreement_place(change.graph, owner, "pairs")})')
-            shown = [row for row in missing if everything or new_rule or row['file'] in change.files]
-            if shown:
-                # One owner per red line: the subject names the owner, so two owners' pairs never merge into one.
-                found.red.append(f'missing paired write for {owner.name}：{where(shown)} writes {owner.name}, {OPERATION} does not write {pair} → ' + step)
             if not missing:
                 continue
             fresh, detail = set(), []
@@ -1017,7 +979,7 @@ def owner_pairs(change, index, *, everything=False):
                 f'pair:{owner.name}>{pair}', 2, f'pair {owner.name}',
                 f'missing paired write: {where(missing)} writes {owner.name}; {OPERATION} does not write {pair}',
                 step, frozenset(row_function(row) for row in missing), frozenset(row['file'] for row in missing),
-                new=bool(shown), family='pair', subject=f'together {owner.name}',
+                family='pair', subject=f'together {owner.name}',
                 parts=tuple((function, _pair_place(row), f'writes {owner.name} without {pair}{scope}', _pair_step(row, partner))
                             for function, row in members.items()),
                 fresh=frozenset(fresh), detail=tuple(detail)))
@@ -1346,9 +1308,9 @@ def rule_old_values(cfg, old, *, declarations=None):
             judged = sorted({n.lineno for n in item['judged'] if holds(n)})
             rows = sorted({n.lineno for n in item['literals'] if holds(n)})
             if judged or rows:
-                parts = ([f'decision line {"、".join(map(str, judged))}'] if judged else []) + \
-                        ([f'regression row line {"、".join(map(str, rows))}'] if rows else [])
-                found.append(f'rule {item["id"]} still uses old value {old!r}({cfg.rel(path)} {"、".join(parts)}): if requirements changed, update the rule first')
+                parts = ([f'decision line {", ".join(map(str, judged))}'] if judged else []) + \
+                        ([f'regression row line {", ".join(map(str, rows))}'] if rows else [])
+                found.append(f'rule {item["id"]} still uses old value {old!r}({cfg.rel(path)} {", ".join(parts)}): if requirements changed, update the rule first')
     return found
 
 
@@ -1371,11 +1333,11 @@ def copies_without_rule(change, index):
         changed = [anchor for name in item['anchors'] for anchor in copies.get(name, ())]
         if not changed or file in change.files:
             continue
-        names = '、'.join(dict.fromkeys(anchor.name for anchor in changed))
-        places = '、'.join(dict.fromkeys(f'{anchor.file}:{anchor.qual}' for anchor in changed))
-        found.leads.append(f'{names} copies at {places} changed; rule {item["id"]} is unchanged -> if requirements changed, first use python -m flowguard req add to '
-                           f'store the new owner words, then update rule {file}:{item["line"]}; otherwise confirm that this code change is correct')
-        _hide(found, '', found.leads[-1])         # no 4.3 line and no deprecation (D6): `show --last` only
+        names = ', '.join(dict.fromkeys(anchor.name for anchor in changed))
+        places = ', '.join(dict.fromkeys(f'{anchor.file}:{anchor.qual}' for anchor in changed))
+        _hide(found, '', f'{names} copies at {places} changed; rule {item["id"]} is unchanged -> if requirements changed, first use '
+                         f'python -m flowguard req add to store the new owner words, then update rule {file}:{item["line"]}; otherwise '
+                         'confirm that this code change is correct')       # no 4.3 line and no deprecation (D6): `show --last` only
     return found
 
 
@@ -1396,10 +1358,8 @@ def old_value_leads(change):
     for item in constant_changes(change):
         lead = stale_copies(change.graph, [item])
         if lead['total']:
-            found.leads.append(lead)
             _hide(found, 'old-value leads', _old_value_text(lead))
         for text in rule_old_values(change.cfg, item['before'], declarations=change.rule_declarations()):
-            found.leads.append(text)
             _hide(found, 'old-value leads', text)
     return found
 
@@ -1430,12 +1390,11 @@ def _declarations(graph):
     return found
 
 
-def declarations_differ(change, *, everything=False):
+def declarations_differ(change):
     """Two declarations of one name (union type or enum) with different members, and the declarations of one
     database field (`MapHandle.field_declarations`: each Prisma schema's enum, each SQL CHECK, a JS/TS
-    declaration of the enum's name) with different values: a lead, reported when this change touches one
-    of them (`check --all` lists all). Each is also a `declarations:` finding of the files declaring it, new when a
-    file declares that name otherwise than the baseline code did (`_declared`)."""
+    declaration of the enum's name) with different values: a `declarations:` finding of the files declaring it, new
+    when a file declares that name otherwise than the baseline code did (`_declared`)."""
     found = Findings()
     found.ran.add('declarations')
     named = [(name, items, ' -> keep one definition and reference it elsewhere; use different names if intentionally different') for name, items in _declarations(change.graph).items()]
@@ -1445,14 +1404,6 @@ def declarations_differ(change, *, everything=False):
         if len(items) < 2 or len({values for _, _, values in items}) < 2:
             continue
         found.issues.append(_declarations_issue(change, name, items, step.removeprefix(' -> '), field=name in field_names))
-        if not everything and not any(file in change.files for file, _, _ in items):
-            continue
-        union = set().union(*(values for _, _, values in items))
-        parts = [f'{file}:{line}（{" | ".join(map(repr, sorted(values, key=repr)))}'
-                 + (f'; missing {", ".join(map(repr, sorted(union - values, key=repr)))}' if union - values else '') + '）'
-                 for file, line, values in sorted(items)]
-        found.leads.append(('before: ' if everything and not any(file in change.files for file, _, _ in items) else '')
-                           + f'declarations differ: {name} ' + '  '.join(parts) + step)
     return found
 
 
@@ -1468,7 +1419,7 @@ def _declarations_issue(change, name, items, step, *, field=False):
         _declared(change, name, file, field=field, then=True) != _declared(change, name, file, field=field, then=False)
         for file in sorted(files))
     return Issue(f'declarations:{name}', LINES_ONLY, f'declarations {name}', f'declarations differ: {name}: {first}:{line} {what}',
-                 step, frozenset(), files, new=fresh, family='declarations', subject=f'declarations {name}',
+                 step, frozenset(), files, family='declarations', subject=f'declarations {name}',
                  parts=(('', f'{first}:{line}', what, step),), fresh=frozenset({''}) if fresh else frozenset())
 
 
@@ -1537,7 +1488,7 @@ def literal_drift(change, *, everything=False):
     """A label spelled a new way (case, spaces, punctuation aside) that this change adds to a group of
     spellings: only a spelling the baseline code never used is reported. Two declarations of one name
     with different members are part of the same lead family."""
-    found = declarations_differ(change, everything=everything)
+    found = declarations_differ(change)
     if not change.files and not everything:
         return found
     groups = _project_spellings(change, change.graph.literal_groups())
@@ -1552,12 +1503,11 @@ def literal_drift(change, *, everything=False):
             continue
         parts = []
         for value, rows in group['spellings'].items():
-            places = '、'.join(f'{row["file"]}:{row["line"]}' for row in rows)
+            places = ', '.join(f'{row["file"]}:{row["line"]}' for row in rows)
             parts.append(f'{value!r}({places}' + (', spelling added in this task' if value in fresh else '') + ')')
         # --all also lists the spellings the baseline already had, as the old ledger.
-        found.leads.append(('' if fresh else 'before: ') + 'label spellings differ: ' + ' and '.join(parts)
-                           + ' -> use one spelling, or read both from one reference')
-        _hide(found, 'label-spelling leads', found.leads[-1])
+        _hide(found, 'label-spelling leads', ('' if fresh else 'before: ') + 'label spellings differ: ' + ' and '.join(parts)
+              + ' -> use one spelling, or read both from one reference')
     return found
 
 
@@ -1635,9 +1585,8 @@ def changed_once(change, decided=(), index=None):
             parts = ([f'previously identical copies: {len(twins)} unchanged: ' + '  '.join(f'{file}:{line}' for _, file, line in twins)] if twins else []) \
                 + ([f'similar structure (shape similarity at least {SIMILAR_FOREIGN:g}): {len(similar)} also unchanged: '
                     + '  '.join(f'{file}:{line}' for _, file, line in similar)] if similar else [])
-            found.leads.append(f'{ident.partition(":")[2]}({node.get("file")}:{node.get("line")}) changed; ' + '; '.join(parts)
-                               + _lock_hint(comment, name, bool(marked)))
-            _hide(found, 'similar-implementation leads', found.leads[-1])
+            _hide(found, 'similar-implementation leads', f'{ident.partition(":")[2]}({node.get("file")}:{node.get("line")}) changed; '
+                  + '; '.join(parts) + _lock_hint(comment, name, bool(marked)))
     return found
 
 
@@ -1844,16 +1793,17 @@ def static_findings(cfg, graph, index, base=None, *, everything=False, replay=Fa
     writes and pairs, values outside declared sets, old values (rules too), new spellings, unchanged copies
     of a changed function's old body, deletes that leave children, missing columns and the open structure
     problems (`health`). `replay` (`check`) runs copy discovery and the changed-alone comparison instead
-    of the static copy lead. `everything` adds the old ledger and the `--all` structure listing. The catalog's
-    findings (`sources.findings`), what the change loosened and the fields it newly writes join the same list."""
+    of the static copy lead. `everything` (`--all`) reads every label spelling and look-alike, not only those this
+    change touches. The catalog's findings (`sources.findings`), what the change loosened and the fields it newly
+    writes join the same list."""
     from . import health, sources
     change = Change(cfg, graph, baseline(cfg, base))
     copies = health.copies(change, index)
-    found = owner_writes(change, index, everything=everything).extend(owner_pairs(change, index, everything=everything))
+    found = owner_writes(change, index).extend(owner_pairs(change, index))
     found.extend(sources.findings(cfg, graph, change))
     found.extend(loosened(change, index))
     found.extend(field_impact(change, index))
-    found.extend(health.values(change, everything=everything))
+    found.extend(health.values(change))
     if change.baseline:
         found.extend(old_value_leads(change))
         found.extend(copies_without_rule(change, index))
@@ -1870,19 +1820,16 @@ def static_findings(cfg, graph, index, base=None, *, everything=False, replay=Fa
             found.extend(changed_once(change, decided, index))
     if change.baseline or everything:
         found.extend(literal_drift(change, everything=everything))
-    found.extend(health.deletes(change, everything=everything)).extend(health.columns(change, everything=everything))
+    found.extend(health.deletes(change)).extend(health.columns(change))
     found.extend(health.delete_rules(change))
     found.extend(copies).extend(health.writers(change, index)).extend(health.uncreated(change))
     found.extend(health.labels(change))
     if replay:
         found.extend(discover(cfg, graph, index, change, everything=everything, excluded=excluded))
         found.extend(changed_alone(cfg, graph, index, change, excluded=excluded))
-    found = families_ran(health.assess(cfg, change, index, found, everything=everything), index)
+    found = families_ran(health.assess(cfg, change, index, found), index)
     found.ran.add('pair')
     found.touched_functions, found.touched_files = touched_functions(change), frozenset(change.files)
-    if everything:
-        from .ledger import open_legacy
-        found.section.extend(open_legacy(cfg, graph))
     return found
 
 
@@ -2000,7 +1947,7 @@ def _example(rows, names, mine, reference, label='reference'):
                  if _same(mine[index], reference[index]) is False]
     finite = [item for item in differing if all(not (type(item[0][n]) is float and not math.isfinite(item[0][n])) for n in names)]
     chosen = finite[:1] + [item for item in differing if item not in finite][:1]
-    text = '；'.join(', '.join(f'{name}={_show(row[name])}' for name in names) + f' → {_outcome(a)}({label} returns {_outcome(b)}）'
+    text = '; '.join(', '.join(f'{name}={_show(row[name])}' for name in names) + f' -> {_outcome(a)}({label} returns {_outcome(b)})'
                     for row, a, b in chosen)
     return text + (f'; plus {len(differing) - len(chosen)} other differences' if len(differing) > len(chosen) else '')
 
@@ -2147,9 +2094,10 @@ def _category(same, total, shape, shared):
 
 
 def discover(cfg, graph, index, change, *, everything=False, excluded=()):
-    """Unregistered look-alikes of each function owner, grouped by their results on its classes. An owner
-    whose copies the owner decided (`[structure."copies:NAME"]`, NAME its anchor name) gets no leads; a copy
-    this change adds beside it is still red."""
+    """Unregistered look-alikes of each function owner, grouped by their results on its classes: a `copies:` finding
+    of each diverged copy and each copy this change adds beside a reference the baseline had, and leads for `show
+    --last`. An owner whose copies the owner decided (`[structure."copies:NAME"]`, NAME its anchor name) gets no
+    leads."""
     found = Findings()
     decisions = change.decisions()
     owners = _references(index)
@@ -2180,23 +2128,21 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
         # One row set for all: the owner's classes, fixed representatives and every compared function's literals.
         rows, kinds, reason = _classes(cfg, owner, list(dict.fromkeys(
             value for row in (home, *shown) for value in row['literals'])))
-        label = f'{owner.name}（{owner.file}:{owner.target_line}）'
+        label = f'{owner.name} ({owner.file}:{owner.target_line})'
         if reason:
-            found.leads.append(f'reference {label} suspected copy {len(shown)} copies were not compared: {reason}')
-            _hide(found, 'unregistered copy discovery', found.leads[-1])
+            _hide(found, 'unregistered copy discovery', f'reference {label} suspected copy {len(shown)} copies were not compared: {reason}')
             complete = False
             continue
         reference, why = _replay(home, rows, names)
         if reference is None:
-            found.leads.append(f'reference {label} cannot run itself; copies were not compared: {why}')
-            _hide(found, 'unregistered copy discovery', found.leads[-1])
+            _hide(found, 'unregistered copy discovery', f'reference {label} cannot run itself; copies were not compared: {why}')
             complete = False
             continue
         groups, unclear, partial = {}, [], []
         for row in shown:
             result, why = _replay(row, rows, names)
             if result is None:
-                unclear.append(f'{row["file"]}:{row["line"]}（{why}）')
+                unclear.append(f'{row["file"]}:{row["line"]} ({why})')
                 continue
             outcomes = result['now']
             compared = [_same(a, b) for a, b in zip(outcomes, reference['now']) if _same(a, b) is not None]
@@ -2220,11 +2166,10 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
         quiet = f'copies:{owner.name}' in decisions
         def lead(text):
             if not quiet:
-                found.leads.append(text)
                 _hide(found, 'unregistered copy discovery', text)
         lead(f'reference {label} has {total} suspected copies (candidates: {len(candidates)}; time: {seconds:.2f} seconds; '
                            f'{len(rows)} representative values; only comparable JSON inputs count; call-site reachability was not checked)'
-                           f'-> choose one for each copy: call the reference; or write above the copy: # flowguard: same {owner.name}；'
+                           f'-> choose one for each copy: call the reference; or write above the copy: # flowguard: same {owner.name}; '
                            f'or declare distinct("{owner.name}", "<copy-anchor-name>", why="...", source="...")')
         order = {'copy': 0, 'diverged copy': 1, 'similar': 2}
         for (category, _), group in sorted(groups.items(), key=lambda item: (order[item[0][0]], item[1][0][0]['id'])):
@@ -2235,12 +2180,9 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
                 text = f'{category}: {len(members)} copies (match the reference on {compared_count} representative values; not a proof): {places}'
             else:
                 apart = len({tuple(str(value) for value in outcomes) for _, outcomes in group}) > 1
-                text = (f'{category} {len(members)} copies: {_example(rows, names, group[0][1], reference["now"])}：{places}'
+                text = (f'{category} {len(members)} copies: {_example(rows, names, group[0][1], reference["now"])}: {places}'
                         + ('(same first difference; these copies also differ on other representative values)' if apart else ''))
             fresh = [row for row in members if row['id'] in added]
-            if fresh and old_owner and category != 'similar':
-                found.red.append(f'reference {label} has a new copy outside it: ' + '  '.join(f'{row["file"]}:{row["line"]}' for row in fresh)
-                                 + f'({category}) -> call {owner.qual}, or write above it: # flowguard: same {owner.name}')
             lead(('before: ' if everything and not new_owner and not fresh else '') + text)
             # The 4.3 finding: a copy of the reference is a `copies:` member (a structure finding, never red, D1); one this
             # change adds or edits is new (its baseline version is not compared here, so it never was broken at the task
@@ -2259,7 +2201,7 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
             elif category == 'copy' and fresh and old_owner:
                 found.issues.append(Issue(f'copies:{owner.name}', LINES_ONLY, f'copy {owner.name}', f'reference {label}: {text}',
                                           f'call {owner.qual}', frozenset(row['id'] for row in members),
-                                          frozenset(row['file'] for row in members), new=True, **facts))
+                                          frozenset(row['file'] for row in members), **facts))
         if unclear:
             lead(f'unavailable copies: {len(unclear)} copies: ' + '  '.join(unclear))
         if partial:
@@ -2375,7 +2317,6 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
         mine, why = _replay(row, rows, row['simple'], old_text)
         missing = _not_compared(mine['before'], mine['now']) if mine is not None else why
         if missing:
-            found.leads.append(f'not compared: {row["file"]}:{row["line"]} {row["qual"]} ({missing})')
             found.lines.append(_not_compared_line(row, missing))
         if mine is None or not mine['compared'] or not any(_same(a, b) is False for a, b in zip(mine['before'], mine['now'])):
             continue            # no comparable old version, or the edit kept every representative's result
@@ -2384,7 +2325,6 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
         for peer in peers:
             theirs, why = _replay(peer, rows, row['simple'])
             if theirs is not None and (missing := _not_compared(mine['before'], theirs['now'])):
-                found.leads.append(f'not compared: {peer["file"]}:{peer["line"]} {peer["qual"]} ({missing})')
                 found.lines.append(_not_compared_line(peer, missing))
             comparison = [_same(a, b) for a, b in zip(mine['before'], theirs['now']) if _same(a, b) is not None] if theirs else []
             if comparison and all(comparison):
@@ -2417,25 +2357,23 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
         if similar:
             parts.append(f'similar (structure or shared constant): {len(similar)} copies also unchanged: '
                          + '  '.join(f'{peer["file"]}:{peer["line"]}' + (f'(unavailable: {why})' if why else '') for peer, why in similar))
-        text = ('、'.join(f'{item["qual"]}（{item["file"]}:{item["line"]}）' for item in changed)
-                + (f' ({len(changed)} locations)' if len(changed) > 1 else '') + ' changed behavior; ' + '；'.join(parts))
+        text = (', '.join(f'{item["qual"]} ({item["file"]}:{item["line"]})' for item in changed)
+                + (f' ({len(changed)} locations)' if len(changed) > 1 else '') + ' changed behavior; ' + '; '.join(parts))
         if anchor and twins:
             # The owner is the reference: its copies follow it, and a copy that left it goes back to it. Without
             # one among them no copy is chosen: an intended change goes to every copy, any other is undone.
             owner = next((peer for peer in twins if peer['id'] in anchored and anchored[peer['id']].owner
                           and anchored[peer['id']].name == anchor.name), None)
-            quals = '、'.join(item['qual'] for item in changed)
+            quals = ', '.join(item['qual'] for item in changed)
             if anchor.owner:
                 step = f'update together, or call {row["qual"]}'
             elif owner:
                 step = f'make {quals} match reference {owner["qual"]}({owner["file"]}:{owner["line"]})'
             else:
                 step = f'first decide which copy is correct: for an intended change, update together or call {row["qual"]}; otherwise make {quals} return to the original behavior'
-            found.red.append(f'{"reference" if anchor.owner else "anchor"} {anchor.name}：' + text + ' → ' + step)
-            found.issues.append(_changed_alone_issue(anchor, changed, twins, _ascii(step)))     # the legacy line keeps its text
+            found.issues.append(_changed_alone_issue(anchor, changed, twins, _ascii(step)))
         else:
-            found.leads.append(text + _lock_hint('#', name, bool(anchor or marked)))
-            _hide(found, 'similar-implementation leads', found.leads[-1])
+            _hide(found, 'similar-implementation leads', text + _lock_hint('#', name, bool(anchor or marked)))
     found.stats.update(changed_examined=examined, changed_seconds=time.perf_counter() - started)
     return found
 
@@ -2458,7 +2396,7 @@ def _changed_alone_issue(anchor, changed, twins, step):
     parts = tuple((item['id'], f'{item["file"]}:{item["qual"]}', what, step) for item in changed)
     return Issue(f'changed-alone:{anchor.name}', LINES_ONLY, f'changed alone {anchor.name}',
                  f'{anchor.name}: ' + ', '.join(place for _, place, _, _ in parts) + ' ' + what, step,
-                 frozenset(item['id'] for item in changed), frozenset(item['file'] for item in changed), new=True,
+                 frozenset(item['id'] for item in changed), frozenset(item['file'] for item in changed),
                  family='changed-alone', subject=f'same {anchor.name}', parts=parts,
                  fresh=frozenset(item['id'] for item in changed))
 
@@ -2475,11 +2413,7 @@ def check_findings(cfg, graph, index, base=None, *, everything=False, excluded=(
         changed_alone(cfg, graph, index, change, excluded=excluded))
     found = health.assess(cfg, change, index, found)
     found = families_ran(Findings().extend(static).extend(found), index)
-    opened = health.decided(cfg, index, found.issues, change.decisions())[0]
-    found.summary = health.summary(opened)
-    if everything:
-        from .ledger import open_legacy
-        found.section = health.section(opened) + open_legacy(cfg, graph)
+    found.summary = health.summary(health.decided(cfg, index, found.issues, change.decisions())[0])
     return found
 
 

@@ -831,12 +831,19 @@ def _imported_changes(tree, package, changed):
 
 
 def _reads_changed(node, names, aliases, changed):
-    """Whether `node` (a function, or the right side of a binding) reads another module's changed constant: a name of
-    `names`, or an attribute chain through a module name of `aliases` (`m.LIMIT`, `pkg.limits.LIMIT`) to a constant
-    its module's `changed` constants hold (`_imported_changes`)."""
+    """Whether `node` (a function, or the right side of a binding) reads another module's changed constant
+    (`changed_reads`)."""
+    return bool(changed_reads(node, names, aliases, changed))
+
+
+def changed_reads(node, names, aliases, changed):
+    """The other modules' changed constants `node` reads, as its source spells them, each once in source order: a name
+    of `names`, or an attribute chain through a module name of `aliases` to a constant its module's `changed`
+    constants hold (`m.LIMIT`, `pkg.limits.LIMIT`; `_imported_changes`)."""
+    found = []
     for part in ast.walk(node):
         if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load) and part.id in names:
-            return True
+            found.append((part.lineno, part.col_offset, part.id))
         if isinstance(part, ast.Attribute) and isinstance(part.ctx, ast.Load):
             chain, value = [part.attr], part.value
             while isinstance(value, ast.Attribute):
@@ -845,9 +852,10 @@ def _reads_changed(node, names, aliases, changed):
             if isinstance(value, ast.Name) and value.id in aliases:
                 dotted = [*aliases[value.id].split('.'), *chain]
                 start = aliases[value.id].count('.') + 1
-                if any(dotted[index] in changed.get('.'.join(dotted[:index]), ()) for index in range(start, len(dotted))):
-                    return True
-    return False
+                index = next((index for index in range(start, len(dotted)) if dotted[index] in changed.get('.'.join(dotted[:index]), ())), None)
+                if index is not None:
+                    found.append((part.lineno, part.col_offset, '.'.join([value.id, *chain[:index - start + 1]])))
+    return list(dict.fromkeys(name for *_, name in sorted(found)))
 
 
 @dataclass
@@ -1254,12 +1262,13 @@ class Runtime:
         return self._texts[file, old]
 
     def _tree(self, file, old):
+        where = ' at the baseline' if old else ''
         try:
             return self._parsed(self._text(file, old), file)
         except SyntaxError as error:    # its own words: str() names the file differently on Windows
-            raise Refused(f'{file} does not parse: {error.msg} (line {error.lineno})') from None
+            raise Refused(f'{file} does not parse{where}: {error.msg} (line {error.lineno})') from None
         except ValueError as error:     # a null byte on Python 3.11
-            raise Refused(f'{file} does not parse: {error}') from None
+            raise Refused(f'{file} does not parse{where}: {error}') from None
 
     def _literals(self, file, old):
         """{name: value} of the literal constants a project module gives another module's sealed def: assigned

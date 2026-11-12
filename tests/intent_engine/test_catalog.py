@@ -124,7 +124,7 @@ def test_every_invalid_rule_entry_is_an_input_finding_and_counts_nothing(tmp_pat
     issue = next(issue for issue in found.issues if issue.name == 'rules-entry:rule.x')
     # the entry is the line's subject and place, named once: `red: rule.x: missing source -> ...`
     assert issue.parts[0][1] == ('.flowguard/rules.toml:rule.x',) and issue.subject == 'rule.x' and issue.files == {'.flowguard/rules.toml'}
-    assert issue.rank == 0 and issue.new          # only the 4.3 lines report it: no structure count, listing or lead
+    assert issue.rank == 0 and issue.fresh == {''}    # only the 4.3 lines report it, red in every run: no structure count
 
 
 @pytest.mark.parametrize('text, name, problem', [

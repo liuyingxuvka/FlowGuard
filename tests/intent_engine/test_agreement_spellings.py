@@ -78,10 +78,9 @@ def test_new_python_positions_follow_configured_import_roots(tmp_path):
         assert agreement.alone == ('allowed:save(owner approved)',)
         assert not [issue for issue in index.issues if issue.name == 'account.status']
         assert graph.node(agreement.writers[0])['file'] == 'src/allowed.py'
-        found = owners.owner_writes(owners.Change(load_config(tmp_path), graph, None), index, everything=True)
-    assert len(found.leads) == 1
-    assert 'src/other.py' in found.leads[0]
-    assert 'src/allowed.py:' not in found.leads[0].partition('; allowed only:')[0]
+        found = owners.owner_writes(owners.Change(load_config(tmp_path), graph, None), index)
+    issue, = found.issues
+    assert [part[1] for part in issue.parts] == ['src/other.py:save']      # allowed.py's save is the writer
 
 
 @pytest.mark.parametrize('suffix', ['py', 'ts'])
@@ -117,10 +116,9 @@ def test_a_new_bare_writer_does_not_authorize_the_same_name_in_another_file(tmp_
         agreement, = index.named(field)
         assert graph.node(agreement.writers[0])['file'] == f'local.{suffix}'
         assert {row['file'] for row in graph.writes(field, by_name=True)} == {f'local.{suffix}', f'other.{suffix}'}
-        found = owners.owner_writes(owners.Change(load_config(tmp_path), graph, None), index, everything=True)
-    assert len(found.leads) == 1
-    assert f'other.{suffix}:' in found.leads[0]
-    assert f'local.{suffix}:' not in found.leads[0].partition('; allowed only:')[0]
+        found = owners.owner_writes(owners.Change(load_config(tmp_path), graph, None), index)
+    issue, = found.issues
+    assert [part[1] for part in issue.parts] == [f'other.{suffix}:save']    # local's save is the writer
 
 
 def test_typescript_same_reference_binds_to_the_function_and_not_a_data_role(tmp_path):
@@ -168,10 +166,11 @@ def test_typescript_positions_use_the_declared_holder_not_a_matching_method_tail
         assert graph.node(agreement.writers[0])['line'] == 2
         rows = graph.writes('Account.status', by_name=True)
         assert {row['line'] for row in rows} == {2, 5, 8}
-        found = owners.owner_writes(owners.Change(load_config(tmp_path), graph, None), index, everything=True)
-        assert len(found.leads) == 1
-        writes = found.leads[0].partition('; allowed only:')[0]
-        assert 'other.ts:5 ' in writes and 'other.ts:8 ' in writes and 'other.ts:2 ' not in writes
+        # the writes of lines 5 and 8 are outside it, service.save's of line 2 is the writer's (the check of
+        # `owner_writes`); the finding names a TS method by its own name, so both are its member `save`
+        assert {row['line'] for row in rows if not owners._allowed(row, agreement.writers)} == {5, 8}
+        issue, = owners.owner_writes(owners.Change(load_config(tmp_path), graph, None), index).issues
+        assert [part[1] for part in issue.parts] == ['other.ts:save'] and issue.files == {'other.ts'}
         _files(tmp_path, {'policy.ts': '// flowguard: writers Account.status other.ts:missing.save\n'})
     with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
         index = anchors.collect(graph)
@@ -267,11 +266,13 @@ def test_a_split_registration_still_checks_the_writer_and_the_required_partner(t
         assert not [issue for issue in index.issues if issue.name == 'Account.status']
         change = owners.Change(load_config(tmp_path), graph, None)
         assert {row['function'] for row in graph.writes('Account.status', by_name=True)} == {'save', 'rogue'}
-        writers = owners.owner_writes(change, index, everything=True)
-        pairs = owners.owner_pairs(change, index, everything=True)
-    assert len(writers.leads) == 1 and 'rogue' in writers.leads[0]
+        writers = owners.owner_writes(change, index)
+        pairs = owners.owner_pairs(change, index)
+    writer, = writers.issues
+    assert [part[1] for part in writer.parts] == ['policy.ts:rogue']
     assert {issue.name for issue in pairs.issues} == {'pair:Account.status>Account.changed'}
-    assert pairs.red
+    # both updates miss the partner
+    assert sorted(part[1] for part in pairs.issues[0].parts) == ['policy.ts:rogue', 'policy.ts:save']
 
 
 @pytest.mark.parametrize('suffix', ['py', 'ts'])
@@ -304,11 +305,11 @@ def test_split_agreements_point_to_each_roles_own_comment(tmp_path, suffix, reve
         raw = graph.file_facts(f'policy.{suffix}')['anchors']
         assert [row['line'] for row in raw] == [1, 9]
         change = owners.Change(load_config(tmp_path), graph, None)
-        writers = owners.owner_writes(change, index, everything=True)
-        pairs = owners.owner_pairs(change, index, everything=True)
+        writers = owners.owner_writes(change, index)
+        pairs = owners.owner_pairs(change, index)
         shown = owners.show_lines(load_config(tmp_path), graph, index, field)
     writer_line, pair_line = (9, 1) if reverse else (1, 9)
-    assert len(writers.leads) == 1 and f'agreement at policy.{suffix}:{writer_line}' in writers.leads[0]
+    assert len(writers.issues) == 1 and writers.issues[0].detail[0] == f'agreement: policy.{suffix}:{writer_line}'
     assert len(pairs.issues) == 1 and f'comment at policy.{suffix}:{pair_line}' in pairs.issues[0].step
     assert shown[0].startswith(f'owner {field} policy.{suffix}:{writer_line}; writers=')
 
@@ -323,9 +324,9 @@ def test_ambiguous_role_locations_are_labelled_as_canonical_registration(tmp_pat
     with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
         index = anchors.collect(graph)
         assert any(issue.code == 'owner' and issue.level == 'red' for issue in index.issues)
-        found = owners.owner_writes(owners.Change(load_config(tmp_path), graph, None), index, everything=True)
-    assert len(found.leads) == 2
-    assert all('agreement at canonical registration policy.py:' in lead for lead in found.leads)
+        found = owners.owner_writes(owners.Change(load_config(tmp_path), graph, None), index)
+    assert len(found.issues) == 2
+    assert all(issue.detail[0].startswith('agreement: canonical registration policy.py:') for issue in found.issues)
 
 
 @pytest.mark.parametrize('comments', [

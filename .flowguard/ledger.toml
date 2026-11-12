@@ -645,6 +645,11 @@ count = 1
 reason = "When recording display_unavailable fails after the block could not be shown, it prints that SQLite error's text to stderr; the committed verdict and exit code stay as they are."
 rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
+["flowguard/intent/plugin.py:_parse_baseline:(SyntaxError, ValueError)"]
+count = 1
+reason = "A changed file whose version at the baseline commit does not parse (a commit that held a syntax error) gives back no tree and the parser's own words; every comparison that needed that version is then a not compared line with those words, so the session neither stops with INTERNALERROR nor passes it in silence."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
 ["flowguard/intent/plugin.py:pytest_runtest_protocol:Exception"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"

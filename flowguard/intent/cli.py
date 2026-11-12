@@ -69,7 +69,7 @@ def _limit(lines, budget, more='show RULE for the complete result'):
         return lines
     kept = lines[:max(0, budget - 1)]
     hidden = lines[len(kept):]
-    reds = sum(line.startswith(('red ', 'red: ', '红：')) for line in hidden)
+    reds = sum(line.startswith(('red ', 'red: ')) for line in hidden)
     return kept + [f'... {len(hidden)} more lines' + (f' ({reds} red)' if reds else '') + ': ' + more]
 
 
@@ -347,11 +347,11 @@ def _silent_lines(cfg, index, rid, full, limit=10):
         return []
     def listed(values):
         shown = values if full else values[:limit]
-        return '；'.join(shown) + (f'; plus {len(values) - len(shown)} classes: show --full {rid} lists all' if len(shown) < len(values) else '')
+        return '; '.join(shown) + (f'; plus {len(values) - len(shown)} classes: show --full {rid} lists all' if len(shown) < len(values) else '')
     lines = [f'undecided: rule {rid} has no result for {len(silent)} classes (total {key["cells"]} classes): {listed(silent)}']
     undecided = [cell for cell in gaps.get('cells', ()) if cell in silent]
     if undecided and gaps.get('total'):
-        lines.append(f'red: {"、".join(gaps["total"])} declares total=True, but {len(undecided)} classes have no rule result: {listed(undecided)}'
+        lines.append(f'red: {", ".join(gaps["total"])} declares total=True, but {len(undecided)} classes have no rule result: {listed(undecided)}'
                      f' -> give these cases a result in the rules, or remove total=True')
     elif undecided and len(undecided) < len(silent):
         lines.append(f'of these, {len(undecided)} classes also have no result from another rule: {listed(undecided)}')
@@ -921,7 +921,7 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
     import math
     from ..map.common import git_renames, read_source
     from .differences import _compare_pairs
-    from .plugin import compare_copies
+    from .plugin import _parse_baseline, compare_copies
     from .runtime import Runtime, _module_at, sealed
     from .signals import finding, not_compared
     issues, lines, ran, members = [], [], set(), set()
@@ -939,6 +939,8 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
         file, module = point['file'], point['module']
         if old and file in renamed:         # at the baseline a moved file imported from its old place
             file, module = renamed[file], _module_at(renamed[file], file, module)
+        if old and text and (why := _parse_baseline(text)[1]):       # in the words a pytest session gives
+            return dict(status='unavailable', reason=f'{file} {why}')
         return sealed(text, point['qual'], sample['args'], sample['kwargs'], runtime.imports(file, module, old)) \
             if text is not None else dict(status='unavailable', reason='no baseline source')
     def json_input(row):
@@ -2043,8 +2045,8 @@ LEGACY_WORDS = re.compile(r'\b0\.70\.\d+|flowguard (?:read|change)\b|\bmap (?:ch
 # backquotes with no subcommand is the map's name ("the `FlowGuard map` shows the owners"). A line that only names 0.70
 # or its files (`.flowguard/models/**`, `flowguard_unit_runner.py` "belong to the earlier 0.70.x workflow") explains
 # them and asks for nothing.
-ERAS = {**dict.fromkeys(('read', 'change', 'map', 'target'), '0.70–0.75'), 'template': '0.70–1.4', 'release': '0.70–1.4',
-        'status': '0.71–1.4', 'where': '0.71–1.4', 'decide': '0.75–1.4', 'draft': '1.2–1.4'}
+ERAS = {**dict.fromkeys(('read', 'change', 'map', 'target'), '0.70-0.75'), 'template': '0.70-1.4', 'release': '0.70-1.4',
+        'status': '0.71-1.4', 'where': '0.71-1.4', 'decide': '0.75-1.4', 'draft': '1.2-1.4'}
 LAUNCHER = r'\b(?:py|python[\d.]*)(?:\.exe)?\s+(?:-(?!m\b)[\w.]+(?:\s+(?!-)[\w.=]+)?\s+)*'
 MAP_SUB = r'(?:scan|discover|show|find|digest|check|lint|impact|deps|confirm|models|verify)\b'
 TARGET_SUB = r'(?:start|add|drop|check|promote)\b'

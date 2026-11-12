@@ -65,5 +65,5 @@ def test_untyped_opaque_context_runs_its_protocol_once_and_is_not_compared(tmp_p
     readings=[item for item in report['items'] if 'use_context' in item.get('name','')+' '.join(item.get('reasons',()))]
     assert readings==[dict(changed=0,changes=[],complete=False,name='uncovered',reasons=['use_context: no comparable JSON result'],
                            status='grey',total=0)],text+'\n'+json.dumps(report)
-    assert not report['red'],report
+    assert not [line for line in last(tmp_path).splitlines() if line.startswith('red: ')],last(tmp_path)
     assert 'not compared: use_context (no comparable JSON result) -> not a failure' in text.splitlines(),text

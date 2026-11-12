@@ -134,7 +134,8 @@ def test_changed_global_constant_selects_an_unchanged_unanchored_function(tmp_pa
     assert result.returncode == 0, text
     assert ('changed: permit (policy.py:2): (x=4) was False, now True; 1/2 inputs differ -> if you meant it, say so'
             in block(result)), text
-    assert '    no flowguard comment: compared because its code changed' in last(tmp_path).splitlines()
+    # its own code is the same: the constant it reads made it due, which show --last says
+    assert '    no flowguard comment: compared because a constant it reads changed: LIMIT' in last(tmp_path).splitlines()
 
 
 def test_unchanged_source_bound_rule_is_checked_by_its_intent_items(tmp_path):

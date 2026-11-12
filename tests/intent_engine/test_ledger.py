@@ -259,7 +259,7 @@ def test_malformed_entries_are_red_without_a_second_report_for_their_key(shop):
     append(shop, LOOKUP)
     add_entry(shop, '\n["src/shop/stock.py:lookup:KeyError"]\ncount = 0\nreason = 3\nwhy = "x"\n\n[options]\nx = 1\n')
     assert texts(evaluate(shop, head(shop))) == [
-        'Fallback ledger entry "src/shop/stock.py:lookup:KeyError": unknown field why；missing rule；count must be a positive integer；reason must be a string',
+        'Fallback ledger entry "src/shop/stock.py:lookup:KeyError": unknown field why; missing rule; count must be a positive integer; reason must be a string',
         'Fallback ledger item "options" is not an entry: the key must be "file:function:caught type" and the value a table']
     write(shop, ledger.LEDGER, 'not toml = = 1\n')
     found = texts(evaluate(shop, head(shop)))
@@ -414,7 +414,7 @@ def test_a_baseline_commit_missing_from_the_clone_leaves_legacy_unverified_not_c
     (shop / '.flowguard/cache' / ledger.INIT_RECORD).unlink()
     result = evaluate(shop, missing)
     assert result.red == [] and len(result.grey) == 1
-    assert result.grey[0].startswith('1 legacy entries are unverified: the baseline contains neither a ledger nor a ledger init record；Cannot read baseline commit ffffffffffff: ')
+    assert result.grey[0].startswith('1 legacy entries are unverified: the baseline contains neither a ledger nor a ledger init record; Cannot read baseline commit ffffffffffff: ')
 
 
 OWN_LIST = '''
@@ -691,7 +691,6 @@ def told(work, show):
 def test_check_all_lists_unreviewed_legacy_fallbacks_of_production_code_by_how_they_end(tmp_path):
     # Planning Tool 0.6.28 kept 232 legacy entries, all "旧账，未审", the permission read that falls back to the
     # code's default table among test-script catches, with nothing that told them apart.
-    from flowguard.intent import anchors, owners
     root = tmp_path / 'shop'
     write(root, 'web/roles.ts', ENDINGS_TS)
     write(root, 'src/shop/__init__.py', '')
@@ -717,17 +716,17 @@ def test_check_all_lists_unreviewed_legacy_fallbacks_of_production_code_by_how_t
     path.write_text(text.replace(legacy, entry('src/shop/stock.py:quiet:ValueError').strip()), encoding='utf-8')
     expected = [
         '6 legacy production handlers do not propagate errors (.flowguard/ledger.toml, rule = "旧账", unreviewed; grouped by handler body):',
-        '   returns or substitutes another value: 3 handlers:src/shop/stock.py:4 old_reader、web/roles.ts:2 allowedRoles、web/roles.ts:17 scopes',
+        '   returns or substitutes another value: 3 handlers:src/shop/stock.py:4 old_reader, web/roles.ts:2 allowedRoles, web/roles.ts:17 scopes',
         '   only logs: 1 handlers:web/roles.ts:8 notify',
-        '   empty body: 2 handlers:src/shop/stock.py:18 nothing、web/roles.ts:5 syncAll',
+        '   empty body: 2 handlers:src/shop/stock.py:18 nothing, web/roles.ts:5 syncAll',
         '   Next: review each handler. If callers need the error, let it raise or propagate; otherwise make reason explain what it does, why it may remain, and point rule to a written rule']
     with closing(build(root, workers=1)) as graph:
         assert ledger.open_legacy(cfg, graph) == expected
-        index = anchors.collect(graph)
-        assert owners.static_findings(cfg, graph, index, None, everything=True).section[-len(expected):] == expected
-        assert owners.static_findings(cfg, graph, index, None).section == []
-    # check --all and check --static --all print them as before lines, one per kind of handler body
-    from flowguard.intent.cli import _legacy_lines
+    # check --all and check --static --all print them as before lines, one per kind of handler body; without --all
+    # none
+    from flowguard.intent.cli import _legacy_lines, _owner_findings
+    legacy = lambda found: [line for line in found.lines if line.name.startswith('ledger:legacy:')]
+    assert legacy(_owner_findings(cfg, everything=True)) == _legacy_lines(expected) and not legacy(_owner_findings(cfg))
     assert [(line.kind, line.text, line.step) for line in _legacy_lines(expected)] == [
         ('before', f'ledger legacy: {text}', 'leave it unless your task is about it') for text in (
             'returns or substitutes another value: 3 handlers: src/shop/stock.py:4 old_reader, web/roles.ts:2 allowedRoles, web/roles.ts:17 scopes',
@@ -863,7 +862,7 @@ export async function list(req: any, res: any) { try { res.json(await all()); } 
         ledger.init(cfg, graph)
     with closing(build(root, workers=1)) as graph:
         listed = ledger.open_legacy(cfg, graph)
-    assert listed[1] == ('   returns or substitutes another value: 10 handlers:web/data.ts:15 GET、web/data.ts:7 fetchConfig、web/data.ts:12 hold、web/data.ts:14 hono、web/data.ts:10 kind、web/data.ts:16 koa、web/data.ts:3 loadRows、web/data.ts:11 page、web/data.ts:13 stale、web/data.ts:9 user'), listed
+    assert listed[1] == ('   returns or substitutes another value: 10 handlers:web/data.ts:15 GET, web/data.ts:7 fetchConfig, web/data.ts:12 hold, web/data.ts:14 hono, web/data.ts:10 kind, web/data.ts:16 koa, web/data.ts:3 loadRows, web/data.ts:11 page, web/data.ts:13 stale, web/data.ts:9 user'), listed
 
 
 def test_a_comment_before_the_returned_or_thrown_value_or_the_handed_error_is_not_that_value(tmp_path):
