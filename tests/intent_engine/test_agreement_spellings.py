@@ -357,7 +357,7 @@ def test_data_constraints_in_different_files_are_not_combined(tmp_path):
     assert any(issue.code == 'owner' and 'same file' in issue.message for issue in index.issues)
 
 
-def test_old_spellings_keep_their_bindings_and_warn_on_every_warm_index_read(tmp_path, capsys):
+def test_old_spellings_keep_their_bindings_and_every_warm_index_read_uses_them(tmp_path, capsys):
     _files(tmp_path, {'policy.py': '''
         # flowguard: owner ROUND
         def reference(value: int) -> int:
@@ -371,7 +371,9 @@ def test_old_spellings_keep_their_bindings_and_warn_on_every_warm_index_read(tmp
         # flowguard: owner account.status writers=save with=account.changed alone=save(owner approved)
     '''})
     database = tmp_path / 'map.sqlite'
+    from flowguard.intent import deprecation
     for warm in (False, True):
+        start = deprecation.mark()
         with closing(build(tmp_path, database, workers=1)) as graph:
             if warm:
                 assert graph.stats['parsed'] == 0
@@ -382,7 +384,12 @@ def test_old_spellings_keep_their_bindings_and_warn_on_every_warm_index_read(tmp
         assert agreement.alone == ('save(owner approved)',)
         assert [(a.qual, a.owner) for a in index.named('ROUND')] == [
             ('reference', True), ('first', False), ('second', False)]
+        # The warm read uses the old spellings as the cold one did; their notices print once in the process.
+        assert set(deprecation.used(start)) == {'sensor', 'function owner', 'owner with writers= and with=', 'alone='}
         notices = capsys.readouterr().err
+        if warm:
+            assert notices == '', notices
+            continue
         assert notices.count('deprecated: sensor ') == 1
         assert 'same NAME ref' in notices
         assert 'separate writers and together comments' in notices
