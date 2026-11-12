@@ -332,6 +332,48 @@ def test_a_home_absent_previously_is_new_code_not_proven(tmp_path):
     assert result['status'] == 'new code', result
 
 
+# The old module's constants are folded as the sealed environments fold theirs (design 4.5, features.fold_step): an
+# exponent outside -64..64, a number above 2**256 or a text over 10,000 characters is never computed. The first two
+# cases hung and ran out of memory; the others folded although past a bound.
+@pytest.mark.parametrize('constant, why', [
+    ('BIG = 10 ** 10 ** 10', 'exponent 10000000000 is above 64'),
+    ("BIG = 'x' * 10 ** 10", 'text is longer than 10000 characters'),
+    ('BIG = 2 ** 65', 'exponent 65 is above 64'),
+    ('BIG = 4 ** 64 * 2 ** 64 * 2 ** 64 * 2', 'result is above 2**256'),
+    ("BIG = 'x' * 10_001", 'text is longer than 10000 characters'),
+    ("BIG = ('x' * 5000) + ('y' * 5001)", 'text is longer than 10000 characters'),
+    ('BIG = [0] * 10 ** 10', 'cannot fold list * int'),
+])
+def test_an_old_constant_past_a_folding_bound_is_not_computed_and_says_why(tmp_path, constant, why):
+    root, cfg, module = fixture(tmp_path)
+    path = root / (module + '.py')
+    path.write_text(f'LIMIT=3\n{constant}\n')
+    git(root, 'init', '-q')
+    git(root, 'add', '.')
+    git(root, 'commit', '-qm', 'before the home existed')
+    base = git(root, 'rev-parse', 'HEAD')
+    path.write_text(annotate('def accept(x): return x <= 3\n', 'accept', 'LIMIT', {'x': 'int'}))
+    model = load(cfg)
+    result = history.proven(cfg, model.rules['LIMIT'], model.rules['LIMIT'].live_rows[0], base)
+    assert result['status'] == 'unknown' and [home['reason'] for home in result['homes']] == [
+        f'old dynamic function binding cannot be restored: old constant BIG is not folded: {why}'], result
+
+
+def test_old_constants_within_the_folding_bounds_still_fold(tmp_path):
+    root, cfg, module = fixture(tmp_path)
+    path = root / (module + '.py')
+    path.write_text("LIMIT=3\nFACTOR = 10 ** LIMIT\nTOP = 2 ** 64 * 2 ** 64 * 2 ** 64 * 2 ** 64\nNAME = 'x' * 10_000\n"
+                    "SHARE = -LIMIT / 4\nTABLE = {'a': (FACTOR, -LIMIT), 'b': [NAME, SHARE, TOP // FACTOR % 7]}\n")
+    git(root, 'init', '-q')
+    git(root, 'add', '.')
+    git(root, 'commit', '-qm', 'before the home existed')
+    base = git(root, 'rev-parse', 'HEAD')
+    path.write_text(annotate('def accept(x): return x <= 3\n', 'accept', 'LIMIT', {'x': 'int'}))
+    model = load(cfg)
+    result = history.proven(cfg, model.rules['LIMIT'], model.rules['LIMIT'].live_rows[0], base)
+    assert result['status'] == 'new code', result
+
+
 def test_literal_data_input_changes_invalidate(tmp_path):
     root, cfg, module = fixture(tmp_path, "return x <= int(Path('limit.txt').read_text())")
     path = root / (module + '.py')

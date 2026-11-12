@@ -359,37 +359,51 @@ class _Fold:
         return value
 
     def _compute(self):
-        from ..structure.features import fold_step
-        stack, done = [(self.node, False)], []
-        while stack:
-            node, ready = stack.pop()
-            if isinstance(node, ast.Constant):
-                done.append(node.value)
-                continue
-            if isinstance(node, ast.Name):
-                found = self.bindings.get(node.id, _MISSING)
-                if type(found) is _Import:
-                    found = found.value()
-                if found is _MISSING or node.id in self.blocked:
-                    return None, f'{node.id} is not a number or text constant before it'
-                if type(found) is _Fold:
-                    value, why = found.result
-                    if why:
-                        return None, f'uses {node.id}: {why}'
-                    found = value
-                done.append(found)
-                continue
-            children = [node.operand] if isinstance(node, ast.UnaryOp) else [node.left, node.right]
-            if not ready:
-                stack.append((node, True))
-                stack.extend((child, False) for child in reversed(children))
-                continue
-            value, why = fold_step(_FOLDED[type(node.op)], done[-len(children):])
+        def lookup(name):
+            found = self.bindings.get(name, _MISSING)
+            if type(found) is _Import:
+                found = found.value()
+            if found is _MISSING or name in self.blocked:
+                return None, f'{name} is not a number or text constant before it'
+            if type(found) is _Fold:
+                value, why = found.result
+                return (None, f'uses {name}: {why}') if why else (value, '')
+            return found, ''
+        return _fold(self.node, lookup)
+
+
+def _fold(node, lookup, leaf=None):
+    """The value of a right side built from literals, signs, + - * / // % ** and names (`lookup(name)` gives (value,
+    why)), one operation at a time with Python's numbers (`features.fold_step`, bounded: nothing past a bound is
+    computed), walking the syntax tree without recursion: (value, '') or (None, why it does not fold). Any other part
+    is `leaf(part)`'s (value, why), or does not fold. The Python side of `vitest._ecma_fold`; `_Fold` and the old
+    module constants of `_literal` fold with it."""
+    from ..structure.features import fold_step
+    stack, done = [(node, False)], []
+    while stack:
+        node, ready = stack.pop()
+        arithmetic = isinstance(node, (ast.UnaryOp, ast.BinOp)) and type(node.op) in _FOLDED
+        if isinstance(node, ast.Constant):
+            done.append(node.value)
+            continue
+        if isinstance(node, ast.Name) or not arithmetic:
+            value, why = lookup(node.id) if isinstance(node, ast.Name) else \
+                leaf(node) if leaf is not None else (None, 'cannot fold ' + type(node).__name__)
             if why:
                 return None, why
-            del done[-len(children):]
             done.append(value)
-        return done[0], ''
+            continue
+        children = [node.operand] if isinstance(node, ast.UnaryOp) else [node.left, node.right]
+        if not ready:
+            stack.append((node, True))
+            stack.extend((child, False) for child in reversed(children))
+            continue
+        value, why = fold_step(_FOLDED[type(node.op)], done[-len(children):])
+        if why:
+            return None, why
+        del done[-len(children):]
+        done.append(value)
+    return done[0], ''
 
 
 def _receiver(function, arguments):
@@ -621,19 +635,31 @@ def _functions(tree, prefix=''):
             yield from _functions(node, prefix + node.name + '.')
 
 def _literal(node, constants):
-    """Only inert constructors, never execution of a previous module initializer."""
+    """The value of an old module constant's right side, computed without running code or a previous module
+    initializer: literals and tuples, lists, sets and dicts of values, the `constants` above it, signs and
+    + - * / // % ** of numbers and texts (`_fold`, bounded as the sealed environments fold: an exponent outside
+    -64..64, a number above 2**256 or a text over 10,000 characters is not computed), and calls of the inert
+    constructors Decimal, date, datetime and timedelta. Raises ValueError with why it is not folded."""
     constructors = (Decimal, date, datetime, timedelta)
     allowed = {name: value for name, value in constants.items() if any(value is fn for fn in constructors)}
-    for part in ast.walk(node):
-        if isinstance(part, ast.Call) and not (isinstance(part.func, ast.Name) and part.func.id in allowed):
-            raise ValueError('old constant/default is not an inert expression')
-        if isinstance(part, (ast.Attribute, ast.Lambda, ast.NamedExpr, ast.ListComp, ast.DictComp,
-                             ast.SetComp, ast.GeneratorExp, ast.Await, ast.Yield)):
-            raise ValueError('old constant/default is not an inert expression')
-        if isinstance(part, ast.Name) and part.id not in constants and part.id not in allowed:
-            raise ValueError('old constant/default names an unknown value: ' + part.id)
-    return eval(compile(ast.Expression(node), '<flowguard old constant>', 'eval'),
-                {'__builtins__': {}, **allowed, **constants})
+    def lookup(name):
+        return (constants[name], '') if name in constants else (None, 'old constant/default names an unknown value: ' + name)
+    def value(part):
+        found, why = _fold(part, lookup, leaf)
+        if why:
+            raise ValueError(why)
+        return found
+    def leaf(part):
+        if isinstance(part, (ast.Tuple, ast.List, ast.Set)) and not any(isinstance(e, ast.Starred) for e in part.elts):
+            items = [value(e) for e in part.elts]
+            return (tuple(items) if isinstance(part, ast.Tuple) else items if isinstance(part, ast.List) else set(items)), ''
+        if isinstance(part, ast.Dict) and None not in part.keys:
+            return {value(k): value(v) for k, v in zip(part.keys, part.values)}, ''
+        if isinstance(part, ast.Call) and isinstance(part.func, ast.Name) and part.func.id in allowed \
+                and not any(isinstance(a, ast.Starred) for a in part.args) and all(k.arg for k in part.keywords):
+            return allowed[part.func.id](*map(value, part.args), **{k.arg: value(k.value) for k in part.keywords}), ''
+        return None, 'old constant/default is not an inert expression'
+    return value(node)
 
 def _literal_equal(left, right):
     """Compare inert source data without running a fixture object's operators."""
@@ -1361,7 +1387,10 @@ class Runtime:
                 self._sources[file] = raw.decode('utf-8-sig') if raw is not None else None
         return self._sources[file]
 
-    def _constants(self, tree, module, seen=None, *, historical=True):
+    def _constants(self, tree, module, seen=None, *, historical=True, reasons=None):
+        """{name: value} of a module's top-level constants as `_literal` computes them from its source, in source
+        order, and of the inert constants its `from` imports bind. `reasons` (a dict) receives, for each name an
+        assignment binds to no such value, why: the error `_literal` or the constructor it calls raises."""
         seen = set() if seen is None else seen
         if module in seen:
             return {}
@@ -1374,9 +1403,11 @@ class Runtime:
             if targets and statement.value is not None:
                 try:
                     value = _literal(statement.value, constants)
-                except (ValueError, TypeError, SyntaxError, ArithmeticError):
+                except (ValueError, TypeError, SyntaxError, ArithmeticError) as error:
                     for name in names:
                         constants.pop(name, None)
+                        if reasons is not None:
+                            reasons[name] = str(error) or type(error).__name__
                 else:
                     constants.update((name, value) for name in names)
             elif isinstance(statement, ast.ImportFrom):
