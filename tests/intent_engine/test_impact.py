@@ -82,7 +82,7 @@ def test_a_changed_function_whose_written_fields_changed_gets_one_impact_line_wi
     # An added function; one that only stopped writing a field. keep, createEntry and the seed write Entry.note now:
     # three files without a writers agreement, of which two production functions besides each.
     assert by_function[modules['app/new.ts'] + ':createEntry'].text == \
-        'createEntry now writes Entry.note; 1 other writers (no writers agreement), 2 readers of Entry'
+        'createEntry now writes Entry.note; 1 other writer (no writers agreement), 2 readers of Entry'
     assert by_function[modules['app/drop.ts'] + ':dropNote'].text == \
         'dropNote no longer writes Entry.note; 2 other writers (no writers agreement), 2 readers of Entry'
     assert by_function[modules['app/drop.ts'] + ':dropNote'].step.endswith('(python -m flowguard show Entry.note)')
@@ -149,3 +149,32 @@ def test_a_function_that_stops_writing_one_of_two_fields_gets_its_line_and_the_s
     assert [line.text for line in assembled.lines if line.kind == 'impact'] == [found.lines[0].text]
     code, text = _flowguard(tmp_path, 'check', '--static')
     assert code == 0 and 'Traceback' not in text, text
+
+
+def test_a_sql_write_is_shown_by_its_column_and_a_select_of_its_table_counts_as_a_reader(tmp_path):
+    """SQL in string literals (Python): `show table.column` names the column each UPDATE writes, and the impact line
+    and show count the function whose SELECT reads that table, in the number each count needs."""
+    store = '''def reserve(db, booking_id, unit):
+    db.execute("UPDATE booking SET unit_id = ? WHERE id = ?", (unit, booking_id))
+
+
+def release(db, booking_id):
+    db.execute("UPDATE booking SET unit_id = NULL WHERE id = ?", (booking_id,))
+
+
+def close_day(db, booking_id):
+    db.execute("UPDATE booking SET note = 'closed' WHERE id = ?", (booking_id,))
+
+
+def load(db, booking_id):
+    return db.execute("SELECT unit_id FROM booking WHERE id = ?", (booking_id,)).fetchone()
+'''
+    _commit(tmp_path, {'store.py': store})
+    _write(tmp_path, {'store.py': store.replace("SET note = 'closed' WHERE", "SET note = 'closed', unit_id = NULL WHERE")})
+    found, _ = _impact(tmp_path)
+    assert [line.text for line in found.lines] == [
+        'close_day now writes booking.unit_id; 2 other writers, 1 reader of booking'], found.lines
+    code, text = _flowguard(tmp_path, 'show', 'booking.unit_id', '--full')
+    lines = text.splitlines()
+    assert code == 0 and 'writes booking.unit_id store.py:10 close_day (sql:update)' in lines, text
+    assert 'reads booking store.py:13 load (select)' in lines and 'None' not in text, text

@@ -582,7 +582,7 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False, last=False):
             for row in written:
                 where = f'{row["file"]}:{row["line"]}' + (f' (call line {row["call_line"]})' if row['call_line'] != row['line'] else '')
                 unclear = f'; unclear: {row["reason"]}' if row['unclear'] else ''
-                ranked.append((2000 - bool(row['unclear']), f'writes {row["model"] or row["table"]}.{row["field"]} '
+                ranked.append((2000 - bool(row['unclear']), f'writes {row["model"] or row["table"]}.{row["field"] or row["db_column"]} '
                                f'{where} {row["function"]} ({row["kind"]}{unclear})'))
             from . import health, owners as checks       # several files write it and nobody owns it: say so first
             change = checks.Change(cfg, graph, None)

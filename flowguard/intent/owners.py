@@ -1637,6 +1637,11 @@ def changed_once(change, decided=(), index=None):
     return found
 
 
+def _counted(number, noun, plural=None):
+    """`1 reader`, `2 readers`, `1 copy`, `3 copies`: a count with its noun in the number it needs."""
+    return f'{number} ' + (noun if number == 1 else plural or noun + 's')
+
+
 def _lock_hint(comment, name, marked):
     """How a similar-implementation lead says to register its copies as copies of `name`: the reference and the copy
     when neither is registered yet, else only the copies not marked (`marked`: one of them is registered already)."""
@@ -1778,7 +1783,8 @@ def field_impact(change, index):
     or `table.column`, bookkeeping columns aside) differs from the baseline code's: the fields it now writes and no
     longer writes, how many other production functions write the first of them (seed, backfill and migration
     scripts aside) and whether several files write it without a writers agreement (an open `writers:` problem), and
-    how many functions read its model (`MapHandle.queries`, model-level, tests included). Counts and one name only;
+    how many functions read its model (`MapHandle.queries`, and `MapHandle.sql_reads` of its table; model-level, tests
+    included). Counts and one name only;
     `show NAME` lists them. A test's, a seed script's or a module's own code is no function this reports."""
     from .health import _test_files, decided, written_field, writers
     from .signals import Line
@@ -1810,16 +1816,17 @@ def field_impact(change, index):
         row = written[shown] if shown in written else before[shown]      # a field it no longer writes: the baseline's row
         model = shown.rpartition('.')[0]
         others = sorted({other for other, items in now.items() if other != function and shown in items})
-        if model not in readers_of:
-            readers_of[model] = sorted({row_function(query) for query in graph.queries(model)})
-        readers = readers_of[model]
+        table = row.get('table') or model         # SQL that reads the table (FROM, JOIN) reads the model too
+        if (model, table) not in readers_of:
+            readers_of[model, table] = sorted({row_function(query) for query in [*graph.queries(model), *graph.sql_reads(table)]})
+        readers = readers_of[model, table]
         if open_writers is None:
             open_writers = {issue.name for issue in decided(change.cfg, index, writers(change, index).issues, change.decisions())[0]}
         qual = function.partition(':')[2] or function
         text = (f'{qual} now writes {", ".join(added)}' if added else f'{qual} no longer writes {", ".join(removed)}') \
             + (f'; no longer writes {", ".join(removed)}' if added and removed else '') \
-            + f'; {len(others)} other writers' + (' (no writers agreement)' if f'writers:{shown}' in open_writers else '') \
-            + f', {len(readers)} readers of {model}'
+            + f'; {_counted(len(others), "other writer")}' + (' (no writers agreement)' if f'writers:{shown}' in open_writers else '') \
+            + f', {_counted(len(readers), "reader")} of {model}'
         here = f'{row["file"]}:{qual}'
         detail = tuple(f'other writer of {shown}: {other}' for other in others[:10]) \
             + tuple(f'reader of {model}: {reader}' for reader in readers[:10])
@@ -2440,7 +2447,8 @@ def _changed_alone_issue(anchor, changed, twins, step):
     copies now answer differently. New by construction: the comparison is this change's old against its new code."""
     from .health import Issue, LINES_ONLY
     copies = '  '.join(f'{peer["file"]}:{peer["qual"]}' for peer in twins)
-    what = f'changed behavior; {len(twins)} copies that answered the same are unchanged: {copies}'
+    what = (f'changed behavior; {_counted(len(twins), "copy", "copies")} that answered the same '
+            + ('is' if len(twins) == 1 else 'are') + f' unchanged: {copies}')
     parts = tuple((item['id'], f'{item["file"]}:{item["qual"]}', what, step) for item in changed)
     return Issue(f'changed-alone:{anchor.name}', LINES_ONLY, f'changed alone {anchor.name}',
                  f'{anchor.name}: ' + ', '.join(place for _, place, _, _ in parts) + ' ' + what, step,
@@ -2517,10 +2525,13 @@ def _pair_fix(graph, owner):
 
 def field_lines(graph, name, written):
     """`show Model.field` (4.6): the functions that read its model (`MapHandle.queries`; model-level, as the facts
-    keep only a read's filter keys), the callers one level up of each function that writes it (an edge guessed by
-    a name alone left out) and the test files whose imports reach a file that writes it (file-level facts)."""
+    keep only a read's filter keys) or, in SQL, its table (`MapHandle.sql_reads`), the callers one level up of each
+    function that writes it (an edge guessed by a name alone left out) and the test files whose imports reach a file
+    that writes it (file-level facts)."""
     model = name.partition('.')[0]
-    lines = [f'reads {model} {row["file"]}:{row["line"]} {row["function"]} ({row["method"]})' for row in graph.queries(model)]
+    tables = {row.get('table') or model for row in written} or {model}
+    reads = [*graph.queries(model), *(row for table in sorted(tables) for row in graph.sql_reads(table))]
+    lines = [f'reads {model} {row["file"]}:{row["line"]} {row["function"]} ({row["method"]})' for row in reads]
     for function in dict.fromkeys(row_function(row) for row in written if not row.get('unclear')):
         for caller in graph.callers(function, 1, guessed=False):
             node = graph.node(caller) or {}

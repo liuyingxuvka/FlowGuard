@@ -283,7 +283,7 @@ def test_a_registered_copy_changed_alone_is_a_red_finding_and_what_cannot_be_com
     issue = _issue(found, 'changed-alone:LIMIT')
     assert (issue.family, issue.subject, issue.fresh) == ('changed-alone', 'same LIMIT', frozenset({'limits:report'}))
     assert issue.parts == (('limits:report', 'limits.py:report',
-                            'changed behavior; 1 copies that answered the same are unchanged: limits.py:chart',
+                            'changed behavior; 1 copy that answered the same is unchanged: limits.py:chart',
                             'make report match reference chart(limits.py:2)'),)
     assert 'changed-alone' not in found.ran          # it judges only what the change edits: never `known fixed?`
     lines, _ = signals.deliver(found.issues, touched_functions=(), touched_files=(), extra=found.lines)

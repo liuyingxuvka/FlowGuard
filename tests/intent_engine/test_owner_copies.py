@@ -341,7 +341,7 @@ def test_check_names_the_owner_when_it_changed_with_a_copy_and_a_third_copy_stay
     # the same check sent report to the owner.
     _project(tmp_path, {'limits.py': _copies(3, 3, 3, owner=True)})
     red, text = _checked_red(tmp_path, _copies(4, 4, 3, owner=True))
-    assert red == [*(f'red: same LIMIT: limits.py:{name} changed behavior; 1 copies that answered the same are unchanged: limits.py:report '
+    assert red == [*(f'red: same LIMIT: limits.py:{name} changed behavior; 1 copy that answered the same is unchanged: limits.py:report '
                      '-> update together, or call chart' for name in ('calendar', 'chart')),
                    'red: same LIMIT: on days=4: the reference limits.py:chart and limits.py:calendar return True, limits.py:report returns False '
                    '-> make limits.py:report agree with the reference'], text
