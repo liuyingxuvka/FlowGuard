@@ -478,6 +478,41 @@ def test_moving_a_copy_keeps_its_old_difference_before(tmp_path):
     assert not [item for item in report['items'] if item.get('file') == 'moved.py'], report['items']
 
 
+def test_a_function_moved_to_another_package_reads_its_relative_imports_from_its_old_place(tmp_path):
+    # a/fees.py moves to b/fees.py and changes. At the baseline its `.const` was a/const.py (GRACE = 3), now it
+    # is b/const.py (GRACE = 7): the baseline run reads a's literal, so fee(5) changed from false to true.
+    _project(tmp_path, 'X = 1\n', '''
+        from b.fees import fee
+        def test_fee():
+            assert fee(5)
+    ''')
+    for package, grace in (('a', 3), ('b', 7)):
+        (tmp_path / package).mkdir()
+        (tmp_path / package / '__init__.py').write_text('')
+        (tmp_path / package / 'const.py').write_text(f'GRACE = {grace}\n')
+    (tmp_path / 'a/fees.py').write_text('from .const import GRACE\ndef fee(days: int) -> bool:\n    return days <= GRACE\n')
+    _git(tmp_path, 'add', 'a', 'b')
+    _git(tmp_path, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'two packages')
+    _git(tmp_path, 'mv', 'a/fees.py', 'b/fees.py')
+    (tmp_path / 'b/fees.py').write_text('from .const import GRACE\ndef fee(days: int) -> bool:\n    return days <= GRACE or days == 100\n')
+    result = _run(tmp_path)
+    assert result.returncode == 0, _text(result)
+    item, = [item for item in _report(tmp_path)['items'] if item['name'] == 'fee']
+    assert item['changed'] == [[{'days': 5}, False, True]] and item['total'] == 1, item
+
+
+@pytest.mark.parametrize('path,file,module,expected', [
+    ('a/fees.py', 'b/fees.py', 'b.fees', 'a.fees'),
+    ('src/a/__init__.py', 'src/b/__init__.py', 'b', 'a'),
+    ('fees.py', 'shop/fees.py', 'shop.fees', 'fees'),
+    ('other/fees.py', 'src/shop/fees.py', 'shop.fees', ''),      # outside the import root src/: nothing resolves
+    ('a/fees.py', 'b/fees.py', '', ''),
+])
+def test_a_moved_file_has_its_old_module_name_under_the_same_import_root(path, file, module, expected):
+    from flowguard.intent.plugin import _module_at
+    assert _module_at(path, file, module) == expected
+
+
 def test_the_retired_comparison_table_has_neither_a_writer_nor_a_reader(tmp_path):
     from flowguard.intent import cache, plugin
     assert not {'COMPARISONS', 'comparisons', 'save_comparisons'} & set(vars(cache)), 'retired with 4.3 (tests/RETIRED_4_3.md)'

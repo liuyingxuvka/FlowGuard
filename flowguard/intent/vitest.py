@@ -387,6 +387,7 @@ def plan(cfg, commit, changed, key):
             strings.setdefault((row['file'], row['function']), []).extend(row['keys'])
         parsed, points, unplanned = {}, [], []
         tables, old_tables = {}, {}         # each imported file's literals, read once per version
+        baseline_files = {renamed.get(rel, rel): data for rel, data in old_sources.items()}    # by baseline path
         for ident, (name, anchored, rel, qual) in sorted(wanted.items()):
             if rel not in parsed:
                 parsed[rel] = declarations((cfg.root / rel).read_bytes(), rel)
@@ -408,9 +409,10 @@ def plan(cfg, commit, changed, key):
                     if token.parent.type == 'unary_expression' and text(token.parent, code).startswith('-'):
                         number = -number
                     extra_numbers.append(number)
-            old = old_sources.get(rel) if rel in old_sources else git_blob(cfg.root, commit, renamed.get(rel, rel))
-            prior, old_skip = (sealed_source(old, rel, qual, lambda path: old_sources.get(path) if path in old_sources
-                                             else git_blob(cfg.root, commit, path), old_tables) if old is not None and qual in declarations(old, rel)
+            old_rel = renamed.get(rel, rel)     # a moved file's baseline imports name files next to its old path
+            old = old_sources.get(rel) if rel in old_sources else git_blob(cfg.root, commit, old_rel)
+            prior, old_skip = (sealed_source(old, old_rel, qual, lambda path: baseline_files.get(path) if path in baseline_files
+                                             else git_blob(cfg.root, commit, path), old_tables) if old is not None and qual in declarations(old, old_rel)
                                else ('', 'function absent at baseline'))
             points.append(dict(id=ident, name=name, anchored=anchored, owner=ident in owners, rel=rel, file=(cfg.root / rel).as_posix(), fn=qual,
                                line=found['line'], target_line=line, form=found['form'], params=found['params'], skip=skip,

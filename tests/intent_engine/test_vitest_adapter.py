@@ -1468,6 +1468,31 @@ def test_a_moved_copy_is_compared_with_its_version_at_the_old_path(tmp_path):
     assert 'days=91' in result['before'][0] and 'src/moved.ts' in result['before'][0], result
 
 
+FEE = '''import { GRACE } from "./limits";
+// A fee is due once the grace days have passed.
+export function fee(days: number) {
+  const late = days > GRACE;
+  return !late;
+}
+'''
+
+
+def test_a_function_moved_to_another_folder_reads_its_relative_imports_from_its_old_place(tmp_path):
+    # src/a/fees.ts moves to src/b/fees.ts and changes. At the baseline its "./limits" was src/a/limits.ts
+    # (GRACE = 3), now it is src/b/limits.ts (GRACE = 7): the baseline closed source reads a's literal.
+    _commit(tmp_path, {
+        'src/a/limits.ts': 'export const GRACE = 3;\n',
+        'src/b/limits.ts': 'export const GRACE = 7;\n',
+        'src/a/fees.ts': FEE,
+    })
+    _git(tmp_path, 'mv', 'src/a/fees.ts', 'src/b/fees.ts')     # Git sees the move: most lines stay the same
+    _write(tmp_path, {'src/b/fees.ts': FEE.replace('return !late;', 'return !late || days === 100;')})
+    data = json.loads(Path(_prepare(tmp_path)['plan']).read_text())
+    moved, = [point for entry in data['files'].values() for point in entry['points'] if point['fn'] == 'fee']
+    assert moved['rel'] == 'src/b/fees.ts' and moved['changed'] and not moved['skip'] and not moved['old_skip'], moved
+    assert 'const GRACE = 7;' in moved['source'] and 'const GRACE = 3;' in moved['old_source'], moved
+
+
 def test_recorded_inputs_alone_over_the_cap_still_leave_every_constant_a_place_in_vitest(tmp_path):
     # Four copies, 16 distinct far records each: 64 recorded inputs fill the cap alone. The constants 3 and 7
     # still get their place, and the cut is named.
