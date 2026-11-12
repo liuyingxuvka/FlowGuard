@@ -1488,6 +1488,31 @@ def test_init_says_npm_test_runs_the_static_test_only_when_the_vitest_config_inc
         assert code == 0 and ran == (label == 'taken'), (label, text)
 
 
+def test_the_session_test_has_one_name_in_every_project_and_on_every_machine(vitest_home):
+    # Review of 4.3: vitest names a test file in its results by its path from the vitest root, so FlowGuard's junit
+    # testsuite and classname were a path into the Python install (../../../wt/flowguard/adapters/vitest/...), which
+    # differs on every machine. The session test runs from node_modules/.cache/flowguard of the vitest root.
+    import xml.etree.ElementTree as ElementTree
+    root = vitest_home / 'named'
+    _commit(root, {
+        'package.json': '{"name":"named","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/a.ts': '// flowguard: same LIMIT\nexport function over(x: number) { return x > 3; }\n',
+        'src/b.ts': '// flowguard: same LIMIT\nexport function enough(x: number) { return x > 3; }\n',
+        'tests/app.test.ts': "import {it,expect} from 'vitest'; import {over} from '../src/a'; it('real',()=>expect(over(4)).toBe(true));\n",
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired')
+    other = root / 'src/b.ts'
+    other.write_text(other.read_text().replace('x > 3', 'x >= 3'))
+    code, text = _vitest(root, vitest_home, '--reporter=default', '--reporter=junit', '--outputFile.junit=junit.xml')
+    assert code == 1, text
+    suites = ElementTree.parse(root / 'junit.xml').getroot().findall('testsuite')
+    [own] = [suite for suite in suites if suite.find('testcase').get('name') == 'FlowGuard execution side']
+    name = 'node_modules/.cache/flowguard/session.test.mjs'
+    assert own.get('name') == name and own.find('testcase').get('classname') == name, ElementTree.tostring(own)
+    assert own.find('testcase/failure').get('message') == 'FlowGuard: 1 red, see the FlowGuard block at the end'
+
+
 def test_a_recorded_function_keeps_its_stack_positions_after_a_line_or_paragraph_separator(vitest_home):
     # JavaScript ends a line at U+2028 and U+2029 too: the recorder's source map counts lines the same way,
     # so a stack position inside a recorded function is the one vitest gives without FlowGuard (line 7, column 13).

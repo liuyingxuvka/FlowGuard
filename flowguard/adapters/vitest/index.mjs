@@ -19,6 +19,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const RUNTIME = path.join(HERE, 'runtime.mjs');
 const GLOBAL_SETUP = path.join(HERE, 'global-setup.mjs');
 const SESSION = 'session.test.mjs';
+const SESSION_FOLDER = ['node_modules', '.cache', 'flowguard'];
 const LAST = 1000;               // the session project's group comes after the others (vitest spreads its groups: keep it small)
 
 // One spelling of a file for plan lookups: forward slashes, no query, a lower-case drive letter on Windows.
@@ -110,9 +111,15 @@ export function flowguardPlugin({ plan: planFile, python, root, prepareSeconds }
       });
       if (injected || !available) return;
       injected = true;
+      // vitest names a test file in its results (junit's testsuite and classname) by its path from the vitest root: the
+      // session test runs from the package's tool cache, node_modules/.cache/flowguard (git-ignored everywhere), so its
+      // name is the same in every project and on every machine, never a path into FlowGuard's install
+      const session = path.join(viteRoot, ...SESSION_FOLDER);
+      fs.mkdirSync(session, { recursive: true });
+      fs.copyFileSync(path.join(HERE, SESSION), path.join(session, SESSION));
       return context.injectTestProjects?.({
-        test: { name: 'flowguard', root: HERE, include: [SESSION], globals: true, environment: 'node', setupFiles: [], globalSetup: [],
-          sequence: { groupOrder: LAST } },
+        test: { name: 'flowguard', root: session, include: [SESSION], exclude: [], globals: true, environment: 'node', setupFiles: [],
+          globalSetup: [], sequence: { groupOrder: LAST } },
       });
     },
     async resolveId(id, importer) {
