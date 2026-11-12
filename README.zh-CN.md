@@ -31,7 +31,7 @@ FlowGuard 4.3 (since 99f025e): 0 red; 0.2 s
 ## 日常使用
 
 1. 开工时运行 `python -m flowguard new-task`，读简报。
-2. 跑项目普通测试，读测试汇总后的 FlowGuard 块。红色发现使测试失败；变动、线索和未验证说明检查到了什么。按输出的下一步处理，需要告诉主人时再告诉主人。灰表示未验证，不算通过。
+2. 跑项目普通测试，读测试汇总后的 FlowGuard 块。首行给出每一类的数目。只有 `red` 使测试失败：这次改动破坏了已登记的约定，要改代码。`before` 和 `known` 在任务开始前就有：照 `->` 后面写的做，写着 `ask owner` 时才告诉主人。`changed` 表示某个函数对测试用过的输入返回了别的结果：是有意的改动就在汇报里说明。`impact` 和 `not compared` 不算失败；`not compared` 是没有验证，不算通过。`python -m flowguard show --last` 列出上一次运行的每一行和细节。
 3. 修改另一份实现之前，用 `python -m flowguard show "what it decides"` 查函数、字段和约定。
 
 ## 登记约定
@@ -63,6 +63,8 @@ def preview_amount(value: float) -> int:
 
 `tests/intent/` 中的规则独立写出预期，并注明出处。主人的原话用 `python -m flowguard req add <file|-> --id R1` 逐字节保存一次。文档出处要引用 `authority_docs` 所列文件中的原句，不能把 AI 方案存成主人原话。
 
+`.flowguard/rules.toml` 存主人现行的规则，每条一行文字，出处逐字引用存下的原话或文档原句。`.flowguard/known.toml` 存还没定论的事和对待方式：`act = "ask"` 是只有主人能答的问题，`leave` 是主人推迟的问题，`fix` 是改到相关代码时就修的明确错误，`ignore` 是结构检查的误报。`python -m flowguard show rules` 列出两者，`new-task` 的简报会列出其中靠前的几条。
+
 `.flowguard/ledger.toml` 记录能不抛出就结束的异常处理，注明数量、理由和依据的成文规则。`python -m flowguard ledger init` 记录已有处理，`python -m flowguard ledger check` 检查账本。不能登记的形式由发现行说明。
 
 可执行的双副本规则示例和上下文注释见[本地参考](./.agents/skills/flowguard/reference.md)。
@@ -71,11 +73,13 @@ def preview_amount(value: float) -> int:
 
 `python -m flowguard check --static` 不跑测试；加 `--all` 查看完整结构清单。`python -m flowguard check` 跑受影响的规则和测试。已有深查和有限 flow 保持冻结，不属于上面的日常接入步骤。
 
-基础安装读取 Python。TS/JS、Prisma、SQL 及冻结的 C/C++/C# 读取器使用 `flowguard[languages]`。Vitest 的 ESM 项目支持执行观察；Jest 只做静态检查。不支持或没有取得的观察仍是未验证。测试输入上的一致不能证明业务答案正确。
+基础安装读取 Python。TS/JS、Prisma、SQL 及冻结的 C/C++/C# 读取器使用 `flowguard[languages]`。Vitest 的 ESM 项目支持执行观察；Jest 只做静态检查。测试结束后的封闭比较跑不了的函数记为 `not compared`，并写明原因。测试输入上的一致不能证明业务答案正确。
+
+FlowGuard 只在测试运行里起作用。它从不在测试里把函数再跑一遍；打包、开发服务器和正式运行都不会加载它。
 
 ## 兼容与仓库
 
-保留的旧输入和 API 继续支持；弃用功能会提示删除计划，不会悄悄改变旧输入的含义。现有契约见 [4.1 说明](./docs/upgrade-4.1.md)、[4.2 说明](./docs/upgrade-4.2.md) 和 [intent guide](./docs/intent-guide.md)。
+保留的旧输入和 API 继续支持；弃用功能会提示删除计划，不会悄悄改变旧输入的含义。现有契约见 [4.1 说明](./docs/upgrade-4.1.md)、[4.2 说明](./docs/upgrade-4.2.md)、[4.3 说明](./docs/upgrade-4.3.md) 和 [intent guide](./docs/intent-guide.md)。
 
 - `flowguard/structure/`：源码事实与固定查询。
 - `flowguard/intent/`：约定、意图规则、账本和测试适配器。
