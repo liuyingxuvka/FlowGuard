@@ -2170,7 +2170,8 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
     functions = _functions(graph, cfg)
     by_id = {row['id']: row for row in functions}
     registered = {a.target for a in index.entries if a.kind == 'sensor'} | set(excluded)
-    added = set(change.impact()['added']) if change.baseline else set()
+    impact = change.impact() if change.baseline else dict(added=[], changed=[])
+    added, edited = set(impact['added']), set(impact['changed'])
     candidates_seen, complete = 0, True      # complete: every candidate of every reference compared
     for owner in owners:
         home = by_id.get(owner.target)
@@ -2253,12 +2254,13 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
                                  + f'({category}) -> call {owner.qual}, or write above it: # flowguard: same {owner.name}')
             lead(('before: ' if everything and not new_owner and not fresh else '') + text)
             # The 4.3 finding: a copy of the reference is a `copies:` member (a structure finding, never red, D1); one this
-            # change adds is new, the reference and the copies the baseline had are old (the agreement is the current one).
+            # change adds or edits is new (its baseline version is not compared here, so it never was broken at the task
+            # start), the reference and the copies the baseline had as they were are old (the agreement is the current one).
             from .health import Issue, LINES_ONLY
             parts = tuple((row['id'], f'{row["file"]}:{row["qual"]}', f'is a {category} of the reference {owner.file}:{owner.qual}',
                            f'call {owner.qual}') for row in members)
             facts = dict(family='copies', subject=f'copies of {owner.name}', parts=parts,
-                         fresh=frozenset(row['id'] for row in fresh) if old_owner else frozenset())
+                         fresh=frozenset(row['id'] for row in members if row['id'] in added and old_owner or row['id'] in edited))
             if category == 'diverged copy':
                 found.issues.append(Issue(f'copies:{owner.name}', 5, f'copy {owner.name}', f'reference {label}: {text}',
                                           f'choose one for each copy: call {owner.qual}; or write # flowguard: same {owner.name} above the copy and make it agree; '

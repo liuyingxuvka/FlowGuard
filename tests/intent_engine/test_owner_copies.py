@@ -1214,3 +1214,29 @@ def test_a_similar_implementation_lead_leaves_out_and_never_asks_to_register_the
     orders.write_text(orders.read_text().replace('return days <= 4', 'return days <= 5'), encoding='utf-8')
     _check(root, '--static')
     assert not any(lead.startswith('similar-implementation leads: ') for lead in _leads(root)), _leads(root)
+
+
+def test_a_copy_this_change_makes_diverge_from_the_reference_is_new_never_broken_at_task_start(tmp_path):
+    """Copy discovery (check): two copies agreed at the task start; the change unregisters one and changes it. Its copies
+    finding is this change's (impact), not a problem the task started with (before)."""
+    root = _project(tmp_path, {
+        'orders.py': '''
+            # flowguard: same ACCEPT ref
+            def accept(days: int) -> bool:
+                return days <= 3
+
+            # flowguard: same ACCEPT
+            def preview_accept(days: int) -> bool:
+                return days <= 3
+        ''',
+        'tests/test_orders.py': 'from orders import accept, preview_accept\n\n\ndef test_accept():\n    assert accept(3) and preview_accept(2)\n',
+    })
+    orders = root / 'orders.py'
+    orders.write_text(orders.read_text().replace('# flowguard: same ACCEPT\n', '').replace(
+        'def preview_accept(days: int) -> bool:\n    return days <= 3', 'def preview_accept(days: int) -> bool:\n    return days <= 4'),
+        encoding='utf-8')
+    code, text = _check(root)
+    shown = _block(text)
+    assert code == 0 and not any(line.startswith('before: ') for line in shown), text
+    assert 'impact: copies of ACCEPT: orders.py:preview_accept is a diverged copy of the reference orders.py:accept ' \
+           '-> fix it, or say why in your report' in shown, text
