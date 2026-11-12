@@ -719,6 +719,18 @@ def known_sites(graph, entries, change=None):
     return resolved, issues
 
 
+def input_findings(cfg, mapped):
+    """The input findings of rules.toml and known.toml that are red in every run, with or without a baseline or a
+    source change (D4): an invalid file or entry (`catalog`), and an entry with a site that names no single
+    declaration on the map (`known_sites`). `mapped()` gives the map; it is read only when known.toml has valid
+    entries whose sites need resolving. A run whose map checks do not run (no baseline, no source change) reports
+    these, as `findings` does where they run."""
+    now = catalog(cfg)
+    if not now.known:
+        return list(now.issues)
+    return [*now.issues, *known_sites(mapped(), now.known.values())[1]]
+
+
 def _cited_file(source):
     return (REQUEST_DIR / (source.rids[0] + '.md')).as_posix() if source.kind == 'request' else source.path
 

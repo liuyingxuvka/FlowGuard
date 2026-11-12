@@ -268,6 +268,15 @@ def test_the_first_line_names_the_baseline_each_way_a_run_can_have_one():
     assert signals.baseline_label(None, 'HEAD') == 'no baseline: nothing compared'
 
 
+def test_the_first_line_shortens_a_commit_id_and_names_a_ref_as_it_was_given():
+    """Only a full commit id is cut to seven characters: a branch, a tag, HEAD~1 or an abbreviated id is the name the
+    option was given (`since --base release/task-start`, never `since --base release`)."""
+    assert [signals.baseline_label(given, 'base', None, '--base') for given in (
+        'release/task-start', 'origin/main', 'HEAD~1', 'v4.2.1', '6e18a86f', 'c' * 40, 'd' * 64)] == [
+        'since --base release/task-start', 'since --base origin/main', 'since --base HEAD~1', 'since --base v4.2.1',
+        'since --base 6e18a86f', 'since --base ccccccc', 'since --base ddddddd']
+
+
 def test_red_loosened_and_known_fixed_are_listed_in_full_and_the_rest_keep_to_ten_lines():
     lines = ([_line('red', number) for number in range(15)] + [_line('loosened', number) for number in range(4)]
              + [_line('known fixed?', number) for number in range(3)] + [_line('changed', number) for number in range(5)]
@@ -316,6 +325,32 @@ def test_a_line_keeps_200_characters_besides_its_places_and_its_subject_places_a
     # Project text on several lines stays on one line of the block.
     broken = Line('red', 'rule:S', '', 'rule S: "first\nsecond"\r\nthird', 'x')
     assert _block([broken])[1:] == ['red: rule S: "first second" third -> x']
+
+
+def test_a_long_input_gives_way_first_and_a_changed_line_keeps_what_was_and_what_is_now():
+    """Design 4.7, at most 200 characters besides the paths: the input a line is about gives way first (a changed
+    line's inputs, a same-name line's `on ...:`), so a 300-character input never cuts away what a function answered
+    before and now, nor which copy returns what; long answers give way after it, to one length together, and the
+    words between the values stay."""
+    text = 'abcd' + 'efgh' * 73 + 'hijx'                 # 300 characters
+    def changed(old, new):
+        line = signals.changed_line('longOne', 'src/m:longOne', 'src/m.ts', 25, [({'text': text}, old, new)], 1)
+        said, = _block([line])[1:]
+        assert len(said) - len('m.ts:25') <= 200, said
+        return said
+    assert changed(True, False) == (
+        "changed: longOne (m.ts:25): (text='abcdefghefghefghefghefghefghefghefghefghefghefgh...hefghefghefghefghefghefghefgh"
+        "efghefghefghefghefghhijx') was True, now False; 1/1 inputs differ -> if you meant it, say so")
+    # The answers are as long: the input is cut to 36 characters first, then both answers alike.
+    assert changed(text, text + 'x') == (
+        "changed: longOne (m.ts:25): (text='abcdefghefg...efghefghefghhijx') was 'abcdefghefghefghef...ghefghefghefghhijx', "
+        "now 'abcdefghefghefghef...hefghefghefghhijxx'; 1/1 inputs differ -> if you meant it, say so")
+    same = Line('red', 'same:N', 'a|b', f'same N: on (text={text!r}): a.py:f returns 1, b.py:g returns 2',
+                'decide which copy is right, then make the other agree', ('a.py:f', 'b.py:g'))
+    said, = _block([same])[1:]
+    assert said == ("red: same N: on (text='abcdefghefghefghefghefghefghefghefghefghefg...efghefghefghefghefghefghefghefghefgh"
+                    "efghefghhijx'): a.py:f returns 1, b.py:g returns 2 -> decide which copy is right, then make the other agree")
+    assert len(said) - len('a.py:f') - len('b.py:g') == 200, said
 
 
 def test_a_line_names_at_most_three_places_and_paths_are_file_names_unless_two_share_one():

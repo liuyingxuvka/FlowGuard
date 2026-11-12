@@ -35,7 +35,7 @@ def _differs(cfg, commit):
     node_modules)."""
     import os
     from ..map.common import git_run
-    changed = git_run(cfg.root, 'diff', '--name-only', '-z', commit).stdout
+    changed = git_run(cfg.root, 'diff', '--name-only', '-z', '--relative', commit).stdout
     added = git_run(cfg.root, 'ls-files', '--others', '--exclude-standard', '-z').stdout
     return sorted({os.fsdecode(value) for value in (changed + added).split(b'\0') if value and b'node_modules/' not in value})
 
@@ -567,7 +567,7 @@ def plan(cfg, commit, changed, key):
                                recordable=(not found['is_async'] and 'generator' not in found['node'].type
                                            and skip != 'uses imported or mutable binding ' + qual),
                                source=closed, old_source=prior, old_skip=old_skip,
-                               changed=(rel in changed and (old is None or closed != prior)),
+                               changed=((rel in changed or rel in readers) and (old is None or closed != prior)),
                                consts=numbers.get((rel, qual), []) + extra_numbers, labels=sorted(set(strings.get((rel, qual), [])))))
         known, inputs = _catalog(cfg, graph)
     groups = {}

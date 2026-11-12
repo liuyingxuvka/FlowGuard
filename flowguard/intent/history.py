@@ -11,8 +11,11 @@ from .cache import scan
 
 
 def _texts(cfg, revision, folder):
+    """{path: text} of the Python files under `folder` at `revision`, both relative to the project's root: ls-tree
+    names them from there, and `./` makes `git show` read them from there too, also below the repository's top
+    folder (a bare `revision:path` is read from that top folder)."""
     paths = git_run(cfg.root, 'ls-tree', '-r', '--name-only', '-z', revision, '--', folder).stdout.split(b'\0')
-    return {path.decode(): git_run(cfg.root, 'show', revision + ':' + path.decode()).stdout.decode('utf-8-sig')
+    return {path.decode(): git_run(cfg.root, 'show', revision + ':./' + path.decode()).stdout.decode('utf-8-sig')
             for path in paths if path and path.endswith(b'.py')}
 
 

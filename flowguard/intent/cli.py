@@ -916,7 +916,8 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
     one that already differed there is old: `before` or `known` where this change touches a copy's file (the member
     is touched then, as in a pytest session), else no line. Copies of another signature are red where they are this
     change's, and what could not be compared is not compared. (issues, lines, ran, touched functions): `ran` names
-    the groups whose every pair was compared and agreed (`same:NAME`), whose known entry is then `known fixed?`."""
+    the groups whose every pair was compared on every input made for it and agreed (`same:NAME`), whose known entry
+    is then `known fixed?`, as in pytest."""
     import math
     from ..map.common import git_renames, read_source
     from .differences import _compare_pairs
@@ -979,8 +980,12 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
                                       files=files))
         elif reasons:
             lines.append(not_compared(name, reasons))
-        elif result['status'] == 'ok' and result['complete']:
-            ran.add(f'same:{name}')         # every copy compared on its current code, and they agree
+        if (not result['changes'] and result['selected'] == len(copies) - 1 and result['total']
+                and result['checked'] == result['total'] and not result['unknown']):
+            # every pair compared on every input made for it, and they agree (as a pytest session's sealed
+            # comparison): a known entry naming their disagreement may be fixed, also where the inputs, not a
+            # proof, leave a not compared line
+            ran.add(f'same:{name}')
     return issues, lines, ran, members
 
 
@@ -1065,7 +1070,10 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=Fal
     baseline, kind, ahead = (batch['baseline'], batch['baseline_kind'], batch['baseline_ahead']) if batch else start
     files = git_files(cfg.root)         # the repository's files, which no shortened path of the block may name
     seconds = time.perf_counter() - timing - own.seconds + sum(part['seconds'] for part in reports)
-    heading = signals.title(lines, baseline=baseline, kind=kind, ahead=ahead, option='--base', seconds=seconds)
+    # An explicit --base is named as it was given (`since --base release/task-start`), as check --static names it,
+    # also where the pytest batch resolved it to its commit.
+    heading = signals.title(lines, baseline=baseline if base is None else base, kind=kind, ahead=ahead, option='--base',
+                            seconds=seconds)
     _keep_last(cfg, signals.last_run(lines, ignored, run='check', stamp=started, baseline=baseline, kind=kind, title=heading,
                                      seconds=seconds, deprecated=deprecation.used(mark), hidden=found.hidden))
     status = int(any(line.kind == 'red' for line in lines))
@@ -1152,10 +1160,16 @@ def _static_check(cfg, *, everything, base, leads, notices):
 
 def _owner_findings(cfg, *, everything=False, base=None, static=None):
     """Owners, copies and static findings of this change; copy discovery runs only here, in check. `everything`
-    (`--all`) adds the before lines of the ledger's open legacy handlers (`_legacy_lines`)."""
-    from . import anchors, owners
+    (`--all`) adds the before lines of the ledger's open legacy handlers (`_legacy_lines`). Without a baseline
+    (outside Git, before the first commit, a recorded start this repository lacks) nothing is new and the old ledger
+    is check --all's, but an invalid or unresolvable entry of rules.toml or known.toml is red all the same (D4), as
+    in pytest and check --static: these are the only findings then."""
+    from . import anchors, owners, sources
     if not owners.baseline(cfg, base) and not everything:
-        return owners.Findings()            # nothing is new without a baseline; the old ledger is check --all
+        if not sources.catalog_files(cfg):
+            return owners.Findings()
+        with closing(build(cfg.root, roots=cfg.roots)) as graph:
+            return owners.Findings(issues=sources.input_findings(cfg, lambda: graph))
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
         index = anchors.collect(graph)
         distincts = cache.read(cfg)['summary'].get('distincts', [])
