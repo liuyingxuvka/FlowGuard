@@ -276,17 +276,24 @@ def test_red_loosened_and_known_fixed_are_listed_in_full_and_the_rest_keep_to_te
     block = _block(lines)
     assert block[0] == f'FlowGuard {VERSION} (since aaaaaaa): 15 red, 4 before, 2 known, 3 known fixed?, 5 changed, 6 impact, 4 loosened, 9 not compared; 1.2 s'
     kinds = [line.partition(': ')[0] for line in block[1:]]
-    assert kinds == ['red'] * 15 + ['before', 'before', 'before'] + ['known fixed?'] * 3 + ['changed'] * 3 + [
+    assert kinds == ['red'] * 15 + ['before', 'known', 'known'] + ['known fixed?'] * 3 + ['changed'] * 3 + [
         'impact'] * 2 + ['loosened'] * 4 + ['not compared', '+6 more'], block
-    assert block[16:19] == ['before: subject 0: file0.py:f0 broke -> do it', 'before: subject 1: file1.py:f1 broke -> do it',
-                            'before: 4 more (2 known, 2 before) -> python -m flowguard show --last'], block
+    # known lines (each a step of the owner's entry, `ask owner` among them) come first within the two lines; the count
+    # line stands where its kind keeps the order of the kinds
+    assert block[16:19] == ['before: 4 more (4 before) -> python -m flowguard show --last',
+                            'known: subject 0: file0.py:f0 broke -> do it', 'known: subject 1: file1.py:f1 broke -> do it'], block
     assert block[-2] == 'not compared: 9 functions (no reason recorded) -> not a failure'
     assert block[-1] == '+6 more: python -m flowguard show --last'
     rest = [line for line in block[1:] if not line.startswith(('red: ', 'loosened: ', 'known fixed?: '))]
     assert len(rest) == 10
     # The count line takes the kind most of the hidden lines have.
-    assert _block([_line('before', 0)] + [_line('known', number) for number in range(4)])[-1] == \
-        'known: 3 more (3 known) -> python -m flowguard show --last'
+    assert _block([_line('before', 0)] + [_line('known', number) for number in range(4)])[1:] == [
+        'known: subject 0: file0.py:f0 broke -> do it', 'known: subject 1: file1.py:f1 broke -> do it',
+        'known: 3 more (2 known, 1 before) -> python -m flowguard show --last']
+    # Two or more before lines never hide a known line: one known and one before fill the two lines.
+    assert _block([_line('before', number) for number in range(3)] + [_line('known', 9, step='ask owner (not asked yet)')])[1:] == [
+        'before: subject 0: file0.py:f0 broke -> do it', 'before: 2 more (2 before) -> python -m flowguard show --last',
+        'known: subject 9: file9.py:f9 broke -> ask owner (not asked yet)']
     # Nothing to say: the first line alone.
     assert _block([]) == [f'FlowGuard {VERSION} (since aaaaaaa): 0 red; 1.2 s']
 

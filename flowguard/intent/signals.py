@@ -407,7 +407,7 @@ def title(lines, *, baseline, kind, ahead=None, option='--flowguard-base', secon
 
 def render_block(lines, *, title, everything=False, files=()):
     """The block a run prints: `title`, then the lines in KINDS order. red, loosened and known fixed? are listed in
-    full; of the others at most ten: changed 3, before and known 2 and one line counting the rest, impact 2, not
+    full; of the others at most ten: changed 3, before and known 2 (known lines first) and one line counting the rest, impact 2, not
     compared one line summing every such line up, and one `+N more` for the changed and impact lines left out. One
     line keeps at most 200 characters besides its paths (the middle of its text gives way, never its subject, places
     or step) and names at most three places; a place's path is its file name (the shortest unique end of the path
@@ -420,13 +420,17 @@ def render_block(lines, *, title, everything=False, files=()):
         return '\n'.join(out + [_said(line, names, cap=False) for line in lines])
     by = {kind: [line for line in lines if line.kind == kind] for kind in KINDS}
     out += [_said(line, names) for line in by['red']]
-    old = by['before'] + by['known']
-    out += [_said(line, names) for line in old[:OLD]]
-    if rest := old[OLD:]:
-        known = sum(line.kind == 'known' for line in rest)
-        before = len(rest) - known
-        counted = ', '.join(part for part in (f'{known} known' * bool(known), f'{before} before' * bool(before)) if part)
-        out.append(f'{"known" if known > before else "before"}: {len(rest)} more ({counted}) -> {MORE}')
+    # known lines first (each is an owner's entry, whose step may be to ask the owner), then before lines; printed in
+    # the order of the kinds, the count line after the shown lines of its own kind
+    known = by['known'][:OLD]
+    before = by['before'][:OLD - len(known)]
+    count = []
+    left = (len(by['known']) - len(known), len(by['before']) - len(before))       # (known, before) left out
+    if sum(left):
+        counted = ', '.join(f'{number} {kind}' for number, kind in zip(left, ('known', 'before')) if number)
+        count = [('known' if left[0] > left[1] else 'before') + f': {sum(left)} more ({counted}) -> {MORE}']
+    out += [_said(line, names) for line in before] + [line for line in count if line.startswith('before')]
+    out += [_said(line, names) for line in known] + [line for line in count if line.startswith('known')]
     out += [_said(line, names) for line in by['known fixed?']]
     out += [_said(line, names) for line in by['changed'][:SHOWN['changed']]]
     out += [_said(line, names) for line in by['impact'][:SHOWN['impact']]]
