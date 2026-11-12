@@ -78,13 +78,13 @@ def store_request(root: Path, raw: bytes, *, identifier: str | None = None, kind
     return item
 
 
-# flowguard: sensor REQUEST_BODY(root: Path, identifier: str) -> body: bytes
+# flowguard: same REQUEST_BODY(root: Path, identifier: str) -> body: bytes
 def read_request_bytes(root: Path, identifier: str) -> bytes:
     """Read the actual request body, keeping its identity separate from the sidecar."""
     return read_original_bytes(root, REQUEST_DIR / (identifier + '.md'))
 
 
-# flowguard: sensor REQUEST_METADATA(path: Path, identifier: str) -> metadata: dict
+# flowguard: same REQUEST_METADATA(path: Path, identifier: str) -> metadata: dict
 def _metadata(path: Path, identifier: str) -> dict:
     """The one sidecar validator: any malformed sidecar is a ValueError."""
     item = json.loads(path.read_bytes())
@@ -418,7 +418,7 @@ def validate_request_links(root: Path, links) -> None:
             raise MapError(f'request_meta_edited: {identifier}: {error}') from error
 
 
-# flowguard: sensor QUOTE_MATCH(text: words, quote: words) -> matched: bool calibrated_by=tests/test_anchor_self_rules.py::test_quote_anchor_case[EXACT]
+# flowguard: same QUOTE_MATCH(text: words, quote: words) -> matched: bool calibrated_by=tests/test_anchor_self_rules.py::test_quote_anchor_case[EXACT]
 def quote_matches(text: str, quote: str) -> bool:
     """Compare owner words exactly, permitting only whitespace runs and ... elision."""
     source = ' '.join(text.split())

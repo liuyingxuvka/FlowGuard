@@ -58,7 +58,7 @@ def api_call_name(node, aliases, *, function=False):
     return ''
 
 
-# flowguard: sensor ROW_LITERAL(node: expression) -> allowed: bool calibrated_by=tests/test_anchor_self_rules.py::test_expression_anchor_case[direct-1]
+# flowguard: same ROW_LITERAL(node: expression) -> allowed: bool calibrated_by=tests/test_anchor_self_rules.py::test_expression_anchor_case[direct-1]
 def is_literal(node: ast.AST) -> bool:
     if isinstance(node, ast.Constant):
         return isinstance(node.value, (int, float, str, bool, type(None)))
@@ -73,7 +73,7 @@ def is_literal(node: ast.AST) -> bool:
     return isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
 
 
-# flowguard: sensor ROW_PROBLEMS(tree: source, rel: path) -> problems: list[dict] calibrated_by=tests/test_anchor_self_rules.py::test_program_anchor_case[direct-1]
+# flowguard: same ROW_PROBLEMS(tree: source, rel: path) -> problems: list[dict] calibrated_by=tests/test_anchor_self_rules.py::test_program_anchor_case[direct-1]
 def literal_problems(tree: ast.AST, rel: str) -> list[dict]:
     problems = []
     aliases = api_aliases(tree)

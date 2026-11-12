@@ -263,7 +263,7 @@ def test_fields_belong_to_a_judgment_and_never_repeat_a_parameter():
         # flowguard: owner hires.reserved writers=shop:reserve fields days=1
     ''')
     problems = [row['message'] for row in facts['anchor_issues']]
-    assert problems[0].startswith('policy.py:1 fields apply only to sensor and function owner anchors'), problems
+    assert problems[0].startswith('policy.py:1 fields apply only to same-name and function owner anchors'), problems
     assert problems[1].startswith('policy.py:9 data owners cannot have fields'), problems
     issue, = facts['anchors'][0]['issues']
     assert issue['level'] == 'red' and issue['message'].startswith('policy.py:5 field today matches a parameter'), issue

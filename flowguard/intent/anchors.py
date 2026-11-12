@@ -474,7 +474,7 @@ def _parts(text, delimiter=','):
 
 
 FIELDS_HELP = ('syntax: fields name=expression name=expression; expressions use the function parameters and module names, for example '
-               '# flowguard: sensor FEE fields days=(today - hire.due).days member=customer.is_member')
+               '# flowguard: same FEE fields days=(today - hire.due).days member=customer.is_member')
 
 
 def _tokens(text):
@@ -605,7 +605,7 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
                                   else '. ' + FIELDS_HELP), line))
             continue
         if fields and kind in ('states', 'event'):
-            problems.append(issue('red', 'syntax', f'{file}:{line} fields apply only to sensor and function owner anchors. {FIELDS_HELP}', line))
+            problems.append(issue('red', 'syntax', f'{file}:{line} fields apply only to same-name and function owner anchors. {FIELDS_HELP}', line))
             continue
         if kind == 'owner':
             data_owner = _data_owner(body, file, module, line, is_test, scoped=scoped)

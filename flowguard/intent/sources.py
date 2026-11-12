@@ -137,7 +137,7 @@ def shared_archive(root):
     return held[1]
 
 
-# flowguard: sensor SOURCE_AUTHORITY(src: source, rule_confirmed: request, cfg: config, archive: archive, quote: words) -> answer: tuple[bool, str] calibrated_by=tests/test_anchor_self_rules.py::test_authority_anchor_case[EXACT]
+# flowguard: same SOURCE_AUTHORITY(src: source, rule_confirmed: request, cfg: config, archive: archive, quote: words) -> answer: tuple[bool, str] calibrated_by=tests/test_anchor_self_rules.py::test_authority_anchor_case[EXACT]
 def authority(src: Source, rule_confirmed: str | None, cfg: object, archive: object, quote: str | None = None) -> tuple[bool, str]:
     if src.strict:
         return catalog_authority(src, cfg, archive)

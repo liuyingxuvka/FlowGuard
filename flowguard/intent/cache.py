@@ -13,8 +13,8 @@ from .loader import api_aliases, api_call_name, distinct_identifier, literal_pro
 from flowguard.map.common import MapError, content_digest, git_common_directory, git_head, literal_value as _literal
 
 
-# flowguard: owner meta.k writers=flowguard.intent.cache:put_meta
-# flowguard: owner meta.v writers=flowguard.intent.cache:put_meta
+# flowguard: writers meta.k put_meta
+# flowguard: writers meta.v put_meta
 def put_meta(con, name, text):
     """The one writer of the test cache's keys in the map's SQLite meta table (the map writes its own keys)."""
     con.execute('INSERT OR REPLACE INTO meta(k,v) VALUES(?,?)', (name, text))

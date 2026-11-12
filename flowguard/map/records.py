@@ -192,7 +192,7 @@ def write_once(root: str | Path, relative_path: str | Path, raw: bytes, *, _crea
         stream.write(json.dumps({"path": path.as_posix(), "sha256": sha256_bytes(raw)}) + "\n")
 
 
-# flowguard: sensor ORIGINAL_BYTES(root: str | Path, relative_path: str | Path) -> body: bytes
+# flowguard: same ORIGINAL_BYTES(root: str | Path, relative_path: str | Path) -> body: bytes
 def read_original_bytes(root: str | Path, relative_path: str | Path) -> bytes:
     """Read a contained original without decoding or changing its byte representation."""
     _, path, _ = _paths(root, relative_path)
