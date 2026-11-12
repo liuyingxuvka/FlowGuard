@@ -12,7 +12,7 @@ from flowguard.intent.runtime import Runtime
 from tests.intent_engine._source_fixture import source_sessions
 from tests.intent_engine._protocol_controls import bind_scenario
 
-def scenario(tmp_path, *, enum=False, refusal=False, extra=''):
+def scenario(tmp_path, *, enum=False, refusal=False, extra='', value=2):
     if enum:
         (tmp_path/'kinds.py').write_text('from enum import Enum\nclass QuoteCase(Enum):\n    EXACT="exact"\n    CHANGED="changed"\n')
         (tmp_path/'policy.py').write_text('''from kinds import QuoteCase
@@ -27,7 +27,7 @@ def choice(x: int) -> bool:
     if x < 0: raise ValueError('native negative refusal')
     return x <= 3
 ''')
-        declaration='x: int';values='2';imports='';call='choice(x)';field='x'
+        declaration='x: int';values=str(value);imports='';call='choice(x)';field='x'
     (tmp_path/'test_case.py').write_text(imports+'from policy import choice\nimport pytest\n'+
         '# flowguard: event CASE('+declaration+')\n'+
         '@pytest.mark.parametrize("'+field+'", ['+values+'])\n'+
@@ -41,27 +41,34 @@ def choice(x: int) -> bool:
         nodes.append(Node('denied','choice',phase='raise',caller='case',end=True))
         relations.append(Relation('RULE',{field:Read('case','arg.'+field)},Read('denied','error'),on='denied'))
     model=Flow('FLOW','test source',tuple(nodes),tuple(('case',n.name) for n in nodes[1:]),relations=tuple(relations))
-    identifier='QuoteCase.EXACT' if enum else '2'
+    identifier='QuoteCase.EXACT' if enum else str(value)
     return SimpleNamespace(flow=model,scenario=entry,anchor=target,anchor_index=index,
                            field_map={field:field},testnode='test_case.py::test_case['+identifier+']',
                            observed_rule='RULE',relation_indices=tuple(range(len(relations))),actual_targets=(target.target,),targets=(target.target,))
 
 
+NOT_RUN_AGAIN = 'another input needs the test to run again, which FlowGuard never does'
+
+
 def test_scenario_gets_actual_production_result_not_test_none_or_predicate(tmp_path):
     binding = scenario(tmp_path)
     bind_scenario(tmp_path, binding)
-    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 4})
-    assert actual.status == 'ok' and actual.value is False, actual.reasons
     actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 2})
     assert actual.status == 'ok' and actual.value is True, actual.reasons
+    # Another input would need the scenario test to run again (design 4.5, 8): not compared, with why.
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 4})
+    assert actual.status == 'grey' and actual.value is None
+    assert actual.reasons == ('not compared: the scenario test ran with x=2; ' + NOT_RUN_AGAIN,), actual.reasons
 
 
 def test_scenario_enum_identity_is_real_member_not_its_string_value(tmp_path):
     binding = scenario(tmp_path, enum=True)
     bind_scenario(tmp_path, binding)
     enum = importlib.import_module('kinds').QuoteCase
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'quote': enum.EXACT})
+    assert actual.status == 'ok' and actual.value is True, actual.reasons
     actual = calibration._observe_scenario_current(tmp_path, binding, {'quote': enum.CHANGED})
-    assert actual.status == 'ok' and actual.value is False, actual.reasons
+    assert actual.status == 'grey' and actual.value is None and NOT_RUN_AGAIN in actual.reasons[0], actual.reasons
     forged = object.__new__(enum)
     forged._name_, forged._value_ = 'CHANGED', 'not-the-value'
     actual = calibration._observe_scenario_current(tmp_path, binding, {'quote': forged})
@@ -73,7 +80,8 @@ def test_scenario_enum_identity_is_real_member_not_its_string_value(tmp_path):
 
 
 def test_scenario_only_declared_native_error_can_be_refused(tmp_path):
-    binding = scenario(tmp_path, refusal=True)
+    # The test ran with x=-1: the production refusal it propagated is the declared outcome, not a failure.
+    binding = scenario(tmp_path, refusal=True, value=-1)
     bind_scenario(tmp_path, binding)
     actual = calibration._observe_scenario_current(tmp_path, binding, {'x': -1})
     assert actual.status == 'ok' and isinstance(actual.value, Raised), actual.reasons
@@ -81,7 +89,8 @@ def test_scenario_only_declared_native_error_can_be_refused(tmp_path):
     fresh = scenario(tmp_path, extra="    raise ValueError('test harness failure')\n")
     bind_scenario(tmp_path, fresh)
     actual = calibration._observe_scenario_current(tmp_path, fresh, {'x': 2})
-    assert actual.status in {'red', 'grey'} and not isinstance(actual.value, Raised)
+    assert actual.status == 'red' and not isinstance(actual.value, Raised)
+    assert actual.reasons == ('real calibration test did not pass completely: call failed',), actual.reasons
 
 
 def test_scenario_does_not_choose_first_or_last_reading(tmp_path):
@@ -92,13 +101,14 @@ def test_scenario_does_not_choose_first_or_last_reading(tmp_path):
 
 
 def test_scenario_runtime_failure_is_not_a_business_refusal(tmp_path, monkeypatch):
+    flow = importlib.import_module('flowguard.intent.flow')
     binding = scenario(tmp_path)
-    scope, _ = bind_scenario(tmp_path, binding)
-    def failed(*args, **kwargs): raise ValueError('real replay infrastructure failure')
-    monkeypatch.setattr(scope.runtime, 'replay', failed)
+    bind_scenario(tmp_path, binding)
+    def failed(*args, **kwargs): raise ValueError('real projection infrastructure failure')
+    monkeypatch.setattr(flow, 'relation_observations', failed)
     actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 2})
-    assert actual.status in {'red', 'grey'} and actual.value is None
-    assert 'replay infrastructure failure' in ' '.join(actual.reasons)
+    assert actual.status == 'grey' and actual.value is None
+    assert actual.reasons == ('scenario verification failed: ValueError: real projection infrastructure failure',), actual.reasons
 
 
 def test_scenario_checks_requested_logical_inputs_for_joint_witnesses(tmp_path):
@@ -111,7 +121,7 @@ def test_scenario_checks_requested_logical_inputs_for_joint_witnesses(tmp_path):
 
 
 def test_scenario_never_uses_test_return_or_rule_predicate_as_actual(tmp_path):
-    binding = scenario(tmp_path, extra='    return True\n')
+    binding = scenario(tmp_path, extra='    return True\n', value=4)
     class ExplosiveRule:
         id = 'RULE'
         def eval(self, *args): raise AssertionError('rule predicate used as actual')
@@ -119,7 +129,7 @@ def test_scenario_never_uses_test_return_or_rule_predicate_as_actual(tmp_path):
     binding.flow.relations = (Relation(ExplosiveRule(), relation.inputs, relation.actual, relation.on),)
     bind_scenario(tmp_path, binding)
     actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 4})
-    assert actual.status == 'ok' and actual.value is False, actual.reasons
+    assert actual.status == 'ok' and actual.value is False, actual.reasons     # the production result, not the test's True
 
 
 def test_enum_source_binding_must_be_the_actual_native_class(tmp_path):
@@ -129,18 +139,18 @@ def test_enum_source_binding_must_be_the_actual_native_class(tmp_path):
     index = anchors.collect_sources(tmp_path, [('policy.py','policy'),('test_case.py','test_case',True)])
     binding.anchor_index, binding.scenario = index, index.named('CASE')[0]
     bind_scenario(tmp_path, binding)
-    changed = importlib.import_module('kinds').QuoteCase.CHANGED
-    actual = calibration._observe_scenario_current(tmp_path, binding, {'quote': changed})
+    exact = importlib.import_module('kinds').QuoteCase.EXACT
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'quote': exact})
     assert actual.status == 'grey' and actual.value is None
-    assert 'source type' in ' '.join(actual.reasons)
+    assert actual.reasons == ('enum parameter has no matching actual source type',), actual.reasons
 
 
 def test_real_probe_plugin_does_not_write_ordinary_cache_or_project_map(tmp_path):
     binding = scenario(tmp_path)
     file = tmp_path / 'pyproject.toml'; file.write_text(file.read_text()+'addopts="-p flowguard.intent.plugin"\n')
     bind_scenario(tmp_path, binding)
-    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 4})
-    assert actual.status == 'ok' and actual.value is False, actual.reasons
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 2})
+    assert actual.status == 'ok' and actual.value is True, actual.reasons
     assert not (tmp_path / '.flowguard' / 'cache').exists(), list((tmp_path / '.flowguard').rglob('*'))
 
 
@@ -181,8 +191,10 @@ def test_case(expression: str):
         code=sites.mutant_code(loader.is_literal,mutant)
         original=loader.is_literal.__code__
         with sites.installed(loader.is_literal,code):
+            # The scenario was recorded before the mutant existed: its outcome is never reported as the mutant's.
             actual=calibration._observe_scenario_current(root,binding,{'expression':'1'})
-            assert actual.status=='ok' and actual.value is False,actual.reasons
+            assert actual.status=='grey' and actual.value is None,actual.reasons
+            assert actual.reasons==("the scenario was recorded before code instrumentation; its outcome is not the instrumented code's",)
             assert loader.is_literal.__code__ is code
             with calibration.session(Runtime(root),[item],nextitem=scope.nextitem):
                 unprepared=calibration._observe_scenario_current(root,binding,{'expression':'1'})
@@ -202,9 +214,9 @@ def test_repeated_current_scenario_keeps_the_same_real_items_and_imports(tmp_pat
     binding = scenario(tmp_path)
     scope, item = bind_scenario(tmp_path, binding)
     native = importlib.import_module('policy')
-    for x, expected in [(4,False),(2,True),(4,False)]:
+    for x, expected in [(2,True),(4,None),(2,True)]:
         result = calibration._observe_scenario_current(tmp_path,binding,{'x':x})
-        assert result.status=='ok' and result.value is expected,result.reasons
+        assert result.status==('ok' if expected is not None else 'grey') and result.value is expected,result.reasons
         assert calibration._context(tmp_path,binding.testnode)==(scope,item)
         assert importlib.import_module('policy') is native
 
@@ -217,8 +229,9 @@ def test_native_plugin_and_calibration_share_one_verified_source_owner(tmp_path)
     index = anchors.collect_sources(tmp_path,[('policy.py','policy'),('test_case.py','test_case',True)])
     binding.anchor_index,binding.scenario = index,index.named('CASE')[0]
     scope,item = bind_scenario(tmp_path,binding)
-    actual = calibration._observe_scenario_current(tmp_path,binding,{'x':4})
-    assert actual.status=='ok' and actual.value is False,actual.reasons
+    actual = calibration._observe_scenario_current(tmp_path,binding,{'x':2})
+    assert actual.status=='ok' and actual.value is True,actual.reasons
+    assert scope.runtime.outcomes == {}          # the native test's own probe_context assertion passed
     assert item.config is scope.items[0].config
 
 
@@ -240,7 +253,8 @@ class Policy(Base):
     mutant=next(m for m in sites.mutants_of(sites.sites_of(fn),set()) if m.how=='flip')
     code=sites.mutant_code(fn,mutant);original=fn.__code__
     with sites.installed(fn,code):
-        actual=calibration._observe_scenario_current(tmp_path,binding,{'x':3})
-        assert actual.status=='ok' and actual.value is False,actual.reasons
+        actual=calibration._observe_scenario_current(tmp_path,binding,{'x':2})
+        assert actual.status=='grey' and actual.value is None,actual.reasons
+        assert 'before code instrumentation' in actual.reasons[0]
         assert fn.__code__ is code and code.co_qualname==fn.__qualname__
     assert fn.__code__ is original

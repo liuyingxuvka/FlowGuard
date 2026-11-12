@@ -147,26 +147,8 @@ def verified(tmp_path, **kwargs):
     return model,engine,captured
 
 
-def test_rule_contract_cannot_prove_a_deleted_child_save(tmp_path):
-    model,engine,captured=verified(tmp_path,missing_save=True,hierarchical=False)
-    parent=check_flow(model.flows['NATIVE'],model.anchor_index,captured.events,engine=engine)
-    child=Flow('CHILD',model.rules['DONE'].source,
-               (Node('entry','ENTRY'),Node('check','CHECK',phase='return'),Node('save','SAVE',phase='return'),Node('published','PUBLISH',phase='return')),
-               (('entry','check'),('check','save'),('save','published')))
-    result=check_flow(child,model.anchor_index,captured.events)
-    assert parent['verdict']=='ok',parent
-    assert result['verdict']=='red',result
-    assert engine.contract_summary('DONE')['verdict']=='ok'
 
 
-@pytest.mark.parametrize('missing_save',[False,True])
-def test_parent_exports_the_complete_registered_child_graph(tmp_path,missing_save):
-    model,engine,captured=verified(tmp_path,missing_save=missing_save)
-    result=engine.run_flow(model.flows['PARENT'],captured.events)
-    assert result['verdict']==('red' if missing_save else 'ok'),'\n'.join(result['red']+result['grey'])
-    assert engine.contract_summary('DONE')['verdict']=='ok'
-    if missing_save:
-        assert any('child Flow CHILD is red' in why for why in result['red']),result
 
 
 @pytest.fixture
@@ -174,101 +156,14 @@ def hierarchy(tmp_path, source_sessions):
     return verified(tmp_path)
 
 
-def test_unobserved_child_edge_stays_grey_at_parent(hierarchy):
-    model,engine,captured=hierarchy
-    child=model.flows['CHILD']
-    changed=replace(child,edges=(*child.edges,('entry','published')))
-    model.flows['CHILD']=changed
-    try:
-        result=engine.run_flow(model.flows['PARENT'],captured.events)
-        assert result['verdict']=='grey' and not result['red'],result
-        assert any('unobserved edge entry -> published' in why for why in result['grey']),result
-    finally:
-        model.flows['CHILD']=child
 
 
-@pytest.mark.parametrize('problem',['missing','ambiguous','fake','cycle'])
-def test_unverified_child_declarations_cannot_export_green(hierarchy,problem):
-    model,engine,captured=hierarchy
-    child,parent=model.flows['CHILD'],model.flows['PARENT']
-    if problem=='missing':
-        parent=replace(parent,nodes=tuple(replace(n,model='GONE') if n.model else n for n in parent.nodes))
-    elif problem=='ambiguous':
-        model.flows['CHILD']=replace(child,relations=(*child.relations,*child.relations))
-    elif problem=='fake':
-        parent=replace(parent,nodes=tuple(replace(n,model=replace(child)) if n.model else n for n in parent.nodes))
-    else:
-        model.flows['CHILD']=replace(child,nodes=tuple(replace(n,model='CHILD') if n.end else n for n in child.nodes))
-    try:
-        result=engine.run_flow(parent,captured.events)
-        assert result['verdict']=='grey' and not result['red'],result
-    finally:
-        model.flows['CHILD']=child
 
 
-def test_two_invocations_cannot_supply_each_others_missing_save(hierarchy):
-    model,engine,captured=hierarchy
-    good=captured.events
-    bad=[replace(e,case='second') for e in good if e.anchor!='SAVE']
-    result=engine.run_flow(model.flows['PARENT'],[*good,*bad])
-    assert result['verdict']=='red' and any('check -> published' in why for why in result['red']),result
 
 
-def test_output_cannot_borrow_an_entry_from_a_completed_other_call(hierarchy):
-    model,engine,captured=hierarchy
-    events=list(captured.events)
-    entry=next(e for e in events if e.anchor=='ENTRY' and e.phase=='return')
-    events=[replace(e,sequence=entry.sequence+1) if e.anchor=='PUBLISH' and e.phase=='return' else e for e in events]
-    result=engine.run_flow(model.flows['PARENT'],events)
-    assert result['verdict']=='grey' and any('ancestry crosses' in why for why in result['grey']),result
 
 
-def test_child_state_proof_uses_actual_native_before_after(tmp_path):
-    model,engine,captured=verified(tmp_path,stateful=True)
-    parent=model.flows['PARENT']
-    result=engine.run_flow(parent,captured.events)
-    assert result['verdict']=='ok','\n'.join(result['red']+result['grey'])
-    wrong=[replace(e,states={'Job.status':'published'}) if e.anchor=='SAVE' and e.phase=='return' else e for e in captured.events]
-    result=engine.run_flow(parent,wrong)
-    assert result['verdict']=='red' and any('actually changes' in why for why in result['red']),result
-    unknown=[replace(e,before_states={}) if e.anchor=='SAVE' and e.phase=='return' else e for e in captured.events]
-    result=engine.run_flow(parent,unknown)
-    assert result['verdict']=='grey' and not result['red'],result
-
-
-def test_parent_dependency_record_tracks_separate_child_declaration(hierarchy,tmp_path):
-    from contextlib import closing
-    from flowguard.intent import deps
-    from flowguard.structure import build
-    model,engine,captured=hierarchy
-    child=model.flows['CHILD']
-    relative='tests/intent/separate_child.py'
-    path=model.cfg.root/relative
-    original=model.file_of['CHILD']
-    path.write_text("# independently maintained child graph\nEDGES=(('entry','check'),('check','save'),('save','published'))\n")
-    model.file_of['CHILD']=relative
-    try:
-        with closing(build(model.cfg.root,roots=model.cfg.roots)) as graph:
-            saved=deps.record(model.cfg,model,model.flows['PARENT'],[],graph)
-            assert 'file:'+relative in saved['dependencies'],saved
-            path.write_text("EDGES=(('entry','check'),('check','published'))\n")
-            assert 'file:'+relative in deps.stale(saved,deps.Now(model.cfg,graph))
-    finally:
-        model.file_of['CHILD']=original
-        path.unlink()
-
-
-def test_changed_child_source_cannot_reuse_old_green_events(hierarchy):
-    model,engine,captured=hierarchy
-    path=next(model.cfg.root.glob('hierarchy_app_*.py'))
-    original=path.read_text()
-    try:
-        path.write_text(original.replace('    save(flag, detail)\n',''))
-        result=engine.run_flow(model.flows['PARENT'],captured.events)
-        assert result['verdict']!='ok',result
-        assert any('source identity changed' in why for why in result['grey']) or result['red'],result
-    finally:
-        path.write_text(original)
 
 
 @pytest.mark.parametrize('variant,exit_code',[('positive',0),('delete-save',1),('untested-edge',0),('nested',0),('entry-return',0)])
@@ -301,35 +196,4 @@ def test_chained_identity_source_calls_stay_unknown(tmp_path):
 
 
 
-@pytest.mark.parametrize('shape',['nested','entry-return'])
-def test_real_child_entry_shapes_are_proved_not_guessed(tmp_path,shape):
-    model,engine,captured=verified(tmp_path,nested=shape=='nested',export_entry=shape=='entry-return')
-    result=engine.run_flow(model.flows['PARENT'],captured.events)
-    assert result['verdict']=='ok','\n'.join(result['red']+result['grey'])
-    no_entry=[event for event in captured.events if not(event.anchor=='ENTRY' and event.phase=='call')]
-    result=engine.run_flow(model.flows['PARENT'],no_entry)
-    assert result['verdict']=='grey' and any('no observed enclosing production entry' in why for why in result['grey']),result
-    from flowguard.intent import sites
-    native=sites.resolve_loaded(model.rules['DONE'].homes[0].scenario.target)
-    with Capture(model.cfg.root,model.anchor_index,'another-call') as other:
-        native(True,False,True)
-    result=engine.run_flow(model.flows['PARENT'],[*no_entry,*other.events])
-    assert result['verdict']=='grey' and any('no observed enclosing production entry' in why for why in result['grey']),result
-    if shape=='entry-return':
-        wrong=[replace(event,occurrence=event.occurrence+1) if event.anchor=='ENTRY' and event.phase=='return' else event for event in captured.events]
-        result=engine.run_flow(model.flows['PARENT'],wrong)
-        assert result['verdict']=='grey' and any('no observed enclosing production entry' in why for why in result['grey']),result
-    else:
-        completion=next(event for event in captured.events if event.anchor=='ENTRY' and event.phase=='return')
-        wrong=[replace(event,sequence=completion.sequence+1) if event.anchor=='PUBLISH' and event.phase=='return' else event for event in captured.events]
-        result=engine.run_flow(model.flows['PARENT'],wrong)
-        assert result['verdict']=='grey' and any('ancestry crosses' in why for why in result['grey']),result
 
-
-
-@pytest.mark.parametrize('shape',['nested','entry-return'])
-def test_deleted_native_save_is_red_for_each_entry_shape(tmp_path,shape):
-    model,engine,captured=verified(tmp_path,missing_save=True,nested=shape=='nested',export_entry=shape=='entry-return')
-    result=engine.run_flow(model.flows['PARENT'],captured.events)
-    assert result['verdict']=='red' and any('child Flow CHILD is red' in why for why in result['red']),result
-    assert engine.contract_summary('DONE')['verdict']=='ok'

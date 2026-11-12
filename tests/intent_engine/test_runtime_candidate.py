@@ -261,6 +261,23 @@ def test_observer_failure_cannot_be_mistaken_for_a_business_exception(tmp_path):
 
 @pytest.mark.parametrize('style', ['alias', 'module'])
 def test_imported_constant_is_not_compared_and_names_the_import(tmp_path, style):
+    settings = module(tmp_path, 'GRACE_DAYS = int("7")\n', 'r19_settings')
+    source = ('from r19_settings import GRACE_DAYS\ndef f(x: int):\n    return x <= GRACE_DAYS\n'
+              if style == 'alias' else 'import r19_settings\ndef f(x: int):\n    return x <= r19_settings.GRACE_DAYS\n')
+    m = module(tmp_path, source)
+    runtime = Runtime(tmp_path, previous={'r19_settings.py': 'GRACE_DAYS = int("3")\n', 'r19_candidate.py': source})
+    with runtime.hook(m.f):
+        assert m.f(5)
+    assert settings.GRACE_DAYS == 7
+    # The sealed environment loads no project module (4.5) and reads only a literal constant from its source:
+    # this one is computed, so the call is not compared, with its reason.
+    reason = 'uses unavailable binding GRACE_DAYS' if style == 'alias' else 'uses unavailable attribute GRACE_DAYS'
+    old, new = sealed_pair(runtime, runtime.readings[0], FILE, 'f')
+    assert old == new == dict(status='unavailable', reason=reason) and not comparable(old, new)
+
+
+@pytest.mark.parametrize('style', ['alias', 'module'])
+def test_an_imported_literal_constant_is_read_from_each_version_of_its_project_source(tmp_path, style):
     settings = module(tmp_path, 'GRACE_DAYS = 7\n', 'r19_settings')
     source = ('from r19_settings import GRACE_DAYS\ndef f(x: int):\n    return x <= GRACE_DAYS\n'
               if style == 'alias' else 'import r19_settings\ndef f(x: int):\n    return x <= r19_settings.GRACE_DAYS\n')
@@ -269,10 +286,9 @@ def test_imported_constant_is_not_compared_and_names_the_import(tmp_path, style)
     with runtime.hook(m.f):
         assert m.f(5)
     assert settings.GRACE_DAYS == 7
-    # The sealed environment loads no project module (4.5): this call is not compared, with its reason.
-    reason = 'uses unavailable binding GRACE_DAYS' if style == 'alias' else 'uses attribute GRACE_DAYS'
+    # Each version reads the constant from its own source, never the module: 3 before, 7 now.
     old, new = sealed_pair(runtime, runtime.readings[0], FILE, 'f')
-    assert old == new == dict(status='unavailable', reason=reason) and not comparable(old, new)
+    assert (old, new) == (dict(status='ok', value=False), dict(status='ok', value=True)) and differs(old, new)
 
 
 def test_dynamic_old_global_cannot_borrow_the_current_value(tmp_path):
@@ -305,51 +321,12 @@ def test_constructed_module_constant_is_not_a_literal_and_is_not_compared(tmp_pa
     assert old == new == dict(status='unavailable', reason='uses unavailable binding LIMIT')
 
 
-def test_replay_rejects_actual_active_item(request):
-    runtime = Runtime(Path(__file__).parent, previous={})
-    result = runtime.replay(request.node)
-    assert result['status'] == 'grey' and 'completed test protocol' in result['reasons'][0]
 
 
-def test_new_collected_child_is_legal_and_finished_child_gets_fresh_fixtures(request, tmp_path):
-    file = tmp_path / 'r19_nested_fresh.py'
-    file.write_text('''import pytest
-SEEN = []
-@pytest.fixture
-def box():
-    result = {"count": 0}
-    SEEN.append(result)
-    yield result
-def test_inner(box):
-    assert box["count"] == 0
-    box["count"] += 1
-''')
-    collector = pytest.Module.from_parent(request.node, path=file, nodeid=file.as_posix())
-    item = list(collector.collect())[0]
-    runtime = Runtime(tmp_path, previous={})
-    assert runtime.replay(item, nextitem=request.node)['status'] == 'ok'
-    assert runtime.replay(item, nextitem=request.node)['status'] == 'ok'
-    assert len(item.module.SEEN) == 2 and item.module.SEEN[0] is not item.module.SEEN[1]
 
 
-def test_child_cannot_borrow_active_ancestor_builtin_fixture(request, tmp_path):
-    file = tmp_path / 'r19_nested_borrow.py'
-    file.write_text('def test_inner(tmp_path):\n    pass\n')
-    collector = pytest.Module.from_parent(request.node, path=file, nodeid=file.as_posix())
-    item = list(collector.collect())[0]
-    result = Runtime(tmp_path, previous={}).replay(item, nextitem=request.node)
-    assert result['status'] == 'grey' and 'active ancestor' in result['reasons'][0]
 
 
-def test_shared_fixture_cannot_borrow_builtin_exemption_by_name(request, tmp_path):
-    for fixture_name in ['tmp_path_factory', 'pytestconfig']:
-        file = tmp_path / ('r19_nested_shared_' + fixture_name + '.py')
-        file.write_text(f'import pytest\n@pytest.fixture(scope="session")\ndef {fixture_name}():\n    return {{}}\n'
-                        f'def test_inner({fixture_name}):\n    pass\n')
-        collector = pytest.Module.from_parent(request.node, path=file, nodeid=file.as_posix())
-        item = list(collector.collect())[0]
-        result = Runtime(tmp_path, previous={}).replay(item, nextitem=request.node)
-        assert result['status'] == 'grey' and 'shared fixture lifecycle' in result['reasons'][0]
 
 
 def test_repeated_nonrecursive_helper_is_valid(tmp_path):
@@ -412,17 +389,26 @@ def test_sql_calls_run_only_for_real_and_are_not_recorded(tmp_path, query, regis
     assert hits == ([1] if register else [])
 
 
-def test_module_literal_container_of_another_module_is_not_compared_or_swapped(tmp_path):
-    settings = module(tmp_path, 'POLICY = {"grace": 7}\n', 'r19_settings')
-    source = 'import r19_settings\ndef f(x: int):\n    return x <= r19_settings.POLICY["grace"]\n'
-    m = module(tmp_path, source)
-    for previous in ('POLICY = {"grace": 3}\n', 'POLICY = dict(grace=3)\n'):
+def test_module_literal_container_of_another_module_is_read_from_source_only_when_immutable(tmp_path):
+    # A tuple of literals is read from each version's own source. A dict or list may change in place from
+    # any function of the program, so it is not compared; a computed one is not either. The live module's
+    # object is never read, replaced or swapped.
+    for current, previous, before, now in (
+            ('POLICY = (7,)\n', 'POLICY = (3,)\n', dict(status='ok', value=False), dict(status='ok', value=True)),
+            ('POLICY = {"grace": 7}\n', 'POLICY = {"grace": 3}\n', dict(status='unavailable', reason='uses unavailable attribute POLICY'),
+             dict(status='unavailable', reason='uses unavailable attribute POLICY')),
+            ('POLICY = (7,)\n', 'POLICY = tuple([3])\n', dict(status='unavailable', reason='uses unavailable attribute POLICY'),
+             dict(status='ok', value=True))):
+        settings = module(tmp_path, current, 'r19_settings')
+        read = '[0]' if current.startswith('POLICY = (') else '["grace"]'
+        source = f'import r19_settings\ndef f(x: int):\n    return x <= r19_settings.POLICY{read}\n'
+        m = module(tmp_path, source)
         runtime = Runtime(tmp_path, previous={'r19_candidate.py': source, 'r19_settings.py': previous})
         with runtime.hook(m.f):
             assert m.f(5)
-        assert settings.POLICY == {'grace': 7}
+        assert settings.POLICY in ((7,), {'grace': 7})
         old, new = sealed_pair(runtime, runtime.readings[0], FILE, 'f')
-        assert old == new == dict(status='unavailable', reason='uses attribute POLICY')
+        assert (old, new) == (before, now), current
 
 
 def test_a_mutating_numeric_subclass_argument_is_not_recorded(tmp_path):
@@ -535,14 +521,14 @@ def test_fixture_global_override_never_replaces_the_source_constants_of_either_v
     with runtime.hook(m.f):
         assert m.f(5) is True
         m.LIMIT = 3
-        assert m.f(5) is False
+        assert m.f(6) is False
     assert m.LIMIT == 3
     pairs = [sealed_pair(runtime, reading, FILE, 'f') for reading in runtime.readings]
     assert [(value(old), value(new)) for old, new in pairs] == [(False, True), (False, True)]
 
 
 @pytest.mark.parametrize('style', ['alias', 'module'])
-def test_imported_fixture_global_override_is_not_compared_and_stays_the_fixture_value(tmp_path, style):
+def test_imported_fixture_global_override_is_compared_on_the_source_constants_not_the_fixture_value(tmp_path, style):
     settings = module(tmp_path, 'LIMIT = 7\n', 'r19_settings')
     source = ('from r19_settings import LIMIT\ndef f(x: int):\n    return x <= LIMIT\n'
               if style == 'alias' else 'import r19_settings\ndef f(x: int):\n    return x <= r19_settings.LIMIT\n')
@@ -551,13 +537,13 @@ def test_imported_fixture_global_override_is_not_compared_and_stays_the_fixture_
     context.LIMIT = 100
     runtime = Runtime(tmp_path, previous={'r19_settings.py': 'LIMIT = 3\n', 'r19_candidate.py': source})
     with runtime.hook(m.f):
-        assert m.f(2) is True
+        assert m.f(50) is True          # the fixture's live 100
         context.LIMIT = 7
-        assert m.f(2) is True
+        assert m.f(5) is True
     assert context.LIMIT == 7
-    reason = 'uses unavailable binding LIMIT' if style == 'alias' else 'uses attribute LIMIT'
-    for reading in runtime.readings:
-        assert sealed_pair(runtime, reading, FILE, 'f') == (dict(status='unavailable', reason=reason),) * 2
+    # Both versions read LIMIT from their own settings source (3 before, 7 now), never the fixture's 100.
+    pairs = [sealed_pair(runtime, reading, FILE, 'f') for reading in runtime.readings]
+    assert [(value(old), value(new)) for old, new in pairs] == [(False, False), (False, True)]
 
 
 def test_deleted_current_constant_is_added_only_for_old_code_then_removed(tmp_path):
@@ -621,7 +607,10 @@ def test_changed_module_import_and_callable_assignment_bindings_are_unavailable(
     runtime = Runtime(tmp_path, previous={'r19_candidate.py': old})
     with runtime.hook(m.f):
         assert m.f(4) is False
-    assert sealed_pair(runtime, runtime.readings[0], FILE, 'f') == (dict(status='unavailable', reason='uses attribute allowed'),) * 2
+    # The baseline has no source of the module it imports, so its name is unknown; the current one has no
+    # literal `allowed` (a function): neither is compared.
+    assert sealed_pair(runtime, runtime.readings[0], FILE, 'f') == (dict(status='unavailable', reason='uses attribute allowed'),
+                                                                   dict(status='unavailable', reason='uses unavailable attribute allowed'))
     old = 'from r19_old_rules import allowed as before\nfrom r19_new_rules import allowed as after\ndecide = before\ndef f(x: int):\n    return decide(x)\n'
     m = module(tmp_path, old.replace('decide = before', 'decide = after'))
     runtime = Runtime(tmp_path, previous={'r19_candidate.py': old})
@@ -778,98 +767,12 @@ def test_hook_prepares_no_old_code_and_the_actual_body_reads_ordinary_context(tm
     assert runtime.readings[0].actual == ({'x': 1}, False) and not _PRIVATE.get()
 
 
-def test_replay_closes_an_unrelated_inactive_collector_with_native_teardown(request, tmp_path):
-    file = tmp_path / 'r19_after_sibling.py'
-    file.write_text('CALLS = []\ndef test_inner():\n    CALLS.append("native")\n')
-    module_node = pytest.Module.from_parent(request.node, path=file, nodeid=file.as_posix())
-    item = list(module_node.collect())[0]
-    closed = []
-    class Sibling(pytest.Collector):
-        def collect(self):
-            return []
-        def setup(self):
-            self.addfinalizer(lambda: closed.append('closed'))
-    sibling = Sibling.from_parent(request.node, name='unrelated-collector')
-    request.session._setupstate.setup(sibling)
-    runtime = Runtime(tmp_path, previous={})
-    result = runtime.replay(item, nextitem=request.node)
-    assert result['status'] == 'ok' and all(report.passed for report in result['reports'])
-    assert closed == ['closed'] and item.module.CALLS == ['native']
-    assert request.node in request.session._setupstate.stack
 
 
-def test_collector_teardown_error_remains_unavailable_and_does_not_run_native_body(request, tmp_path):
-    file = tmp_path / 'r19_after_bad_collector.py'
-    file.write_text('CALLS = []\ndef test_inner():\n    CALLS.append("native")\n')
-    module_node = pytest.Module.from_parent(request.node, path=file, nodeid=file.as_posix())
-    item = list(module_node.collect())[0]
-    def bad_cleanup():
-        raise ValueError('real collector cleanup failed')
-    class Sibling(pytest.Collector):
-        def collect(self):
-            return []
-        def setup(self):
-            self.addfinalizer(bad_cleanup)
-    sibling = Sibling.from_parent(request.node, name='bad-collector')
-    request.session._setupstate.setup(sibling)
-    result = Runtime(tmp_path, previous={}).replay(item, nextitem=request.node)
-    assert result['status'] == 'grey' and result['reports'] == []
-    assert [(when, type(error), str(error)) for when, error in result['errors']] == [
-        ('teardown', ValueError, 'real collector cleanup failed')]
-    assert item.module.CALLS == [] and request.node in request.session._setupstate.stack
 
 
-def test_replay_does_not_reset_a_shared_collector_needed_by_the_pending_real_item(request, tmp_path, monkeypatch):
-    native_file = tmp_path / 'r19_private_target.py'
-    native_file.write_text('CALLS = []\ndef test_inner():\n    CALLS.append("native")\n')
-    native_module = pytest.Module.from_parent(request.node, path=native_file, nodeid=native_file.as_posix())
-    native = list(native_module.collect())[0]
-    pending_file = tmp_path / 'r19_pending_real.py'
-    pending_file.write_text('def test_pending():\n    pass\n')
-    pending_module = pytest.Module.from_parent(request.node, path=pending_file, nodeid=pending_file.as_posix())
-    pending = list(pending_module.collect())[0]
-    closed = []
-    def setup_shared():
-        pending_module.addfinalizer(lambda: closed.append('closed'))
-    monkeypatch.setattr(pending_module, 'setup', setup_shared)
-    request.session._setupstate.setup(pending_module)
-    result = Runtime(tmp_path, previous={}).replay(native, nextitem=pending)
-    assert result['status'] == 'grey' and 'pending shared collector' in result['reasons'][0]
-    assert closed == [] and native.module.CALLS == []
-    def verify_real_teardown():
-        assert closed == ['closed']
-    request.addfinalizer(verify_real_teardown)
 
 
-def test_builtin_session_fixture_lifecycle_survives_path_replay_before_next_real_test(request, tmp_path):
-    """The real builtin definition stays live; merely passing nextitem is insufficient evidence."""
-    from _pytest.runner import runtestprotocol
-    file = tmp_path / 'r19_builtin_lifecycle.py'
-    file.write_text('''FACTORIES = []
-LIFETIME = []
-def test_first(tmp_path_factory, pytestconfig, request):
-    if not FACTORIES:
-        FACTORIES.append(tmp_path_factory)
-        LIFETIME.append("live")
-        definition = request._get_active_fixturedef("tmp_path_factory")
-        definition.addfinalizer(lambda: LIFETIME.append("finished"))
-        pytestconfig._r19_lifetime = LIFETIME
-    assert tmp_path_factory is FACTORIES[0]
-    assert pytestconfig._r19_lifetime == ["live"]
-def test_second(tmp_path_factory, pytestconfig):
-    assert tmp_path_factory is FACTORIES[0]
-    assert pytestconfig._r19_lifetime == ["live"]
-''')
-    module_node = pytest.Module.from_parent(request.node, path=file, nodeid=file.as_posix())
-    first, second = list(module_node.collect())
-    reports = runtestprotocol(first, log=False, nextitem=second)
-    assert all(report.passed for report in reports)
-    replay = Runtime(tmp_path, previous={}).replay(first, nextitem=second)
-    assert replay['status'] == 'ok' and all(report.passed for report in replay['reports'])
-    reports = runtestprotocol(second, log=False, nextitem=request.node)
-    assert all(report.passed for report in reports)
-    assert module_node.obj.LIFETIME == ['live']
-    assert request.config._r19_lifetime is module_node.obj.LIFETIME
 
 
 def test_private_metadata_skips_ordinary_predicates_but_preserves_the_real_entry(tmp_path):

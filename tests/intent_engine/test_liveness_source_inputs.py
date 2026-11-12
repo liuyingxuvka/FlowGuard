@@ -44,9 +44,13 @@ def test_declared_tuple_points_use_actual_native_tests_without_creating_a_kind(t
     binding=tuple_case(tmp_path)
     parameter=binding.scenario.parameters[0]
     assert anchors.parameter_kind(parameter, ()) is None
-    for point,expected in [((),False),(('red',),True)]:
-        actual=calibration._observe_scenario_current(tmp_path,binding,{'values':point})
-        assert actual.status=='ok' and actual.value is expected,actual.reasons
+    actual=calibration._observe_scenario_current(tmp_path,binding,{'values':()})
+    assert actual.status=='ok' and actual.value is False,actual.reasons
+    # The test ran with its fixture's (); another tuple point would need the test to run again.
+    actual=calibration._observe_scenario_current(tmp_path,binding,{'values':('red',)})
+    assert actual.status=='grey' and actual.value is None,actual.reasons
+    assert actual.reasons==('not compared: the scenario test ran with values=(); another input needs the test to run again, '
+                            'which FlowGuard never does',),actual.reasons
     with pytest.raises(ValueError):
         anchors._kind('tuple')
 
@@ -60,35 +64,3 @@ def test_tuple_point_cannot_replace_explicit_unmapped_or_mutable_context(tmp_pat
     assert actual.status in {'red','grey'} and actual.value is None,actual
     assert 'context' in ' '.join(actual.reasons)
 
-
-def test_real_probe_factory_is_observed_but_equal_unregistered_code_is_not(tmp_path):
-    from flowguard.intent import probe
-    code='def accept(flag): return flag and True\n'
-    intent='''from flowguard.intent import rule
-@rule('FLAG',decides='flag',fields={'flag':bool},source='assumed: actual flag')
-def FLAG(flag): return flag
-'''
-    model,engine=make(tmp_path,code,intent,scenario_case=dict(rule='FLAG',target='accept',
-        parameters={'flag':'bool'},source_parameters={'flag':'bool'},body='answer=app.accept(flag)\nassert type(answer) is bool'))
-    home=model.rules['FLAG'].homes[0]
-    function,points,_=engine.home_sites(home.target)
-    original=function.__code__
-    candidate=sites.probe_code(function,0,points,home=True)
-    assert engine.call(home,{'flag':True},function,{}) is True
-    probe.start()
-    try:
-        with sites.installed(function,candidate):
-            assert sites.controlled_mutation(function,candidate)
-            probe.CASE=0
-            actual=engine.call(home,{'flag':True},function,{})
-            assert actual is True,repr(actual)
-    finally:
-        records=probe.take()
-    assert records and function.__code__ is original
-    duplicate=candidate.replace()
-    assert duplicate==candidate and duplicate is not candidate
-    with sites.installed(function,duplicate):
-        assert not sites.controlled_mutation(function,duplicate)
-        rejected=engine.call(home,{'flag':True},function,{})
-        assert isinstance(rejected,Raised) and 'unverified' in str(rejected.error)
-    assert function.__code__ is original

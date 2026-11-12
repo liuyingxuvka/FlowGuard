@@ -988,8 +988,10 @@ def test_vitest_reports_copies_rules_and_the_changed_case_class(vitest_home):
     _sensor(root, 'src/preview/fee-preview.ts', 'export const lateFee', 'LATE_FEE')
     code, text = _vitest(root, vitest_home)
     assert code == 1, text
-    # Samples come from real calls and their numeric neighbours, not the retired fractional grid.
-    assert 'before: same-name anchor LATE_FEE: days=5, member=T' in text, text
+    # Samples come from real calls, the copies' numbers and their numeric neighbours (signals.copy_inputs, as
+    # pytest compares), not the retired fractional grid. The copies already differed at 4 (6 and 7), the input
+    # closest to the real lateFee(2, true).
+    assert 'before: same-name anchor LATE_FEE: days=4, member=T' in text, text
     assert 'red: FEE_WINDOW: days=5 member=T -> rule 7, code 9（src/preview/fee-preview.ts:3 lateFee）' in text, text
     assert 'FEE_WINDOW source: assumed: three free days, then 5 plus 1 a day for members and 2 a day for others' in text, text
     _commit(root, message='sensors')
@@ -1343,7 +1345,9 @@ def test_nonprimitive_arguments_are_untouched_and_the_real_value_is_returned(vit
 
 
 @pytest.mark.parametrize('first', [0, 1])
-def test_copy_baseline_colour_uses_the_whole_name_not_the_first_witness(tmp_path, first):
+def test_copy_baseline_colour_is_judged_per_input_whatever_the_first_witness(tmp_path, first):
+    # Off x=0 the copies already differed at the baseline (before); at x=0 they agreed and differ now (red).
+    # Which input the test called first changes neither colour (design 4.5: each input against the baseline).
     from flowguard.intent.config import load_config
     from flowguard.intent.vitest import judge
     _commit(tmp_path, {
@@ -1355,8 +1359,45 @@ def test_copy_baseline_colour_uses_the_whole_name_not_the_first_witness(tmp_path
     data = json.loads(Path(_prepare(tmp_path)['plan']).read_text())
     records = [dict(id='typescript/src/a.ts:f', args=[first], result=3 if first == 0 else 1)]
     result = judge(load_config(tmp_path), data, records)
-    assert not result['red'] and len(result['before']) == 1, result
-    assert 'same-name anchor LIMIT' in result['before'][0], result
+    assert len(result['red']) == len(result['before']) == 1, result
+    assert result['red'][0].startswith('same-name anchor LIMIT: x=0, ') and 'x=1' not in result['red'][0], result
+    assert result['before'][0].startswith('same-name anchor LIMIT: x=') and 'x=0' not in result['before'][0], result
+
+
+def test_an_old_copy_difference_on_one_input_does_not_colour_a_new_one_on_another(tmp_path):
+    # The copies already differed at 91; the change breaks 4..7, where both old copies returned false. The red
+    # names the broken input closest to the real call (0): 4, the neighbour of the constant 3.
+    from flowguard.intent.config import load_config
+    from flowguard.intent.vitest import judge
+    _commit(tmp_path, {
+        'src/a.ts': '// flowguard: same LIMIT\nexport function f(days: number) { return days <= 3; }\n',
+        'src/b.ts': '// flowguard: same LIMIT\nexport function g(days: number) { return days <= 3 || days === 91; }\n',
+    })
+    path = tmp_path / 'src/a.ts'
+    path.write_text(path.read_text().replace('<= 3', '<= 7'))
+    data = json.loads(Path(_prepare(tmp_path)['plan']).read_text())
+    result = judge(load_config(tmp_path), data, [dict(id='typescript/src/a.ts:f', args=[0], result=True)])
+    assert len(result['red']) == len(result['before']) == 1, result
+    assert result['red'][0].startswith('same-name anchor LIMIT: days=4, ') and 'days=91' not in result['red'][0], result
+    assert 'days=91' in result['before'][0] and not re.search(r'days=[4-7],', result['before'][0]), result
+
+
+def test_a_copy_whose_baseline_cannot_be_sealed_does_not_hide_a_new_break_between_the_others(tmp_path):
+    # f's baseline read an unknown setting; g and h agreed at the baseline and differ now at x=3.
+    from flowguard.intent.config import load_config
+    from flowguard.intent.vitest import judge
+    _commit(tmp_path, {
+        'src/a.ts': '// flowguard: same LIMIT\nexport function f(x: number) { return getSetting(x); }\n',
+        'src/b.ts': '// flowguard: same LIMIT\nexport function g(x: number) { return x + 1; }\n',
+        'src/c.ts': '// flowguard: same LIMIT\nexport function h(x: number) { return x + 1; }\n',
+    })
+    (tmp_path / 'src/a.ts').write_text((tmp_path / 'src/a.ts').read_text().replace('getSetting(x)', 'x + 1'))
+    (tmp_path / 'src/b.ts').write_text((tmp_path / 'src/b.ts').read_text().replace('x + 1', 'x === 3 ? 0 : x + 1'))
+    data = json.loads(Path(_prepare(tmp_path)['plan']).read_text())
+    result = judge(load_config(tmp_path), data, [dict(id='typescript/src/b.ts:g', args=[2], result=3)])
+    assert len(result['red']) == 1 and 'x=3' in result['red'][0] and 'src/c.ts:2 h' in result['red'][0], result
+    assert any('baseline could not be compared' in line and 'x=3' in line for line in result['unverified']), result
+    assert not result['before'], result
 
 
 @pytest.mark.parametrize('reference', [False, True])
@@ -1410,6 +1451,66 @@ def test_a_new_copy_is_absent_at_baseline_rather_than_an_unavailable_old_functio
     assert not result['before'], result
 
 
+def test_a_moved_copy_is_compared_with_its_version_at_the_old_path(tmp_path):
+    # g already differed at 91; after `git mv` it is the same function at a new path, not a new copy.
+    from flowguard.intent.config import load_config
+    from flowguard.intent.vitest import judge
+    _commit(tmp_path, {
+        'src/a.ts': '// flowguard: same LIMIT\nexport function f(days: number) { return days <= 3; }\n',
+        'src/b.ts': '// flowguard: same LIMIT\nexport function g(days: number) { return days <= 3 || days === 91; }\n',
+    })
+    _git(tmp_path, 'mv', 'src/b.ts', 'src/moved.ts')
+    data = json.loads(Path(_prepare(tmp_path)['plan']).read_text())
+    moved, = [point for entry in data['files'].values() for point in entry['points'] if point['fn'] == 'g']
+    assert moved['rel'] == 'src/moved.ts' and not moved['old_skip'] and not moved['changed'], moved
+    result = judge(load_config(tmp_path), data, [dict(id='typescript/src/a.ts:f', args=[0], result=True)])
+    assert not result['red'] and len(result['before']) == 1, result
+    assert 'days=91' in result['before'][0] and 'src/moved.ts' in result['before'][0], result
+
+
+FEE = '''import { GRACE } from "./limits";
+// A fee is due once the grace days have passed.
+export function fee(days: number) {
+  const late = days > GRACE;
+  return !late;
+}
+'''
+
+
+def test_a_function_moved_to_another_folder_reads_its_relative_imports_from_its_old_place(tmp_path):
+    # src/a/fees.ts moves to src/b/fees.ts and changes. At the baseline its "./limits" was src/a/limits.ts
+    # (GRACE = 3), now it is src/b/limits.ts (GRACE = 7): the baseline closed source reads a's literal.
+    _commit(tmp_path, {
+        'src/a/limits.ts': 'export const GRACE = 3;\n',
+        'src/b/limits.ts': 'export const GRACE = 7;\n',
+        'src/a/fees.ts': FEE,
+    })
+    _git(tmp_path, 'mv', 'src/a/fees.ts', 'src/b/fees.ts')     # Git sees the move: most lines stay the same
+    _write(tmp_path, {'src/b/fees.ts': FEE.replace('return !late;', 'return !late || days === 100;')})
+    data = json.loads(Path(_prepare(tmp_path)['plan']).read_text())
+    moved, = [point for entry in data['files'].values() for point in entry['points'] if point['fn'] == 'fee']
+    assert moved['rel'] == 'src/b/fees.ts' and moved['changed'] and not moved['skip'] and not moved['old_skip'], moved
+    assert 'const GRACE = 7;' in moved['source'] and 'const GRACE = 3;' in moved['old_source'], moved
+
+
+def test_recorded_inputs_alone_over_the_cap_still_leave_every_constant_a_place_in_vitest(tmp_path):
+    # Four copies, 16 distinct far records each: 64 recorded inputs fill the cap alone. The constants 3 and 7
+    # still get their place, and the cut is named.
+    from flowguard.intent.config import load_config
+    from flowguard.intent.vitest import judge
+    names = 'fghk'
+    _commit(tmp_path, {f'src/{name}.ts': f'// flowguard: same LIMIT\nexport function {name}(days: number) {{ return days <= 3; }}\n'
+                       for name in names})
+    path = tmp_path / 'src/f.ts'
+    path.write_text(path.read_text().replace('<= 3', '<= 7'))
+    data = json.loads(Path(_prepare(tmp_path)['plan']).read_text())
+    records = [dict(id=f'typescript/src/{name}.ts:{name}', args=[1000 * (number + 1) + 10 * step], result=False)
+               for number, name in enumerate(names) for step in range(16)]
+    result = judge(load_config(tmp_path), data, records)
+    assert len(result['red']) == 1 and 'days=7' in result['red'][0] and not result['before'], result
+    assert any('LIMIT: compared on 64 inputs; 2 recorded inputs left out' in line for line in result['unverified']), result
+
+
 @pytest.mark.parametrize('prefix,expression,name', [
     ('import { Number } from "./dep";', 'Number(x)', 'Number'),
     ('import { custom as Number } from "./dep";', 'Number(x)', 'Number'),
@@ -1426,6 +1527,63 @@ def test_sealed_source_does_not_replace_an_import_or_mutable_binding_with_a_buil
     from flowguard.intent.vitest import sealed_source
     source, reason = sealed_source((prefix + '\nexport function f(x: number) { return ' + expression + '; }').encode(), 'src/f.ts', 'f')
     assert source == '' and reason == 'uses imported or mutable binding ' + name, (source, reason)
+
+
+def test_a_literal_const_imported_from_a_relative_project_file_is_that_literal():
+    from flowguard.intent.vitest import ADAPTER, sealed_source
+    files = {'src/settings.ts': b'export const GRACE_DAYS = 3;\nexport const NAME = "late";\nexport const BUILT = GRACE_DAYS + 1;\n'
+                                b'export const LIMITS = { a: 1 };\nexport const NEGATIVE = -2 as const;\n'}
+    read = lambda path: files.get(path)
+    source, reason = sealed_source(b'import { GRACE_DAYS as G, NEGATIVE } from "./settings";\n'
+                                   b'export function allows(days: number) { return days <= G && days > NEGATIVE; }', 'src/policy.ts', 'allows', read)
+    assert not reason and 'const G = 3;' in source and 'const NEGATIVE = -2;' in source and 'import' not in source, (source, reason)
+    run = subprocess.run([_tool('node'), str(ADAPTER / 'sealed.mjs')],
+                         input=json.dumps([dict(source=source, fn='allows', args=[3]), dict(source=source, fn='allows', args=[4])]),
+                         capture_output=True, text=True, check=True, timeout=30)
+    assert json.loads(run.stdout) == [{'value': True}, {'value': False}], run.stdout + run.stderr
+    for line, name in (('import { BUILT } from "./settings";', 'BUILT'), ('import { LIMITS } from "./settings";', 'LIMITS'),
+                       ('import { MISSING } from "./settings";', 'MISSING'), ('import { GRACE_DAYS } from "settings";', 'GRACE_DAYS'),
+                       ('import type { GRACE_DAYS } from "./settings";', 'GRACE_DAYS'), ('import { GRACE_DAYS } from "./other";', 'GRACE_DAYS')):
+        closed, why = sealed_source((line + f'\nexport function f(x: number) {{ return x <= {name} as any; }}').encode(), 'src/policy.ts', 'f', read)
+        assert closed == '' and why == 'uses imported or mutable binding ' + name, (line, closed, why)
+    # Without a reader, as before, nothing imported is available.
+    closed, why = sealed_source(b'import { GRACE_DAYS } from "./settings";\nexport function f(x: number) { return x <= GRACE_DAYS; }', 'src/policy.ts', 'f')
+    assert closed == '' and why == 'uses imported or mutable binding GRACE_DAYS'
+
+
+def test_an_imported_file_is_read_once_per_plan_and_only_for_names_a_function_reads():
+    from flowguard.intent.vitest import sealed_source
+    files = {'src/constants.ts': ''.join(f'export const C{index} = {index};\n' for index in range(300)).encode()}
+    names = [f'C{index}' for index in range(0, 300, 10)]
+    policy = ('import { ' + ', '.join(names) + ' } from "./constants";\n'
+              + ''.join(f'export function f{j}(x: number) {{ return x <= C{(j % 30) * 10}; }}\n' for j in range(50))
+              + 'export function plain(x: number) { return x <= 2; }\n').encode()
+    reads = []
+    def read(path):
+        if path in files:
+            reads.append(path)
+        return files.get(path)
+    tables = {}
+    closed, why = sealed_source(policy, 'src/policy.ts', 'plain', read, tables)
+    assert not why and reads == []              # no imported name is read: the file is not even opened
+    for j in range(50):
+        closed, why = sealed_source(policy, 'src/policy.ts', f'f{j}', read, tables)
+        assert not why and f'const C{(j % 30) * 10} = {(j % 30) * 10};' in closed and closed.count('const ') == 1, (closed, why)
+    assert reads == ['src/constants.ts']        # one read and one parse for the whole plan
+
+
+def test_an_extensionless_import_resolves_in_the_order_vite_does():
+    # Vite tries .mjs, .js, .mts, .ts, .jsx, .tsx: with both settings.js and settings.ts the .js file is the one
+    # that runs; a file Vite would pick that is not a script (settings.json) is never passed over for another.
+    from flowguard.intent.vitest import sealed_source
+    source = b'import { GRACE } from "./settings";\nexport function f(x: number) { return x <= GRACE; }'
+    for files, expected in (({'src/settings.js': b'export const GRACE = 3;\n', 'src/settings.ts': b'export const GRACE = 9;\n'}, 'const GRACE = 3;'),
+                            ({'src/settings.ts': b'export const GRACE = 9;\n'}, 'const GRACE = 9;')):
+        closed, why = sealed_source(source, 'src/policy.ts', 'f', files.get)
+        assert not why and expected in closed, (files, closed, why)
+    closed, why = sealed_source(source, 'src/policy.ts', 'f', {'src/settings.json': b'{"GRACE": 3}\n',
+                                                               'src/settings/index.ts': b'export const GRACE = 9;\n'}.get)
+    assert closed == '' and why == 'uses imported or mutable binding GRACE', (closed, why)
 
 
 def test_an_unused_aliased_import_does_not_hide_the_real_builtin():

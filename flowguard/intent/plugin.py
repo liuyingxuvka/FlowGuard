@@ -315,8 +315,9 @@ def _declared(point, inputs):
 
 def _sealed_numbers(tree, qual):
     """The numbers a same-name copy works with in the sealed environment: the int and float literals of the
-    function and of the same-file functions it calls, and of the literal module constants they read, in that
-    order. None when the module has no such function."""
+    function and of the same-file functions it calls, and of the literal module constants they read (each
+    number of a tuple, list, set or dict constant too), in that order. `-5` is -5, and 1 and 1.0 stay apart.
+    None when the module has no such function."""
     import ast
     functions = {node.name: node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
     if qual not in functions:
@@ -325,13 +326,11 @@ def _sealed_numbers(tree, qual):
     for node in tree.body:
         if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None:
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-            literal = node.value.operand if isinstance(node.value, ast.UnaryOp) and isinstance(node.value.op, ast.USub) else node.value
-            value = literal.value if isinstance(literal, ast.Constant) else None
-            value = -value if literal is not node.value and type(value) in (int, float) else value
+            literal = _literal_numbers(node.value)
             for target in targets:
                 if isinstance(target, ast.Name):
-                    if type(value) in (int, float):
-                        constants[target.id] = value
+                    if literal is not None:
+                        constants[target.id] = literal
                     else:
                         constants.pop(target.id, None)
     numbers, todo, seen, read = [], [qual], set(), []
@@ -340,21 +339,55 @@ def _sealed_numbers(tree, qual):
         if name in seen:
             continue
         seen.add(name)
+        negated = set()
         for part in ast.walk(functions[name]):
-            if isinstance(part, ast.Constant) and type(part.value) in (int, float):
+            if isinstance(part, ast.UnaryOp) and isinstance(part.op, ast.USub) and _numeric(part.operand):
+                numbers.append(-part.operand.value)
+                negated.add(id(part.operand))
+            elif _numeric(part) and id(part) not in negated:
                 numbers.append(part.value)
             elif isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load):
                 if part.id in functions:
                     todo.append(part.id)
                 elif part.id in constants:
-                    read.append(constants[part.id])
-    return list(dict.fromkeys([*numbers, *read]))
+                    read.extend(constants[part.id])
+    return list({(type(number), number): number for number in [*numbers, *read]}.values())
 
 
+def _module_at(path, file, module):
+    """The module name `path` has under the import root that names `file` `module` (a moved file's name at
+    the baseline); '' when `path` is outside that root, so no project import resolves from it."""
+    def names(rel):
+        parts = list(Path(rel).with_suffix('').parts)
+        return parts[:-1] if parts and parts[-1] == '__init__' else parts
+    own, old, dotted = names(file), names(path), module.split('.') if module else []
+    if not dotted or own[len(own) - len(dotted):] != dotted:
+        return ''
+    root = own[:len(own) - len(dotted)]
+    return '.'.join(old[len(root):]) if old[:len(root)] == root and len(old) > len(root) else ''
 
 
+def _numeric(node):
+    import ast
+    return isinstance(node, ast.Constant) and type(node.value) in (int, float)
 
 
+def _literal_numbers(node):
+    """The numbers of a literal expression (a number, `-5`, or a tuple, list, set or dict of literals), in source
+    order; None when the expression is not such a literal. A string, bytes, bool or None literal has none."""
+    import ast
+    if isinstance(node, ast.Constant):
+        return [node.value] if _numeric(node) else []
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)) and _numeric(node.operand):
+        return [-node.operand.value if isinstance(node.op, ast.USub) else node.operand.value]
+    if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
+        parts = node.elts
+    elif isinstance(node, ast.Dict) and all(key is not None for key in node.keys):
+        parts = [part for pair in zip(node.keys, node.values) for part in pair]
+    else:
+        return None
+    found = [_literal_numbers(part) for part in parts]
+    return None if any(numbers is None for numbers in found) else [number for numbers in found for number in numbers]
 
 
 class Observations:
@@ -363,7 +396,7 @@ class Observations:
         import ast
         from . import anchors, cache, differences
         from .runtime import Runtime, _functions, _binding_facts
-        from ..map.common import MapError, git_run, read_source
+        from ..map.common import MapError, git_renames, git_run, read_source
         from ..structure.readers.registry import language_for
         self.state, self.cfg = state, state.cfg
         self.requested_base = state.config.getoption('--flowguard-base', default=None)
@@ -384,6 +417,7 @@ class Observations:
             raise pytest.UsageError(self.runtime._baseline_error)
         self.index = state.model.anchor_index or differences._source_index(self.cfg.root)
         state.model.anchor_index = self.index
+        self.renamed = {}       # a moved file's baseline version is at its old path
         try:
             changed = git_run(self.cfg.root, 'diff', '--name-only', '-z', baseline).stdout
             added = git_run(self.cfg.root, 'ls-files', '--others', '--exclude-standard', '-z').stdout
@@ -393,6 +427,7 @@ class Observations:
             # A changed TS/JS, Prisma, SQL or other mapped file is a change too: the map checks read it.
             self.mapped = {os.fsdecode(value) for value in (changed + added).split(b'\0')
                            if value and language_for(os.fsdecode(value)) not in (None, 'python')}
+            self.renamed = git_renames(self.cfg.root, baseline)
         except MapError:
             self.files = set()
             self.differs = set()
@@ -404,7 +439,6 @@ class Observations:
         self.changed, self.records, self.pairs, self.red, self.grey, self.paths = bool(self.files), [], [], [], [], []
         self.steps = {}         # the next steps to copy under a red line, by its subject
         self.metadata, self.bound, self.event_codes, self.payload = {}, {}, {}, None
-        self.fresh = {}  # Saved comparison reuse is retired; observations belong to this session.
         self.structure = None
         self.event_record = self.capture = None
         self.request, self.text = _TRY.get(), ''
@@ -415,10 +449,42 @@ class Observations:
                 if not hasattr(home, 'scenario'):
                     self.rules.setdefault(home.target, []).append(rule)
         self.by_file, self.rels = {}, {}
+        views = {}
+        def function(file, qual):
+            """The current node of `qual` in a changed `file` and whether the function changed since the baseline:
+            its body, or a top-level binding it reads (a module constant). A function new since then changed."""
+            if file not in views:
+                tree = ast.parse(read_source(self.cfg.root / file))
+                old = self.runtime._source(self.renamed.get(file, file))
+                old_tree = ast.parse(old) if old else ast.Module(body=[], type_ignores=[])
+                views[file] = (dict(_functions(tree)), dict(_functions(old_tree)), _binding_facts(old_tree), _binding_facts(tree))
+            current_functions, prior_functions, old_facts, facts = views[file]
+            node, prior = current_functions.get(qual), prior_functions.get(qual)
+            if node is None or prior is None or ast.dump(prior, include_attributes=False) != ast.dump(node, include_attributes=False):
+                return node, True
+            loaded = {part.id for part in ast.walk(node) if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load)}
+            return node, any(old_facts.get(name) != facts.get(name) for name in loaded)
+        def reaches(file, qual):
+            """Whether `qual` or a same-file function it calls, at any depth, changed: its sealed run executes them
+            all (design 4.5), as the vitest plan compares the closed source with its helpers."""
+            todo, seen = [qual], set()
+            while todo:
+                name = todo.pop()
+                if name in seen:
+                    continue
+                seen.add(name)
+                node, changed = function(file, name)
+                if changed:
+                    return True
+                todo.extend(part.id for part in ast.walk(node) if isinstance(part, ast.Name)
+                            and isinstance(part.ctx, ast.Load) and part.id in views[file][0])
+            return False
+        # A before/after comparison is due for a function whose sealed run changed, not for its unchanged neighbours.
+        for point in self.points.values():
+            point['changed'] = point['file'] in self.files and reaches(point['file'], point['qual'])
         if self.changed:
             # The existing map supplies module ownership for unanchored changed functions.
             graph = state.get_map()
-            views = {}
             # The running FlowGuard never observes its own observation code: hooking the
             # changed Runtime.observe (or a replay helper) re-enters itself without end.
             tool, own = Path(__file__).resolve().parents[1], {}
@@ -429,27 +495,16 @@ class Observations:
                     own[row['file']] = (self.cfg.root / row['file']).resolve().is_relative_to(tool)     # once per file
                 if own[row['file']]:
                     continue
-                if row['file'] not in views:
-                    tree = ast.parse(read_source(self.cfg.root / row['file']))
-                    old = self.runtime._source(row['file'])
-                    old_tree = ast.parse(old) if old else ast.Module(body=[], type_ignores=[])
-                    views[row['file']] = (dict(_functions(tree)), dict(_functions(old_tree)),
-                                          _binding_facts(old_tree), _binding_facts(tree))
-                current_functions, prior_functions, old_facts, facts = views[row['file']]
-                node = current_functions.get(row['qual'])
-                if node is None:
+                node, changed = function(row['file'], row['qual'])
+                if node is None or not changed:
                     continue
                 params = tuple(anchors.Parameter(arg.arg, '', anchors._annotation(arg.annotation),
                                                 anchors._parameter_role(anchors._annotation(arg.annotation)), True)
                                for arg in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
                                if arg.arg not in ('self', 'cls'))
-                prior = prior_functions.get(row['qual'])
-                if prior is not None and ast.dump(prior, include_attributes=False) == ast.dump(node, include_attributes=False):
-                    loaded = {part.id for part in ast.walk(node) if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load)}
-                    if not any(old_facts.get(name) != facts.get(name) for name in loaded):
-                        continue
                 self.points.setdefault(row['id'], dict(anchor=None, parameters=params, target=row['id'], file=row['file'],
-                                                       module=row['module'], qual=row['qual'], name=row['qual'], kind='sensor', node=node))
+                                                       module=row['module'], qual=row['qual'], name=row['qual'], kind='sensor',
+                                                       node=node, changed=True))
         for point in self.points.values():
             self.by_file.setdefault(point['file'], []).append(point)
 
@@ -495,7 +550,8 @@ class Observations:
                 anchor = point['anchor']
                 original = self.scopes.enter_context(self.runtime.hook(fn, name=point['name'],
                     recorded=lambda reading, point=point: self._recorded(point, reading),
-                    fields=anchor.fields if anchor else (), line=anchor.line if anchor else 0))
+                    fields=anchor.fields if anchor else (), line=anchor.line if anchor else 0,
+                    named=bool(anchor and anchor.calibrated_by and self._named_test(self.runtime.test, anchor.calibrated_by))))
                 point['original'] = original
             except (ValueError, TypeError, sites.NotMutable) as error:
                 self.grey.append(point['name'] + ': ' + str(error))
@@ -506,18 +562,22 @@ class Observations:
     def _compare(self):
         """Only after the session: sources and JSON samples enter the sealed owner."""
         import ast
-        import math
         from . import runtime as R
         from ..map.common import read_source
         sources, samples, items, before = {}, {}, [], []
         def source(point, old=False):
             key = point['file'], old
             if key not in sources:
-                sources[key] = (None if self.runtime._baseline_error else self.runtime._source(key[0])) if old else read_source(self.cfg.root / key[0])
+                sources[key] = (None if self.runtime._baseline_error else self.runtime._source(self.renamed.get(key[0], key[0]))) \
+                    if old else read_source(self.cfg.root / key[0])
             return sources[key]
         def run(point, sample, old=False):
             text = source(point, old)
-            return R.sealed(text, point['qual'], sample['args'], sample['kwargs']) if text is not None else dict(status='unavailable', reason='no baseline source')
+            file, module = point['file'], point['module']
+            if old and file in self.renamed:        # at the baseline a moved file imported from its old place
+                file, module = self.renamed[file], _module_at(self.renamed[file], file, module)
+            return R.sealed(text, point['qual'], sample['args'], sample['kwargs'], self.runtime.imports(file, module, old)) \
+                if text is not None else dict(status='unavailable', reason='no baseline source')
         def value(out):
             return out.get('value') if out['status'] == 'ok' else {'raises': out.get('error')}
         def equal(left, right):
@@ -532,8 +592,8 @@ class Observations:
         for target, calls in samples.items():
             calls = list(calls.values())
             point = self.points[target]
-            # An unchanged same declaration still participates in the group comparison below.
-            if point['file'] not in self.files:
+            # Before/after only for a function that changed; an unchanged copy still joins its group below.
+            if not point['changed']:
                 continue
             rows, changes, reasons = [], [], []
             for sample in calls:
@@ -555,36 +615,17 @@ class Observations:
         for name, points in groups.items():
             if len(points) < 2:
                 continue
-            inputs, seen = [], set()
-            def add(row):
-                if len(inputs) >= 64 or any(type(v) is float and not math.isfinite(v) for v in row.values()):
-                    return
-                encoded = json.dumps(row, sort_keys=True, allow_nan=False)
-                if encoded not in seen and len(inputs) < 64:
-                    seen.add(encoded)
-                    inputs.append(row)
-            for point in points:
-                for sample in samples.get(point['target'], {}).values():
-                    row = _declared(point, sample['inputs'])
-                    add(row)
-                    for key, number in row.items():
-                        if type(number) in (int, float):
-                            for step in (-1, 1):
-                                add({**row, key: number + step})
-            for point in points:
-                numbers = _sealed_numbers(ast.parse(source(point)), point['qual'])
-                if numbers is not None:
-                    for row in list(inputs):
-                        for key, number in row.items():
-                            if type(number) in (int, float):
-                                for number in numbers:
-                                    add({**row, key: number})
+            from . import signals, cells as C
+            numbers = [number for point in points for number in _sealed_numbers(ast.parse(source(point)), point['qual']) or ()]
+            inputs, left = signals.copy_inputs([_declared(point, sample['inputs']) for point in points
+                                                for sample in samples.get(point['target'], {}).values()], numbers)
             if not inputs:
                 self.grey.append(name + ': no recorded JSON inputs')
-            from . import signals, cells as C
+            if cut := signals.copy_cut(name, 64, left):
+                self.grey.append(cut)
             places = {point['target']: self._place(point['target']) + ' ' + point['qual'] for point in points}
             owner = next((places[point['target']] for point in points if point['anchor'].owner), None)
-            current_rows, past_rows, old_unknown = [], [], False
+            rows = []       # (input, current answers, baseline answers, places whose baseline could not run)
             for row in inputs:
                 answered = []       # (point, current outcome, baseline outcome or None) of each copy that ran sealed
                 for point in points:
@@ -600,30 +641,26 @@ class Observations:
                     past_text = source(point, True)
                     existed = past_text is not None and point['qual'] in dict(R._functions(ast.parse(past_text)))
                     answered.append((point, now, run(point, sample, True) if existed else None))
-                witness = ', '.join(f'{key}={C.show(value)}' for key, value in row.items())
-                if any(past is not None and past['status'] == 'unavailable' for _, _, past in answered):
-                    old_unknown = True
-                old_outcomes = [(places[point['target']], past) for point, _, past in answered
-                                if past is not None and past['status'] != 'unavailable']
-                if old_outcomes and all(out['status'] == 'raised' for _, out in old_outcomes) and all(
-                        equal(out, old_outcomes[0][1]) for _, out in old_outcomes[1:]):
-                    old_unknown = True
-                past_rows.append((witness, [(place, value(out)) for place, out in old_outcomes]))
                 outcomes = [out for _, out, _ in answered]
                 if len(outcomes) < 2:
                     continue
                 if all(out['status'] == 'raised' for out in outcomes) and all(equal(out, outcomes[0]) for out in outcomes[1:]):
                     self.grey.append(name + ': copies raise exceptions')
                     continue
-                current_rows.append((witness, [(places[point['target']], value(out)) for point, out, _ in answered]))
-            new_lines, previous_lines = signals.copy_partition(current_rows, past_rows, equal, C.show, owner, len(points))
+                rows.append((', '.join(f'{key}={C.show(value)}' for key, value in row.items()),
+                             [(places[point['target']], value(out)) for point, out, _ in answered],
+                             {places[point['target']]: (value(past), past['status'] == 'raised') for point, _, past in answered
+                              if past is not None and past['status'] != 'unavailable'},
+                             {places[point['target']] for point, _, past in answered
+                              if past is not None and past['status'] == 'unavailable'}))
+            new_lines, previous_lines, open_lines = signals.copy_partition(rows, equal, C.show, owner, len(points))
             if previous_lines:
                 before.append(signals.copy_red(name, previous_lines))
             if new_lines:
-                if old_unknown:
-                    self.grey.append(name + ': baseline comparison unavailable; current copies disagree')
-                else:
-                    self.red.append(signals.copy_red(name, new_lines))
+                self.red.append(signals.copy_red(name, new_lines))
+            if open_lines:
+                self.grey.append(name + ': baseline comparison unavailable; current copies disagree ('
+                                 + '; '.join(f'{where}, {text}' for where, text, _, _ in open_lines) + ')')
         return items, before
 
     @contextmanager
@@ -664,10 +701,12 @@ class Observations:
             if point['target'] != home.target or index >= len(self.runtime.readings):
                 continue
             reading = self.runtime.readings[index]
-            if selector and not self._named_test(reading.test, selector):
+            # A repeated input has one reading for every test that made it: the call is the named test's own.
+            test = next((test for test in sorted(reading.tests) if self._named_test(test, selector)), None) if selector else reading.test
+            if test is None:
                 continue
             rows, why = self._rule_rows(point, reading)
-            calls.extend((inputs, outcome, reading.test) for inputs, outcome in rows)
+            calls.extend((inputs, outcome, test) for inputs, outcome in rows)
             reasons.extend(why)
         return calls, list(dict.fromkeys(reasons))
 
@@ -797,12 +836,12 @@ class Observations:
         for _, point, _, _, _ in self.records:
             if self.request and self.request['target'] == point['target']:
                 self.request['readings'].extend(reading for reading in self.runtime.readings if reading.target == point['target'])
-        # Only a call due for a comparison is `not compared`: a changed file's function, or one of two or more
-        # same-name copies. A lone unchanged `same` function has nothing to compare it with.
+        # Only a call due for a comparison is `not compared`: a function that changed itself, or one of two or
+        # more same-name copies. A lone unchanged `same` function has nothing to compare it with.
         copies = Counter(point['name'] for point in self.points.values() if point['anchor'] and point['kind'] == 'sensor')
         self.grey.extend(point['name'] + ': no comparable JSON result' for index, point, _, _, _ in self.records
                          if self.runtime.readings[index].sample is None
-                         and (point['file'] in self.files or copies[point['name']] > 1))
+                         and (point['changed'] or copies[point['name']] > 1))
         unverified, failed_items = [], set()      # an intent item's red is already a failed test
         for item, result in self.state.results.items():
             if result.get('verdict') == 'grey':
@@ -1236,7 +1275,7 @@ def pytest_runtest_protocol(item, nextitem):
         from .calibration import session as source_session
         try:
             state.get_model()
-            with state.verification(), source_session(state.runtime, state.source_items, nextitem=item):
+            with state.verification(), source_session(state.runtime, state.source_items, nextitem=item, events=state.events):
                 item._prepared_result = item.evaluate_verified()
         except Exception as error:
             item._evaluation_error = error, error.__traceback__
@@ -1247,12 +1286,14 @@ def pytest_runtest_protocol(item, nextitem):
             scopes.enter_context(state.observations.scope(item))
         from .calibration import probe_context
         # Anchor events are always recorded (local events on anchored code only), so
-        # show NAME and model draft have data after a plain pytest run.
+        # show NAME and model draft have data after a plain pytest run. A source change keeps the
+        # Flows' test-entry filter: no old-code rerun reads the other events (design 6.5). Without
+        # one (no Flows, or a Flow that starts in production code) an anchor no Flow reads is sampled.
         if (not isinstance(item, IntentItem) and item.name != SENTINEL and state.model is not None
                 and state.model.anchor_index.entries and not probe_context(item.config)):
             from .flow import Capture
             capture = scopes.enter_context(Capture(state.cfg.root, state.model.anchor_index, item.nodeid,
-                                                   models=state.model.flows.values() if state.model.flows and not state.observations.changed else None, _ordinary=True))
+                                                   models=state.model.flows.values(), _ordinary=True))
             if state.observations is not None:
                 # Modules imported during this test add their anchored code to the capture.
                 state.observations.capture = capture
@@ -1296,6 +1337,8 @@ def pytest_runtest_makereport(item, call):
     if state.complete_collection is not None and report.when == 'teardown':
         state.completed.add(item.nodeid)
     _skip_violation(item, call, report)
+    if not report.passed and not isinstance(item, IntentItem) and state.observations is not None:
+        state.runtime.outcome(item.nodeid, report.when, report.outcome, call.excinfo)       # what calibration reads
     state.durations[item.nodeid] = state.durations.get(item.nodeid, 0.0) + report.duration
     if item.name == SENTINEL and report.when == 'call':
         state.sentinel = 'ok' if report.passed or state.sentinel_ledger else 'failed'
@@ -1535,7 +1578,4 @@ def finish_verified(session, exitstatus):
             save_dependencies(con, records)
         _save_readings(con, state)
         _save_ordinary_collection(con, session, state)
-        if state.observations is not None and state.observations.fresh:
-            from .cache import save_comparisons
-            save_comparisons(con, state.observations.runtime.baseline, state.observations.fresh)
         con.commit()

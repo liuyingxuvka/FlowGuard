@@ -145,11 +145,6 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
-["flowguard/intent/calibration.py:_codes:(AttributeError, sites.NotMutable)"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
 ["flowguard/intent/calibration.py:_instrumented:(AttributeError, sites.NotMutable)"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
@@ -665,11 +660,6 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
-["flowguard/intent/runtime.py:Runtime.replay:BaseException"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
 ["flowguard/intent/runtime.py:_ObserverHub.add:Exception"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
@@ -970,7 +960,7 @@ count = 1
 reason = "Reports a failed or timed out isolated VM call as unavailable; it cannot inspect an untrusted exception object in the host or assert an answer."
 rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
-["flowguard/intent/runtime.py:_closed:(ValueError, TypeError, SyntaxError)"]
+["flowguard/intent/runtime.py:_scope:(ValueError, TypeError, SyntaxError)"]
 count = 1
 reason = "Excludes nonliteral assignments from the sealed namespace; later use must report an unavailable name instead of borrowing project state."
 rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }

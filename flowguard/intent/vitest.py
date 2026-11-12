@@ -96,19 +96,73 @@ def declarations(data, rel):
     return found
 
 
-def sealed_source(data, rel, name):
-    """Only the selected function, same-file helpers, and literal constants; never module imports."""
+_VITE_EXTENSIONS = ('.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json')     # Vite's default resolve.extensions
+
+
+def _literal_table(read, rel, specifier, tables):
+    """{name: text} of each `const NAME = literal` (a string, number, boolean or null) at the top level of the
+    project file a relative import names, read with `read(path)` and never run; {} for anything else. The file
+    is the first that exists in the order Vite tries: the exact path, each default extension, then an index
+    file; one Vite would load that is not a script gives {}. `tables` keeps each file's table, so one plan
+    reads and parses each imported file once."""
+    import posixpath
+    from ..structure.readers.common import parse, text
+    from ..structure.readers.registry import language_for
+    if read is None or not specifier.startswith('.'):
+        return {}
+    base = posixpath.normpath(posixpath.join(posixpath.dirname(rel), specifier))
+    if base in tables:
+        return tables[base]
+    stem = base.rpartition('.')[0] if base.endswith(('.js', '.mjs', '.cjs')) else base   # TS: ./x.js names x.ts
+    found = {}
+    for path in (base, *(stem + suffix for suffix in (*_VITE_EXTENSIONS, '.cts', '.cjs')),
+                 *(base + '/index' + suffix for suffix in _VITE_EXTENSIONS)):
+        if path.startswith('../') or path == '..':
+            continue
+        data = read(path)
+        if data is None:
+            continue
+        if language_for(path) is None:
+            break
+        source, tree = parse(data, language_for(path))
+        for statement in tree.root_node.named_children:
+            inner = statement.child_by_field_name('declaration') if statement.type == 'export_statement' else statement
+            if inner is None or inner.type != 'lexical_declaration' or not text(inner, source).startswith('const'):
+                continue
+            for item in inner.named_children:
+                key, value = item.child_by_field_name('name'), item.child_by_field_name('value')
+                while value is not None and value.type in ('as_expression', 'satisfies_expression', 'parenthesized_expression'):
+                    value = value.named_children[0]
+                if key is None or value is None or key.type != 'identifier':
+                    continue
+                negative = value.type == 'unary_expression' and text(value, source)[:1] == '-' \
+                    and [child.type for child in value.named_children] == ['number']
+                found.setdefault(text(key, source), text(value, source) if value.type in ('string', 'number', 'true', 'false', 'null')
+                                 or negative else None)
+        break
+    tables[base] = {name: value for name, value in found.items() if value is not None}
+    return tables[base]
+
+
+def sealed_source(data, rel, name, read=None, tables=None):
+    """Only the selected function, same-file helpers, and literal constants; never module imports. A name
+    imported from a relative project file whose top level declares it `const NAME = literal` is that literal
+    (`read(path)` gives a file's bytes, or None), read only when the closed source reads the name; any other
+    import stays unavailable. `tables` keeps the imported files' literals across calls (`_literal_table`)."""
+    tables = {} if tables is None else tables
     from ..structure.readers.common import parse, text, walk
     from ..structure.readers.registry import language_for
     source, tree = parse(data, language_for(rel))
     found = declarations(data, rel)
-    constants, blocked = {}, set()
+    constants, blocked, imported = {}, set(), {}
     for statement in tree.root_node.named_children:
         inner = statement.child_by_field_name('declaration') if statement.type == 'export_statement' else statement
         if inner is None:
             continue
         if inner.type == 'import_statement':
             clause = next((child for child in inner.named_children if child.type == 'import_clause'), None)
+            origin = inner.child_by_field_name('source')
+            specifier = text(origin, source)[1:-1] if origin is not None else ''
             for item in clause.named_children if clause is not None else ():
                 if item.type == 'identifier':
                     blocked.add(text(item, source))
@@ -117,8 +171,14 @@ def sealed_source(data, rel, name):
                 else:
                     for spec in item.named_children:
                         alias = spec.child_by_field_name('alias') or spec.child_by_field_name('name')
-                        if alias is not None:
+                        if alias is None:
+                            continue
+                        if text(inner, source).startswith('import type') or text(spec, source).startswith('type ') \
+                                or read is None or not specifier.startswith('.'):
                             blocked.add(text(alias, source))
+                            imported.pop(text(alias, source), None)
+                        else:       # a relative project file: read when the closed source reads the name
+                            imported[text(alias, source)] = specifier, text(spec.child_by_field_name('name'), source)
         if inner.type in ('class_declaration', 'abstract_class_declaration', 'enum_declaration', 'internal_module'):
             name_node = inner.child_by_field_name('name')
             if name_node is not None:
@@ -150,7 +210,7 @@ def sealed_source(data, rel, name):
             if target is not None and target.type == 'identifier':
                 blocked.add(text(target, source))
         pending_bindings.extend(node.named_children)
-    module_names = found.keys() | constants.keys() | blocked
+    module_names = found.keys() | constants.keys() | blocked | imported.keys()
     for node in walk(tree.root_node):
         if node.type in ('assignment_expression', 'augmented_assignment_expression', 'update_expression'):
             target = node.child_by_field_name('left') or node.child_by_field_name('argument')
@@ -221,12 +281,22 @@ def sealed_source(data, rel, name):
         used.add(current)
         if current in blocked:
             return '', 'uses imported or mutable binding ' + current
+        if current in imported:
+            pieces.append(f'const {current} = {imported[current]};')
+            continue
         if current in found:
             function = found[current]
             node = function['node']
             bad = next((child.type for child in walk(node) if child.type in forbidden), None)
-            shadowed = sorted({text(child, source) for child in walk(node)
-                               if child.type in ('identifier', 'shorthand_property_identifier') and text(child, source) in blocked})
+            spelled = {text(child, source) for child in walk(node) if child.type in ('identifier', 'shorthand_property_identifier')}
+            for alias in spelled & {alias for alias, value in imported.items() if type(value) is tuple}:
+                value = _literal_table(read, rel, imported[alias][0], tables).get(imported[alias][1])
+                if value is None:       # not a literal: unavailable, as any other import
+                    blocked.add(alias)
+                    del imported[alias]
+                else:
+                    imported[alias] = value
+            shadowed = sorted(spelled & blocked)
             if shadowed:
                 return '', 'uses imported or mutable binding ' + shadowed[0]
             if function['is_async'] or 'generator' in node.type or bad:
@@ -234,7 +304,7 @@ def sealed_source(data, rel, name):
             code = stripped(node)
             pieces.append(code if function['form'] == 'function' else f'const {current} = {code};')
             pending.extend(text(child, source) for child in walk(node)
-                           if child.type == 'identifier' and text(child, source) in found.keys() | constants.keys())
+                           if child.type == 'identifier' and text(child, source) in found.keys() | constants.keys() | imported.keys())
         else:
             node = constants[current]
             if current in folded:
@@ -263,7 +333,7 @@ def _constants_changed(before, now):
 def plan(cfg, commit, changed, key):
     """The points to observe and everything the Node adapter needs, as one JSON-ready dict."""
     from contextlib import closing
-    from ..map.common import git_blob
+    from ..map.common import git_blob, git_renames
     from ..structure import build
     from ..structure.extract import extract
     from .anchors import collect
@@ -277,12 +347,13 @@ def plan(cfg, commit, changed, key):
             if anchor.kind == 'sensor' and _ecma(anchor.file) and anchor.source_role != 'test':
                 wanted[anchor.target] = (anchor.name, True, anchor.file, anchor.qual)
         old_sources, readers = {}, {}
+        renamed = git_renames(cfg.root, commit)         # a moved file's baseline version is at its old path
         for rel in changed:
             if rel not in modules or is_test_rel(rel) or not (cfg.root / rel).is_file():
                 continue
             if (cfg.root / rel).read_text(encoding='utf-8-sig').startswith(INIT_MARK):
                 continue  # FlowGuard's generated wiring is not an application probe.
-            old = git_blob(cfg.root, commit, rel)
+            old = git_blob(cfg.root, commit, renamed.get(rel, rel))
             old_sources[rel] = old
             before = extract(cfg.root, rel, old, modules[rel], False) if old is not None else dict(nodes=[], const_tables=[])
             now = extract(cfg.root, rel, (cfg.root / rel).read_bytes(), modules[rel], False)
@@ -315,6 +386,8 @@ def plan(cfg, commit, changed, key):
         for row in graph.lookup_keys():
             strings.setdefault((row['file'], row['function']), []).extend(row['keys'])
         parsed, points, unplanned = {}, [], []
+        tables, old_tables = {}, {}         # each imported file's literals, read once per version
+        baseline_files = {renamed.get(rel, rel): data for rel, data in old_sources.items()}    # by baseline path
         for ident, (name, anchored, rel, qual) in sorted(wanted.items()):
             if rel not in parsed:
                 parsed[rel] = declarations((cfg.root / rel).read_bytes(), rel)
@@ -324,7 +397,8 @@ def plan(cfg, commit, changed, key):
                 unplanned.append(dict(id=ident, name=name, rel=rel, line=line,
                                       reason='only module-level function f and const f = (...) => are observed; this function is not wrapped'))
                 continue
-            closed, skip = sealed_source((cfg.root / rel).read_bytes(), rel, qual)
+            closed, skip = sealed_source((cfg.root / rel).read_bytes(), rel, qual,
+                                         lambda path: (cfg.root / path).read_bytes() if (cfg.root / path).is_file() else None, tables)
             from ..structure.readers.common import parse, walk, text
             from ..structure.readers.ecma import literal
             code, closed_tree = parse(closed.encode(), 'javascript')
@@ -335,8 +409,10 @@ def plan(cfg, commit, changed, key):
                     if token.parent.type == 'unary_expression' and text(token.parent, code).startswith('-'):
                         number = -number
                     extra_numbers.append(number)
-            old = old_sources.get(rel) if rel in old_sources else git_blob(cfg.root, commit, rel)
-            prior, old_skip = (sealed_source(old, rel, qual) if old is not None and qual in declarations(old, rel)
+            old_rel = renamed.get(rel, rel)     # a moved file's baseline imports name files next to its old path
+            old = old_sources.get(rel) if rel in old_sources else git_blob(cfg.root, commit, old_rel)
+            prior, old_skip = (sealed_source(old, old_rel, qual, lambda path: baseline_files.get(path) if path in baseline_files
+                                             else git_blob(cfg.root, commit, path), old_tables) if old is not None and qual in declarations(old, old_rel)
                                else ('', 'function absent at baseline'))
             points.append(dict(id=ident, name=name, anchored=anchored, owner=ident in owners, rel=rel, file=(cfg.root / rel).as_posix(), fn=qual,
                                line=found['line'], target_line=line, form=found['form'], params=found['params'], skip=skip,
@@ -608,8 +684,10 @@ def _inside(cfg, rel, package):
 
 
 def closed_rows(data, records):
-    """Compare source-only functions after the session, using real JSON inputs and copy neighbours."""
+    """Compare source-only functions after the session, using real JSON inputs and copy neighbours. Returns the
+    rows, the reasons by point and, by same name, what the input limit left out (`signals.copy_inputs`)."""
     import subprocess
+    from .signals import copy_inputs
     points = {point['id']: point for entry in data['files'].values() for point in entry['points']}
     actual, groups, reasons = {}, {}, {}
     for record in records:
@@ -630,17 +708,14 @@ def closed_rows(data, records):
             if len(result) == limit:
                 break
         return result
-    shared = {}
+    shared, cuts = {}, {}
     for name, peers in groups.items():
         if len(peers) < 2:
             continue
-        samples = unique([args for peer in peers for args in actual.get(peer['id'], ())], LIMIT)
-        extra, constants = [], sorted({number for peer in peers for number in peer['numbers']})
-        for args in samples:
-            for index, item in enumerate(args):
-                if type(item) in (int, float):
-                    extra.extend([*args[:index], number, *args[index + 1:]] for number in [item - 1, item + 1, *constants])
-        shared[name] = unique([*samples, *extra], LIMIT)
+        # The same union as the pytest side, on the positions of the arguments.
+        inputs, cuts[name] = copy_inputs([dict(enumerate(args)) for peer in peers for args in actual.get(peer['id'], ())],
+                                         [number for peer in peers for number in peer['numbers']], LIMIT)
+        shared[name] = [[row[index] for index in sorted(row)] for row in inputs]
     wanted, jobs, keys = {}, [], {}
     for ident, point in points.items():
         wanted[ident] = unique([*actual.get(ident, ()), *shared.get(point['name'], ())], None)
@@ -695,7 +770,7 @@ def closed_rows(data, records):
                 same=any(_same(args, sample) for sample in shared.get(point['name'], ())),
                 copies={copy['id']: outcome(copy['id'], False, args) for copy in point['copies']},
                 old_copies={copy['id']: outcome(copy['id'], True, args) for copy in point['copies']}))
-    return rows, reasons
+    return rows, reasons, cuts
 
 
 def judge(cfg, data, records, package=None):
@@ -707,7 +782,7 @@ def judge(cfg, data, records, package=None):
     from .loader import load
     from .sources import parse
     points = {point['id']: point for entry in data['files'].values() for point in entry['points']}
-    rows, reasons_by_point = closed_rows(data, records)
+    rows, reasons_by_point, cuts = closed_rows(data, records)
     calls = {}
     for record in records:
         calls.setdefault(record['id'], []).append(record)
@@ -755,10 +830,11 @@ def judge(cfg, data, records, package=None):
                           before=C.show(value(row['old'])), after=C.show(value(row['now']))) for row in changes],
             reasons=['TS classes come from comparison constants; this does not prove a complete partition'] + list(dict.fromkeys(reasons)),
             rows=[(row['in'], row['now']) for row in collected]))
-    # Same-name copies share replayed inputs. Classify disagreements by function pair: an old
-    # broken pair cannot hide another pair newly broken on a different input.
+    # Same-name copies share replayed inputs. Each input is judged on its own against the copies at the
+    # baseline: an old disagreement on one input cannot hide a pair newly broken on another (design 4.5).
     same_name = dict(compared=set(), disagreed={})
-    from .signals import copy_partition, rule_steps
+    from .signals import copy_cut, copy_partition, rule_steps
+    unverified.extend(line for name, left in cuts.items() if (line := copy_cut(name, LIMIT, left)))
     def copy_report(name, lines, existing=False):
         return (f'same-name anchor {name}: ' + '; '.join(
             f'{where}, {text}' + ('' if existing else f' -> {step}') for where, text, step, _ in lines)
@@ -770,49 +846,44 @@ def judge(cfg, data, records, package=None):
             continue
         handled.add(point['name'])
         samples = [row for row in rows.get(ident, ()) if row['same']]
-        current_rows, past_rows, old_unknown = [], [], False
+        current_rows, complete = [], True
         places = {target: f'{other["rel"]}:{other["target_line"]} {other["fn"]}'
                   for target, other in points.items()}
         owner = next((places[target] for target in [ident, *(copy['id'] for copy in point['copies'])]
                       if points[target].get('owner')), None)
+        missing = lambda answer: isinstance(answer, dict) and '$missing' in answer
+        threw = lambda answer: isinstance(answer, dict) and '$threw' in answer
         for row in sorted(samples, key=_counterexample(point, [record for record in calls.get(ident, ()) if 'args' in record])):
             inputs = ', '.join(f'{name}={C.show(value(item))}' for name, item in row['in'])
             old = [(ident, row['old']), *row['old_copies'].items()]
             old = [(target, answer) for target, answer in old
                    if points[target]['old_skip'] != 'function absent at baseline']
-            complete = all(not (isinstance(answer, dict) and '$missing' in answer) for _, answer in old)
-            if not complete:
-                old_unknown = True
-            available_old = [(places[target], answer) for target, answer in old
-                             if not (isinstance(answer, dict) and '$missing' in answer)]
-            if available_old and all(isinstance(answer, dict) and '$threw' in answer for _, answer in available_old) and all(
-                    _same(answer, available_old[0][1]) for _, answer in available_old):
-                old_unknown = True
-            past_rows.append((inputs, available_old))
+            known = [answer for _, answer in old if not missing(answer)]
+            complete = complete and len(known) == len(old) and not (
+                known and all(threw(answer) for answer in known) and all(_same(answer, known[0]) for answer in known))
             answers = [(places[ident], row['now'])]
             for copy in point['copies']:
                 theirs = row['copies'].get(copy['id'])
-                if theirs is not None and not (isinstance(theirs, dict) and '$missing' in theirs):
+                if theirs is not None and not missing(theirs):
                     answers.append((places[copy['id']], theirs))
             if len(answers) < 2:
                 continue
-            if all(isinstance(answer, dict) and '$threw' in answer for _, answer in answers) and all(
+            if all(threw(answer) for _, answer in answers) and all(
                     _same(answer, answers[0][1]) for _, answer in answers):
                 unverified.append(point['name'] + ': all copies raised the same exception; not compared')
                 continue
-            current_rows.append((inputs, answers))
-        new_lines, previous_lines = copy_partition(current_rows, past_rows, _same, lambda item: C.show(value(item)),
-                                                   owner=owner, total=len(point['copies']) + 1)
-        if not old_unknown and any(len(answers) == len(point['copies']) + 1 for _, answers in current_rows):
+            current_rows.append((inputs, answers, {places[target]: (answer, threw(answer)) for target, answer in old if not missing(answer)},
+                                 {places[target] for target, answer in old if missing(answer)}))
+        new_lines, previous_lines, open_lines = copy_partition(current_rows, _same, lambda item: C.show(value(item)),
+                                                               owner=owner, total=len(point['copies']) + 1)
+        if complete and any(len(answers) == len(point['copies']) + 1 for _, answers, _, _ in current_rows):
             same_name['compared'].add(point['name'])
         if previous_lines:
             before.append(copy_report(point['name'], previous_lines, existing=True))
         if new_lines:
-            line = copy_report(point['name'], new_lines)
-            if old_unknown:
-                unverified.append(line + ': baseline could not be compared')
-            else:
-                red.append(line)
+            red.append(copy_report(point['name'], new_lines))
+        if open_lines:
+            unverified.append(copy_report(point['name'], open_lines) + ': baseline could not be compared')
         if new_lines or previous_lines:
             same_name['disagreed'][point['name']] = copy_report(point['name'], new_lines + previous_lines)
     # rules on the observed calls and replayed classes, as the pytest side checks a reading

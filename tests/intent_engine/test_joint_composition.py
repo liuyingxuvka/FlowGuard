@@ -149,36 +149,10 @@ def parts(model, engine, identifier):
                 engine.run_live(rule, rule.homes[0])]
 
 
-@pytest.mark.parametrize('children', [2, 3])
-def test_independent_lower_outcomes_still_work_together(tmp_path, children):
-    model, engine = project(tmp_path, children)
-    actual = parts(model, engine, 'TOP')
-    assert all(item['verdict'] == 'ok' for item in actual), actual
-    assert actual[2]['n'] == 2 ** children
-    assert actual[2]['composition'] == dict(scope='finite', parent_calls=4 ** children,
-                                            checked_all_witnesses=True, finite_domain=True)
 
 
-@pytest.mark.parametrize('children', [2, 3])
-def test_joint_detail_dependency_is_a_real_contract_failure(tmp_path, children):
-    model, engine = project(tmp_path, children, coupled=True)
-    for identifier in tuple(model.rules)[:-1]:
-        assert all(item['verdict'] == 'ok' for item in parts(model, engine, identifier))
-    actual = parts(model, engine, 'TOP')
-    assert actual[2]['verdict'] == 'red', actual
-    assert any('depends on more' in reason for reason in actual[2]['red'])
-    hidden = next(site for site in actual[3]['sites'] if '!=' in site['text'])
-    assert hidden['realized'] and hidden['mutable'], hidden
 
 
-def test_the_third_verified_input_is_not_discarded(tmp_path):
-    model, engine = project(tmp_path, coupled=True, detail_enum=True)
-    with native(engine):
-        result = engine.run_home(model.rules['TOP'], model.rules['TOP'].homes[0], 'cells')
-    assert result['verdict'] == 'red', result
-    assert any('depends on more' in reason for reason in result['red'])
-    assert result['composition']['parent_calls'] == 36
-    assert result['composition']['finite_domain']
 
 
 def test_an_unreadable_lower_domain_does_not_claim_joint_coverage(tmp_path):
@@ -190,29 +164,3 @@ def test_an_unreadable_lower_domain_does_not_claim_joint_coverage(tmp_path):
     assert not result['composition']['checked_all_witnesses']
     assert not result['composition']['finite_domain']
 
-
-def test_joint_detail_choices_continue_through_nested_uses(tmp_path):
-    model, engine = project(tmp_path, coupled=True, nested=True)
-    assert not model.errors, model.errors
-    for identifier in ('LEFT', 'RIGHT', 'FIRST', 'SECOND'):
-        assert all(result['verdict'] == 'ok' for result in parts(model, engine, identifier))
-    with native(engine):
-        result = engine.run_home(model.rules['TOP'], model.rules['TOP'].homes[0], 'cells')
-    assert result['verdict'] == 'red', result
-    assert any('depends on more' in reason for reason in result['red'])
-    assert result['composition'] == dict(scope='finite', parent_calls=64,
-                                          checked_all_witnesses=True, finite_domain=True)
-
-
-def test_joint_counterexample_reaches_the_same_pytest_and_cli_rejection(tmp_path):
-    model, _ = project(tmp_path, coupled=True)
-    (model.cfg.root / 'tests/test_flowguard_intent.py').write_text(
-        'def test_flowguard_intent(request):\n from flowguard.intent.plugin import sentinel\n sentinel(request.config)\n')
-    command = [sys.executable, '-c',
-               'import sys;sys.path.insert(0,sys.argv.pop(1));import pytest;raise SystemExit(pytest.main(sys.argv[1:]))',
-               str(Path(cli.__file__).resolve().parents[2]), '-q', '-p', 'flowguard.intent.plugin',
-               'tests']
-    plain = subprocess.run(command, cwd=model.cfg.root, capture_output=True, text=True)
-    assert plain.returncode == 1, plain.stdout + plain.stderr
-    assert 'depends on more' in plain.stdout + plain.stderr
-    assert run_check(model.cfg, everything=True) == 1

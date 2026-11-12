@@ -145,9 +145,9 @@ def test_point_try_calls_sealed_exactly_once_without_faking_an_ordinary_call(tmp
     cfg, index, name = project(tmp_path, '# flowguard: sensor LIMIT\ndef limit(x: int) -> bool:\n    return x <= 3\n')
     calls, sealed_calls = [], []
     original = executor.sealed
-    def record(source, qual, args, kwargs):
+    def record(source, qual, args, kwargs, imports=None):        # imports: how project constants are read
         sealed_calls.append((qual, args, kwargs))
-        return original(source, qual, args, kwargs)
+        return original(source, qual, args, kwargs, imports)
     monkeypatch.setattr(executor, 'sealed', record)
     runtime = Runtime(tmp_path)
     with runtime.record(predicate=lambda code: code.co_filename == str(tmp_path / (name + '.py')) and code.co_name == 'limit',

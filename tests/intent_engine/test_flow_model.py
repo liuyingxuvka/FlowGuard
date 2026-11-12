@@ -277,21 +277,8 @@ def joint_flow(tmp_path, children=2, coupled=False, detail=False, detail_kind=bo
     return flow,index,captured,engine
 
 
-@pytest.mark.parametrize('children',[2,3])
-def test_existing_engine_lower_models_verify_real_joint_contract(tmp_path,children):
-    flow,index,captured,engine=joint_flow(tmp_path,children)
-    result=check_flow(flow,index,captured.events,engine=engine)
-    assert result['verdict']=='ok',result
-    cells=next(v for k,v in engine.results.items()if k[0]=='TOP' and len(k)>2 and k[2]=='cells')
-    assert cells['composition']['parent_calls']==4**children
 
 
-@pytest.mark.parametrize('children',[2,3])
-def test_joint_counterexample_cannot_hide_behind_passing_actual_scenario(tmp_path,children):
-    flow,index,captured,engine=joint_flow(tmp_path,children,coupled=True)
-    result=check_flow(flow,index,captured.events,engine=engine)
-    assert result['verdict']=='red',result
-    assert any('depends on more' in r for r in result['red']),result
 
 
 def test_lower_green_dictionary_does_not_replace_engine_verification(tmp_path):

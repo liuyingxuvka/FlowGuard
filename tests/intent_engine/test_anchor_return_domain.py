@@ -43,9 +43,9 @@ def test_mixed_return_does_not_waive_unknown_call_effects(tmp_path, monkeypatch)
     monkeypatch.chdir(root)
     with session(root):
         actual = A.observe(root, index.entries[0], {'expected': 'W', 'observed': 'W'})
-    # The sealed environment has no open() and no file methods, so it refuses the source before its write.
-    assert actual.status == 'grey' and any(reason.startswith('uses ') and ('close' in reason or 'open' in reason)
-                                           for reason in actual.reasons), actual.reasons
+    # The sealed environment has no open() and no file methods, so it refuses the source before its write:
+    # its qualification meets the outer `.close` attribute first and names it.
+    assert actual.status == 'grey' and actual.reasons == ('uses attribute close',), actual.reasons
     assert actual.value is None and not (root / 'WW').exists()
     loaded = sys.modules[index.entries[0].module]
     assert Path(loaded.__file__).resolve() == root / index.entries[0].file
@@ -66,7 +66,7 @@ def opaque(expected, observed):
         actual = A.observe(root, index.entries[0], {'expected': 'W', 'observed': 'W'})
     # The same-file helper enters the sealed environment with the function; its `with open` is refused
     # before it runs, even though the declared return permits several kinds and no result is guessed.
-    assert actual.status == 'grey' and any('With' in reason for reason in actual.reasons), actual.reasons
+    assert actual.status == 'grey' and actual.reasons == ('unsupported With',), actual.reasons
     assert actual.value is None
     loaded = sys.modules[index.entries[0].module]
     assert Path(loaded.__file__).resolve() == root / index.entries[0].file

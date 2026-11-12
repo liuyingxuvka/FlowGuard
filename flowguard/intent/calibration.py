@@ -1,7 +1,9 @@
-"""Source-bound observations in the one already collected pytest session.
+"""Calibrated observations from the calls a test made in the one ordinary pytest session.
 
-There is no transport, collector or test runner here. The pytest integration
-supplies its real items; Runtime owns call replay, events and fixture isolation.
+There is no transport, collector or test runner here, and no test runs again (design 4.5, 8): the
+pytest integration supplies its real items, the runtime's recorded calls and the anchor events of the
+ordinary run. A calibrated point is the named test's recorded JSON call with the requested inputs put
+in place, evaluated in the sealed environment.
 """
 from __future__ import annotations
 
@@ -25,21 +27,18 @@ class _Unavailable(ValueError):
     pass
 
 
-class _Stop(BaseException):
-    """The requested point replaced the named test's own anchor call; the private rerun ends there."""
-
-
 @dataclass
 class _Session:
     runtime: object
     items: tuple
     nextitem: object = None
+    events: list = ()           # the anchor events the ordinary tests recorded
 
 
 @contextmanager
-def session(runtime, items, *, nextitem=None):
-    """The real pytest plugin supplies its existing Runtime and collected items."""
-    token = _CURRENT.set(_Session(runtime, tuple(items), nextitem))
+def session(runtime, items, *, nextitem=None, events=()):
+    """The real pytest plugin supplies its existing Runtime, collected items and recorded events."""
+    token = _CURRENT.set(_Session(runtime, tuple(items), nextitem, events))
     try:
         with _execution_session(runtime.root):
             yield
@@ -153,43 +152,34 @@ def _value_in_context(anchor, original, name, incoming, actual):
     return incoming
 
 
-def _codes(index):
-    codes = []
-    for anchor in index.entries:
-        if anchor.kind not in {'sensor', 'event'}:
-            continue
-        try:
-            function = sites.unwrap(sites.resolve_loaded(anchor.target))
-        except (AttributeError, sites.NotMutable):
-            continue
-        if inspect.isfunction(function):
-            codes.append((function.__code__, anchor.target))
-    return codes
+def _recorded(scope, item, function):
+    """The one reading of `function` the named test's ordinary run recorded, or why there is none."""
+    target = function.__module__ + ':' + function.__qualname__
+    found = [reading for reading in scope.runtime.readings if reading.target == target and item.nodeid in reading.tests]
+    if not found:
+        if item.nodeid not in scope.runtime.ran:
+            return _unavailable('not compared: the named test did not run in this session')
+    if len(found) != 1:
+        return _passed(scope, item) or _unavailable('test must reach the actual anchor exactly once; '
+                                                     'target may be absent or ambiguous')
+    reading = found[0]
+    actual = reading.actual[1] if reading.actual is not None else None
+    if isinstance(actual, Raised) and not isinstance(actual.error, Exception):
+        return _unavailable('not compared: the named test\'s call ended with ' + type(actual.error).__name__)
+    if reading.actual is None or reading.sample is None:
+        return _unavailable('not compared: ' + ('; '.join(reading.reasons) or 'actual calibration call has no JSON reading'))
+    return reading
 
 
-def _reports(result, *, refusal=None, stop=None):
-    if not result.get('reports'):
-        return _unavailable('; '.join(result.get('reasons', ())) or 'the real test was not replayed')
-    unsupported = [error for _, error in result.get('errors', ()) if isinstance(error, _Unavailable)]
-    if unsupported:
-        return _unavailable('; '.join(str(error) for error in unsupported))
-    failures = [report for report in result['reports'] if not report.passed]
-    errors = result.get('errors', ())
-    if stop is not None:
-        if not any(error is stop for _, error in errors):
-            return _unavailable('the named test did not end at the replaced anchor call: it caught the controlled stop')
-        if len(errors) == 1 and errors[0][0] == 'call' and len(failures) == 1 and failures[0].when == 'call':
-            return None
-        return _unavailable('real calibration test had another failure besides the replaced anchor call: '
-                            + ', '.join(report.when + ' ' + report.outcome for report in failures), status='red')
-    if not failures:
-        return None
-    if (isinstance(refusal, Raised) and len(errors) == 1
-            and errors[0][0] == 'call' and errors[0][1] is refusal.error
-            and len(failures) == 1 and failures[0].when == 'call' and failures[0].failed):
+def _passed(scope, item, refusal=None):
+    """None when the named test's ordinary run passed (or failed only by raising `refusal`, the declared
+    outcome it observed), else the red that its real run did not pass."""
+    failed = scope.runtime.outcomes.get(item.nodeid, ())
+    if not failed or (refusal is not None and len(failed) == 1 and failed[0][:2] == ('call', 'failed')
+                      and failed[0][2] is refusal.error):
         return None
     return _unavailable('real calibration test did not pass completely: '
-                        + ', '.join(report.when + ' ' + report.outcome for report in failures), status='red')
+                        + ', '.join(when + ' ' + outcome for when, outcome, _ in failed), status='red')
 
 
 def _sensor(root, anchor, values):
@@ -206,70 +196,45 @@ def _sensor(root, anchor, values):
             return _unavailable('loaded function does not match the actual source anchor')
         if _instrumented((anchor.target,)):
             return _unavailable('calibration cannot replace installed code instrumentation with source execution')
-        readings, stop = [], _Stop()
-        def observe(original, bound):
-            from .runtime import Refused, _json
-            bound.apply_defaults()
-            requested = inspect.BoundArguments(bound.signature, dict(bound.arguments))
-            for parameter in anchor.parameters:
-                name = parameter.name
-                if name not in bound.arguments:
-                    continue
-                actual = bound.arguments[name]
-                try:
-                    kind = parameter_kind(parameter, actual)
-                except ValueError as error:
-                    raise _Unavailable(str(error)) from error
-                if kind is not None:
-                    requested.arguments[name] = _value_in_context(anchor, original, name, values.get(name, actual), actual)
-                elif name in values:
-                    raise _Unavailable(name + ': actual test context cannot be replaced')
-            expected, reason = scope.runtime.guarded(original, bound)
-            if reason:
-                raise _Unavailable(reason)
-            outcome, reason = scope.runtime.guarded(original, requested) if values else (expected, '')
-            if reason:
-                raise _Unavailable(reason)
-            position = len(scope.runtime.readings)
-            try:
-                return scope.runtime.observe(original, bound, owner=function, name=anchor.name, private=True,
-                                             fields=anchor.fields, line=anchor.line)
-            finally:
-                if len(scope.runtime.readings) > position:
-                    reading = scope.runtime.readings[position]
-                    actual = reading.actual[1] if reading.actual is not None else None
-                    if isinstance(actual, Raised) and not isinstance(actual.error, Exception):
-                        pass  # Process control keeps propagating from the real call.
-                    else:
-                        if reading.actual is None or reading.sample is None:
-                            raise _Unavailable('; '.join(reading.reasons) or 'actual calibration call has no JSON reading')
-                        if anchor.fields and (reading.fields is None or reading.field_reasons):
-                            raise _Unavailable('; '.join(reading.field_reasons) or 'actual calibration fields are unavailable')
-                        if isinstance(actual, Raised) and isinstance(expected, Raised):
-                            try:
-                                agrees = type(actual.error) is type(expected.error) and _json(actual.error.args) == _json(expected.error.args)
-                            except Refused as error:
-                                raise _Unavailable(str(error)) from error
-                        else:
-                            agrees = not isinstance(actual, Raised) and not isinstance(expected, Raised) \
-                                and outcome_equal(reading.json_result, expected)
-                        if not agrees:
-                            raise _Unavailable('actual named-test outcome differs from the sealed source outcome')
-                        readings.append(outcome)
-                        if values:
-                            raise stop
-        observe.__flowguard_transport__ = (type(scope.runtime).guarded.__code__, type(scope.runtime).observe.__code__)
-        with sites.intercepted(function, observe):
-            replay = scope.runtime.replay(item, nextitem=scope.nextitem)
-        if problems := scope.runtime.observer_issues():
-            return _unavailable('; '.join(problems))
-        replaced = bool(values) and bool(readings)
-        failed = _reports(replay, stop=stop if replaced else None)
-        if failed:
+        reason = scope.runtime.safety(function)        # a source the sealed environment cannot run is never compared
+        if reason:
+            return _unavailable(reason)
+        reading = _recorded(scope, item, function)
+        if isinstance(reading, dict):
+            return reading
+        if anchor.fields and (reading.fields is None or reading.field_reasons):
+            return _unavailable('; '.join(reading.field_reasons) or 'actual calibration fields are unavailable')
+        signature = inspect.signature(function, follow_wrapped=False)
+        bound = inspect.BoundArguments(signature, dict(reading.sample['inputs']))
+        expected, reason = scope.runtime.guarded(function, bound)
+        if reason:
+            return _unavailable(reason)
+        actual = reading.actual[1]
+        # A raised exception agrees by its type and message, as the sealed environment reports it.
+        agrees = outcome_equal(actual, expected) if isinstance(actual, Raised) else \
+            not isinstance(expected, Raised) and outcome_equal(reading.json_result, expected)
+        if not agrees:
+            return _unavailable('actual named-test outcome differs from the sealed source outcome')
+        if failed := _passed(scope, item):
             return failed
-        if len(readings) != 1:
-            return _unavailable('test must reach the actual anchor exactly once; target may be absent or ambiguous')
-        return dict(status='ok', outcome=readings[0])
+        from .tracer import recorded_entry
+        recorded_entry(function.__code__)           # the named test's recorded call entered the anchor
+        if not values:
+            return dict(status='ok', outcome=expected)
+        # The named test's own call is the context; only the requested inputs take other values.
+        requested = inspect.BoundArguments(signature, dict(bound.arguments))
+        for parameter in anchor.parameters:
+            if parameter.name not in values:
+                continue
+            if parameter.source not in requested.arguments:
+                return _unavailable(parameter.name + ': not an argument of the named test\'s call')
+            if parameter_kind(parameter, requested.arguments[parameter.source]) is None:
+                return _unavailable(parameter.name + ': actual test context cannot be replaced')
+            requested.arguments[parameter.source] = values[parameter.name]
+        outcome, reason = scope.runtime.guarded(function, requested)
+        if reason:
+            return _unavailable(reason)
+        return dict(status='ok', outcome=outcome)
     except (OSError, ValueError, TypeError, SyntaxError, AttributeError, sites.NotMutable) as error:
         return _unavailable(str(error))
 
@@ -360,8 +325,11 @@ def _tuple_point(value):
 
 
 def _scenario(root, binding, values):
+    """The scenario test's own recorded run: its entry arguments and the production anchor reading the Flow
+    projects. A requested input other than the recorded one would need the test to run again, which never
+    happens (design 4.5, 8): that point is not compared."""
     from .anchors import _source, _accepts, parameter_kind
-    from .flow import Capture, relation_observations
+    from .flow import relation_observations
     issue = _values(binding.scenario, values)
     if issue:
         return issue
@@ -374,44 +342,33 @@ def _scenario(root, binding, values):
         if (Path(function.__code__.co_filename).resolve() != (Path(root) / binding.scenario.file).resolve()
                 or function.__qualname__.replace('.<locals>.', '.') != binding.scenario.qual):
             return _unavailable('selected pytest function is not the declared scenario event')
-        capture = Capture(root, binding.anchor_index, binding.testnode)
-        calls = []
-        def enter(original, bound):
-            for name, value in values.items():
-                parameter = next(p for p in binding.scenario.parameters if p.name == name)
-                try:
-                    kind = parameter_kind(parameter, bound.arguments.get(name))
-                except ValueError as error:
-                    raise _Unavailable(str(error)) from error
-                actual = bound.arguments.get(name)
-                if kind is None and not (
-                        parameter.inferred and name in binding.field_map.values()
-                        and type(value) is tuple and type(actual) is tuple
-                        and _tuple_point(value) and _tuple_point(actual)
-                        and _accepts(parameter.source_type, value) and _accepts(parameter.source_type, actual)):
-                    raise _Unavailable(name + ': actual test context cannot be replaced')
-                bound.arguments[name] = _value_in_context(binding.scenario, original, name, value, bound.arguments.get(name))
-            calls.append(dict(bound.arguments))
-            return original(*bound.args, **bound.kwargs)
-        codes = _codes(binding.anchor_index)
-        codes.append((function.__code__, binding.scenario.target))
-        previous = len(scope.runtime.issues)
-        try:
-            with sites.intercepted(function, enter):
-                with scope.runtime.record(codes, callback=capture.on_trace, private=True):
-                    replay = scope.runtime.replay(item, nextitem=scope.nextitem)
-        finally:
-            capture.close()
-        problems = capture.issues + scope.runtime.issues[previous:] + scope.runtime.observer_issues()
-        if problems:
-            return _unavailable('; '.join(problems))
-        if len(calls) != 1:
-            return _reports(replay) or _unavailable('scenario must reach exactly one actual pytest entry')
-        projection = relation_observations(binding.flow, capture, binding.anchor_index, _rule_id(binding))
+        if _instrumented(set(binding.targets) | set(binding.actual_targets)):
+            return _unavailable('the scenario was recorded before code instrumentation; its outcome is not the instrumented code\'s')
+        events = [event for event in scope.events if event.case == item.nodeid]
+        entries = [event for event in events if event.site == binding.scenario.target and event.phase == 'call']
+        if not entries and item.nodeid not in scope.runtime.ran:
+            return _unavailable('not compared: the scenario test did not run in this session')
+        if len(entries) != 1:
+            return _unavailable('scenario must reach exactly one actual pytest entry')
+        recorded = entries[0].values
+        for name, value in values.items():
+            parameter = next(p for p in binding.scenario.parameters if p.name == name)
+            actual = recorded.get(name)
+            if parameter_kind(parameter, actual) is None and not (
+                    parameter.inferred and name in binding.field_map.values()
+                    and type(value) is tuple and type(actual) is tuple
+                    and _tuple_point(value) and _tuple_point(actual)
+                    and _accepts(parameter.source_type, value) and _accepts(parameter.source_type, actual)):
+                return _unavailable(name + ': actual test context cannot be replaced')
+            _value_in_context(binding.scenario, function, name, value, actual)
+            if name not in recorded or not outcome_equal(recorded[name], value):
+                shown = repr(recorded[name]) if name in recorded else 'no recorded value'
+                return _unavailable(f'not compared: the scenario test ran with {name}={shown}; another input '
+                                    'needs the test to run again, which FlowGuard never does')
+        projection = relation_observations(binding.flow, events, binding.anchor_index, _rule_id(binding))
         observations = [row for row in projection['observations'] if row['relation_index'] in binding.relation_indices]
         if projection['status'] != 'observed' or len(observations) != 1:
-            failed = _reports(replay)
-            return failed or _unavailable('; '.join(projection['grey']) or 'scenario has ambiguous actual reading scopes')
+            return _unavailable('; '.join(projection['grey']) or 'scenario has ambiguous actual reading scopes')
         observed = observations[0]
         if observed['sources'].get('$actual', {}).get('site') not in binding.actual_targets:
             return _unavailable('actual reading does not come from a declared production anchor')
@@ -419,12 +376,14 @@ def _scenario(root, binding, values):
         for field, value in requested.items():
             if field not in observed['inputs'] or not outcome_equal(observed['inputs'][field], value):
                 return _unavailable('actual scenario input did not match ' + field)
-        failed = _reports(replay, refusal=observed['actual'])
-        if failed:
+        if failed := _passed(scope, item, observed['actual'] if isinstance(observed['actual'], Raised) else None):
             return failed
+        from .tracer import recorded_entry
+        recorded_entry(sites.unwrap(sites.resolve_loaded(observed['sources']['$actual']['site'])).__code__)
         return dict(status='ok', outcome=observed['actual'], inputs=observed['inputs'], sources=observed['sources'])
     except Exception as error:
-        return _unavailable('scenario verification failed: ' + type(error).__name__ + ': ' + str(error))
+        return _unavailable(str(error) if isinstance(error, _Unavailable)
+                            else 'scenario verification failed: ' + type(error).__name__ + ': ' + str(error))
 
 
 def _scenario_key(binding):
@@ -440,18 +399,10 @@ def _prepare_scenario(root, binding):
     if _instrumented(set(binding.targets) | set(binding.actual_targets)):
         return _unavailable('scenario must be prepared before code instrumentation')
     baseline = _scenario(root, binding, {})
-    zero = _scenario(root, binding, {}) if baseline['status'] == 'ok' else baseline
-    if baseline['status'] == zero['status'] == 'ok':
-        result = (dict(status='ok') if outcome_equal(baseline['outcome'], zero['outcome'])
-                  and outcome_equal(baseline['inputs'], zero['inputs']) else
-                  _unavailable('original-value scenario readings differ from the complete original test'))
-    else:
-        result = zero
+    result = dict(status='ok') if baseline['status'] == 'ok' else baseline
     if facts is not None:
         facts[key] = result
     return result
-
-
 
 
 def _observe_scenario_current(root, binding, values):
