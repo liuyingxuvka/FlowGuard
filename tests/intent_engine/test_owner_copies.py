@@ -1182,3 +1182,41 @@ def test_two_typescript_union_declarations_with_different_members_are_a_lead(tmp
     assert code == 0 and _block(text)[1:] == [
         "impact: declarations LendingStatus: backend/src/lending.ts:1 declares 'ACTIVE' | 'DRAFT' | 'ENDED'; frontend/src/lending.ts:1 declares "
         "'ACTIVE' | 'DRAFT' -> fix it, or say why in your report"], text
+
+
+def test_a_similar_implementation_lead_leaves_out_and_never_asks_to_register_the_copies_registered_with_it(tmp_path):
+    """A changed copy of `same ACCEPT` whose former twin is the registered reference: that name's comparison covers the
+    pair, so the lead names only the unregistered look-alike, under the registered name, and asks to mark only it."""
+    root = _project(tmp_path, {
+        'orders.py': '''
+            # flowguard: same ACCEPT ref
+            def accept(days: int) -> bool:
+                return days <= 3
+
+
+            # flowguard: same ACCEPT
+            def preview_accept(days: int) -> bool:
+                return days <= 3
+
+
+            def quote_accept(days: int) -> bool:
+                return days <= 3
+        ''',
+    })
+    orders = root / 'orders.py'
+    orders.write_text(orders.read_text().replace('def preview_accept(days: int) -> bool:\n    return days <= 3',
+                                                 'def preview_accept(days: int) -> bool:\n    return days <= 4'), encoding='utf-8')
+    _check(root, '--static')
+    leads = [lead for lead in _leads(root) if lead.startswith('similar-implementation leads: ')]
+    assert len(leads) == 1 and 'orders.py:2' not in leads[0] and 'PREVIEW_ACCEPT' not in leads[0] and ' ref' not in leads[0], leads
+    assert 'orders.py:11' in leads[0] and leads[0].endswith('write above each copy not marked yet: # flowguard: same ACCEPT)'), leads
+    # check compares the behaviour instead; none of its leads asks to register the registered copies either
+    _check(root)
+    assert not any('PREVIEW_ACCEPT' in lead for lead in _leads(root)), _leads(root)
+    # With the look-alike registered too, every former twin is covered: no lead at all.
+    orders.write_text(orders.read_text().replace('\ndef quote_accept', '# flowguard: same ACCEPT\ndef quote_accept'), encoding='utf-8')
+    _git(root, 'add', '.')
+    _git(root, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'mark the look-alike')
+    orders.write_text(orders.read_text().replace('return days <= 4', 'return days <= 5'), encoding='utf-8')
+    _check(root, '--static')
+    assert not any(lead.startswith('similar-implementation leads: ') for lead in _leads(root)), _leads(root)

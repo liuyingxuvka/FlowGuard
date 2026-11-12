@@ -1576,16 +1576,19 @@ def _project_spellings(change, groups):
     return kept
 
 
-def changed_once(change, decided=()):
+def changed_once(change, decided=(), index=None):
     """A changed function whose baseline body (the fingerprint without name and docstring) an unchanged
     function still has: the copy this edit probably also needed. Static; `check` compares behavior. A member
     of a copies family the owner decided (`[structure."copies:a+b"]`; `decided` holds the member functions of
     each such health.copies issue as it stood at the baseline, the code the owner decided on) does not count
     the other members of that family; a function of the same name outside it (a method, an exact copy the
-    family leaves out) still counts."""
+    family leaves out) still counts. A copy registered with the changed function as copies of one same name
+    (`index`, the flowguard comments) is not counted either: that name's comparison already covers them, and
+    the lead never asks to register what is registered (`_lock_hint`)."""
     from flowguard.structure.readers.registry import ECMA, language_for
     from flowguard.structure.store import shape_list
     found = Findings()
+    registered = {anchor.target: anchor.name for anchor in index.entries if anchor.kind == 'sensor'} if index is not None else {}
     foreign = sorted(file for file in change.files if language_for(file) in ECMA and not is_test_file(file)
                      and file in change._modules)
     files = change.changed_python() + foreign
@@ -1617,19 +1620,30 @@ def changed_once(change, decided=()):
                        if other not in touched and other not in known and old_shape and shape
                        and len(old_shape & shape) / len(old_shape | shape) >= SIMILAR_FOREIGN]
         fellows = set().union(*(members for members in decided if ident in members))
-        twins = [item for item in twins if item[0] not in fellows]          # the owner decided this family
-        similar = [item for item in similar if item[0] not in fellows]
+        own = registered.get(ident)
+        # the owner decided this family; copies registered with this function are compared as that name
+        twins = [item for item in twins if item[0] not in fellows and not (own and registered.get(item[0]) == own)]
+        similar = [item for item in similar if item[0] not in fellows and not (own and registered.get(item[0]) == own)]
         if twins or similar:
-            name = ident.partition(':')[2].rpartition('.')[2].strip('_').upper()
+            marked = [registered[other] for other in (ident, *(item[0] for item in [*twins, *similar])) if other in registered]
+            name = marked[0] if marked else ident.partition(':')[2].rpartition('.')[2].strip('_').upper()
             comment = '//' if similar or language_for(node.get('file') or '') in ECMA else '#'
             parts = ([f'previously identical copies: {len(twins)} unchanged: ' + '  '.join(f'{file}:{line}' for _, file, line in twins)] if twins else []) \
                 + ([f'similar structure (shape similarity at least {SIMILAR_FOREIGN:g}): {len(similar)} also unchanged: '
                     + '  '.join(f'{file}:{line}' for _, file, line in similar)] if similar else [])
             found.leads.append(f'{ident.partition(":")[2]}({node.get("file")}:{node.get("line")}) changed; ' + '; '.join(parts)
-                               + f'(update them together when required; to lock them, write above the reference: {comment} flowguard: same {name} ref, '
-                                 f'above the copy: {comment} flowguard: same {name})')
+                               + _lock_hint(comment, name, bool(marked)))
             _hide(found, 'similar-implementation leads', found.leads[-1])
     return found
+
+
+def _lock_hint(comment, name, marked):
+    """How a similar-implementation lead says to register its copies as copies of `name`: the reference and the copy
+    when neither is registered yet, else only the copies not marked (`marked`: one of them is registered already)."""
+    if marked:
+        return f'(update them together when required; to lock them, write above each copy not marked yet: {comment} flowguard: same {name})'
+    return (f'(update them together when required; to lock them, write above the reference: {comment} flowguard: same {name} ref, '
+            f'above the copy: {comment} flowguard: same {name})')
 
 
 # ---- what this change loosened, and the fields it newly writes (4.3) ----------------------------------
@@ -1842,7 +1856,7 @@ def static_findings(cfg, graph, index, base=None, *, everything=False, replay=Fa
                 named = {issue.name for issue in then}
                 decided = [issue.nodes for issue in then if issue.name in decisions] + [
                     issue.nodes for issue in copies.issues if issue.name in decisions and issue.name not in named]
-            found.extend(changed_once(change, decided))
+            found.extend(changed_once(change, decided, index))
     if change.baseline or everything:
         found.extend(literal_drift(change, everything=everything))
     found.extend(health.deletes(change, everything=everything)).extend(health.columns(change, everything=everything))
@@ -2377,7 +2391,13 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
         owned = [item for item in changed if item['id'] in anchored and anchored[item['id']].owner]
         row = owned[0] if owned else min(changed, key=lambda item: (len(item['qual']), item['qual']))
         anchor = anchored[row['id']] if owned else next((anchored[item['id']] for item in changed if item['id'] in anchored), None)
-        name = anchor.name if anchor else row['qual'].strip('_').upper()
+        if anchor:
+            # a look-alike registered under the changed function's name is compared as that name: no lead names it
+            similar = [(peer, why) for peer, why in similar if not (peer['id'] in anchored and anchored[peer['id']].name == anchor.name)]
+            if not twins and not similar:
+                continue
+        marked = [anchored[peer['id']].name for peer in [*twins, *(peer for peer, _ in similar)] if peer['id'] in anchored]
+        name = anchor.name if anchor else marked[0] if marked else row['qual'].strip('_').upper()
         parts = []
         if twins:
             parts.append(f'{len(twins)} previously equivalent copies are unchanged: ' + '  '.join(f'{peer["file"]}:{peer["line"]}' for peer in twins))
@@ -2401,8 +2421,7 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
             found.red.append(f'{"reference" if anchor.owner else "anchor"} {anchor.name}：' + text + ' → ' + step)
             found.issues.append(_changed_alone_issue(anchor, changed, twins, _ascii(step)))     # the legacy line keeps its text
         else:
-            found.leads.append(text + f'(update them together when required; to lock them, write above the reference: # flowguard: same {name} ref, '
-                                      f'above the copy: # flowguard: same {name})')
+            found.leads.append(text + _lock_hint('#', name, bool(anchor or marked)))
             _hide(found, 'similar-implementation leads', found.leads[-1])
     found.stats.update(changed_examined=examined, changed_seconds=time.perf_counter() - started)
     return found
