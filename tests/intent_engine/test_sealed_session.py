@@ -321,9 +321,10 @@ def test_an_old_disagreement_on_one_input_does_not_hide_a_new_one_on_another(tmp
     assert 'days=91' in before and 'days=7' not in before, text
 
 
-def _three_copies(tmp_path, other_now, policy_change):
-    """policy, other and third answer n + 1; at the baseline other read STEP from another module (it cannot
-    run sealed there), now it is `other_now`."""
+def _three_copies(tmp_path, other_now, policy_change, step='len("x")'):
+    """policy, other and third answer n + 1; at the baseline other read STEP = `step` from another module (a
+    computed constant by default, which it cannot run sealed with; a literal one is read from source), now it
+    is `other_now`."""
     path = _project(tmp_path, '# flowguard: same ANSWER\ndef answer(n):\n    return n + 1\n', '''
         from other import answer as other
         from policy import answer
@@ -331,7 +332,7 @@ def _three_copies(tmp_path, other_now, policy_change):
         def test_answer():
             assert answer(2) == other(2) == third(2) == 3
     ''')
-    (tmp_path / 'settings.py').write_text('STEP = 1\n')
+    (tmp_path / 'settings.py').write_text('STEP = ' + step + '\n')
     (tmp_path / 'other.py').write_text('from settings import STEP\n# flowguard: same ANSWER\ndef answer(n):\n    return n + STEP\n')
     (tmp_path / 'third.py').write_text('# flowguard: same ANSWER\ndef answer(n):\n    return n + 1\n')
     _git(tmp_path, 'add', 'settings.py', 'other.py', 'third.py')
@@ -358,6 +359,16 @@ def test_a_new_disagreement_where_a_baseline_could_not_run_is_not_compared_rathe
     result, text, report = _three_copies(tmp_path, 'n + 1 if n != 3 else 0', None)
     assert result.returncode == 0 and not _named(report['red'], 'ANSWER') and not report['before'], text
     assert any('ANSWER: baseline comparison unavailable' in reason and 'n=3' in reason for reason in _reasons(report)), text
+
+
+def test_a_copy_whose_baseline_reads_an_imported_literal_is_compared_at_the_baseline(tmp_path):
+    # At the baseline other read STEP = 1 from settings, a literal the sealed run reads from its source: the
+    # three copies agreed at n=3 before, so other's new answer there is red, not "baseline comparison unavailable".
+    result, text, report = _three_copies(tmp_path, 'n + 1 if n != 3 else 0', None, step='1')
+    red, = _named(report['red'], 'ANSWER')
+    assert result.returncode == 1 and 'n=3' in red and '1 copies return 0 (other.py:2 answer)' in red, text
+    assert not report['before'] and not any('ANSWER: baseline comparison unavailable' in reason
+                                            for reason in _reasons(report)), text
 
 
 # ---- comparison due: the function itself changed (before/after), or its name has two or more copies -------
