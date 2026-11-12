@@ -1334,6 +1334,39 @@ def test_a_run_with_nothing_to_observe_still_prints_the_map_checks_and_a_run_wit
     assert code == 0 and _block(text)[1:] == [], text
 
 
+def test_the_block_leaves_a_machine_readable_report_on_stdout_whole(vitest_home):
+    # Review of 4.3: `vitest run --reporter=json > report.json` got the block after the JSON, which then no longer
+    # parsed ("Extra data"); junit and tap the same. A reporter that writes its document to stdout sends the block
+    # to stderr; with its document in a file, or another reporter, the block stays on stdout after the summary.
+    import xml.etree.ElementTree as ElementTree
+    root = vitest_home / 'machine'
+    _commit(root, {
+        'package.json': '{"name":"machine","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/a.ts': '// flowguard: same LIMIT\nexport function over(x: number) { return x > 3; }\n',
+        'src/b.ts': '// flowguard: same LIMIT\nexport function enough(x: number) { return x > 3; }\n',
+        'tests/app.test.ts': "import {it,expect} from 'vitest'; import {over} from '../src/a'; it('real',()=>expect(over(4)).toBe(true));\n",
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired')
+    def run(*arguments):
+        done = subprocess.run([_tool('node'), str(vitest_home / 'node_modules/vitest/vitest.mjs'), 'run', *arguments], cwd=root,
+                              capture_output=True, encoding='utf-8', timeout=600, env=_environment())
+        return done.returncode, ANSI.sub('', done.stdout), ANSI.sub('', done.stderr)
+    for reporter, read in (('json', json.loads), ('junit', ElementTree.fromstring)):
+        code, out, err = run(f'--reporter={reporter}')
+        assert code == 0 and not TITLE.search(out) and TITLE.search(err), (reporter, out, err)
+        read(out.strip())                                  # the whole of stdout is the reporter's document
+    for arguments in (['--reporter=tap'], ['--reporter=tap-flat', '--outputFile=ignored.txt']):     # tap has no output file
+        code, out, err = run(*arguments)
+        assert code == 0 and out.lstrip().startswith('TAP version') and not TITLE.search(out) and TITLE.search(err), (arguments, out, err)
+    # its document in a file, or a reporter for people: the block follows the summary on stdout
+    code, out, err = run('--reporter=json', '--outputFile.json=report.json')
+    assert code == 0 and TITLE.search(out) and not TITLE.search(err), (out, err)
+    assert json.loads((root / 'report.json').read_text(encoding='utf-8'))['success'] is True
+    code, out, err = run('--reporter=default')
+    assert code == 0 and TITLE.search(out) and not TITLE.search(err) and _block(out), (out, err)
+
+
 def test_a_recorded_function_keeps_its_stack_positions_after_a_line_or_paragraph_separator(vitest_home):
     # JavaScript ends a line at U+2028 and U+2029 too: the recorder's source map counts lines the same way,
     # so a stack position inside a recorded function is the one vitest gives without FlowGuard (line 7, column 13).
