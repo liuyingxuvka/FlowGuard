@@ -268,6 +268,15 @@ def test_the_first_line_names_the_baseline_each_way_a_run_can_have_one():
     assert signals.baseline_label(None, 'HEAD') == 'no baseline: nothing compared'
 
 
+def test_the_first_line_shortens_a_commit_id_and_names_a_ref_as_it_was_given():
+    """Only a full commit id is cut to seven characters: a branch, a tag, HEAD~1 or an abbreviated id is the name the
+    option was given (`since --base release/task-start`, never `since --base release`)."""
+    assert [signals.baseline_label(given, 'base', None, '--base') for given in (
+        'release/task-start', 'origin/main', 'HEAD~1', 'v4.2.1', '6e18a86f', 'c' * 40, 'd' * 64)] == [
+        'since --base release/task-start', 'since --base origin/main', 'since --base HEAD~1', 'since --base v4.2.1',
+        'since --base 6e18a86f', 'since --base ccccccc', 'since --base ddddddd']
+
+
 def test_red_loosened_and_known_fixed_are_listed_in_full_and_the_rest_keep_to_ten_lines():
     lines = ([_line('red', number) for number in range(15)] + [_line('loosened', number) for number in range(4)]
              + [_line('known fixed?', number) for number in range(3)] + [_line('changed', number) for number in range(5)]

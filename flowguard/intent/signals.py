@@ -7,7 +7,7 @@ import re
 from decimal import Decimal, InvalidOperation
 
 from . import cells as C
-from .sources import ACTS
+from .sources import ACTS, SHA
 
 
 def _short(text, width=100):
@@ -381,11 +381,13 @@ def version():
 
 def baseline_label(baseline, kind, ahead=None, option='--flowguard-base'):
     """What the first line says a run compared with: the task start (`since 99f025e`, and how many commits HEAD
-    lies after it), HEAD standing in (`since HEAD 99f025e`), an explicit baseline by the option that named it, a
-    recorded start this repository lacks, or none."""
+    lies after it), HEAD standing in (`since HEAD 99f025e`), an explicit baseline by the option that named it
+    (`since --base release/task-start`), a recorded start this repository lacks, or none. A full commit id is
+    shortened to its first seven characters; anything else (a branch, a tag, HEAD~1, an abbreviated id) is printed
+    as it was given."""
     if not baseline:
         return 'no baseline: nothing compared'
-    short = baseline[:7]
+    short = baseline[:7] if SHA.fullmatch(baseline) else baseline
     if kind == 'missing':
         return f'since {short}, not in this repository: nothing compared; run python -m flowguard new-task'
     if kind == 'base':

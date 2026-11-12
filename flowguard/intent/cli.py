@@ -1065,7 +1065,10 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=Fal
     baseline, kind, ahead = (batch['baseline'], batch['baseline_kind'], batch['baseline_ahead']) if batch else start
     files = git_files(cfg.root)         # the repository's files, which no shortened path of the block may name
     seconds = time.perf_counter() - timing - own.seconds + sum(part['seconds'] for part in reports)
-    heading = signals.title(lines, baseline=baseline, kind=kind, ahead=ahead, option='--base', seconds=seconds)
+    # An explicit --base is named as it was given (`since --base release/task-start`), as check --static names it,
+    # also where the pytest batch resolved it to its commit.
+    heading = signals.title(lines, baseline=baseline if base is None else base, kind=kind, ahead=ahead, option='--base',
+                            seconds=seconds)
     _keep_last(cfg, signals.last_run(lines, ignored, run='check', stamp=started, baseline=baseline, kind=kind, title=heading,
                                      seconds=seconds, deprecated=deprecation.used(mark), hidden=found.hidden))
     status = int(any(line.kind == 'red' for line in lines))

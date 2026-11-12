@@ -481,6 +481,29 @@ def _ledgered(tmp_path):
 _RUNS = (((), True), (('check', '--static'), False), (('check',), False))
 
 
+def test_an_explicit_base_named_by_a_ref_is_named_in_full_in_the_title(tmp_path):
+    """`--base release/task-start` is named as it was given, never cut to seven characters like a commit id; check
+    names it so also when its pytest batch (an intent rule runs) resolved it to its commit, as check --static does.
+    pytest's --flowguard-base names that commit, shortened."""
+    root, cfg = _plain(tmp_path)
+    (root / 'tests/intent/limit.py').write_text(
+        'from flowguard.intent import rule, row\n'
+        '@rule("LIMIT_RULE", decides="limit", fields={"days": int}, source="assumed: at most three days", anchor="LIMIT")\n'
+        'def LIMIT_RULE(days):\n    return days <= 3\n'
+        'LIMIT_RULE.rows(row(days=4, expect=False, why="the fourth day stays refused"))\n')
+    git(root, 'add', '.')
+    git(root, 'commit', '--quiet', '-m', 'fixture rule')
+    git(root, 'branch', 'release/task-start')
+    head = git(root, 'rev-parse', 'HEAD')
+    for arguments in (('check',), ('check', '--static')):
+        code, text = _run(root, *arguments, '--base', 'release/task-start')
+        assert code == 0, (arguments, text)
+        _reported_title(text, 'since --base release/task-start')
+    code, text = _run(root, '--flowguard-base=release/task-start', pytest_run=True)
+    assert code == 0, text
+    _reported_title(text, f'since --flowguard-base {head[:7]}')
+
+
 def test_the_title_of_every_run_says_how_far_the_task_start_lies_before_head(tmp_path):
     """A task start that commits have moved past (an agent that never runs new-task, a 4.1 rules block) is named
     with its distance and the next task's step, so earlier tasks' changes are not taken for this one's."""
