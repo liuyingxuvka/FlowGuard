@@ -1052,13 +1052,12 @@ class Observations:
         return signals.render_block(self.lines, title=heading)
 
     def last(self, seconds):
-        """The payload `cache.save_last` keeps for `show --last`."""
-        from dataclasses import asdict
-        from . import deprecation
-        return dict(stamp=self.state.started, run='pytest', baseline=self.missing or self.runtime.baseline,
-                    baseline_kind=self.baseline_kind, title=self.block(seconds).partition('\n')[0], seconds=seconds,
-                    lines=[asdict(line) for line in self.lines], ignored=self.ignored,
-                    deprecated=deprecation.used(self.state.deprecations), hidden=self.hidden, compared=self.compared)
+        """The payload `cache.save_last` keeps for `show --last` (`signals.last_run`)."""
+        from . import deprecation, signals
+        return signals.last_run(self.lines, self.ignored, run='pytest', stamp=self.state.started,
+                                baseline=self.missing or self.runtime.baseline, kind=self.baseline_kind,
+                                title=self.block(seconds).partition('\n')[0], seconds=seconds,
+                                deprecated=deprecation.used(self.state.deprecations), hidden=self.hidden, compared=self.compared)
 
     def _found(self, family, name, subject, what, step, *, function='', places=(), files=(), detail=()):
         """Add `what` to the finding (name, function) of this session; returns that key."""

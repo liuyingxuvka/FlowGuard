@@ -335,7 +335,11 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
 # One renderer for every run: the first line counts each kind and FlowGuard's own time, then only lines of the
 # kinds, in KINDS order, within the budget of design 4.7; `show --last` prints every line with its detail. A run
 # that has findings of its own gives them to `delivery` (Issues, and lines already of their kind); `collect`
-# turns them, with the static findings, into lines (`deliver`); `title` and `render_block` print them.
+# turns them, with the static findings, into lines (`deliver`); `title` and `render_block` print them, and the run
+# keeps them with `cache.save_last`. The pytest plugin does so for a session (`Observations.report`); a check that
+# runs pytest in batches finds each batch's delivery in `plugin.collect_signals().deliveries` and passes them, with
+# its own (`finding`, `copies_issue`, `not_compared`) and the static findings, to one `collect`; the vitest report
+# builds its delivery from its judged points the same way (`changed_line`, `copy_says` through `copy_partition`).
 
 MORE = 'python -m flowguard show --last'
 WIDTH = 200                 # characters of one line, its paths not counted
@@ -576,6 +580,16 @@ def collect(deliveries, found=None, *, everything=False):
     lines, ignored = deliver(issues, touched_functions=functions, touched_files=files, known=known, ran=ran,
                              everything=everything, extra=extra)
     return lines, ignored + decided
+
+
+def last_run(lines, ignored, *, run, stamp, baseline, kind, title, seconds, deprecated=(), hidden=(), compared=()):
+    """What `cache.save_last` keeps of a run for `show --last`, in one shape for every run ('pytest', 'check',
+    'check --static', 'vitest'): its first line and seconds, every line, the ignored count, the deprecated features
+    it used, the 5.0-deprecated leads that got no line ({feature, text}) and the unchanged points it compared."""
+    from dataclasses import asdict
+    return dict(stamp=stamp, run=run, baseline=baseline, baseline_kind=kind, title=title, seconds=seconds,
+                lines=[asdict(line) for line in lines], ignored=ignored, deprecated=list(deprecated), hidden=list(hidden),
+                compared=list(compared))
 
 
 def changed_line(name, target, file, line, changes, compared, *, cause=None, unanchored=False):

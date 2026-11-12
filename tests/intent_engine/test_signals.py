@@ -529,3 +529,32 @@ def test_a_known_entry_naming_an_old_same_name_disagreement_is_its_known_line_in
         'before: same WEEKS disagreed at task start on year=2025: policy.py:weeks returns 52, policy.py:iso_weeks returns 53 '
         '-> leave it unless your task is about it', "loosened: known.iso-weeks removed from known.toml -> name it in your report; needs the owner's yes"
     ], result.stdout
+
+
+def test_an_intent_item_failing_only_on_a_source_broken_at_task_start_passes_and_is_before_where_touched(tmp_path):
+    """Design 6.1: the exit code follows red only. A quote already gone from its document at the baseline makes no
+    verdict red; it is a before line where the change touches the file declaring the rule, else nothing."""
+    from tests.intent_engine.test_default_runtime_signals import _git, _project, _run
+    from tests.intent_engine._cli_fixture import block
+    root = tmp_path / 'gone'
+    _project(root, '# flowguard: sensor STANDING\ndef standing(days: int) -> bool:\n    return days <= 3\n',
+             'from policy import standing\ndef test_native():\n    assert standing(0) is True\n', rule='''
+        from flowguard.intent import rule, row
+        @rule('STANDING_RULE', decides='standing', fields={'days': int}, anchor='STANDING',
+              source='doc policy.txt "At most three days."')
+        def STANDING_RULE(days):
+            return days <= 3
+        STANDING_RULE.rows(row(days=4, expect=False, why='the fourth day must remain refused'))
+    ''')
+    (root / 'policy.txt').write_text('At most four days.\n', encoding='utf-8')
+    _git(root, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qam', 'the quote is gone')
+    untouched = _run(root)
+    assert untouched.returncode == 0 and '5 passed' in untouched.stdout, untouched.stdout + untouched.stderr
+    assert not any(line.startswith(('red: ', 'before: ')) for line in block(untouched)), untouched.stdout
+    intent = root / 'tests/intent/decisions.py'
+    intent.write_text(intent.read_text() + '# a comment beside the rule\n', encoding='utf-8')
+    touched = _run(root)
+    assert touched.returncode == 0 and '5 passed' in touched.stdout, touched.stdout + touched.stderr
+    assert [line for line in block(touched) if line.startswith(('red: ', 'before: '))] == [
+        'before: source STANDING_RULE at decisions.py:2 was broken at task start -> leave it unless your task is about it'
+    ], touched.stdout
