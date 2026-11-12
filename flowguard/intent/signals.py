@@ -1,7 +1,7 @@
 """Small, bounded views over comparison facts; never runs application code."""
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 import re
 from decimal import Decimal, InvalidOperation
@@ -216,6 +216,7 @@ FAMILIES = {
     'writers': (False, None, True),     # fields several files write without an agreement: shown in impact lines
 }
 BEFORE_STEP = 'leave it unless your task is about it'
+BROKEN = {'same': 'disagreed at task start'}        # what a before line says of an old member; else 'was broken ...'
 IMPACT_STEP = 'fix it, or say why in your report'
 KNOWN_STEPS = {'leave': 'leave it (the owner deferred it)', 'fix': 'fix it in this change and say so in your report'}
 FIXED_STEPS = {'leave': 'the owner deferred it: revert, or say why in your report',
@@ -277,10 +278,16 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
         speaking = [entry for entry in naming if entry.act != 'ignore']
         ignoring = ignorable and len(speaking) < len(naming)
         names.add(issue.name)
+        verb = BROKEN.get(issue.family, 'was broken at task start')
         for function, place, what, step in issue.parts:
-            places = (place,) if place else ()
+            # A tuple of places is named by `what` itself, which reads on after the subject (and after the verb of a
+            # before line: `same N disagreed at task start on year=2025: ...`).
+            many = isinstance(place, tuple)
+            places = tuple(place) if many else (place,) if place else ()
+            text = f'{issue.subject}: {place} {what}' if place and not many else f'{issue.subject}: {what}'
+            where = ', '.join(places)
             if function in issue.fresh and red:
-                lines.append(Line('red', issue.name, function, f'{issue.subject}: {place} {what}', step, places,
+                lines.append(Line('red', issue.name, function, text, step, places,
                                   issue.detail + tuple(f'known.{entry.id} names this finding; this change added it, '
                                                        'so it stays red' for entry in naming)))
                 said.update(entry.id for entry in naming)
@@ -288,18 +295,19 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
                 if ignoring and not speaking:
                     ignored.add((issue.name, function))
                 elif shown:
-                    lines.append(Line(new or 'impact', issue.name, function, f'{issue.subject}: {place} {what}',
-                                      IMPACT_STEP, places, issue.detail))
+                    lines.append(Line(new or 'impact', issue.name, function, text, IMPACT_STEP, places, issue.detail))
             elif ignoring and not speaking:
                 ignored.add((issue.name, function))
             elif shown and (everything or (function in touched_functions if function else bool(issue.files & touched_files))):
                 for entry in speaking:
                     if everything or entry.nodes & touched_functions or entry.files & touched_files:
-                        lines.append(Line('known', f'known.{entry.id}', function, f'known.{entry.id} at {place}',
+                        lines.append(Line('known', f'known.{entry.id}', function, f'known.{entry.id}' + (f' at {where}' if where else ''),
                                           _known_step(entry), places, _known_detail(entry)))
                         said.add(entry.id)
                 if not speaking:
-                    lines.append(Line('before', issue.name, function, f'{issue.subject} at {place} was broken at task start',
+                    lines.append(Line('before', issue.name, function,
+                                      f'{issue.subject} {verb} {what}' if many else
+                                      f'{issue.subject} at {place} {verb}' if place else f'{issue.subject} {verb}',
                                       BEFORE_STEP, places, issue.detail))
     for entry in entries:
         if entry.id in said:
@@ -318,6 +326,281 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
     for line in lines:
         unique.setdefault((line.kind, line.name, line.function), line)
     return sorted(unique.values(), key=lambda line: KINDS.index(line.kind)), len(ignored)
+
+
+# ---- the end-of-run block (4.3) -------------------------------------------------------------------
+# One renderer for every run: the first line counts each kind and FlowGuard's own time, then only lines of the
+# kinds, in KINDS order, within the budget of design 4.7; `show --last` prints every line with its detail. A run
+# that has findings of its own gives them to `delivery` (Issues, and lines already of their kind); `collect`
+# turns them, with the static findings, into lines (`deliver`); `title` and `render_block` print them.
+
+MORE = 'python -m flowguard show --last'
+WIDTH = 200                 # characters of one line, its paths not counted
+PLACES = 3                  # places one line names; more are counted
+SHOWN = {'changed': 3, 'impact': 2}        # lines of these kinds shown; the others are counted in `+N more`
+OLD = 2                     # before and known lines shown; the others are one count line
+NOT_COMPARED_STEP = 'not a failure'
+CHANGED_STEP = 'if you meant it, say so'
+LEDGER_STEP = 'python -m flowguard ledger check prints the entry to add or change'
+
+
+def version():
+    """FlowGuard's MAJOR.MINOR, as the first line names it."""
+    from flowguard import __version__
+    return '.'.join(__version__.split('.')[:2])
+
+
+def baseline_label(baseline, kind, ahead=None, option='--flowguard-base'):
+    """What the first line says a run compared with: the task start (`since 99f025e`, and how many commits HEAD
+    lies after it), HEAD standing in (`since HEAD 99f025e`), an explicit baseline by the option that named it, a
+    recorded start this repository lacks, or none."""
+    if not baseline:
+        return 'no baseline: nothing compared'
+    short = baseline[:7]
+    if kind == 'missing':
+        return f'since {short}, not in this repository: nothing compared; run python -m flowguard new-task'
+    if kind == 'base':
+        return f'since {option} {short}'
+    if kind == 'HEAD':
+        return f'since HEAD {short}'
+    if ahead:
+        return f'since {short}, {ahead} commit{"" if ahead == 1 else "s"} before HEAD'
+    return f'since {short}'
+
+
+def title(lines, *, baseline, kind, ahead=None, option='--flowguard-base', seconds):
+    """The first line of a run: `FlowGuard 4.3 (since 99f025e): 1 red, 2 known; 3.4 s`. Every kind is counted before
+    the budget, red always, the others when there are any; `seconds` is FlowGuard's own work in the run."""
+    counts = Counter(line.kind for line in lines)
+    told = [f'{counts["red"]} red', *(f'{counts[kind]} {kind}' for kind in KINDS[1:] if kind != 'deprecated' and counts[kind])]
+    return f'FlowGuard {version()} ({baseline_label(baseline, kind, ahead, option)}): {", ".join(told)}; {seconds:.1f} s'
+
+
+def render_block(lines, *, title, everything=False):
+    """The block a run prints: `title`, then the lines in KINDS order. red, loosened and known fixed? are listed in
+    full; of the others at most ten: changed 3, before and known 2 and one line counting the rest, impact 2, not
+    compared one line summing every such line up, and one `+N more` for the changed and impact lines left out. One
+    line keeps at most 200 characters besides its paths (the middle of its text gives way, never its subject, places
+    or step) and names at most three places; a place's path is its file name (the shortest unique end of the path
+    where two places share one). `everything` (`--all`): every line, uncut. `deprecated` lines are never part of it."""
+    lines = sorted((line for line in lines if line.kind != 'deprecated'), key=lambda line: KINDS.index(line.kind))
+    names = _short_paths(path for line in lines for path in map(_path_of, line.places) if path)
+    out = [title]
+    if everything:
+        return '\n'.join(out + [_said(line, names, cap=False) for line in lines])
+    by = {kind: [line for line in lines if line.kind == kind] for kind in KINDS}
+    out += [_said(line, names) for line in by['red']]
+    old = by['before'] + by['known']
+    out += [_said(line, names) for line in old[:OLD]]
+    if rest := old[OLD:]:
+        known = sum(line.kind == 'known' for line in rest)
+        before = len(rest) - known
+        counted = ', '.join(part for part in (f'{known} known' * bool(known), f'{before} before' * bool(before)) if part)
+        out.append(f'{"known" if known > before else "before"}: {len(rest)} more ({counted}) -> {MORE}')
+    out += [_said(line, names) for line in by['known fixed?']]
+    out += [_said(line, names) for line in by['changed'][:SHOWN['changed']]]
+    out += [_said(line, names) for line in by['impact'][:SHOWN['impact']]]
+    out += [_said(line, names) for line in by['loosened']]
+    if by['not compared']:
+        out.append(_cap(_summary(by['not compared'], names)))
+    if more := sum(max(0, len(by[kind]) - shown) for kind, shown in SHOWN.items()):
+        out.append(f'+{more} more: {MORE}')
+    return '\n'.join(out)
+
+
+def _summary(lines, names):
+    """The one `not compared` line: what was not compared (one by name; up to three named after their count, more
+    counted as functions, or items when not every one is a function) and why, the most common reason first (each
+    line's reasons are its detail)."""
+    reasons = Counter()
+    for line in lines:
+        for reason in dict.fromkeys(_one_line(reason).removeprefix('not compared: ') for reason in line.detail or ('no reason recorded',)):
+            reasons[reason] += 1
+    ranked = [reason for reason, _ in sorted(reasons.items(), key=lambda item: -item[1])]
+    noun = 'function' if all(line.function for line in lines) else 'item'
+    if len(ranked) == 1:
+        said = ranked[0]
+    elif len(ranked) == 2:
+        said = f'{ranked[0]}, or {ranked[1]}'
+    else:
+        said = f'{ranked[0]}, {ranked[1]}, or {len(ranked) - 2} other reason{"s" * (len(ranked) > 3)}'
+    subjects = [_shorten(_one_line(line.text), line.places, names) for line in lines]
+    if len(lines) == 1:
+        what = subjects[0]
+    elif len(lines) <= PLACES:
+        what = f'{len(lines)} {noun}s: ' + ', '.join(subjects[:-1]) + ' and ' + subjects[-1]
+    else:
+        what = f'{len(lines)} {noun}s'
+    return f'not compared: {what} ({said}) -> {NOT_COMPARED_STEP}'
+
+
+def _one_line(text):
+    """Project text on one line: a line break would start a line of the block that is none of its kinds."""
+    return re.sub(r'\s*[\r\n]+\s*', ' ', str(text))
+
+
+def _path_of(place):
+    """The path of a place `path:symbol`, `path:line` or `path` (repository-relative, POSIX)."""
+    return str(place).partition(':')[0].strip()
+
+
+def _short_paths(paths):
+    """{path: what the block prints}: its file name, or where two paths of the block share one, the shortest end of
+    each that no other of them shares."""
+    paths = sorted(set(paths))
+    shown = {}
+    for path in paths:
+        parts = path.split('/')
+        for size in range(1, len(parts) + 1):
+            end = '/'.join(parts[-size:])
+            if not any(other != path and (other == end or other.endswith('/' + end)) for other in paths):
+                break
+        shown[path] = end
+    return shown
+
+
+def _said(line, names, *, cap=True):
+    """One line of the block: `{kind}: {text} -> {step}`, its places' paths shortened, at most three places and 200
+    characters besides its paths (`cap`)."""
+    text, step = _one_line(line.text), _one_line(line.step)
+    if cap and len(line.places) > PLACES:
+        for place in line.places[PLACES:]:
+            for joined in (', ' + place, '  ' + place, ' ' + place, place):
+                if joined in text:
+                    text = text.replace(joined, '', 1)
+                    break
+        text += f' (+{len(line.places) - PLACES} places)'
+    said = _shorten(f'{line.kind}: {text}' + (f' -> {step}' if step else ''), line.places, names)
+    if not cap:
+        return said
+    return _cap(said, [names.get(path, path) for path in map(_path_of, line.places) if path],
+                [_shorten(place, (place,), names) for place in line.places[:PLACES] if place])
+
+
+def _shorten(text, places, names):
+    """`text` with the path of each of `places` as the block prints it (`_short_paths`)."""
+    for path in sorted((path for path in map(_path_of, places) if path), key=len, reverse=True):
+        text = re.sub(r'(?<![\w./-])' + re.escape(path) + r'(?![\w/-])', lambda _, path=path: names.get(path, path), text)
+    return text
+
+
+def _cap(said, paths=(), places=()):
+    """`said` within WIDTH characters besides the `paths` it names: the longest stretch of its text that is neither the
+    head up to the first ': ' (kind and subject), one of its `places`, nor the step after the last ' -> ' gives way in
+    its middle."""
+    def width(text):
+        return len(text) - sum(text.count(path) * len(path) for path in set(paths) if path)
+    if width(said) <= WIDTH:
+        return said
+    head, _, body = said.partition(': ')
+    subject, colon, body = body.partition(': ') if ': ' in body[:80] else ('', '', body)
+    body, arrow, step = body.rpartition(' -> ') if ' -> ' in body else (body, '', '')
+    head = head + ': ' + subject + colon
+    kept = {piece for piece in (*places, *paths) if piece}
+    pattern = '(' + '|'.join(re.escape(piece) for piece in sorted(kept, key=len, reverse=True)) + ')' if kept else None
+    pieces = [piece for piece in (re.split(pattern, body) if pattern else [body]) if piece]
+    while width(head + ''.join(pieces) + arrow + step) > WIDTH:
+        free = [index for index, piece in enumerate(pieces) if piece not in kept and len(piece) > 7]
+        if not free:
+            break
+        index = max(free, key=lambda index: len(pieces[index]))
+        piece = pieces[index]
+        excess = width(head + ''.join(pieces) + arrow + step) - WIDTH
+        keep = max(4, len(piece) - excess - 3)
+        pieces[index] = piece[:(keep + 1) // 2] + '...' + piece[len(piece) - keep // 2:]
+        if len(pieces[index]) >= len(piece):
+            break
+    return head + ''.join(pieces) + arrow + step
+
+
+def finding(family, name, subject, whats, step, *, function='', places=(), files=(), detail=(), fresh=True):
+    """A finding of one member as `deliver` reads it (a `health.Issue`): its first `what`, and how many more it has,
+    after the subject (`{subject}: {what}`, `places` the paths the line names), the others in its detail. `fresh`:
+    this change added it (findings judged without a baseline, as an intent test's red, always are)."""
+    from .health import Issue, LINES_ONLY
+    whats = list(dict.fromkeys(_one_line(what) for what in whats)) or ['']
+    what = whats[0] + (f' (+{len(whats) - 1} more)' if len(whats) > 1 else '')
+    return Issue(name, LINES_ONLY, subject, f'{subject}: {what}', step, files=frozenset(files), new=fresh, family=family,
+                 subject=subject, parts=((function, tuple(places), what, step),), fresh=frozenset({function}) if fresh else frozenset(),
+                 detail=tuple(whats[1:]) + tuple(detail))
+
+
+def not_compared(subject, reasons, *, function='', places=()):
+    """A `not compared` line: what was not compared (its function, or '' for another item) and why (its detail),
+    which the block sums up in one line."""
+    return Line('not compared', 'not compared:' + (function or subject), function, subject, NOT_COMPARED_STEP,
+                tuple(places), tuple(dict.fromkeys(reasons)) or ('no reason recorded',))
+
+
+def delivery(issues=(), lines=(), *, touched_functions=(), touched_files=()):
+    """What one run (one pytest session, a vitest report, a check batch) gives the block: its own findings (Issues of
+    the families that need no map: rule, flow, same, test, input, ledger, source), lines already of their kind
+    (changed, not compared) and what it knows the change touches. `collect` merges several."""
+    return dict(issues=list(issues), lines=list(lines), touched_functions=frozenset(touched_functions),
+                touched_files=frozenset(touched_files))
+
+
+def collect(deliveries, found=None, *, everything=False):
+    """(lines, ignored) of the deliveries of a run and its static findings (`owners.static_findings`, or None when the
+    map checks did not run): every finding, the lines of their kind, the known entries, the families that ran and
+    what the change touches, through `deliver`. `ignored` adds the issues a `[structure]` decision closed."""
+    issues, extra, functions, files = [], [], set(), set()
+    for part in deliveries:
+        issues += part['issues']
+        extra += part['lines']
+        functions |= part['touched_functions']
+        files |= part['touched_files']
+    known, ran, decided = (), frozenset(), 0
+    if found is not None:
+        issues += found.issues
+        extra += found.lines
+        functions |= found.touched_functions
+        files |= found.touched_files
+        known, ran, decided = found.known, found.ran, len(found.decided)
+    lines, ignored = deliver(issues, touched_functions=functions, touched_files=files, known=known, ran=ran,
+                             everything=everything, extra=extra)
+    return lines, ignored + decided
+
+
+def changed_line(name, target, file, line, changes, compared, *, cause=None, unanchored=False):
+    """The `changed` line of a function whose sealed run answers its recorded inputs differently than at the baseline:
+    `changes` [(inputs, old, new)], the first of the smallest inputs shown (all of them in the detail), `compared` the
+    number of inputs compared."""
+    rows = [dict(inputs=inputs, before=old, after=new) for inputs, old, new in changes]
+    first = rows[0]
+    if all(row['inputs'] for row in rows):
+        points = {key: sorted({row['inputs'][key] for row in rows if key in row['inputs']}, key=C._k) for key in first['inputs']}
+        least = C.smallest([row['inputs'] for row in rows], points)
+        first = next((row for row in rows if row['inputs'] == least), first)
+    def said(row):
+        return f'({", ".join(f"{key}={value_text(value)}" for key, value in row["inputs"].items())}) was {value_text(row["before"])}, now {value_text(row["after"])}'
+    place = f'{file}:{line}' if line else file
+    detail = [said(row) for row in rows]
+    if isinstance(cause, dict):
+        detail.append(f'cause: {cause.get("name", "code")} {_shown(cause.get("before"))} -> {_shown(cause.get("after"))}'
+                      f' ({cause["file"]}:{cause["line"]})')
+    elif cause:
+        detail.append(f'cause: {cause}')
+    if unanchored:
+        detail.append('no flowguard comment: compared because its code changed')
+    return Line('changed', f'changed:{target}', target, f'{name} ({place}): {said(first)}; {len(rows)}/{compared} inputs differ',
+                CHANGED_STEP, (place,), tuple(_one_line(text) for text in detail))
+
+
+def value_text(value):
+    """A recorded JSON value as Python spells it: 'text', True, None, 3; a raised exception as `raises ...`."""
+    if type(value) is dict and set(value) == {'raises'}:
+        return f'raises {value["raises"]}'
+    if type(value) in (dict, list):
+        import json
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+    return repr(value)
+
+
+def ascii_text(text):
+    """A FlowGuard text written before 4.3 with its full-width punctuation and arrows in ASCII."""
+    from .owners import _ascii
+    return _ascii(str(text))
 
 
 # ---- the end-of-test view ------------------------------------------------------------------------
@@ -364,7 +647,56 @@ def copy_answers(answers, same, show, owner=None, total=None, apart=()):
     return text, 'first decide which copy is correct, then make ' + ('the other copy' if len(answers) == 2 else 'the remaining copies') + ' agree with it'
 
 
-def copy_lines(inputs, same, show, owner=None, total=None, *, only=None):
+def copy_says(answers, same, show, owner=None, total=None, apart=()):
+    """(what, step) of one input of same-name copies in the words of the 4.3 lines, without choosing which copy is
+    right: `a.py:f returns 52, b.py:g returns 53`; copies with one answer are listed together (`a and b return 52`),
+    the reference first when `owner` names it, whose step is then to make the others agree with it. `apart` and
+    `total` as in `copy_answers`."""
+    aside = dict(apart)
+    groups = []
+    for place, value in answers:
+        if place in aside:
+            continue
+        group = next((group for group in groups if same(group[0], value)), None)
+        if group is None:
+            groups.append((value, [place]))
+        else:
+            group[1].append(place)
+    groups.sort(key=lambda group: (owner not in group[1], -len(group[1])))
+    def who(places):
+        names = [('the reference ' if place == owner else '') + place for place in places]
+        return names[0] if len(names) == 1 else ', '.join(names[:-1]) + ' and ' + names[-1]
+    text = ', '.join(f'{who(places)} {"returns" if len(places) == 1 else "return"} {show(value)}' for value, places in groups)
+    if aside:
+        text += '; ' + ', '.join(f'{place} differs from the reference on {where}' for place, where in aside.items())
+    missing = (total or len(answers)) - len(answers)
+    if missing:
+        text += f'; {missing} other cop{"y has" if missing == 1 else "ies have"} no result for this input'
+    if owner is not None:
+        others = [place for value, places in groups if owner not in places for place in places]
+        return text, f'make {", ".join(others)} agree with the reference {owner}'
+    return text, 'decide which copy is right, then make the ' + ('other agree' if len(answers) == 2 else 'others agree')
+
+
+def copies_issue(name, fresh, old, *, places, files=()):
+    """The `same:NAME` finding (`deliver`) of same-name copies from the `copy_partition` lines worded by `copy_says`:
+    one member per line, the pairs of copies it shows to differ (`a|b`, sorted), new where this change broke them
+    (`fresh`), else old. Its places are the copies the line names; it is touched where a copy's file is."""
+    from .health import Issue, LINES_ONLY
+    parts, new = [], set()
+    for lines, added in ((fresh, True), (old, False)):
+        for where, text, step, pairs in lines:
+            function = ';'.join(sorted('|'.join(sorted(pair)) for pair in pairs))
+            named = tuple(sorted((place for place in set(places) if place in text), key=text.find))
+            parts.append((function, named, f'on {_one_line(where)}: {_one_line(text)}', step))
+            if added:
+                new.add(function)
+    return Issue(f'same:{name}', LINES_ONLY, f'same {name}', f'same {name}: copies disagree', parts[0][3] if parts else '',
+                 files=frozenset(files), new=bool(new), family='same', subject=f'same {name}', parts=tuple(parts),
+                 fresh=frozenset(new))
+
+
+def copy_lines(inputs, same, show, owner=None, total=None, *, only=None, words=None):
     """The lines of one same-name red, in the same words in pytest and `check`: [(input, text, step, pairs)].
 
     `inputs` [(input, [(place, value)])] is what the copies answered each input, in the order to report. A line
@@ -389,7 +721,7 @@ def copy_lines(inputs, same, show, owner=None, total=None, *, only=None):
                  for place, value in answers
                  if owned and place != owner and same(values[owner], value)
                  and any(frozenset((owner, place)) in theirs for _, _, theirs in kept)]
-        text, step = copy_answers(answers, same, show, owner=owner if owned else None, total=total, apart=apart)
+        text, step = (words or copy_answers)(answers, same, show, owner=owner if owned else None, total=total, apart=apart)
         lines.append((where, text, step, pairs))
     return lines
 
@@ -405,7 +737,7 @@ def _differing(answers, same, owner=None):
             for other, theirs in answers[number + 1:] if not same(value, theirs)}
 
 
-def copy_partition(rows, same, show, owner=None, total=None):
+def copy_partition(rows, same, show, owner=None, total=None, *, words=None):
     """Each input judged on its own against the copies' versions at the baseline (design 4.5): neither an old
     disagreement nor an input whose baseline could not run hides a pair of copies newly broken on another input.
 
@@ -431,7 +763,7 @@ def copy_partition(rows, same, show, owner=None, total=None):
             kinds[kind].add(pair)
         for lines, pairs in zip(split, kinds):
             lines.append(pairs)
-    return tuple(copy_lines(inputs, same, show, owner, total, only=pairs) for pairs in split)
+    return tuple(copy_lines(inputs, same, show, owner, total, only=pairs, words=words) for pairs in split)
 
 
 def copy_inputs(recorded, numbers, limit=64):

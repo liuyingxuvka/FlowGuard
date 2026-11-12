@@ -26,3 +26,15 @@ def project(tmp_path: Path, _project_template: Path) -> Path:
     return Path(shutil.copytree(_project_template, tmp_path / 'shop'))
 
 pytest_plugins = ["flowguard.intent.plugin"]
+
+
+@pytest.fixture(autouse=True)
+def _deprecation_notices_of_one_run():
+    """A deprecated feature's notice prints once per process (`deprecation.SAID`); each test is a run of its own,
+    so a notice it expects is not withheld because an earlier test in this process already printed it."""
+    from flowguard.intent import deprecation
+    said = set(deprecation.SAID)
+    deprecation.SAID.clear()
+    yield
+    deprecation.SAID.clear()
+    deprecation.SAID.update(said)       # the session's own notices stay printed once

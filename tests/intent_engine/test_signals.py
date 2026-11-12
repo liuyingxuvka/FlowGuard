@@ -223,3 +223,182 @@ def test_old_and_current_source_delimiters_keep_the_same_original_quote():
         rendered = signals.render(dict(session=True, items=[], red=['LIMIT' + marker + quote]))
         assert 'red: LIMIT' in rendered
         assert 'LIMIT source: ' + quote in rendered
+
+
+# ---- the 4.3 block: one first line, the nine kinds, budgets (design 4.7) -----------------------------------------
+
+import re as _re
+
+from flowguard import __version__
+from flowguard.intent import deprecation
+from flowguard.intent.signals import Line
+
+SHAPE = _re.compile(r'^(FlowGuard \d+\.\d+ \(|(red|before|known|known fixed\?|changed|impact|loosened|not compared): |\+\d+ more: )')
+VERSION = '.'.join(__version__.split('.')[:2])
+
+
+def _line(kind, number, *, places=None, function='m:f', text=None, step='do it', detail=()):
+    place = f'src/pkg{number}/file{number}.py:f{number}'
+    return Line(kind, f'{kind}:{number}', f'{function}{number}', text or f'subject {number}: {place} broke', step,
+                (place,) if places is None else places, detail)
+
+
+def _block(lines, **options):
+    return signals.render_block(lines, title=signals.title(lines, baseline='a' * 40, kind='task', seconds=1.25), **options).splitlines()
+
+
+def test_the_first_line_counts_every_kind_before_the_budget_and_always_red():
+    lines = [_line('impact', number) for number in range(5)] + [_line('known', 9), _line('not compared', 7), _line('changed', 8)]
+    assert signals.title(lines, baseline='0123456789' * 4, kind='task', seconds=3.44) == \
+        f'FlowGuard {VERSION} (since 0123456): 0 red, 1 known, 1 changed, 5 impact, 1 not compared; 3.4 s'
+    assert signals.title([], baseline=None, kind=None, seconds=0) == f'FlowGuard {VERSION} (no baseline: nothing compared): 0 red; 0.0 s'
+    assert signals.title([Line('deprecated', 'x')], baseline='b' * 40, kind='HEAD', seconds=0.04) == \
+        f'FlowGuard {VERSION} (since HEAD bbbbbbb): 0 red; 0.0 s'
+
+
+def test_the_first_line_names_the_baseline_each_way_a_run_can_have_one():
+    head = 'c' * 40
+    assert [signals.baseline_label(head, kind, ahead, option) for kind, ahead, option in (
+        ('task', 0, '--flowguard-base'), ('task', 1, '--flowguard-base'), ('task', 2, '--flowguard-base'),
+        ('task', None, '--flowguard-base'), ('HEAD', 0, '--flowguard-base'), ('base', None, '--flowguard-base'),
+        ('base', None, '--base'), ('missing', None, '--base'))] == [
+        'since ccccccc', 'since ccccccc, 1 commit before HEAD', 'since ccccccc, 2 commits before HEAD', 'since ccccccc',
+        'since HEAD ccccccc', 'since --flowguard-base ccccccc', 'since --base ccccccc',
+        'since ccccccc, not in this repository: nothing compared; run python -m flowguard new-task']
+    assert signals.baseline_label(None, 'HEAD') == 'no baseline: nothing compared'
+
+
+def test_red_loosened_and_known_fixed_are_listed_in_full_and_the_rest_keep_to_ten_lines():
+    lines = ([_line('red', number) for number in range(15)] + [_line('loosened', number) for number in range(4)]
+             + [_line('known fixed?', number) for number in range(3)] + [_line('changed', number) for number in range(5)]
+             + [_line('before', number) for number in range(4)] + [_line('known', number) for number in range(2)]
+             + [_line('impact', number) for number in range(6)] + [_line('not compared', number) for number in range(9)])
+    block = _block(lines)
+    assert block[0] == f'FlowGuard {VERSION} (since aaaaaaa): 15 red, 4 before, 2 known, 3 known fixed?, 5 changed, 6 impact, 4 loosened, 9 not compared; 1.2 s'
+    kinds = [line.partition(': ')[0] for line in block[1:]]
+    assert kinds == ['red'] * 15 + ['before', 'before', 'before'] + ['known fixed?'] * 3 + ['changed'] * 3 + [
+        'impact'] * 2 + ['loosened'] * 4 + ['not compared', '+6 more'], block
+    assert block[16:19] == ['before: subject 0: file0.py:f0 broke -> do it', 'before: subject 1: file1.py:f1 broke -> do it',
+                            'before: 4 more (2 known, 2 before) -> python -m flowguard show --last'], block
+    assert block[-2] == 'not compared: 9 functions (no reason recorded) -> not a failure'
+    assert block[-1] == '+6 more: python -m flowguard show --last'
+    rest = [line for line in block[1:] if not line.startswith(('red: ', 'loosened: ', 'known fixed?: '))]
+    assert len(rest) == 10
+    # The count line takes the kind most of the hidden lines have.
+    assert _block([_line('before', 0)] + [_line('known', number) for number in range(4)])[-1] == \
+        'known: 3 more (3 known) -> python -m flowguard show --last'
+    # Nothing to say: the first line alone.
+    assert _block([]) == [f'FlowGuard {VERSION} (since aaaaaaa): 0 red; 1.2 s']
+
+
+def test_everything_lists_every_line_uncut_and_one_line_per_item_not_compared():
+    lines = [_line('changed', number) for number in range(5)] + [_line('not compared', number, detail=('async',)) for number in range(4)]
+    lines.append(_line('red', 9, text='subject 9: src/pkg9/file9.py:f9 ' + 'x' * 300))
+    block = _block(lines, everything=True)
+    assert len(block) == 1 + 10 and block[1].startswith('red: subject 9: file9.py:f9 ' + 'x' * 300), block
+    assert block[-1] == 'not compared: subject 3: file3.py:f3 broke -> do it', block
+
+
+def test_a_line_keeps_200_characters_besides_its_paths_and_its_subject_places_and_step():
+    deep = 'src/' + '/'.join(f'level{number}' for number in range(30)) + '/policy.py'
+    line = Line('red', 'rule:R', 'm:f', f'rule R: {"a" * 150} at {deep}:standing and {"b" * 150}', 'change the code',
+                (f'{deep}:standing',))
+    said, = _block([line])[1:]
+    assert said.startswith('red: rule R: a') and said.endswith(' -> change the code') and 'policy.py:standing' in said, said
+    assert '...' in said and deep not in said and len(said) - len('policy.py') <= 200, said
+    # Project text on several lines stays on one line of the block.
+    broken = Line('red', 'rule:S', '', 'rule S: "first\nsecond"\r\nthird', 'x')
+    assert _block([broken])[1:] == ['red: rule S: "first second" third -> x']
+
+
+def test_a_line_names_at_most_three_places_and_paths_are_file_names_unless_two_share_one():
+    places = tuple(f'src/a{number}.py:f' for number in range(5))
+    line = Line('known', 'known.k', '', 'known.k at ' + ', '.join(places), 'ask owner (not asked yet)', places)
+    assert _block([line])[1] == 'known: known.k at a0.py:f, a1.py:f, a2.py:f (+2 places) -> ask owner (not asked yet)'
+    clash = [Line('red', 'x', 'f', 'same X: on n=1: web/api/util.ts:f returns 1, app/api/util.ts:f returns 2', 'decide',
+                  ('web/api/util.ts:f', 'app/api/util.ts:f')),
+             Line('before', 'y', 'g', 'together A at lib/util.ts:g was broken at task start', 'leave', ('lib/util.ts:g',))]
+    assert _block(clash)[1:] == ['red: same X: on n=1: web/api/util.ts:f returns 1, app/api/util.ts:f returns 2 -> decide',
+                                 'before: together A at lib/util.ts:g was broken at task start -> leave']
+    assert signals._short_paths(['a/b/c.py', 'x/b/c.py', 'd.py', 'e/d2.py']) == {
+        'a/b/c.py': 'a/b/c.py', 'x/b/c.py': 'x/b/c.py', 'd.py': 'd.py', 'e/d2.py': 'd2.py'}
+    assert signals._short_paths(['a/b/c.py', 'x/y/c.py']) == {'a/b/c.py': 'b/c.py', 'x/y/c.py': 'y/c.py'}
+
+
+def test_the_not_compared_line_names_up_to_three_items_and_the_most_common_reasons():
+    one = [signals.not_compared('STANDING (src/policy.py:2)', ['uses attribute close'], function='m:standing', places=('src/policy.py:2',))]
+    assert _block(one)[1] == 'not compared: STANDING (policy.py:2) (uses attribute close) -> not a failure'
+    three = [signals.not_compared(name, [reason]) for name, reason in (('A', 'async'), ('B', 'async'), ('C[rules]', 'not compared: uses getConfig'))]
+    assert _block(three)[1] == 'not compared: 3 items: A, B and C[rules] (async, or uses getConfig) -> not a failure'
+    many = [signals.not_compared(f'N{number}', [f'reason {number % 4}'], function=f'm:n{number}') for number in range(6)]
+    assert _block(many)[1] == 'not compared: 6 functions (reason 0, reason 1, or 2 other reasons) -> not a failure'
+
+
+def test_every_line_of_a_block_has_one_of_the_shapes_and_flowguard_text_is_ascii():
+    import random
+    generator = random.Random(43)
+    for _ in range(60):
+        lines = []
+        for number in range(generator.randrange(0, 40)):
+            kind = generator.choice(signals.KINDS)
+            places = tuple(f'src/{generator.choice("ab")}/f{generator.randrange(4)}.py:fn' for _ in range(generator.randrange(0, 6)))
+            text = generator.choice(['subject: x', 'rule R: ' + 'y' * generator.randrange(0, 400), 'a\nb', 'café 会员'])
+            lines.append(Line(kind, f'n{number}', generator.choice(['', 'm:f']), text + ' ' + ' '.join(places),
+                              generator.choice(['', 'step']), places, ('why',)))
+        for everything in (False, True):
+            block = _block(lines, everything=everything)
+            assert all(SHAPE.match(line) for line in block), block
+            assert not any(line.startswith('deprecated') for line in block), block
+            frame = [line for line in block if 'caf' not in line and '会' not in line]
+            assert all(line.isascii() for line in frame), frame
+
+
+def test_a_deprecated_feature_says_so_once_per_process_and_each_run_names_what_it_used(capsys):
+    start = deprecation.mark()
+    for _ in range(3):
+        deprecation.warn('old spelling', 'new spelling')
+    deprecation.warn('other spelling')
+    assert capsys.readouterr().err.splitlines() == ['deprecated: old spelling will be removed in 5.0; write new spelling',
+                                                    'deprecated: other spelling will be removed in 5.0']
+    assert deprecation.used(start) == ['old spelling', 'other spelling']
+    later = deprecation.mark()
+    deprecation.warn('old spelling')
+    assert capsys.readouterr().err == '' and deprecation.used(later) == ['old spelling']
+
+
+def test_same_name_copies_are_worded_for_the_43_lines_without_choosing_a_copy():
+    same = lambda left, right: left == right
+    assert signals.copy_says([('a.py:f', 52), ('b.py:g', 53)], same, signals.value_text) == (
+        'a.py:f returns 52, b.py:g returns 53', 'decide which copy is right, then make the other agree')
+    assert signals.copy_says([('a.py:f', True), ('b.py:g', True), ('c.py:h', False)], same, signals.value_text, total=4) == (
+        'a.py:f and b.py:g return True, c.py:h returns False; 1 other copy has no result for this input',
+        'decide which copy is right, then make the others agree')
+    assert signals.copy_says([('c.py:h', 'x'), ('a.py:f', 'y')], same, signals.value_text, owner='a.py:f',
+                             apart=[('b.py:g', 'n=2')]) == (
+        "the reference a.py:f returns 'y', c.py:h returns 'x'; b.py:g differs from the reference on n=2",
+        'make c.py:h agree with the reference a.py:f')
+    issue = signals.copies_issue('WEEKS', [('year=2026', 'a.py:f returns 52, b.py:g returns 53', 'decide', {frozenset(('a.py:f', 'b.py:g'))})],
+                                 [('year=2025', 'b.py:g returns 52, a.py:f returns 53', 'decide', {frozenset(('a.py:f', 'b.py:g'))})],
+                                 places=['a.py:f', 'b.py:g'], files={'a.py', 'b.py'})
+    assert issue.parts[0] == ('a.py:f|b.py:g', ('a.py:f', 'b.py:g'), 'on year=2026: a.py:f returns 52, b.py:g returns 53', 'decide')
+    assert issue.parts[1][1] == ('b.py:g', 'a.py:f') and issue.fresh == frozenset({'a.py:f|b.py:g'})
+    lines, _ = signals.deliver([issue], touched_functions={'a.py:f|b.py:g'}, touched_files=())
+    assert [(line.kind, line.text) for line in lines] == [
+        ('red', 'same WEEKS: on year=2026: a.py:f returns 52, b.py:g returns 53')]
+    old = signals.copies_issue('WEEKS', [], [('year=2025', 'b.py:g returns 52, a.py:f returns 53', 'decide', {frozenset(('a.py:f', 'b.py:g'))})],
+                               places=['a.py:f', 'b.py:g'])
+    lines, _ = signals.deliver([old], touched_functions={'a.py:f|b.py:g'}, touched_files=())
+    assert [(line.kind, line.text, line.step) for line in lines] == [
+        ('before', 'same WEEKS disagreed at task start on year=2025: b.py:g returns 52, a.py:f returns 53',
+         'leave it unless your task is about it')]
+
+
+def test_a_changed_line_shows_the_smallest_changed_input_and_how_many_differ():
+    line = signals.changed_line('STANDING', 'policy:standing', 'shop/policy.py', 3,
+                                [({'days': 9}, False, True), ({'days': 5}, False, True), ({'days': 7}, 'x', {'raises': 'ValueError: no'})], 12)
+    assert (line.kind, line.name, line.function, line.text, line.step, line.places) == (
+        'changed', 'changed:policy:standing', 'policy:standing',
+        'STANDING (shop/policy.py:3): (days=5) was False, now True; 3/12 inputs differ', 'if you meant it, say so', ('shop/policy.py:3',))
+    assert line.detail == ('(days=9) was False, now True', '(days=5) was False, now True', "(days=7) was 'x', now raises ValueError: no")
+    assert signals.changed_line('late', 'm:late', 'm.py', 0, [({}, 1, 2)], 1, unanchored=True).detail[-1] == \
+        'no flowguard comment: compared because its code changed'
