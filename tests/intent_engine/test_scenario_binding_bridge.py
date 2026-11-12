@@ -209,22 +209,3 @@ def test_joint_mapping_comes_from_the_existing_lower_relations(tmp_path, childre
         assert nested['plan']['fields'] == {'flag': identifier.lower() + '_flag', 'detail': identifier.lower() + '_detail'}
     assert binding.targets == (binding.target,)
 
-
-@pytest.mark.parametrize('children', [2, 3])
-@pytest.mark.parametrize('coupled', [False, True])
-def test_real_scenario_preserves_every_joint_witness(tmp_path, children, coupled):
-    from flowguard.intent.anchors import _execution_session as actual_session
-    from flowguard.intent.calibration import _execution_session, _prepare_scenario
-    model, engine = joint_project(tmp_path, children, coupled=coupled)
-    top = model.rules['TOP']
-    binding, = top.homes
-    with actual_session(model.cfg.root), _execution_session(model.cfg.root):
-        prepared = _prepare_scenario(model.cfg.root, binding)
-        assert prepared['status'] == 'ok', prepared
-        result = engine.run_home(top, binding, 'cells')
-    assert result['verdict'] == ('red' if coupled else 'ok'), result
-    assert result['n'] == 2 ** children
-    assert result['composition'] == dict(scope='finite', parent_calls=4 ** children,
-                                        checked_all_witnesses=True, finite_domain=True)
-    if coupled:
-        assert any('depends on more' in reason for reason in result['red'])

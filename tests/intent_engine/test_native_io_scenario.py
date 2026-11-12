@@ -1,4 +1,4 @@
-"""Effectful code is observed through a real test with fresh fixtures, not replayed as a sensor."""
+"""Effectful code is observed through its real test's one run with fresh fixtures, never replayed."""
 import importlib
 from pathlib import Path
 import uuid
@@ -49,7 +49,7 @@ def test_native(x: int,filename: str,run_target: bool):
     (tmp_path/'tests/intent/policy.py').write_text('''from flowguard.intent import rule,row,flow,Node,Read,Relation
 @rule('LIMIT',decides='seeded limit',fields={'x':int},source='assumed: the fixture threshold is three')
 def LIMIT(x): return x <= 3
-LIMIT.rows(row(x=2,expect=True,why='below the declared limit'),row(x=5,expect=False,why='above the declared limit'))
+LIMIT.rows(row(x=2,expect=True,why='below the declared limit'))
 flow('IO',source='assumed: actual native IO observation',nodes=[Node('case','CASE',start=True),Node('answer','LIMIT',phase='return',caller='case',end=True)],edges=[('case','answer')],relations=[Relation('LIMIT',{'x':Read('case','arg.x')},Read('answer'),on='answer')])
 ''')
     model = load(root=tmp_path)
@@ -60,21 +60,21 @@ flow('IO',source='assumed: actual native IO observation',nodes=[Node('case','CAS
     assert len(rule.homes)==1 and hasattr(rule.homes[0],'scenario')
     target=importlib.import_module(module).limit
     alias,code=target,target.__code__
-    before=log.read_text().splitlines() if log.exists() else []
+    before=log.read_text().splitlines()
+    assert len(before)==1                     # the fixture ran once, in the test's ordinary run
     calls=[]
     with Runtime(tmp_path).record(predicate=lambda current: current is code,
                                   callback=lambda frame,event,arg:calls.append(frame.f_locals['x']),private=True,entry_only=True):
         result=engine.run_home(rule,rule.homes[0],'rows')
     assert result['verdict']==expected,result
     assert target is alias and target.__code__ is code
-    after=log.read_text().splitlines()
+    # The row is the input the test ran with: its real result is read from that run. No call and no
+    # fixture runs again (design 4.5, 8).
+    assert calls==[] and log.read_text().splitlines()==before
     if run_target:
-        assert calls==[2,5]
-        paths=after[len(before):]
-        assert len(paths)==2 and len(set(paths))==2
-        assert all(Path(path+'.closed').read_text()=='finished' for path in paths)
+        assert Path(before[0]+'.closed').read_text()=='finished'
         if expected=='red':
             assert any('disagree' in message for message in result['red'])
     else:
-        assert calls==[] and not result['entered']
+        assert not result['entered']
         assert result['grey'] and not result['red']

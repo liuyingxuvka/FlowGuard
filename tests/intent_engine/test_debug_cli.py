@@ -176,7 +176,10 @@ def limit(config: dict, days: int) -> bool:
     return days <= config['limit']
 ''')
     tests = tmp_path / 'tests'; tests.mkdir()
-    (tests / 'test_case.py').write_text('from ' + name + ' import limit\n' + '''def test_limit():
+    (tests / 'test_case.py').write_text('from ' + name + ' import limit\n' + '''from pathlib import Path
+def test_limit():
+    with open(Path(__file__).with_name('runs.log'), 'a', encoding='utf-8') as log:
+        log.write('run\\n')
     config = {'limit': 3}
     assert limit(config, 2) is True
     assert config == {'limit': 3}
@@ -184,6 +187,8 @@ def limit(config: dict, days: int) -> bool:
     result = subprocess.run([sys.executable, '-m', 'flowguard', '--root', str(tmp_path), 'try', 'LIMIT', 'days=4'],
                             cwd=Path(__file__).resolve().parents[2], text=True, capture_output=True)
     assert result.returncode == 0, (result.stdout, result.stderr)
+    # The deprecated command runs the named test once, ordinarily, in its own process, never more.
+    assert (tests / 'runs.log').read_text(encoding='utf-8').split() == ['run']
     # a Windows console escapes the arrow (`\u2192`): read the text a reader sees, as the test above does
     assert "{'days': 4} → False" in display_text(result.stdout) and 'ordinary call unchanged' in result.stdout
 

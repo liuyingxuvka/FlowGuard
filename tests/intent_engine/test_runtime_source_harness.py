@@ -42,6 +42,7 @@ LIMIT.rows(row(x=4,expect=False,why='fourth day is refused'))
     assert result['verdict']=='ok',result
     native=next(value for value in sys.modules.values()
                 if getattr(value,'__file__',None)==str(root/'tests/test_native.py'))
-    assert len(native.SEEN)>=3
-    assert len(set(native.SEEN))==len(native.SEEN)
+    # The native test ran once, in its ordinary run, with its own fresh tmp_path; the cells were
+    # evaluated sealed from that run's recorded call, never by running the test again.
+    assert len(native.SEEN)==1
     assert tmp_path not in native.SEEN

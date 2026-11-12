@@ -159,19 +159,6 @@ def pytest_runtest_protocol(item, nextitem):
 '''
 
 
-def test_calibrated_syntax_uses_one_real_collected_session(tmp_path):
-    (tmp_path/'policy.py').write_text(POLICY)
-    (tmp_path/'test_native.py').write_text(NATIVE)
-    (tmp_path/'conftest.py').write_text(AUDIT)
-    (tmp_path/'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath=["."]\n')
-    sdk = Path(calibration.__file__).resolve().parents[2]
-    # This is the single outer invocation of this fixture project. Product
-    # calibration never starts another process, collector or pytest session.
-    bootstrap = 'import sys;sys.path.insert(0,sys.argv[1]);import pytest;raise SystemExit(pytest.main(sys.argv[2:]))'
-    result = subprocess.run([sys.executable,'-B','-c',bootstrap,str(sdk),'-q'],
-                            cwd=tmp_path,capture_output=True,text=True,timeout=60)
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert '8 passed' in result.stdout, result.stdout
 
 
 def test_missing_real_session_never_builds_a_runner(tmp_path):

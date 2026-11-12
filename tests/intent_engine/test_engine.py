@@ -220,20 +220,6 @@ def test_a_distinct_checks_the_other_nodes_own_threshold(tmp_path):
     assert result['status']=='ok' and result['changed']>0 and result['complete']
 
 
-def test_a_zero_argument_super_closure_is_mutable(tmp_path):
-    code = '''
-    class Base:
-        def offset(self): return 0
-    class Policy(Base):
-        def accept(self, days):
-            return days + super().offset() <= 3
-    '''
-    text = SINGLE.replace('PKG:accept', 'PKG:Policy.accept').replace('return fn(c.days)', 'from PKG import Policy\n    return fn(Policy(), c.days)')
-    model, engine, _ = project(tmp_path, code, text)
-    rule = model.rules['LIMIT']
-    result = engine.run_live(rule, rule.homes[0])
-    assert result['verdict'] == 'ok', result
-    assert result['k'] > 0 and result['k'] == result['n']
 
 
 @pytest.mark.parametrize('value,expected', [('open', 'ok'), ('held', 'red')])

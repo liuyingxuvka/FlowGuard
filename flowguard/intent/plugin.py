@@ -537,7 +537,8 @@ class Observations:
                 anchor = point['anchor']
                 original = self.scopes.enter_context(self.runtime.hook(fn, name=point['name'],
                     recorded=lambda reading, point=point: self._recorded(point, reading),
-                    fields=anchor.fields if anchor else (), line=anchor.line if anchor else 0))
+                    fields=anchor.fields if anchor else (), line=anchor.line if anchor else 0,
+                    named=bool(anchor and anchor.calibrated_by and self._named_test(self.runtime.test, anchor.calibrated_by))))
                 point['original'] = original
             except (ValueError, TypeError, sites.NotMutable) as error:
                 self.grey.append(point['name'] + ': ' + str(error))
@@ -559,7 +560,8 @@ class Observations:
             return sources[key]
         def run(point, sample, old=False):
             text = source(point, old)
-            return R.sealed(text, point['qual'], sample['args'], sample['kwargs']) if text is not None else dict(status='unavailable', reason='no baseline source')
+            return R.sealed(text, point['qual'], sample['args'], sample['kwargs'], self.runtime.imports(point['file'], point['module'], old)) \
+                if text is not None else dict(status='unavailable', reason='no baseline source')
         def value(out):
             return out.get('value') if out['status'] == 'ok' else {'raises': out.get('error')}
         def equal(left, right):
@@ -683,10 +685,12 @@ class Observations:
             if point['target'] != home.target or index >= len(self.runtime.readings):
                 continue
             reading = self.runtime.readings[index]
-            if selector and not self._named_test(reading.test, selector):
+            # A repeated input has one reading for every test that made it: the call is the named test's own.
+            test = next((test for test in sorted(reading.tests) if self._named_test(test, selector)), None) if selector else reading.test
+            if test is None:
                 continue
             rows, why = self._rule_rows(point, reading)
-            calls.extend((inputs, outcome, reading.test) for inputs, outcome in rows)
+            calls.extend((inputs, outcome, test) for inputs, outcome in rows)
             reasons.extend(why)
         return calls, list(dict.fromkeys(reasons))
 
@@ -1254,7 +1258,7 @@ def pytest_runtest_protocol(item, nextitem):
         from .calibration import session as source_session
         try:
             state.get_model()
-            with state.verification(), source_session(state.runtime, state.source_items, nextitem=item):
+            with state.verification(), source_session(state.runtime, state.source_items, nextitem=item, events=state.events):
                 item._prepared_result = item.evaluate_verified()
         except Exception as error:
             item._evaluation_error = error, error.__traceback__
@@ -1316,6 +1320,8 @@ def pytest_runtest_makereport(item, call):
     if state.complete_collection is not None and report.when == 'teardown':
         state.completed.add(item.nodeid)
     _skip_violation(item, call, report)
+    if not report.passed and not isinstance(item, IntentItem) and state.observations is not None:
+        state.runtime.outcome(item.nodeid, report.when, report.outcome, call.excinfo)       # what calibration reads
     state.durations[item.nodeid] = state.durations.get(item.nodeid, 0.0) + report.duration
     if item.name == SENTINEL and report.when == 'call':
         state.sentinel = 'ok' if report.passed or state.sentinel_ledger else 'failed'

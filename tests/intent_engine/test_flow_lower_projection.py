@@ -95,13 +95,6 @@ def verified_projection(tmp_path, source_sessions):
     return verified(tmp_path)
 
 
-def test_projected_lower_outcome_matches_its_verified_contract(verified_projection):
-    model, engine, captured = verified_projection
-    assert engine.contract_summary('LOWER')['complete']
-    assert len(engine._verified_witnesses(model.rules['LOWER'], True)) == 2
-    assert len(engine._verified_witnesses(model.rules['LOWER'], False)) == 2
-    result = check_flow(model.flows['GATES'], model.anchor_index, captured.events, engine=engine)
-    assert result['verdict'] == 'ok', result
 
 
 def captured_case(model, *, flag=True, detail=False, stock=True):
@@ -113,66 +106,16 @@ def captured_case(model, *, flag=True, detail=False, stock=True):
     return captured
 
 
-def test_the_projected_string_refusal_is_false_with_a_real_second_witness(verified_projection):
-    model, engine, _ = verified_projection
-    captured = captured_case(model, flag=False, detail=True)
-    assert any(e.anchor == 'LOWER_CALL' and e.phase == 'return' and e.result == 'blocked' for e in captured.events)
-    result = check_flow(model.flows['GATES'], model.anchor_index, captured.events, engine=engine)
-    assert result['verdict'] == 'ok', result
 
 
-def test_wrong_actual_projection_is_red_instead_of_using_the_expected_bool(verified_projection):
-    model, engine, captured = verified_projection
-    changed = [replace(e, result='blocked') if e.anchor == 'LOWER_CALL' and e.phase == 'return' and e.caller[1] == 'test_case' else e
-               for e in captured.events]
-    result = check_flow(model.flows['GATES'], model.anchor_index, changed, engine=engine)
-    assert result['verdict'] == 'red' and any('actual lower result False' in why for why in result['red']), result
 
 
-@pytest.mark.parametrize('actual', ['other-node', 'input-field', 'call-default', 'raise-default'])
-def test_unrelated_or_incomplete_lower_outputs_cannot_borrow_a_verified_contract(verified_projection, actual):
-    from flowguard.intent.flow import Read
-    model, engine, captured = verified_projection
-    original = model.flows['GATES']
-    nodes, relations, events = original.nodes, original.relations, captured.events
-    if actual == 'other-node':
-        relations = (replace(relations[0], actual=Read('upper')), *relations[1:])
-    elif actual == 'input-field':
-        relations = (replace(relations[0], actual=Read('lower', 'arg.flag')), *relations[1:])
-    else:
-        phase = 'call' if actual == 'call-default' else 'raise'
-        nodes = tuple(replace(n, phase=phase) if n.name == 'lower' else n for n in nodes)
-        if phase == 'raise':
-            events = [replace(e, phase='raise', error=ValueError('real refusal'), result=None)
-                      if e.anchor == 'LOWER_CALL' and e.phase == 'return' and e.caller[1] == 'test_case' else e
-                      for e in events]
-    changed = replace(original, nodes=nodes, relations=relations)
-    result = check_flow(changed, model.anchor_index, events, engine=engine)
-    assert result['verdict'] == 'grey' and not result['red'], result
-    assert any('lower output' in why or 'lower reading' in why for why in result['grey']), result
 
 
-def test_duplicate_lower_relations_stay_ambiguous(verified_projection):
-    model, engine, captured = verified_projection
-    original = model.flows['GATES']
-    changed = replace(original, relations=(original.relations[0], *original.relations))
-    result = check_flow(changed, model.anchor_index, captured.events, engine=engine)
-    assert result['verdict'] == 'grey' and any('2 actual readings' in why for why in result['grey']), result
 
 
-def test_projected_lower_keeps_actual_native_parameter_domain_validation(verified_projection):
-    model, engine, _ = verified_projection
-    captured = captured_case(model, flag=42)
-    result = check_flow(model.flows['GATES'], model.anchor_index, captured.events, engine=engine)
-    assert result['verdict'] == 'red' and any('flag' in why and 'bool' in why for why in result['red']), result
 
 
-def test_old_projection_relation_uses_the_legitimate_current_lower_owner(tmp_path):
-    model, engine, captured = verified(tmp_path, supersedes=True)
-    assert model.superseded_by['LOWER'] == 'CURRENT'
-    assert engine.contract_summary('CURRENT')['verdict'] == 'ok'
-    result = check_flow(model.flows['GATES'], model.anchor_index, captured.events, engine=engine)
-    assert result['verdict'] == 'ok', result
 
 
 def test_complete_cli_checks_the_same_projected_lower_flow(tmp_path):

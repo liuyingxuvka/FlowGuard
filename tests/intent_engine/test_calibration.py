@@ -61,17 +61,17 @@ def test_native(filename):
     scope, item = bind_anchor(tmp_path, anchor)
     module = importlib.import_module('policy')
     alias, original = module.limit, module.limit.__code__
+    # The ordinary run made the one real call, its fixture teardown passed, and the alias is the real function.
+    [reading] = scope.runtime.readings
+    assert reading.actual[1] is True and not reading.rows
+    assert reading.sample is not None and not reading.reasons
+    assert scope.runtime.outcomes == {}
     calls = []
     with scope.runtime.record(predicate=lambda code: code is original,
                               callback=lambda frame,event,arg: calls.append(event), private=True, entry_only=True):
-        with scope.runtime.hook(module.limit, name='limit', axes={'x': [2,5]}, private=True):
-            result = scope.runtime.replay(item, nextitem=scope.nextitem)
-    assert result['status'] == 'ok' and all(report.passed for report in result['reports']), result
-    # Ordinary observation performs only the real call. Explicit sealed qualification refuses this source.
-    assert calls == ['call']
-    reading = scope.runtime.readings[-1]
-    assert reading.actual[1] is True and not reading.rows
-    assert reading.sample is not None and not reading.reasons
+        result = calibration.execute(tmp_path, anchor, {'x': 5})
+    # Calibration performs no call of its own; explicit sealed qualification refuses this source.
+    assert calls == [] and result.status == 'grey' and result.value is None, result
     assert module.limit is alias and module.limit.__code__ is original
 
 

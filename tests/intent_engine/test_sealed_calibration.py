@@ -21,8 +21,8 @@ def limit(x: int) -> bool:
                               entry_only=True, callback=lambda frame, event, arg: calls.append(frame.f_locals['x'])):
         observed = calibration.execute(tmp_path, anchor, {'x': 5})
     assert observed.status == 'ok' and observed.value is False, observed
-    assert calls == [2]
-    reading = scope.runtime.readings[-1]
+    assert calls == []          # the one real call was the ordinary run's; the point ran sealed
+    [reading] = scope.runtime.readings
     assert reading.actual == ({'x': 2}, True)
     assert reading.json_result is True and reading.rows == []
 
@@ -48,7 +48,7 @@ def test_native():
     assert observed.status == 'grey' and observed.value is None, observed
     assert 'actual named-test outcome differs' in ' '.join(observed.reasons)
     assert scope.runtime.readings[-1].actual == ({'x': 5}, True)
-    assert item.module.SEEN == []  # Refusal interrupts the assertion, without rerunning the business call.
+    assert item.module.SEEN == [True]  # the one ordinary run; the refusal never ran the business call again
 
 
 def test_non_json_fixture_context_is_unavailable_without_a_target_reading(tmp_path):
@@ -73,7 +73,9 @@ def test_native(context): assert limit(2, context) is True
     observed = calibration.execute(tmp_path, anchor, {'x': 5})
     assert observed.status == 'grey' and observed.value is None, observed
     assert 'JSON' in ' '.join(observed.reasons)
-    assert not scope.runtime.readings
+    # The ordinary run's one reading keeps the real call without a JSON sample; nothing was compared.
+    [reading] = scope.runtime.readings
+    assert reading.sample is None and reading.reasons == ['not JSON data']
     # The real pytest refusal report may render repr; qualification never uses context equality.
     assert 'eq' not in item.module.TOUCHED
 
@@ -156,6 +158,7 @@ def limit(x: int) -> bool:
     before = len(scope.runtime.readings)
     observed = calibration.execute(tmp_path, anchor, {'x': 5})
     assert observed.status == 'ok' and observed.value is False, observed
-    assert len(scope.runtime.readings) == before + 1
-    assert scope.runtime.readings[-1].actual == ({'x': 2}, True)
+    # The named test's call was recorded in its ordinary run, before the limit: no reading is added.
+    assert len(scope.runtime.readings) == before
+    assert scope.runtime.readings[0].actual == ({'x': 2}, True) and scope.runtime.readings[0].tests == {calibration._context(tmp_path, anchor.calibrated_by)[1].nodeid}
     assert scope.runtime.full(module.limit) and len(scope.runtime._seen[module.limit]) == 20
