@@ -707,3 +707,25 @@ def test_pytest_without_a_source_change_reports_a_known_site_that_names_nothing_
         shown = block(result)
         assert result.returncode == 1 and ': 2 red; ' in shown[0], (run, result.stdout + result.stderr)
         assert shown[1:] == BROKEN_REDS, (run, result.stdout)
+
+
+def test_copies_that_agree_again_make_their_known_entry_known_fixed_in_pytest_and_check(tmp_path):
+    """A real fix: the change makes the copies the entry names agree. pytest compares them sealed on its recorded
+    inputs and check on every input it makes for them (which, not a proof, it says in a not compared line); both find
+    them agreeing, so the entry may be fixed: `known fixed?`, never `known`. check --static compares no copies: the
+    change touches the entry's sites, `known`."""
+    from tests.intent_engine.test_unverified_outcome import _cli, _project, _pytest
+    from tests.intent_engine._cli_fixture import block
+    root = _project(tmp_path / 'p', FEES)
+    path = root / 'fees.py'
+    path.write_text(path.read_text(encoding='utf-8').replace('(days - 3) * 3', '(days - 3) * 2'), encoding='utf-8')
+    fixed = ('known fixed?: known.fee-copies: copies of FEE now agree -> the owner has not decided: revert, or say why '
+             'in your report')
+    for run, (result, _), expected in (
+            ('pytest', _pytest(root, '-q'), [fixed]),
+            ('check', _cli(root, 'check'), [fixed, 'not compared: FEE (returns, or numeric classes are not readable here: '
+                                                   'compared on 9 representative values) -> not a failure'])):
+        assert result.returncode == 0 and block(result)[1:] == expected, (run, result.stdout + result.stderr)
+    result, _ = _cli(root, 'check', '--static')
+    assert result.returncode == 0 and block(result)[1:] == [
+        'known: known.fee-copies at fees.py:late_fee, fees.py:preview_fee -> ask owner (not asked yet)'], result.stdout

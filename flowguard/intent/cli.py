@@ -916,7 +916,8 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
     one that already differed there is old: `before` or `known` where this change touches a copy's file (the member
     is touched then, as in a pytest session), else no line. Copies of another signature are red where they are this
     change's, and what could not be compared is not compared. (issues, lines, ran, touched functions): `ran` names
-    the groups whose every pair was compared and agreed (`same:NAME`), whose known entry is then `known fixed?`."""
+    the groups whose every pair was compared on every input made for it and agreed (`same:NAME`), whose known entry
+    is then `known fixed?`, as in pytest."""
     import math
     from ..map.common import git_renames, read_source
     from .differences import _compare_pairs
@@ -979,8 +980,12 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
                                       files=files))
         elif reasons:
             lines.append(not_compared(name, reasons))
-        elif result['status'] == 'ok' and result['complete']:
-            ran.add(f'same:{name}')         # every copy compared on its current code, and they agree
+        if (not result['changes'] and result['selected'] == len(copies) - 1 and result['total']
+                and result['checked'] == result['total'] and not result['unknown']):
+            # every pair compared on every input made for it, and they agree (as a pytest session's sealed
+            # comparison): a known entry naming their disagreement may be fixed, also where the inputs, not a
+            # proof, leave a not compared line
+            ran.add(f'same:{name}')
     return issues, lines, ran, members
 
 
