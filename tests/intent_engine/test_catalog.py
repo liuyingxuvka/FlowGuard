@@ -6,7 +6,7 @@ import textwrap
 
 import pytest
 
-from flowguard.intent import anchors, cli, owners, sources
+from flowguard.intent import anchors, cli, owners, signals, sources
 from flowguard.intent.config import load_config
 from flowguard.intent.signals import deliver
 from flowguard.map.requests import store_request
@@ -636,3 +636,58 @@ def test_copies_that_disagreed_at_task_start_are_the_known_entry_s_in_pytest_che
         shown = block(result)
         assert result.returncode == 0 and ': 0 red, 1 known; ' in shown[0], (run, shown)
         assert shown[1:] == [known], (run, result.stdout)
+
+
+# An invalid entry and one whose site names nothing: input findings, red in every run (D4).
+BROKEN_KNOWN = '''
+    [known.bad]
+    sites = "x"
+
+    [known.ghost]
+    sites = ["src/app.py:nosuch"]
+    why = "a site that names nothing"
+    act = "leave"
+'''
+BROKEN_REDS = [
+    'red: known.bad: missing why; missing act; sites is a non-empty list of path:symbol -> correct [known.bad] in known.toml',
+    'red: known.ghost: site src/app.py:nosuch names nothing in src/app.py: name one function, object.method, constant or '
+    'Model.field of that file -> correct the sites of [known.ghost] in known.toml']
+PLAIN = {
+    'src/__init__.py': '',
+    'src/app.py': 'def fee(days):\n    return days * 2\n',
+    'tests/test_app.py': 'from src.app import fee\n\n\ndef test_fee():\n    assert fee(1) == 2\n',
+    'pyproject.toml': '[tool.pytest.ini_options]\npythonpath = ["."]\ntestpaths = ["tests"]\n'
+                      'addopts = "-p flowguard.intent.plugin"\n',
+    '.gitignore': '.flowguard/cache/\n__pycache__/\n',
+    '.flowguard/known.toml': BROKEN_KNOWN,
+}
+NO_BASELINE = {'outside Git': 'no baseline: nothing compared', 'unborn branch': 'no baseline: nothing compared',
+               'recorded start missing': 'since bbbbbbb, not in this repository: nothing compared; run python -m flowguard new-task'}
+
+
+def _without_baseline(root, state):
+    """`PLAIN` with no commit to compare with: in no repository, on a branch before its first commit, or with a
+    recorded task start this repository lacks."""
+    from flowguard.intent import cache
+    _write(root, PLAIN)
+    if state != 'outside Git':
+        _git(root, 'init', '-q', '-b', 'main')
+    if state == 'recorded start missing':
+        _commit(root)
+        cache._record_baseline(load_config(root), 'b' * 40)
+    return root
+
+
+@pytest.mark.parametrize('state', list(NO_BASELINE))
+def test_check_reports_an_invalid_or_unresolvable_known_entry_without_a_baseline_as_check_static_does(tmp_path, state):
+    """With nothing to compare (no baseline), nothing is new, but an entry of known.toml that is invalid or names
+    nothing is red in check too, also when it runs no pytest batch (no intent items), as in check --static (D4)."""
+    from tests.intent_engine.test_unverified_outcome import _cli
+    from tests.intent_engine._cli_fixture import block
+    root = _without_baseline(tmp_path / 'p', state)
+    for arguments in (('check',), ('check', '--static')):
+        result, _ = _cli(root, *arguments)
+        shown = block(result)
+        assert result.returncode == 1 and shown[0].startswith(f'FlowGuard {signals.version()} ({NO_BASELINE[state]}): 2 red; '), (
+            arguments, result.stdout + result.stderr)
+        assert shown[1:] == BROKEN_REDS, (arguments, result.stdout)

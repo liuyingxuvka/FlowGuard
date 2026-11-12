@@ -1142,10 +1142,16 @@ def static_check(cfg, *, everything=False, base=None, leads=False):
 
 def _owner_findings(cfg, *, everything=False, base=None, static=None):
     """Owners, copies and static findings of this change; copy discovery runs only here, in check. `everything`
-    (`--all`) adds the before lines of the ledger's open legacy handlers (`_legacy_lines`)."""
-    from . import anchors, owners
+    (`--all`) adds the before lines of the ledger's open legacy handlers (`_legacy_lines`). Without a baseline
+    (outside Git, before the first commit, a recorded start this repository lacks) nothing is new and the old ledger
+    is check --all's, but an invalid or unresolvable entry of rules.toml or known.toml is red all the same (D4), as
+    in pytest and check --static: these are the only findings then."""
+    from . import anchors, owners, sources
     if not owners.baseline(cfg, base) and not everything:
-        return owners.Findings()            # nothing is new without a baseline; the old ledger is check --all
+        if not sources.catalog_files(cfg):
+            return owners.Findings()
+        with closing(build(cfg.root, roots=cfg.roots)) as graph:
+            return owners.Findings(issues=sources.input_findings(cfg, lambda: graph))
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
         index = anchors.collect(graph)
         distincts = cache.read(cfg)['summary'].get('distincts', [])
