@@ -25,7 +25,7 @@ python -m pytest
 `new-task` 记下任务起点。任务中途提交不会移动这个基准；没有基准时，第一次测试也会记下。没有意图规则时，检查输出：
 
 ```text
-FlowGuard check: no intent rules.
+FlowGuard 4.3 (since 99f025e): 0 red; 0.2 s
 ```
 
 ## 日常使用

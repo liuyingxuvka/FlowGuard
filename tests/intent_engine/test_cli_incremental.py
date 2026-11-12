@@ -41,7 +41,9 @@ def test_unchanged_check_runs_zero_rules_and_preserves_a_cached_red(tmp_path, mo
     assert after['attempt'] == before['attempt'], 'reuse must not manufacture a new complete run'
     text = capsys.readouterr().out
     assert len(text.splitlines()) <= 10
-    assert 'red: LIMIT' in cli_fixture.display_text(text) if wrong else text == ''
+    # the reused red keeps its line; green, the first line alone
+    reds = [line for line in cli_fixture.block(text)[1:] if line.startswith('red: rule LIMIT: ')]
+    assert len(reds) == 1 if wrong else cli_fixture.block(text)[1:] == [], text
 
 
 def test_since_selects_real_git_changes_even_after_current_cache_is_fresh(tmp_path, monkeypatch, capsys):
@@ -89,7 +91,9 @@ def test_partial_ordinary_pytest_preserves_complete_collection_without_false_red
     data = cache.read(cfg)
     assert data['attempt']['sentinel'] is None and data['attempt']['collected'] == 0
     assert data['collection'] == before
-    assert not any('red collection' in line for line in cli.render(cfg, data))
+    from flowguard.intent.loader import load
+    issues, lines = cli._cache_findings(cfg, load(cfg), data)
+    assert not [issue for issue in issues if issue.name == 'collection:intent'], issues
 
 
 @pytest.mark.parametrize('parameter_id', [None, 'a::b'])

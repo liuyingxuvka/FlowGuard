@@ -144,10 +144,12 @@ def test_fine(): pass
 
 
 def test_check_all_does_not_accept_collect_only_as_an_unmodeled_project_validation(tmp_path):
-    from tests.intent_engine._cli_fixture import main
+    from tests.intent_engine._cli_fixture import last, main
     root = project(tmp_path, {'test_probe.py': "from pathlib import Path\ndef test_fine(): Path('ran').touch()\n"},
                    policy='platform', collect_only=True)
-    assert main(['--root', str(root), 'check', '--all']) == 4
+    # pytest refuses the run (its usage error, exit 4): check's one red line says so; FlowGuard's exit follows red
+    assert main(['--root', str(root), 'check', '--all']) == 1
+    assert 'red: pytest: exit 4 -> read .flowguard/cache/check-output.txt and correct the reported error' in last(root).splitlines()
     output = (root / '.flowguard/cache/check-output.txt').read_text()
     assert 'complete checks require the full ordinary collection' in output
     assert not (root / 'ran').exists()

@@ -65,14 +65,19 @@ cli.build = unused_map
 
 
 def test_output_limit_keeps_whole_decisive_red_lines_and_counts_the_rest(tmp_path):
+    # check's block: a rule with fifty reds is one red line, its first red whole and the others counted; every one of
+    # them is the line's detail (show --last).
+    from flowguard.intent import signals
+    from flowguard.intent.loader import load
     _, cfg = project(tmp_path)
     data = cache.read(cfg)
-    expected = 'LIMIT exact values: rule True, code False -> correct the home'
+    expected = 'exact values days=4 -> rule False, code True; case '
     data['results'] = {'LIMIT': {'items': {'one': dict(verdict='red', red=[expected + str(n) for n in range(50)], grey=[], info=[])}}}
-    output = cli.render(cfg, data, check=True)
-    assert len(output) <= 20
-    assert expected + '0' in output[2]
-    assert 'more lines' in output[-1] and 'red' in output[-1]
+    issues, lines = cli._cache_findings(cfg, load(cfg), data)
+    found, ignored = signals.collect([signals.delivery(issues, lines)])
+    output = signals.render_block(found, title='FlowGuard').splitlines()
+    assert output[1:] == [f'red: rule LIMIT: {expected}0 (+49 more) -> change the code so {cfg.root.name}.py:accept follows rule LIMIT'], output
+    assert [expected + str(n) for n in range(1, 50)] == list(found[0].detail[:49]) and ignored == 0, found
 
 
 def test_every_command_has_a_description_in_the_help(capsys, monkeypatch):
@@ -377,48 +382,45 @@ def test_a_violated_rule_has_the_next_step_of_its_kind_in_pytest_and_every_check
         policy.write_text(policy.read_text() + FOURTH)
         code = root / (root.name + '.py')
         code.write_text(code.read_text().replace('return days <= 3', 'return days <= 3 or days == 4'))
-    # pytest prints the 4.3 block: one red line for the rule, its first step after ' -> ', every step in its detail
-    # (show --last). `check` still prints the 4.2 lines with their indented steps until its lane moves to the block.
+    # pytest and every check print the 4.3 block: one red line for the rule, its first step after ' -> ', every step
+    # in its detail (show --last).
     steps = {'code': [f'change the code so {root.name}.py:accept follows rule LIMIT', REQ_ADD.strip()],
              'own row': ['correct regression rows or rule tests/intent/policy.py:2 so the rule and its regression rows agree', REQ_ADD.strip()],
              'conflict': ['rules LIMIT and LONGER conflict; choose one by asking the owner',
                           'when the owner decides, first store the exact owner words with python -m flowguard req add, then update rule tests/intent/policy.py:2'],
              'gap': ['add rules or regression rows at tests/intent/policy.py:2 so undecided cells have a rule result', REQ_ADD.strip()],
              'decision of': ['correct regression rows or rule tests/intent/policy.py:2 so the rule and its regression rows agree', REQ_ADD.strip()]}[kind]
-    legacy = {'code': [f'    change the code so {root.name}.py:2 follows rule LIMIT; ', REQ_ADD],
-              'own row': ['    correct regression rows or rule tests/intent/policy.py:2 so the rule and its regression rows agree; ', REQ_ADD],
-              'conflict': ['    rules LIMIT and LONGER conflict; choose one by asking the owner; ',
-                           '    when the owner decides, first store the exact owner words with python -m flowguard req add, then update rule tests/intent/policy.py:2'],
-              'gap': ['    add rules or regression rows at tests/intent/policy.py:2 so undecided cells have a rule result; ', REQ_ADD],
-              'decision of': ['    correct regression rows or rule tests/intent/policy.py:2 so the rule and its regression rows agree; ', REQ_ADD]}[kind]
     cli.init(cfg)
     capsys.readouterr()
-    def block(text):
-        lines = cli_fixture.display_text(text).splitlines()    # a console that cannot encode Chinese shows \uXXXX
-        red = [index for index, line in enumerate(lines) if line.startswith('red: LIMIT：')]
-        assert len(red) == 1 and 'show the rule' not in text and 'correct its source' not in text, text
-        return lines[red[0]], lines[red[0] + 1:red[0] + 3]
+    def detail(root):
+        shown = cli_fixture.last(root).splitlines()
+        full = next(line for line in shown if line.startswith('red: rule LIMIT: '))
+        after = shown[shown.index(full) + 1:]
+        assert ['    ' + step for step in steps] in [after[index:index + 2] for index in range(len(after))], shown
+        return full
     bootstrap = 'import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; raise SystemExit(pytest.main(sys.argv[1:]))'
     ran = subprocess.run([sys.executable, '-c', bootstrap, cli_fixture.SOURCE, '-q'], cwd=root, capture_output=True, text=True, timeout=120)
     assert ran.returncode == 1, ran.stdout + ran.stderr
-    reds = [line for line in cli_fixture.block(ran) if line.startswith('red: rule LIMIT: ')]
+    every = [line for line in cli_fixture.block(ran) if line.startswith('red: ')]
+    reds = [line for line in every if line.startswith('red: rule LIMIT: ')]
     assert len(reds) == 1 and 'show the rule' not in ran.stdout and 'correct its source' not in ran.stdout, ran.stdout
     assert reds[0].endswith(' -> ' + steps[0].replace('tests/intent/policy.py', 'policy.py')), reds
-    shown = cli_fixture.last(root).splitlines()
-    full = next(line for line in shown if line.startswith('red: rule LIMIT: '))
-    detail = shown[shown.index(full) + 1:]
-    assert ['    ' + step for step in steps] in [detail[index:index + 2] for index in range(len(detail))], shown
+    full = detail(root)
     assert kind not in ('gap', 'decision of') or ('gap in acceptance (total=True)' if kind == 'gap' else
                                                   'the decision of an overriding rule is T') in full, full
-    lines = []
     for run in ('check reuses the result pytest saved', 'check again', 'check --all reruns the rule'):
         assert cli_fixture.check(cfg, everything=run.startswith('check --all')) == 1
         text = capsys.readouterr().out
-        line, after = block(text)
-        assert after == legacy, (run, text)
-        lines.append(line)
-    # The finding once in every check, without a second step on it; rerun, with the owner's words.
-    assert lines[1] == lines[0] and lines[2].endswith('  LIMIT source: At most three days.'), lines
+        # pytest's finding, once, in pytest's words and with its step, whether check reused the result or reran it;
+        # --all cuts no line (its middle stays where pytest's 200 characters left `...`)
+        shown = [line for line in cli_fixture.block(text) if line.startswith('red: ')]
+        if run.startswith('check --all'):
+            assert len(shown) == len(every) and all(line.startswith(cut.split('...')[0]) and line.endswith(cut.split('...')[-1])
+                                                    for line, cut in zip(shown, every)), (run, text)
+        else:
+            assert shown == every, (run, text)
+        assert 'show the rule' not in text and 'correct its source' not in text, (run, text)
+        assert detail(root) == full, run
 
 
 def test_a_red_that_is_no_rule_keeps_a_next_step_in_pytest_and_check(tmp_path, capsys):

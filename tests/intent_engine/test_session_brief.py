@@ -297,14 +297,9 @@ def _plain(tmp_path):
     return root, load_config(root)
 
 
-def _reported_title(text, title, *, timed=True):
-    """The first FlowGuard line keeps the exact baseline and mandatory own timer. A pytest run (`timed`) prints the 4.3
-    first line `FlowGuard M.m ({title}): N red...; T s`, `title` what it compared with; `check` and `check --static`
-    print their 4.2 header, `title`, exactly until their lane moves them to the block."""
-    if not timed:
-        headers = [line for line in text.splitlines() if line.startswith(('FlowGuard（', 'FlowGuard('))]
-        assert headers == [title], text
-        return
+def _reported_title(text, title):
+    """The first FlowGuard line keeps the exact baseline and mandatory own timer: pytest, `check` and `check --static`
+    print the 4.3 first line `FlowGuard M.m ({title}): N red...; T s`, `title` what it compared with."""
     headers = [line for line in text.splitlines() if re.match(r'FlowGuard \d+\.\d+ \(', line)]
     assert len(headers) == 1, text
     match = re.fullmatch(rf'FlowGuard {re.escape(VERSION)} \({re.escape(title)}\): \d+ red(, \d+ [a-z ?]+)*; ([0-9]+\.[0-9]) s',
@@ -497,18 +492,17 @@ def test_the_title_of_every_run_says_how_far_the_task_start_lies_before_head(tmp
         (root / 'app.py').write_text(f'# flowguard: sensor LIMIT\ndef eligible(days: int):\n    return days <= {days}\n')
         git(root, 'commit', '--quiet', '-am', f'fixture task {days}')
     (root / 'parse.py').write_text(_HANDLER)
-    title = f'FlowGuard（since task start {start[:7]}, commits before HEAD: 2; first run python -m flowguard new-task for a new task)'
     for arguments, pytest_run in _RUNS:
         code, text = _run(root, *arguments, pytest_run=pytest_run)
         assert code == 1, (arguments, text)
-        _reported_title(text, f'since {start[:7]}, 2 commits before HEAD' if pytest_run else title, timed=pytest_run)
+        _reported_title(text, f'since {start[:7]}, 2 commits before HEAD')
     code, text = _run(root, 'new-task')
     head = git(root, 'rev-parse', 'HEAD')
     assert code == 0 and cache.task_baseline(cfg) == (head, 'task'), text
     for arguments, pytest_run in _RUNS:
         code, text = _run(root, *arguments, pytest_run=pytest_run)
         assert code == 1, (arguments, text)
-        _reported_title(text, f'since {head[:7]}' if pytest_run else f'FlowGuard（since task start {head[:7]}）', timed=pytest_run)
+        _reported_title(text, f'since {head[:7]}')
 
 
 def test_check_and_check_static_title_head_standing_in_on_a_detached_head_as_pytest_does(tmp_path):
@@ -519,7 +513,7 @@ def test_check_and_check_static_title_head_standing_in_on_a_detached_head_as_pyt
     for arguments, pytest_run in _RUNS:
         code, text = _run(root, *arguments, pytest_run=pytest_run)
         assert code == 1, (arguments, text)
-        _reported_title(text, f'since HEAD {head[:7]}' if pytest_run else f'FlowGuard（since HEAD {head[:7]}）', timed=pytest_run)
+        _reported_title(text, f'since HEAD {head[:7]}')
         assert cache.task_baseline(cfg) == (head, 'HEAD'), arguments          # nothing recorded: HEAD stands in
 
 
@@ -533,12 +527,10 @@ def test_a_recorded_task_start_this_repository_lacks_is_named_and_compares_nothi
     gone = 'b' * 40
     cache._record_baseline(cfg, gone)
     (root / 'app.py').write_text('# flowguard: sensor LIMIT\ndef eligible(days: int):\n    return days <= 4\n')
-    title = f'FlowGuard(recorded task baseline {gone[:7]} is not in this repository: old/new comparison is off; first run python -m flowguard new-task)'
     for arguments, pytest_run in _RUNS:
         code, text = _run(root, *arguments, pytest_run=pytest_run)
         assert code == 0 and 'changed: ' not in text, (arguments, text)
-        _reported_title(text, f'since {gone[:7]}, not in this repository: nothing compared; run python -m flowguard new-task'
-                        if pytest_run else title, timed=pytest_run)
+        _reported_title(text, f'since {gone[:7]}, not in this repository: nothing compared; run python -m flowguard new-task')
         assert cache.task_baseline(cfg) == (gone, 'missing') and cache.session_baseline(cfg) is None, arguments
     prepared = vitest.prepare(root)
     seconds = prepared.pop('seconds')

@@ -27,7 +27,7 @@ python -m pytest
 `new-task` records the task's baseline commit. Commits during the task keep that baseline. A first test run records it too when none exists. Without intent rules, a check prints:
 
 ```text
-FlowGuard check: no intent rules.
+FlowGuard 4.3 (since 99f025e): 0 red; 0.2 s
 ```
 
 ## Daily use
