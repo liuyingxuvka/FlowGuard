@@ -6,7 +6,7 @@ import textwrap
 
 import pytest
 
-from flowguard.intent import anchors, cli, owners, sources
+from flowguard.intent import anchors, cli, owners, signals, sources
 from flowguard.intent.config import load_config
 from flowguard.intent.signals import deliver
 from flowguard.map.requests import store_request
@@ -122,14 +122,15 @@ def test_every_invalid_rule_entry_is_an_input_finding_and_counts_nothing(tmp_pat
     assert list(found.rules) == ['ok']
     assert problem in _problems(found, 'rules-entry:rule.x').split('; ')
     issue = next(issue for issue in found.issues if issue.name == 'rules-entry:rule.x')
-    assert issue.parts[0][1] == '.flowguard/rules.toml:rule.x' and issue.subject == 'rule.x' and issue.files == {'.flowguard/rules.toml'}
+    # the entry is the line's subject and place, named once: `red: rule.x: missing source -> ...`
+    assert issue.parts[0][1] == ('.flowguard/rules.toml:rule.x',) and issue.subject == 'rule.x' and issue.files == {'.flowguard/rules.toml'}
     assert issue.rank == 0 and issue.new          # only the 4.3 lines report it: no structure count, listing or lead
 
 
 @pytest.mark.parametrize('text, name, problem', [
-    ('[rule.x\n', 'rules-file:.flowguard/rules.toml', '.flowguard/rules.toml is not TOML: '),
-    ('[rules.x]\ntext = "x"\n', 'rules-file:.flowguard/rules.toml', '.flowguard/rules.toml holds only [rule.<id>] tables, not rules'),
-    ('rule = "x"\n', 'rules-file:.flowguard/rules.toml', ".flowguard/rules.toml holds only [rule.<id>] tables, not 'x'"),
+    ('[rule.x\n', 'rules-file:.flowguard/rules.toml', 'not TOML: '),
+    ('[rules.x]\ntext = "x"\n', 'rules-file:.flowguard/rules.toml', 'holds only [rule.<id>] tables, not rules'),
+    ('rule = "x"\n', 'rules-file:.flowguard/rules.toml', "holds only [rule.<id>] tables, not 'x'"),
     ('[rule]\nx = "y"\n', 'rules-entry:rule.x', "[rule.x] is a table of keys, not 'y'"),
     ('[rule."a b"]\ntext = "x"\nsource = \'R1 "w"\'\n', 'rules-entry:rule.a b', "the id 'a b' is letters, digits, - and _"),
 ])
@@ -143,8 +144,23 @@ def test_bytes_that_are_not_utf8_are_an_input_finding_too(tmp_path):
     (tmp_path / '.flowguard').mkdir()
     (tmp_path / '.flowguard/known.toml').write_bytes(b'[known.x]\nwhy = "\xff"\n')
     found = sources.catalog(cfg)
-    assert found.known == {} and _problems(found, 'known-file:.flowguard/known.toml').startswith('.flowguard/known.toml is not TOML: ')
+    assert found.known == {} and _problems(found, 'known-file:.flowguard/known.toml').startswith('not TOML: ')
 
+
+
+def test_the_red_of_an_invalid_entry_or_file_names_it_once(tmp_path, capsys):
+    """The entry (or file) is the line's subject; the line does not name it a second time as its place."""
+    _project(tmp_path, rules='rule = 1\n', known=KNOWN + '''
+        [known.night-transfer]
+        sites = ["src/fees.py:fee"]
+        why = "transfers after midnight"
+        act = "later"
+    ''')
+    _commit(tmp_path)
+    assert cli.main(['--root', str(tmp_path), 'check', '--static']) == 1
+    assert capsys.readouterr().out.splitlines()[1:] == [
+        "red: rules.toml: holds only [rule.<id>] tables, not 1 -> move each entry under [rule.<id>] in rules.toml",
+        "red: known.night-transfer: act is one of leave, ask, fix, ignore, not 'later' -> correct [known.night-transfer] in known.toml"]
 
 BASE = 'sites = ["src/fees.py:fee"]\nwhy = "w"\nact = "leave"\n'
 
@@ -548,7 +564,7 @@ def test_show_of_an_entry_names_the_problem_of_its_file(tmp_path, capsys):
     assert cli.show(cfg, 'rule.three-days') == 1
     lines = capsys.readouterr().out.splitlines()
     assert len(lines) == 1 and lines[0].startswith('input rules-file:.flowguard/rules.toml: .flowguard/rules.toml '
-                                                   '.flowguard/rules.toml is not TOML: '), lines
+                                                   'not TOML: '), lines
     # The other file's problem is not this entry's.
     assert cli.show(cfg, 'known.scale') == 0 and 'rules-file' not in capsys.readouterr().out
 
@@ -567,3 +583,149 @@ def test_the_repository_keeps_its_rules_in_force_each_quoting_stored_owner_words
     lines = capsys.readouterr().out.splitlines()
     assert lines[0] == 'FlowGuard rules: 6 in .flowguard/rules.toml, 0 known in .flowguard/known.toml, 0 input problems'
     assert sum(line.startswith('rule.') for line in lines) == 6 and sum(line.endswith('(holds)') for line in lines) == 6
+
+
+FEES = {
+    'fees.py': '''
+        # flowguard: same FEE
+        def late_fee(days: int) -> int:
+            if days <= 3:
+                return 0
+            return (days - 3) * 2
+
+
+        # flowguard: same FEE
+        def preview_fee(days: int) -> int:
+            if days <= 3:
+                return 0
+            return (days - 3) * 3
+    ''',
+    'tests/test_fees.py': '''
+        from fees import late_fee, preview_fee
+
+        def test_fee():
+            assert late_fee(5) == 4
+            assert preview_fee(2) == 0
+    ''',
+    '.flowguard/known.toml': '''
+        [known.fee-copies]
+        sites   = ["fees.py:late_fee", "fees.py:preview_fee"]
+        why     = "The preview charges 3 per late day, the invoice 2"
+        act     = "ask"
+        ask     = "Which daily late fee is right, 2 or 3?"
+        finding = "same:FEE"
+    ''',
+}
+
+
+@pytest.mark.parametrize('old, new', [
+    ('    return (days - 3) * ', '    late = days - 3\n    return late * '),         # both copies' code, not their answers
+    ('        return 0\n', '        return 0  # on time\n'),                           # a comment in each copy
+])
+def test_copies_that_disagreed_at_task_start_are_the_known_entry_s_in_pytest_check_and_check_static_alike(tmp_path, old, new):
+    """A known entry names the same-name disagreement the task started with, and the change touches both copies: each
+    run says `known` with the entry's step and nothing red; check compares the copies at the task start too."""
+    from tests.intent_engine.test_unverified_outcome import _cli, _project, _pytest
+    from tests.intent_engine._cli_fixture import block
+    root = _project(tmp_path / 'p', FEES)
+    path = root / 'fees.py'
+    path.write_text(path.read_text(encoding='utf-8').replace(old, new), encoding='utf-8')
+    known = 'known: known.fee-copies at fees.py:late_fee, fees.py:preview_fee -> ask owner (not asked yet)'
+    for run, (result, _) in (('pytest', _pytest(root, '-q')), ('check', _cli(root, 'check')),
+                             ('check --static', _cli(root, 'check', '--static'))):
+        shown = block(result)
+        assert result.returncode == 0 and ': 0 red, 1 known; ' in shown[0], (run, shown)
+        assert shown[1:] == [known], (run, result.stdout)
+
+
+# An invalid entry and one whose site names nothing: input findings, red in every run (D4).
+BROKEN_KNOWN = '''
+    [known.bad]
+    sites = "x"
+
+    [known.ghost]
+    sites = ["src/app.py:nosuch"]
+    why = "a site that names nothing"
+    act = "leave"
+'''
+BROKEN_REDS = [
+    'red: known.bad: missing why; missing act; sites is a non-empty list of path:symbol -> correct [known.bad] in known.toml',
+    'red: known.ghost: site src/app.py:nosuch names nothing in src/app.py: name one function, object.method, constant or '
+    'Model.field of that file -> correct the sites of [known.ghost] in known.toml']
+PLAIN = {
+    'src/__init__.py': '',
+    'src/app.py': 'def fee(days):\n    return days * 2\n',
+    'tests/test_app.py': 'from src.app import fee\n\n\ndef test_fee():\n    assert fee(1) == 2\n',
+    'pyproject.toml': '[tool.pytest.ini_options]\npythonpath = ["."]\ntestpaths = ["tests"]\n'
+                      'addopts = "-p flowguard.intent.plugin"\n',
+    '.gitignore': '.flowguard/cache/\n__pycache__/\n',
+    '.flowguard/known.toml': BROKEN_KNOWN,
+}
+NO_BASELINE = {'outside Git': 'no baseline: nothing compared', 'unborn branch': 'no baseline: nothing compared',
+               'recorded start missing': 'since bbbbbbb, not in this repository: nothing compared; run python -m flowguard new-task'}
+
+
+def _without_baseline(root, state):
+    """`PLAIN` with no commit to compare with: in no repository, on a branch before its first commit, or with a
+    recorded task start this repository lacks; or committed, with no source change since."""
+    from flowguard.intent import cache
+    _write(root, PLAIN)
+    if state != 'outside Git':
+        _git(root, 'init', '-q', '-b', 'main')
+    if state in ('recorded start missing', 'no source change'):
+        _commit(root)
+    if state == 'recorded start missing':
+        cache._record_baseline(load_config(root), 'b' * 40)
+    return root
+
+
+@pytest.mark.parametrize('state', list(NO_BASELINE))
+def test_check_reports_an_invalid_or_unresolvable_known_entry_without_a_baseline_as_check_static_does(tmp_path, state):
+    """With nothing to compare (no baseline), nothing is new, but an entry of known.toml that is invalid or names
+    nothing is red in check too, also when it runs no pytest batch (no intent items), as in check --static (D4)."""
+    from tests.intent_engine.test_unverified_outcome import _cli
+    from tests.intent_engine._cli_fixture import block
+    root = _without_baseline(tmp_path / 'p', state)
+    for arguments in (('check',), ('check', '--static')):
+        result, _ = _cli(root, *arguments)
+        shown = block(result)
+        assert result.returncode == 1 and shown[0].startswith(f'FlowGuard {signals.version()} ({NO_BASELINE[state]}): 2 red; '), (
+            arguments, result.stdout + result.stderr)
+        assert shown[1:] == BROKEN_REDS, (arguments, result.stdout)
+
+
+@pytest.mark.parametrize('state', ['no source change', *NO_BASELINE])
+def test_pytest_without_a_source_change_reports_a_known_site_that_names_nothing_as_check_does(tmp_path, state):
+    """A pytest run whose map checks do not run (no source change, or no baseline) still resolves the known sites on
+    the map: an entry whose site names nothing is red, as the invalid entry beside it, in check and check --static
+    too (D4)."""
+    from tests.intent_engine.test_unverified_outcome import _cli, _pytest
+    from tests.intent_engine._cli_fixture import block
+    root = _without_baseline(tmp_path / 'p', state)
+    for run, (result, _) in (('pytest', _pytest(root, '-q')), ('check', _cli(root, 'check')),
+                             ('check --static', _cli(root, 'check', '--static'))):
+        shown = block(result)
+        assert result.returncode == 1 and ': 2 red; ' in shown[0], (run, result.stdout + result.stderr)
+        assert shown[1:] == BROKEN_REDS, (run, result.stdout)
+
+
+def test_copies_that_agree_again_make_their_known_entry_known_fixed_in_pytest_and_check(tmp_path):
+    """A real fix: the change makes the copies the entry names agree. pytest compares them sealed on its recorded
+    inputs and check on every input it makes for them (which, not a proof, it says in a not compared line); both find
+    them agreeing, so the entry may be fixed: `known fixed?`, never `known`. check --static compares no copies: the
+    change touches the entry's sites, `known`."""
+    from tests.intent_engine.test_unverified_outcome import _cli, _project, _pytest
+    from tests.intent_engine._cli_fixture import block
+    root = _project(tmp_path / 'p', FEES)
+    path = root / 'fees.py'
+    path.write_text(path.read_text(encoding='utf-8').replace('(days - 3) * 3', '(days - 3) * 2'), encoding='utf-8')
+    fixed = ('known fixed?: known.fee-copies: copies of FEE now agree -> the owner has not decided: revert, or say why '
+             'in your report')
+    for run, (result, _), expected in (
+            ('pytest', _pytest(root, '-q'), [fixed]),
+            ('check', _cli(root, 'check'), [fixed, 'not compared: FEE (returns, or numeric classes are not readable here: '
+                                                   'compared on 9 representative values) -> not a failure'])):
+        assert result.returncode == 0 and block(result)[1:] == expected, (run, result.stdout + result.stderr)
+    result, _ = _cli(root, 'check', '--static')
+    assert result.returncode == 0 and block(result)[1:] == [
+        'known: known.fee-copies at fees.py:late_fee, fees.py:preview_fee -> ask owner (not asked yet)'], result.stdout

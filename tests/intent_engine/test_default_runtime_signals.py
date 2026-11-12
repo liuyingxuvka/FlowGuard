@@ -11,7 +11,9 @@ import subprocess
 import sys
 import textwrap
 
-from tests.intent_engine._cli_fixture import display_text as _text, last as _last
+import pytest
+
+from tests.intent_engine._cli_fixture import block as _block, display_text as _text, last as _last
 
 
 def _git(root, *arguments):
@@ -149,10 +151,172 @@ def test_fixed_3_old_function_uses_old_module_constant_on_the_recorded_call(tmp_
     text = _text(result)
     assert result.returncode == 0, text
     # The baseline runs with its own GRACE_DAYS = 3, the current source with 7: only days=5 differs.
-    assert ('changed: STANDING (policy.py:3): (days=5, suspended=False, owed=0) was False, now True; 1/2 inputs differ '
+    assert ('changed: standing (policy.py:3): (days=5, suspended=False, owed=0) was False, now True; 1/2 inputs differ '
             '-> if you meant it, say so') in text.splitlines(), text
     item = next(item for item in _observations(tmp_path)['items'] if item.get('name') == 'STANDING')
     assert item['changed'] == [[{'days': 5, 'suspended': False, 'owed': 0}, False, True]], item
+
+
+def test_a_changed_module_with_a_bare_annotation_is_compared(tmp_path):
+    # `LIMIT: int` alone binds nothing (Python only notes the annotation): it is no binding a function reads, and
+    # reading the module's bindings once crashed the whole session on it (an INTERNALERROR, exit code 3).
+    policy = _project(tmp_path, '''
+        LIMIT: int
+        LIMIT = 3
+
+        def over(x: int) -> bool:
+            return x > LIMIT
+    ''', '''
+        from policy import over
+        def test_native():
+            assert over(3) in (True, False)
+    ''')
+    policy.write_text(policy.read_text().replace('x > LIMIT', 'x >= LIMIT'))
+    result = _run(tmp_path)
+    text = _text(result)
+    assert result.returncode == 0, text
+    assert ('changed: over (policy.py:4): (x=3) was False, now True; 1/1 inputs differ '
+            '-> if you meant it, say so') in text.splitlines(), text
+
+
+@pytest.mark.parametrize('edit', [('BASE = 10', 'BASE = 9'), ('LIMIT = BASE * 2', 'LIMIT = BASE * 2 - 2')])
+def test_a_function_reading_a_constant_derived_from_a_changed_one_is_changed(tmp_path, edit):
+    # BASE changed and LIMIT = BASE * 2 did not: over reads LIMIT, whose value changed with BASE, as the vitest side
+    # says (test_vitest_adapter.test_a_function_reading_a_constant_derived_from_a_changed_one_is_changed).
+    policy = _project(tmp_path, '''
+        BASE = 10
+        LIMIT = BASE * 2
+        AFTER = LIMIT + 1
+
+        def over(x: int) -> bool:
+            return x > LIMIT
+
+        def same(x: int) -> int:
+            return x
+    ''', '''
+        from policy import over, same
+        def test_native():
+            assert over(20) in (True, False)
+            assert same(20) == 20
+    ''')
+    policy.write_text(policy.read_text().replace(*edit))
+    result = _run(tmp_path)
+    text = _text(result)
+    assert result.returncode == 0, text
+    assert _block(result)[1:] == [
+        'changed: over (policy.py:5): (x=20) was False, now True; 1/1 inputs differ -> if you meant it, say so'], text
+
+
+def test_a_project_below_the_repository_top_folder_compares_its_changed_function(tmp_path):
+    """The project is a folder of a larger repository (a monorepo's app/): Git names the changed files relative to the
+    project's root (`--relative`), so its changed function is compared as at the top folder, never silently not at
+    all (vitest's side: test_vitest_adapter.test_a_package_below_the_repository_top_folder_plans_its_changed_function)."""
+    app = tmp_path / 'app'
+    (app / 'tests').mkdir(parents=True)
+    (app / 'policy.py').write_text('def over(x: int) -> bool:\n    return x > 3\n', encoding='utf-8')
+    (app / 'tests/test_case.py').write_text('from policy import over\n\n\ndef test_native():\n'
+                                            '    assert over(3) in (True, False)\n', encoding='utf-8')
+    (app / 'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath=["."]\ntestpaths=["tests"]\n', encoding='utf-8')
+    (tmp_path / '.gitignore').write_text('.flowguard/cache/\n__pycache__/\n.pytest_cache/\n', encoding='utf-8')
+    (tmp_path / 'README.md').write_text('The repository holds more than the project.\n', encoding='utf-8')
+    _git(tmp_path, 'init', '-q', '-b', 'main')
+    _git(tmp_path, 'add', '.')
+    _git(tmp_path, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'fixture baseline')
+    policy = app / 'policy.py'
+    policy.write_text(policy.read_text().replace('x > 3', 'x >= 3'))
+    result = _run(app)
+    assert result.returncode == 0, _text(result)
+    assert _block(result)[1:] == [
+        'changed: over (policy.py:1): (x=3) was False, now True; 1/1 inputs differ -> if you meant it, say so'], _text(result)
+
+
+IMPORTED = {'limits.py': 'LIMIT = 20\n', 'tests/test_case.py': (
+    'from use import over, same\n\n\ndef test_native():\n    assert over(19) in (True, False)\n    assert same(19) == 19\n')}
+IMPORTED_CHANGED = 'changed: over (use.py:4): (x=19) was False, now True; 1/1 inputs differ -> if you meant it, say so'
+
+
+def _imported(root, files, edit=('LIMIT = 20', 'LIMIT = 18')):
+    """A project whose use.py reads a constant of limits.py; then limits.py alone is edited."""
+    for name, text in files.items():
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_text(text, encoding='utf-8')
+    (root / '.gitignore').write_text('.flowguard/cache/\n__pycache__/\n.pytest_cache/\n')
+    (root / 'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath=["."]\ntestpaths=["tests"]\n')
+    _git(root, 'init', '-q', '-b', 'main')
+    _git(root, 'add', '.')
+    _git(root, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'fixture baseline')
+    limits = root / 'limits.py'
+    limits.write_text(limits.read_text(encoding='utf-8').replace(*edit), encoding='utf-8')
+    result = _run(root)
+    assert result.returncode == 0, _text(result)
+    return _block(result)[1:]
+
+
+@pytest.mark.parametrize('binding, read', [('from limits import LIMIT', 'LIMIT'), ('from limits import LIMIT as MAX', 'MAX'),
+                                           ('import limits', 'limits.LIMIT'), ('import limits as lim', 'lim.LIMIT')])
+def test_a_function_reading_a_changed_constant_of_another_module_through_its_import_is_changed(tmp_path, binding, read):
+    """use.py is the same; the constant its function reads through an import changed in limits.py: the function
+    changed, as one reading a changed constant of its own file, by name or as the module's attribute (vitest's side,
+    with the same edit: test_vitest_adapter.test_a_function_reading_an_imported_changed_constant_is_changed_in_an_unchanged_file)."""
+    use = f'{binding}\n\n\ndef over(x: int) -> bool:\n    return x > {read}\n\n\ndef same(x: int) -> int:\n    return x\n'
+    assert _imported(tmp_path, {**IMPORTED, 'use.py': use}) == [IMPORTED_CHANGED]
+
+
+@pytest.mark.parametrize('binding, cap, said', [
+    ('from limits import LIMIT', 'LIMIT + 1',
+     'changed: over (use.py:6): (x=20) was False, now True; 1/1 inputs differ -> if you meant it, say so'),
+    # the sealed run reads no module attribute in a constant: it says so instead of nothing
+    ('import limits', 'limits.LIMIT + 1', 'not compared: over (use.py:6) (uses unavailable binding CAP) -> not a failure')])
+def test_constants_derived_on_either_side_of_an_import_change_with_the_imported_one(tmp_path, binding, cap, said):
+    """LIMIT = BASE * 2 changes with BASE in limits.py, and use.py's own CAP = LIMIT + 1 with LIMIT: the function of
+    use.py reading CAP changed; the one reading nothing of them did not."""
+    files = {'limits.py': 'BASE = 10\nLIMIT = BASE * 2\n', 'use.py': (
+        f'{binding}\n\nCAP = {cap}\n\n\ndef over(x: int) -> bool:\n    return x > CAP\n\n\n'
+        'def same(x: int) -> int:\n    return x\n'),
+        'tests/test_case.py': 'from use import over, same\n\n\ndef test_native():\n    assert over(20) in (True, False)\n'
+                              '    assert same(20) == 20\n'}
+    assert _imported(tmp_path, files, ('BASE = 10', 'BASE = 9')) == [said]
+
+
+def test_imports_bind_another_module_s_changed_constants_by_name_by_star_and_through_module_names():
+    """What `_imported_changes` reads of a module's imports, as Python binds them: relative imports from the
+    importer's package, a star import's public names, a later binding replacing an import, and the module names an
+    attribute chain reads through (`_reads_changed`)."""
+    import ast
+    from flowguard.intent.runtime import _absolute, _imported_changes, _reads_changed
+    changed = {'shop.limits': {'LIMIT', 'BASE', '_HIDDEN'}, 'shop': set()}
+    tree = ast.parse(textwrap.dedent('''
+        from .limits import LIMIT as MAX
+        from . import limits
+        import shop.limits
+        from .limits import *
+        import shop.limits as lim
+        from .limits import LIMIT
+        LIMIT = 3
+        CAP = lim.LIMIT + 1
+        GRACE = lim.OTHER
+    '''))
+    names, aliases, constants = _imported_changes(tree, 'shop', changed)
+    assert names == {'MAX', 'BASE'} and constants == {'MAX', 'BASE', 'CAP'}, (names, constants)
+    # a name bound by `from M import X` may be a submodule too; LIMIT, CAP and GRACE are bound again below their imports
+    assert aliases == {'MAX': 'shop.limits.LIMIT', 'limits': 'shop.limits', 'shop': 'shop', 'lim': 'shop.limits'}, aliases
+    def reads(expression):
+        return _reads_changed(ast.parse(expression, mode='eval'), names, aliases, changed)
+    assert [reads(text) for text in ('limits.LIMIT', 'shop.limits.LIMIT', 'lim.BASE', 'MAX', 'lim.OTHER', 'shop.LIMIT',
+                                     'LIMIT', 'limits._HIDDEN')] == [True, True, True, True, False, False, False, True]
+    assert [_absolute(*case) for case in ((0, 'a.b', 'x'), (1, 'b', 'a.c'), (2, 'b', 'a.c'), (1, None, 'a'), (2, 'b', 'a'),
+                                          (1, 'b', ''))] == ['a.b', 'a.c.b', 'a.b', 'a', None, None]
+
+
+def test_a_module_s_binding_facts_have_one_owner(tmp_path):
+    """`runtime._binding_facts` reads a module's top-level bindings for every caller (the session's changed functions,
+    `_changed_constants`); the Runtime keeps no second, uncalled copy of it, nor that copy's cache."""
+    import ast
+    from flowguard.intent import runtime
+    assert '_binding_facts' not in vars(runtime.Runtime)
+    assert not hasattr(runtime.Runtime(tmp_path, previous={}), '_bindings')
+    assert runtime._binding_facts(ast.parse('LIMIT = 3\ndef f():\n    return LIMIT\n')) == {
+        'LIMIT': ('value', ast.dump(ast.Constant(3), include_attributes=False)), 'f': ('function', 'f')}
 
 
 def test_fixed_4_changed_function_needs_no_anchor_to_report_member_changes(tmp_path):
@@ -202,7 +366,7 @@ def test_fixed_5_passing_release_test_reports_the_changed_decision_and_records_i
     result = _run(tmp_path)
     text = _text(result)
     assert result.returncode == 0, text
-    assert ("changed: NEEDS_SAVE (policy.py:2): (payload='document') was True, now False; 1/1 inputs differ "
+    assert ("changed: needs_save (policy.py:2): (payload='document') was True, now False; 1/1 inputs differ "
             '-> if you meant it, say so') in text.splitlines(), text
     # The test is not run again with the old code (6.5): no old path, only the real current one.
     assert 'became' not in text, text
@@ -260,7 +424,7 @@ def test_fixed_7_rule_failure_preserves_its_independent_source_sentence(tmp_path
     text = _text(result)
     assert result.returncode == 1, text
     assert [line for line in text.splitlines() if line.startswith('red: ')] == [
-        'red: rule STANDING_RULE: days=4 -> rule F, code True at policy.py:standing (1 of 6 cells disagree) (+1 more) '
+        'red: rule STANDING_RULE: days=4: rule False, code True at policy.py:standing (1 of 6 cells disagree) (+1 more) '
         '-> change the code so policy.py:standing follows rule STANDING_RULE'], text
     # The owner's sentence is the red's detail, which show --last prints under it.
     assert '    STANDING_RULE source: At most three days.' in _last(tmp_path).splitlines()
@@ -292,8 +456,9 @@ def renewal(days: int) -> bool:
     result = _run(tmp_path)
     text = _text(result)
     assert result.returncode == 0, text
-    # A 5.0-deprecated heuristic: no line of the block, the lead only in show --last.
-    assert 'old values' not in text and 'deprecated: old-value leads goes in 5.0 -> do not use it' in result.stderr.splitlines(), text
+    # A 5.0-deprecated heuristic: no line of the block, the lead only in show --last; FlowGuard made it, the project uses
+    # nothing deprecated, so no deprecation notice.
+    assert 'old values' not in text and 'deprecated:' not in result.stderr, text
     last = _last(tmp_path).splitlines()
     leads = last[last.index('deprecated leads (5.0):') + 1:]
     lead = next(line for line in leads if 'old values 14 remain in 4 decisions' in line)
@@ -349,7 +514,7 @@ def test_late_imported_sensor_is_observed_without_eagerly_importing_its_module(t
     result = _run(tmp_path)
     text = _text(result)
     assert result.returncode == 0 and '1 passed' in result.stdout, text
-    assert ('changed: LATE_STANDING (policy.py:3): (days=5) was False, now True; 1/2 inputs differ '
+    assert ('changed: standing (policy.py:3): (days=5) was False, now True; 1/2 inputs differ '
             '-> if you meant it, say so') in text.splitlines(), text
 
 
@@ -435,7 +600,7 @@ def test_fixture_constant_override_never_enters_the_sealed_comparison(tmp_path):
     assert result.returncode == 0 and '1 passed' in result.stdout, text
     # Each version runs on its own source constant (3, then 7), never the fixture's live 100:
     # days=5 was allowed by the baseline and is refused now, though the real call (LIMIT 100) refused it.
-    assert ('changed: LIMIT_BOUNDARY (policy.py:3): (days=5) was True, now False; 1/2 inputs differ '
+    assert ('changed: allowed (policy.py:3): (days=5) was True, now False; 1/2 inputs differ '
             '-> if you meant it, say so') in text.splitlines(), text
     assert not re.search(r'days\s*[=:]\s*100', text), text
     item = next(item for item in _observations(tmp_path)['items'] if item.get('name') == 'LIMIT_BOUNDARY')

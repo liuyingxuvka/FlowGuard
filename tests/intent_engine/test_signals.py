@@ -268,6 +268,15 @@ def test_the_first_line_names_the_baseline_each_way_a_run_can_have_one():
     assert signals.baseline_label(None, 'HEAD') == 'no baseline: nothing compared'
 
 
+def test_the_first_line_shortens_a_commit_id_and_names_a_ref_as_it_was_given():
+    """Only a full commit id is cut to seven characters: a branch, a tag, HEAD~1 or an abbreviated id is the name the
+    option was given (`since --base release/task-start`, never `since --base release`)."""
+    assert [signals.baseline_label(given, 'base', None, '--base') for given in (
+        'release/task-start', 'origin/main', 'HEAD~1', 'v4.2.1', '6e18a86f', 'c' * 40, 'd' * 64)] == [
+        'since --base release/task-start', 'since --base origin/main', 'since --base HEAD~1', 'since --base v4.2.1',
+        'since --base 6e18a86f', 'since --base ccccccc', 'since --base ddddddd']
+
+
 def test_red_loosened_and_known_fixed_are_listed_in_full_and_the_rest_keep_to_ten_lines():
     lines = ([_line('red', number) for number in range(15)] + [_line('loosened', number) for number in range(4)]
              + [_line('known fixed?', number) for number in range(3)] + [_line('changed', number) for number in range(5)]
@@ -318,10 +327,47 @@ def test_a_line_keeps_200_characters_besides_its_places_and_its_subject_places_a
     assert _block([broken])[1:] == ['red: rule S: "first second" third -> x']
 
 
+def test_a_long_input_gives_way_first_and_a_changed_line_keeps_what_was_and_what_is_now():
+    """Design 4.7, at most 200 characters besides the paths: the input a line is about gives way first (a changed
+    line's inputs, a same-name line's `on ...:`), so a 300-character input never cuts away what a function answered
+    before and now, nor which copy returns what; long answers give way after it, to one length together, and the
+    words between the values stay."""
+    text = 'abcd' + 'efgh' * 73 + 'hijx'                 # 300 characters
+    def changed(old, new):
+        line = signals.changed_line('longOne', 'src/m:longOne', 'src/m.ts', 25, [({'text': text}, old, new)], 1)
+        said, = _block([line])[1:]
+        assert len(said) - len('m.ts:25') <= 200, said
+        return said
+    assert changed(True, False) == (
+        "changed: longOne (m.ts:25): (text='abcdefghefghefghefghefghefghefghefghefghefghefgh...hefghefghefghefghefghefghefgh"
+        "efghefghefghefghefghhijx') was True, now False; 1/1 inputs differ -> if you meant it, say so")
+    # The answers are as long: the input is cut to 36 characters first, then both answers alike.
+    assert changed(text, text + 'x') == (
+        "changed: longOne (m.ts:25): (text='abcdefghefg...efghefghefghhijx') was 'abcdefghefghefghef...ghefghefghefghhijx', "
+        "now 'abcdefghefghefghef...hefghefghefghhijxx'; 1/1 inputs differ -> if you meant it, say so")
+    same = Line('red', 'same:N', 'a|b', f'same N: on (text={text!r}): a.py:f returns 1, b.py:g returns 2',
+                'decide which copy is right, then make the other agree', ('a.py:f', 'b.py:g'))
+    said, = _block([same])[1:]
+    assert said == ("red: same N: on (text='abcdefghefghefghefghefghefghefghefghefghefg...efghefghefghefghefghefghefghefghefgh"
+                    "efghefghhijx'): a.py:f returns 1, b.py:g returns 2 -> decide which copy is right, then make the other agree")
+    assert len(said) - len('a.py:f') - len('b.py:g') == 200, said
+
+
 def test_a_line_names_at_most_three_places_and_paths_are_file_names_unless_two_share_one():
     places = tuple(f'src/a{number}.py:f' for number in range(5))
     line = Line('known', 'known.k', '', 'known.k at ' + ', '.join(places), 'ask owner (not asked yet)', places)
     assert _block([line])[1] == 'known: known.k at a0.py:f, a1.py:f, a2.py:f (+2 places) -> ask owner (not asked yet)'
+    # The step's places count too: the text names one, the step two more, the rest are counted.
+    homes = [f'src/a{number}.py:f' for number in range(5)]
+    step = signals.rule_steps('R', homes, 'tests/intent/r.py:3', ['days=4 -> rule False, code True'])[0].rstrip('; ')
+    assert step == 'change the code so src/a0.py:f, src/a1.py:f, src/a2.py:f, src/a3.py:f and src/a4.py:f follow rule R', step
+    line = Line('red', 'rule:R', '', 'rule R: days=4: rule False, code True at src/a0.py:f', step, tuple(homes))
+    assert _block([line])[1] == ('red: rule R: days=4: rule False, code True at a0.py:f -> change the code so a0.py:f, '
+                                 'a1.py:f, a2.py:f (+2 places) follow rule R')
+    code = ['days=4 -> rule False, code True']
+    one = Line('red', 'rule:R', '', 'rule R: x', signals.rule_steps('R', homes[:4], 'r.py:3', code)[0].rstrip('; '), tuple(homes[:4]))
+    assert _block([one])[1] == 'red: rule R: x -> change the code so a0.py:f, a1.py:f, a2.py:f (+1 place) follow rule R'
+    assert signals.rule_steps('R', homes[:1], 'r.py:3', code)[0] == 'change the code so src/a0.py:f follows rule R; '
     clash = [Line('red', 'x', 'f', 'same X: on n=1: web/api/util.ts:f returns 1, app/api/util.ts:f returns 2', 'decide',
                   ('web/api/util.ts:f', 'app/api/util.ts:f')),
              Line('before', 'y', 'g', 'together A at lib/util.ts:g was broken at task start', 'leave', ('lib/util.ts:g',))]
@@ -515,7 +561,7 @@ def test_a_pytest_run_whose_changed_function_takes_a_list_prints_and_keeps_its_c
     policy.write_text(policy.read_text().replace('sum(items)', 'sum(items) + 1'))
     result = _run(tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
-    changed = 'changed: TOTAL (policy.py:2): (items=[1, 2]) was 3, now 4; 2/2 inputs differ -> if you meant it, say so'
+    changed = 'changed: total (policy.py:2): (items=[1, 2]) was 3, now 4; 2/2 inputs differ -> if you meant it, say so'
     assert block(result)[1:] == [changed], result.stdout
     assert changed in last(tmp_path).splitlines()
 
@@ -563,7 +609,10 @@ def test_every_stdout_line_of_a_pytest_block_has_one_of_the_shapes(tmp_path):
     kinds = {line.partition(': ')[0] for line in block[1:]}
     assert {'red', 'changed', 'not compared'} <= kinds, block
     assert not any(line.startswith('deprecated') for line in lines), lines
-    assert 'deprecated: old-value leads goes in 5.0 -> do not use it' in result.stderr.splitlines(), result.stderr
+    # stderr says the one deprecated spelling the project uses (`sensor`), once; the old-value lead FlowGuard makes
+    # itself says none
+    assert [line for line in result.stderr.splitlines() if 'deprecated' in line] == [
+        'deprecated: sensor goes in 5.0 -> write same NAME'], result.stderr
 
 
 def test_the_block_follows_pytests_summary_with_every_reporter_option_and_after_an_interrupt(tmp_path):
@@ -761,7 +810,7 @@ def test_a_rule_whose_source_does_not_parse_is_a_red_input_line_of_the_session_n
     load = ('red: load tests/intent/decisions.py:2: STANDING_RULE: source needs rule.<id> (a rule of .flowguard/rules.toml), '
             'R<id> "exact words", owner R-id, doc PATH "quoted words", assumed: or lesson: '
             '-> correct this declaration; until then none of its file is checked')
-    for options, rule in (((), ['red: rule STANDING_RULE: days=4 -> rule F, code True at policy.py:standing']),
+    for options, rule in (((), ['red: rule STANDING_RULE: days=4: rule False, code True at policy.py:standing']),
                           (('tests/test_case.py',), [])):          # with and without the rule's own items
         result = _run(tmp_path, *options)
         assert result.returncode == 1 and 'Traceback' not in result.stderr, result.stdout + result.stderr
@@ -770,4 +819,90 @@ def test_a_rule_whose_source_does_not_parse_is_a_red_input_line_of_the_session_n
         assert [line.partition(': source needs')[0] for line in reds if line.startswith('red: load ')] == [
             'red: load decisions.py:2: STANDING_RULE'], result.stdout
         assert load in last(tmp_path).splitlines(), last(tmp_path)
-        assert 'changed: STANDING (policy.py:2)' in '\n'.join(block(result)), result.stdout
+        assert 'changed: standing (policy.py:2)' in '\n'.join(block(result)), result.stdout
+
+
+def test_a_rule_red_spells_both_results_and_its_step_names_the_copy_that_disagrees_in_a_sentence(tmp_path):
+    """Two homes of one rule, one of them changed: the rule's result is spelled as the code's (`rule False, code True`,
+    never `rule F`) and the step names where the code disagrees (`so orders.py:preview_accept follows rule WINDOW`),
+    in pytest and in check alike."""
+    from tests.intent_engine.test_unverified_outcome import _cli, _project, _pytest
+    from tests.intent_engine._cli_fixture import block
+    root = _project(tmp_path / 'p', {
+        'policy.txt': 'At most three days.\n',
+        'orders.py': '''
+            # flowguard: same ACCEPT ref(days: day) -> allowed: bool
+            def accept(days: int) -> bool:
+                return days <= 3
+
+            # flowguard: same ACCEPT(days: day) -> allowed: bool
+            def preview_accept(days: int) -> bool:
+                return days <= 3
+        ''',
+        'tests/test_orders.py': '''
+            from orders import accept, preview_accept
+
+            def test_accept():
+                assert accept(3) and not accept(5)
+                assert preview_accept(2)
+        ''',
+        'tests/intent/window.py': '''
+            from flowguard.intent import rule, row
+
+            @rule("WINDOW", decides="acceptance window", fields={"days": int},
+                  source='assumed: at most three days', anchor="ACCEPT")
+            def WINDOW(days):
+                return days <= 3
+
+            WINDOW.rows(row(days=4, expect=False, why="the fourth day was accepted"))
+        ''',
+    })
+    path = root / 'orders.py'
+    path.write_text(path.read_text(encoding='utf-8').replace(
+        'def preview_accept(days: int) -> bool:\n    return days <= 3', 'def preview_accept(days: int) -> bool:\n    return days <= 4'),
+        encoding='utf-8')
+    red = ('red: rule WINDOW: days=4: rule False, code True at orders.py:preview_accept (1 of 6 cells disagree) (+1 more) '
+           '-> change the code so orders.py:preview_accept follows rule WINDOW')
+    for run, (result, _) in (('pytest', _pytest(root, '-q')), ('check', _cli(root, 'check'))):
+        assert result.returncode == 1 and red in block(result), (run, result.stdout)
+
+
+def test_every_line_has_one_arrow_before_its_step_whatever_the_project_spells(tmp_path):
+    """` -> ` separates a line from its step, once per line: a recorded value that holds ` -> ` is written so that it
+    holds none (the same value in Python and JSON), a comment's own `->` stays out of the separator, and a rule red
+    reads `days=4: rule False, code True`."""
+    from tests.intent_engine.test_unverified_outcome import _cli, _project, _pytest
+    root = _project(tmp_path / 'p', {
+        'route.py': '''
+            # flowguard: same ROUTE ref
+            def route(a: int) -> str:
+                return f'{a} -> hub'
+
+            # flowguard: same ROUTE
+            def route_copy(a: int) -> str:
+                return f'{a} -> hub'
+        ''',
+        'orders.py': '''
+            # flowguard: same ACCEPT(days: day) -> allowed: bool -> extra
+            def preview_accept(days: int) -> bool:
+                return days <= 3
+        ''',
+        'tests/test_route.py': '''
+            from route import route, route_copy
+
+            def test_route():
+                assert route(1) and route_copy(1)
+        ''',
+    })
+    path = root / 'route.py'
+    path.write_text(path.read_text(encoding='utf-8').replace("    return f'{a} -> hub'\n", "    return f'{a} -> cafe'\n", 2)
+                    .replace("    return f'{a} -> cafe'\n", "    return f'{a} -> hub'\n", 1), encoding='utf-8')
+    for run, (result, _) in (('pytest', _pytest(root, '-q')), ('check', _cli(root, 'check')),
+                             ('check --static', _cli(root, 'check', '--static'))):
+        lines = result.stdout.splitlines()          # as printed: `block` would undo the escape of a display
+        shown = lines[next(number for number, line in enumerate(lines) if line.startswith('FlowGuard ')):]
+        assert result.returncode == 1 and all(line.count(' -> ') == 1 for line in shown[1:]), (run, shown)
+        assert 'red: comment orders.py:1: anchor return type bool->extra != source bool -> correct this flowguard comment' in shown, (run, shown)
+        if run == 'pytest':
+            assert ("red: same ROUTE: on a=1: the reference route.py:route returns '1 -\\u003e hub', route.py:route_copy returns "
+                    "'1 -\\u003e cafe' -> make route.py:route_copy agree with the reference") in shown, shown

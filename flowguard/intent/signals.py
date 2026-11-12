@@ -7,7 +7,7 @@ import re
 from decimal import Decimal, InvalidOperation
 
 from . import cells as C
-from .sources import ACTS
+from .sources import ACTS, SHA
 
 
 def _short(text, width=100):
@@ -381,11 +381,13 @@ def version():
 
 def baseline_label(baseline, kind, ahead=None, option='--flowguard-base'):
     """What the first line says a run compared with: the task start (`since 99f025e`, and how many commits HEAD
-    lies after it), HEAD standing in (`since HEAD 99f025e`), an explicit baseline by the option that named it, a
-    recorded start this repository lacks, or none."""
+    lies after it), HEAD standing in (`since HEAD 99f025e`), an explicit baseline by the option that named it
+    (`since --base release/task-start`), a recorded start this repository lacks, or none. A full commit id is
+    shortened to its first seven characters; anything else (a branch, a tag, HEAD~1, an abbreviated id) is printed
+    as it was given."""
     if not baseline:
         return 'no baseline: nothing compared'
-    short = baseline[:7]
+    short = baseline[:7] if SHA.fullmatch(baseline) else baseline
     if kind == 'missing':
         return f'since {short}, not in this repository: nothing compared; run python -m flowguard new-task'
     if kind == 'base':
@@ -516,22 +518,37 @@ def _short_paths(paths, files=()):
 
 
 def _said(line, names, *, cap=True):
-    """One line of the block: `{kind}: {text} -> {step}`, its places' paths shortened, at most three places and 200
-    characters besides its paths (`cap`)."""
+    """One line of the block: `{kind}: {text} -> {step}`, its places' paths shortened, at most three places (the text's
+    first, then its step's; each one cut is counted, `(+2 places)`) and 200 characters besides its paths (`cap`)."""
     text, step = _one_line(line.text), _one_line(line.step)
     named = [place for place in dict.fromkeys(line.places) if place and place in text]
     if cap and len(named) > PLACES:
-        for place in named[PLACES:]:
-            for joined in (', ' + place, ' and ' + place, '  ' + place, ' ' + place, place):
-                if joined in text:
-                    text = text.replace(joined, '', 1)
-                    break
-        text += f' (+{len(named) - PLACES} places)'
+        text = _cut(text, named[PLACES:]) + ' ' + _more_places(len(named) - PLACES)
+    shown = named[:PLACES]
+    stepped = sorted((place for place in dict.fromkeys(line.places) if place and place in step and place not in shown), key=step.find)
+    if cap and len(stepped) > PLACES - len(shown):
+        room = PLACES - len(shown)
+        step = _cut(step, stepped[room:], _more_places(len(stepped) - room))
     said = _shorten(f'{line.kind}: {text}' + (f' -> {step}' if step else ''), line.places, names)
     if not cap:
         return said
     return _cap(said, [names.get(path, path) for path in map(_path_of, line.places) if path],
                 [_shorten(place, (place,), names) for place in line.places if place])
+
+
+def _more_places(number):
+    return f'(+{number} place{"s" * (number != 1)})'
+
+
+def _cut(text, places, counted=''):
+    """`text` without the mentions of `places` (with the comma or `and` that joins each to the one before); `counted`
+    takes the place of the first one cut."""
+    for number, place in enumerate(places):
+        for joined in (', ' + place, ' and ' + place, '  ' + place, ' ' + place, place):
+            if joined in text:
+                text = text.replace(joined, (' ' + counted) if counted and not number else '', 1)
+                break
+    return text
 
 
 def _shorten(text, places, names):
@@ -541,10 +558,16 @@ def _shorten(text, places, names):
     return text
 
 
+_CHANGED = re.compile(r'(\(.*?\))( was )(.*)(, now )(.*)(; \d+/\d+ inputs differ)', re.S)    # `changed_line`'s words
+_GIVE = ((0, 36), (1, 4), (0, 4))      # (rank, characters kept at least) in the order the text gives way
+
+
 def _cap(said, paths=(), places=()):
-    """`said` within WIDTH characters besides the paths and places (`path:symbol`) it names: the longest stretch of its
-    text that is neither the head up to the first ': ' (kind and subject, and the input `on ...: ` a line is about),
-    one of its `places`, nor the step after the last ' -> ' gives way in its middle."""
+    """`said` within WIDTH characters besides the paths and places (`path:symbol`) it names. Its head up to the first
+    ': ' (kind and subject), its places and the step after the last ' -> ' stay whole; the rest gives way in the middle
+    of its longest stretches, cut to one length together: first the input the line is about (a changed line's inputs,
+    a same-name line's `on ...:`), down to 36 characters, then the other stretches, then that input further. A
+    changed line keeps the words between its values: `(inputs) was X, now Y; k/n inputs differ`."""
     spans = sorted({piece for piece in (*places, *paths) if piece}, key=len, reverse=True)
     def width(text):
         for piece in spans:
@@ -556,31 +579,57 @@ def _cap(said, paths=(), places=()):
     subject, colon, body = body.partition(': ') if ': ' in body[:80] else ('', '', body)
     body, arrow, step = body.rpartition(' -> ') if ' -> ' in body else (body, '', '')
     head = head + ': ' + subject + colon
-    if witness := re.match(r'on .*?: ', body):        # the input a same-name line is about
-        head, body = head + witness[0], body[witness.end():]
     kept = {piece for piece in (*places, *paths) if piece}
     pattern = '(' + '|'.join(re.escape(piece) for piece in sorted(kept, key=len, reverse=True)) + ')' if kept else None
-    pieces = [piece for piece in (re.split(pattern, body) if pattern else [body]) if piece]
-    while width(head + ''.join(pieces) + arrow + step) > WIDTH:
-        free = [index for index, piece in enumerate(pieces) if piece not in kept and len(piece) > 7]
-        if not free:
-            break
-        index = max(free, key=lambda index: len(pieces[index]))
-        piece = pieces[index]
-        excess = width(head + ''.join(pieces) + arrow + step) - WIDTH
-        keep = max(4, len(piece) - excess - 3)
-        pieces[index] = piece[:(keep + 1) // 2] + '...' + piece[len(piece) - keep // 2:]
-        if len(pieces[index]) >= len(piece):
-            break
-    return head + ''.join(pieces) + arrow + step
+    def stretches(text, rank):
+        """[text, rank] of the stretches of `text` between its places (rank None: a place, never cut)."""
+        return [[piece, None if piece in kept else rank] for piece in (re.split(pattern, text) if pattern else [text]) if piece]
+    pieces = []
+    if body.startswith('on '):
+        # the input a same-name line is about ends at the last ': ' before the first copy the line names
+        first = min((body.find(piece) for piece in kept if piece in body), default=-1)
+        end = body.rfind(': ', 0, first) if first > 0 else body.find(': ')
+        if end > 3:
+            pieces, body = [['on ', None], *stretches(body[3:end], 0), [': ', None]], body[end + 2:]
+    changed = _CHANGED.fullmatch(body) if head.startswith('changed: ') else None
+    if changed:
+        values = [stretches(changed[1], 0), [[changed[2], None]], stretches(changed[3], 1), [[changed[4], None]],
+                  stretches(changed[5], 1), [[changed[6], None]]]
+        pieces += [piece for part in values for piece in part]
+    else:
+        pieces += stretches(body, 1)
+    def total():
+        return width(head + ''.join(piece for piece, _ in pieces) + arrow + step)
+    for rank, least in _GIVE:
+        excess = total() - WIDTH
+        free = [index for index, (piece, own) in enumerate(pieces) if own == rank and len(piece) > least + 3]
+        if excess <= 0 or not free:
+            continue
+        # the longest stretches of this rank give way together, to one length, until the line fits or each is `least`
+        level = max(len(pieces[index][0]) for index in free)
+        while level > least + 3 and sum(max(0, len(pieces[index][0]) - level) for index in free) < excess:
+            level -= 1
+        for index in free:
+            piece = pieces[index][0]
+            if len(piece) > level:
+                keep = level - 3
+                pieces[index][0] = piece[:(keep + 1) // 2] + '...' + piece[len(piece) - keep // 2:]
+    return head + ''.join(piece for piece, _ in pieces) + arrow + step
 
 
 def finding(family, name, subject, whats, step, *, function='', places=(), files=(), detail=(), fresh=True):
     """A finding of one member as `deliver` reads it (a `health.Issue`): its first `what`, and how many more it has,
     after the subject (`{subject}: {what}`, `places` the paths the line names), the others in its detail. `fresh`:
-    this change added it (findings judged without a baseline, as an intent test's red, always are)."""
+    this change added it (findings judged without a baseline, as an intent test's red, always are). A line has one
+    ` -> `, before its step: without a `step`, the first `what`'s own next step after its last ` -> ` is the step;
+    any other ` -> ` of the words reads `: ` (`days=4 -> rule False, code True` is `days=4: rule False, code True`)."""
     from .health import Issue, LINES_ONLY
     whats = list(dict.fromkeys(_one_line(what) for what in whats)) or ['']
+    if not step:
+        said, own = split_step(whats[0])
+        if own and not own.startswith('rule '):         # `inputs -> rule X, code Y` is no step
+            whats[0], step = said, own
+    whats = list(dict.fromkeys(what.replace(' -> ', ': ') for what in whats))
     what = whats[0] + (f' (+{len(whats) - 1} more)' if len(whats) > 1 else '')
     return Issue(name, LINES_ONLY, subject, f'{subject}: {what}', step, files=frozenset(files), new=fresh, family=family,
                  subject=subject, parts=((function, tuple(places), what, step),), fresh=frozenset({function}) if fresh else frozenset(),
@@ -639,7 +688,8 @@ def last_run(lines, ignored, *, run, stamp, baseline, kind, title, seconds, depr
 
 
 def changed_line(name, target, file, line, changes, compared, *, cause=None, unanchored=False):
-    """The `changed` line of a function whose sealed run answers its recorded inputs differently than at the baseline:
+    """The `changed` line of a function whose sealed run answers its recorded inputs differently than at the baseline
+    (`changed: {function} ({file}:{line}): ...`, `name` the function's own name, also of a `same NAME` copy):
     `changes` [(inputs, old, new)], the first of the smallest inputs shown (all of them in the detail), `compared` the
     number of inputs compared."""
     rows = [dict(inputs=inputs, before=old, after=new) for inputs, old, new in changes]
@@ -664,13 +714,23 @@ def changed_line(name, target, file, line, changes, compared, *, cause=None, una
 
 
 def value_text(value):
-    """A recorded JSON value as Python spells it: 'text', True, None, 3; a raised exception as `raises ...`."""
+    """A recorded JSON value as Python spells it: 'text', True, None, 3; a raised exception as `raises ...`. A ` -> `
+    inside it is written ` -\\u003e ` (the same value in Python and JSON), as ` -> ` is where a line puts its step."""
     if type(value) is dict and set(value) == {'raises'}:
-        return f'raises {value["raises"]}'
-    if type(value) in (dict, list):
+        text = f'raises {value["raises"]}'
+    elif type(value) in (dict, list):
         import json
-        return json.dumps(value, ensure_ascii=False, sort_keys=True)
-    return repr(value)
+        text = json.dumps(value, ensure_ascii=False, sort_keys=True)
+    else:
+        text = repr(value)
+    return text.replace(' -> ', ' -\\u003e ')
+
+
+def split_step(text):
+    """(what, step) of a message that ends in its own next step after ` -> `, split at the last one (the words before it
+    may quote project text); (text, '') without one."""
+    what, arrow, step = text.rpartition(' -> ')
+    return (what, step) if arrow else (text, '')
 
 
 def ascii_text(text):
@@ -925,7 +985,8 @@ def copy_red(name, lines):
 def rule_steps(rule_id, homes, where, messages=()):
     """The next step of a violated rule by what its red `messages` say, in the same words in pytest, `check` and
     the vitest report (no messages: the code disagrees). The code disagrees with the rule (`-> rule X, code Y`):
-    correct the code at `homes`. The rule disagrees with its own regression rows (`self:`, `row`): correct the rows
+    correct the code at `homes`, the places where it disagrees (`change the code so a.py:f follows rule R`, `so
+    a.py:f and b.py:g follow rule R`). The rule disagrees with its own regression rows (`self:`, `row`): correct the rows
     or the rule at `where`; it leaves cells undecided (`gap in`): add the rule or rows. Two rules decide a cell
     differently (`conflict A vs B`): one of them stays, which the owner decides. Any other red without a step of
     its own: correct the rule's source, binding or rows. When the need changed, the owner's new words are stored
@@ -953,7 +1014,7 @@ def rule_steps(rule_id, homes, where, messages=()):
             kinds.add('other')
     steps = list(dict.fromkeys(conflicts))
     steps += [step for kind, step in (
-        ('code', f'change the code so {homes} follows rule {rule_id}; '),
+        ('code', f'change the code so {_listed(homes)} {"follows" if len(set(homes)) == 1 else "follow"} rule {rule_id}; '),
         ('rows', f'correct regression rows or rule {where} so the rule and its regression rows agree; '),
         ('gap', f'add rules or regression rows at {where} so undecided cells have a rule result; '),
         ('other', f'inspect rule {where} and correct its source, binding or regression rows; ')) if kind in kinds]
@@ -962,6 +1023,12 @@ def rule_steps(rule_id, homes, where, messages=()):
     elif steps:
         steps.append(f'if requirements changed, first store the new owner words with python -m flowguard req add, then update rule {where}')
     return steps
+
+
+def _listed(places):
+    """`a`, `a and b`, `a, b and c`: the places, each once, in their order."""
+    places = list(dict.fromkeys(places))
+    return places[0] if len(places) == 1 else ', '.join(places[:-1]) + ' and ' + places[-1]
 
 
 def _red_entry(message):

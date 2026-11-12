@@ -63,6 +63,15 @@ def test_show_last_prints_every_line_and_the_catalog_queries_read_the_catalog_an
         '    STANDING copies changed; rule GRACE is unchanged']
     assert cli.main(['--root', root, 'show', '--last', 'NAME']) == 2
     assert 'show --last takes no NAME' in capsys.readouterr().err
+    # A run in which no entry ignored anything says nothing of ignoring.
+    with closing(connect(cfg.cache / 'map.sqlite')) as con, con:
+        cache.save_last(con, dict(cache.read_last(cfg), ignored=0, deprecated=[], hidden=[], compared=[]))
+    assert cli.main(['--root', root, 'show', '--last']) == 0
+    shown = capsys.readouterr().out.splitlines()
+    assert shown[1:] == ['FlowGuard 4.2 (since aaaaaaa): 1 red, 2 not compared; 0.5 s',
+                         'red: together A: src/deep/a.py:f writes A without B -> also write B in f', '    JS/TS calls resolved by name',
+                         'not compared: N -> not a failure', '    uses attribute close', 'not compared: M -> not a failure',
+                         '    uses attribute close'], shown
     (tmp_path / '.flowguard').mkdir(exist_ok=True)
     (tmp_path / '.flowguard/known.toml').write_text('[known.x]\n', encoding='utf-8')
     # An entry without its keys is an input problem: show lists it and fails; a name the catalog lacks fails too.

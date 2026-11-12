@@ -195,9 +195,9 @@ def test_the_scenario_route_with_a_calibrated_event_anchor_still_checks_its_rule
     result, text = _pytest(shop)
     assert result.returncode == 1, text
     assert 'FAILED tests/intent/notices.py::NOTICE[shop.notices.send_notice:rows]' in text, text
-    assert ('red: rule NOTICE: days=4 -> rule T, code False at shop/notices.py:send_notice (1 of 6 cells disagree) (+1 more) '
+    assert ('red: rule NOTICE: days=4: rule True, code False at shop/notices.py:send_notice (1 of 6 cells disagree) (+1 more) '
             '-> change the code so shop/notices.py:send_notice follows rule NOTICE') in _block(result), text
-    assert '    days=4 -> rule T, code False at shop/notices.py:send_notice (1 of 1 rows disagree, row L10)' in last(shop).splitlines()
+    assert '    days=4: rule True, code False at shop/notices.py:send_notice (1 of 1 rows disagree, row L10)' in last(shop).splitlines()
 
 
 # ---- the comment syntax ------------------------------------------------------------------------------

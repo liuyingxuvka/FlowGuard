@@ -102,6 +102,8 @@ def _json(value):
 class Session:
     def __init__(self, config):
         timing = time.perf_counter()
+        from . import deprecation
+        self.notices = []               # the session's own deprecation notices, said after its block (`say_notices`)
         self.config = config
         self.owns_host = False
         self.owns_root = False
@@ -129,7 +131,6 @@ class Session:
         self.ledger_judged = False      # the ledger was compared with the map in full (a known entry's `known fixed?`)
         self.sentinel_ledger = False
         self.session_red = []            # reds only the session decides: a failed JUnit testcase
-        from . import deprecation
         self.deprecations = deprecation.mark()      # the deprecated features this session uses (`show --last`)
         self.finishing = None            # when the session's own judgement began (`pytest_sessionfinish`)
         self._timing = False             # inside `timed`
@@ -156,8 +157,17 @@ class Session:
                 _execution_session(self.cfg.root, facts=self.anchor_facts):
             yield
 
+    def say_notices(self):
+        """Print the deprecation notices this session held, on stderr, once, after its block (design 4.7): its
+        collection captures stderr, where they would be lost (only -s showed them). A session that ends before its
+        block says them when it closes."""
+        from . import deprecation
+        deprecation.unhold(self.notices)
+        deprecation.say(self.notices)
+
     def close(self):
         global _CURRENT
+        self.say_notices()
         _CURRENT = self.previous_session
         self.closed = True
         for module, name, real, refused in reversed(self.process_calls):
@@ -380,17 +390,83 @@ def _sealed_numbers(tree, qual):
     return list({(type(number), number): number for number in [*numbers, *read]}.values())
 
 
-def _module_at(path, file, module):
-    """The module name `path` has under the import root that names `file` `module` (a moved file's name at
-    the baseline); '' when `path` is outside that root, so no project import resolves from it."""
-    def names(rel):
-        parts = list(Path(rel).with_suffix('').parts)
-        return parts[:-1] if parts and parts[-1] == '__init__' else parts
-    own, old, dotted = names(file), names(path), module.split('.') if module else []
-    if not dotted or own[len(own) - len(dotted):] != dotted:
-        return ''
-    root = own[:len(own) - len(dotted)]
-    return '.'.join(old[len(root):]) if old[:len(root)] == root and len(old) > len(root) else ''
+def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no recorded JSON inputs'):
+    """The sealed comparison of the copies of one same name (design 4.5), in pytest and in check alike: the copies
+    (`points`: anchor, target, file, module, qual of each) run in the closed environment, never imported, on the
+    inputs `signals.copy_inputs` makes of the `recorded` ones ({declared name: value}) and the numbers the copies use,
+    now and at the baseline. `source(point, old)` is a copy's source text (None: no baseline source), `run(point,
+    sample, old)` one sealed run of it, `place(target)` a copy's `path:line` for the legacy words. Returns what the
+    run reports: `grey` reasons (not compared), the legacy `red` and `before` lines, the `same:NAME` finding
+    (`signals.copies_issue`: a pair red where this change broke it, old where it already differed at the baseline)
+    or None, and `ran` when every copy answered every compared input. `no_inputs` says why nothing was compared
+    when no input could be made."""
+    import ast
+    from types import SimpleNamespace
+    from . import cells as C, runtime as R, signals
+    out = SimpleNamespace(grey=[], red=[], before=[], issue=None, ran=False)
+    def value(result):
+        return result.get('value') if result['status'] == 'ok' else {'raises': result.get('error')}
+    def equal(left, right):
+        return json.dumps(left, sort_keys=True, allow_nan=False) == json.dumps(right, sort_keys=True, allow_nan=False)
+    numbers = [number for point in points for number in _sealed_numbers(ast.parse(source(point)), point['qual']) or ()]
+    inputs, left = signals.copy_inputs(recorded, numbers)
+    if not inputs:
+        out.grey.append(name + ': ' + no_inputs)
+    if cut := signals.copy_cut(name, 64, left):
+        out.grey.append(cut)
+    places = {point['target']: place(point['target']) + ' ' + point['qual'] for point in points}
+    owner = next((places[point['target']] for point in points if point['anchor'].owner), None)
+    named = {point['target']: f'{point["file"]}:{point["qual"]}' for point in points}     # the 4.3 places
+    rows = []       # (input, current answers, baseline answers, places whose baseline could not run)
+    unavailable = False     # a copy that could not run sealed on an input: the copies were not all compared
+    for row in inputs:
+        answered = []       # (point, current outcome, baseline outcome or None) of each copy that ran sealed
+        for point in points:
+            spelled = {_spelled(point, key): v for key, v in row.items()}
+            node = dict(R._functions(ast.parse(source(point)))).get(point['qual'])
+            positional = [spelled.pop(p.arg) for p in node.args.posonlyargs if p.arg in spelled] if node else []
+            sample = dict(args=positional, kwargs=spelled)
+            now = run(point, sample)
+            if now['status'] == 'unavailable':
+                # This copy is not compared; the copies that ran still are (design 4.5, 6.4).
+                out.grey.append(name + ': ' + places[point['target']] + ' ' + now.get('reason', ''))
+                unavailable = True
+                continue
+            past_text = source(point, True)
+            existed = past_text is not None and point['qual'] in dict(R._functions(ast.parse(past_text)))
+            answered.append((point, now, run(point, sample, True) if existed else None))
+        outcomes = [result for _, result, _ in answered]
+        if len(outcomes) < 2:
+            continue
+        if all(result['status'] == 'raised' for result in outcomes) and all(equal(result, outcomes[0]) for result in outcomes[1:]):
+            out.grey.append(name + ': copies raise exceptions')
+            continue
+        rows.append((row,
+                     [(point['target'], value(result)) for point, result, _ in answered],
+                     {point['target']: (value(past), past['status'] == 'raised') for point, _, past in answered
+                      if past is not None and past['status'] != 'unavailable'},
+                     {point['target'] for point, _, past in answered
+                      if past is not None and past['status'] == 'unavailable'}))
+    def spelled(labels, show):
+        """The rows with each input and copy's target spelled as `show` and `labels` write them."""
+        return [(', '.join(f'{key}={show(value)}' for key, value in row.items()), [(labels[target], value) for target, value in now],
+                 {labels[target]: past for target, past in old.items()}, {labels[target] for target in unknown})
+                for row, now, old, unknown in rows]
+    new_lines, previous_lines, open_lines = signals.copy_partition(spelled(places, C.show), equal, C.show, owner, len(points))
+    if previous_lines:
+        out.before.append(signals.copy_red(name, previous_lines))
+    if new_lines:
+        out.red.append(signals.copy_red(name, new_lines))
+    if open_lines:
+        out.grey.append(name + ': baseline comparison unavailable; current copies disagree ('
+                        + '; '.join(f'{where}, {text}' for where, text, _, _ in open_lines) + ')')
+    reference = next((named[point['target']] for point in points if point['anchor'].owner), None)
+    fresh, old, _ = signals.copy_partition(spelled(named, signals.value_text), equal, signals.value_text, reference, len(points),
+                                          words=signals.copy_says)
+    if fresh or old:
+        out.issue = signals.copies_issue(name, fresh, old, places=list(named.values()), files={point['file'] for point in points})
+    out.ran = bool(rows) and not unavailable and not open_lines
+    return out
 
 
 def _numeric(node):
@@ -421,8 +497,9 @@ class Observations:
     def __init__(self, state):
         import ast
         from . import anchors, cache, differences
-        from .runtime import Runtime, _functions, _binding_facts
-        from ..map.common import MapError, git_renames, git_run, read_source
+        from .runtime import (Runtime, _binding_facts, _binding_reads, _changed_constants, _functions, _imported_changes,
+                              _read_through, _reads_changed)
+        from ..map.common import MapError, git_files, git_renames, git_run, read_source
         from ..structure.readers.registry import language_for
         self.state, self.cfg = state, state.cfg
         self.requested_base = state.config.getoption('--flowguard-base', default=None)
@@ -444,12 +521,12 @@ class Observations:
         self.index = state.model.anchor_index or differences._source_index(self.cfg.root)
         state.model.anchor_index = self.index
         self.renamed = {}       # a moved file's baseline version is at its old path
-        self.repository = frozenset()   # the repository's files, which no shortened path of the block may name
+        # the project's files, which no shortened path of the block may name: Git's list, else the map's walk
+        self.repository = git_files(self.cfg.root)
         try:
-            changed = git_run(self.cfg.root, 'diff', '--name-only', '-z', baseline).stdout
+            # paths relative to the project's root, also below the repository's top folder, as every other reader's
+            changed = git_run(self.cfg.root, 'diff', '--name-only', '-z', '--relative', baseline, '--').stdout
             added = git_run(self.cfg.root, 'ls-files', '--others', '--exclude-standard', '-z').stdout
-            tracked = git_run(self.cfg.root, 'ls-files', '-z').stdout
-            self.repository = frozenset(os.fsdecode(value) for value in (tracked + added).split(b'\0') if value)
             self.files = {os.fsdecode(value) for value in (changed + added).split(b'\0')
                           if value and value.endswith(b'.py') and state.is_project(str(self.cfg.root / os.fsdecode(value)))}
             self.differs = {os.fsdecode(value) for value in changed.split(b'\0') if value}
@@ -491,21 +568,63 @@ class Observations:
                 if not hasattr(home, 'scenario'):
                     self.rules.setdefault(home.target, []).append(rule)
         self.by_file, self.rels = {}, {}
-        views = {}
-        def function(file, qual):
-            """The current node of `qual` in a changed `file` and whether the function changed since the baseline:
-            its body, or a top-level binding it reads (a module constant). A function new since then changed."""
-            if file not in views:
+        views, trees = {}, {}
+        def parsed(file):
+            """(tree now, tree at the baseline) of a changed file; of another file, which reads a changed constant
+            through an import, its one tree twice."""
+            if file not in trees:
                 tree = ast.parse(read_source(self.cfg.root / file))
-                old = self.runtime._source(self.renamed.get(file, file))
-                old_tree = ast.parse(old) if old else ast.Module(body=[], type_ignores=[])
-                views[file] = (dict(_functions(tree)), dict(_functions(old_tree)), _binding_facts(old_tree), _binding_facts(tree))
-            current_functions, prior_functions, old_facts, facts = views[file]
+                if file in self.files:
+                    old = self.runtime._source(self.renamed.get(file, file))
+                    trees[file] = tree, ast.parse(old) if old else ast.Module(body=[], type_ignores=[])
+                else:
+                    trees[file] = tree, tree
+            return trees[file]
+        # Another module's constant this change alters reaches a file through its imports (`from m import LIMIT`,
+        # `m.LIMIT`), also a file whose own text is the same: {module: its changed constants}, and {file: (the
+        # file's constants that change with them, the names its imports bind to them, its module names)} of each
+        # file importing one, as the vitest plan follows imports (`runtime._imported_changes`).
+        changed_modules, imported = {}, {}
+        if self.files:
+            graph = state.get_map()
+            modules = {path: module for path, module, error in graph.con.execute('SELECT path, module, parse_error FROM file')
+                       if path.endswith('.py') and not error and state.is_project(str(self.cfg.root / path))}
+            importers = {}          # module: the files importing from it, or it as a submodule (`from P import M`)
+            for row in graph.imports(declarations=True):
+                if row['file'] in modules and row.get('module'):
+                    importers.setdefault(row['module'], set()).add(row['file'])
+                    if row.get('name') and row['name'] != '*':
+                        importers.setdefault(row['module'] + '.' + row['name'], set()).add(row['file'])
+            pending = sorted((file for file in self.files if modules.get(file) in importers), reverse=True)
+            while pending:
+                file = pending.pop()
+                tree, old_tree = parsed(file)
+                module = modules[file]
+                names, aliases, extra = _imported_changes(tree, module if file.endswith('__init__.py') else module.rpartition('.')[0],
+                                                          changed_modules)
+                constants = _changed_constants(old_tree, tree, extra)
+                imported[file] = constants, names, aliases
+                if constants - changed_modules.get(module, set()):
+                    changed_modules[module] = changed_modules.get(module, set()) | constants
+                    pending.extend(sorted(importers.get(module, set()) - {file}))
+        def function(file, qual):
+            """The current node of `qual` in `file` and whether the function changed since the baseline: its body, or
+            a top-level binding it reads (a module constant), also through the constants that binding reads (LIMIT =
+            BASE * 2 changes with BASE, as `vitest._constants_changed` reads it), or another module's changed
+            constant it reads through an import (`imported`). A function new since then changed."""
+            if file not in views:
+                tree, old_tree = parsed(file)
+                views[file] = (dict(_functions(tree)), dict(_functions(old_tree)), _binding_facts(old_tree), _binding_facts(tree),
+                               _binding_reads(tree))
+            current_functions, prior_functions, old_facts, facts, reads = views[file]
             node, prior = current_functions.get(qual), prior_functions.get(qual)
             if node is None or prior is None or ast.dump(prior, include_attributes=False) != ast.dump(node, include_attributes=False):
                 return node, True
             loaded = {part.id for part in ast.walk(node) if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load)}
-            return node, any(old_facts.get(name) != facts.get(name) for name in loaded)
+            through = _read_through(loaded, reads)
+            constants, names, aliases = imported.get(file, (set(), set(), {}))
+            return node, (any(old_facts.get(name) != facts.get(name) for name in through) or bool(through & constants)
+                          or _reads_changed(node, names, aliases, changed_modules))
         def reaches(file, qual):
             """Whether `qual` or a same-file function it calls, at any depth, changed: its sealed run executes them
             all (design 4.5), as the vitest plan compares the closed source with its helpers."""
@@ -523,7 +642,7 @@ class Observations:
             return False
         # A before/after comparison is due for a function whose sealed run changed, not for its unchanged neighbours.
         for point in self.points.values():
-            point['changed'] = point['file'] in self.files and reaches(point['file'], point['qual'])
+            point['changed'] = (point['file'] in self.files or point['file'] in imported) and reaches(point['file'], point['qual'])
         if self.changed:
             # The existing map supplies module ownership for unanchored changed functions.
             graph = state.get_map()
@@ -531,7 +650,8 @@ class Observations:
             # changed Runtime.observe (or a replay helper) re-enters itself without end.
             tool, own = Path(__file__).resolve().parents[1], {}
             for row in graph.nodes():
-                if row['file'] not in self.files or row['kind'] not in ('function', 'method') or not state.is_project(str(self.cfg.root / row['file'])):
+                if (row['file'] not in self.files and row['file'] not in imported) or row['kind'] not in ('function', 'method') \
+                        or not state.is_project(str(self.cfg.root / row['file'])):
                     continue
                 if row['file'] not in own:
                     own[row['file']] = (self.cfg.root / row['file']).resolve().is_relative_to(tool)     # once per file
@@ -617,7 +737,7 @@ class Observations:
             text = source(point, old)
             file, module = point['file'], point['module']
             if old and file in self.renamed:        # at the baseline a moved file imported from its old place
-                file, module = self.renamed[file], _module_at(self.renamed[file], file, module)
+                file, module = self.renamed[file], R._module_at(self.renamed[file], file, module)
             return R.sealed(text, point['qual'], sample['args'], sample['kwargs'], self.runtime.imports(file, module, old)) \
                 if text is not None else dict(status='unavailable', reason='no baseline source')
         def value(out):
@@ -653,7 +773,7 @@ class Observations:
                               rows=rows, changed=changes, total=len(calls), reasons=list(dict.fromkeys(reasons))))
             from . import signals
             if changes:
-                self.changes.append(signals.changed_line(point['name'], target, point['file'], line, changes, len(rows),
+                self.changes.append(signals.changed_line(point['qual'], target, point['file'], line, changes, len(rows),
                                                          unanchored=point['anchor'] is None))
             elif reasons:
                 self._unchecked(f'{point["name"]} ({point["file"]}:{line})', reasons, function=target,
@@ -667,67 +787,14 @@ class Observations:
         for name, points in groups.items():
             if len(points) < 2:
                 continue
-            from . import signals, cells as C
-            numbers = [number for point in points for number in _sealed_numbers(ast.parse(source(point)), point['qual']) or ()]
-            inputs, left = signals.copy_inputs([_declared(point, sample['inputs']) for point in points
-                                                for sample in samples.get(point['target'], {}).values()], numbers)
-            if not inputs:
-                self.grey.append(name + ': no recorded JSON inputs')
-            if cut := signals.copy_cut(name, 64, left):
-                self.grey.append(cut)
-            places = {point['target']: self._place(point['target']) + ' ' + point['qual'] for point in points}
-            owner = next((places[point['target']] for point in points if point['anchor'].owner), None)
-            named = {point['target']: f'{point["file"]}:{point["qual"]}' for point in points}     # the 4.3 places
-            rows = []       # (input, current answers, baseline answers, places whose baseline could not run)
-            unavailable = False     # a copy that could not run sealed on an input: the copies were not all compared
-            for row in inputs:
-                answered = []       # (point, current outcome, baseline outcome or None) of each copy that ran sealed
-                for point in points:
-                    spelled = {_spelled(point, key): v for key, v in row.items()}
-                    node = dict(R._functions(ast.parse(source(point)))).get(point['qual'])
-                    positional = [spelled.pop(p.arg) for p in node.args.posonlyargs if p.arg in spelled] if node else []
-                    sample = dict(args=positional, kwargs=spelled)
-                    now = run(point, sample)
-                    if now['status'] == 'unavailable':
-                        # This copy is not compared; the copies that ran still are (design 4.5, 6.4).
-                        self.grey.append(name + ': ' + places[point['target']] + ' ' + now.get('reason', ''))
-                        unavailable = True
-                        continue
-                    past_text = source(point, True)
-                    existed = past_text is not None and point['qual'] in dict(R._functions(ast.parse(past_text)))
-                    answered.append((point, now, run(point, sample, True) if existed else None))
-                outcomes = [out for _, out, _ in answered]
-                if len(outcomes) < 2:
-                    continue
-                if all(out['status'] == 'raised' for out in outcomes) and all(equal(out, outcomes[0]) for out in outcomes[1:]):
-                    self.grey.append(name + ': copies raise exceptions')
-                    continue
-                rows.append((row,
-                             [(point['target'], value(out)) for point, out, _ in answered],
-                             {point['target']: (value(past), past['status'] == 'raised') for point, _, past in answered
-                              if past is not None and past['status'] != 'unavailable'},
-                             {point['target'] for point, _, past in answered
-                              if past is not None and past['status'] == 'unavailable'}))
-            def spelled(labels, show):
-                """The rows with each input and copy's target spelled as `show` and `labels` write them."""
-                return [(', '.join(f'{key}={show(value)}' for key, value in row.items()), [(labels[target], value) for target, value in now],
-                         {labels[target]: past for target, past in old.items()}, {labels[target] for target in unknown})
-                        for row, now, old, unknown in rows]
-            new_lines, previous_lines, open_lines = signals.copy_partition(spelled(places, C.show), equal, C.show, owner, len(points))
-            if previous_lines:
-                before.append(signals.copy_red(name, previous_lines))
-            if new_lines:
-                self.red.append(signals.copy_red(name, new_lines))
-            if open_lines:
-                self.grey.append(name + ': baseline comparison unavailable; current copies disagree ('
-                                 + '; '.join(f'{where}, {text}' for where, text, _, _ in open_lines) + ')')
-            reference = next((named[point['target']] for point in points if point['anchor'].owner), None)
-            fresh, old, _ = signals.copy_partition(spelled(named, signals.value_text), equal, signals.value_text, reference, len(points),
-                                                  words=signals.copy_says)
-            if fresh or old:
-                self.copies.append(signals.copies_issue(name, fresh, old, places=list(named.values()),
-                                                        files={point['file'] for point in points}))
-            if rows and not unavailable and not open_lines:
+            recorded = [_declared(point, sample['inputs']) for point in points for sample in samples.get(point['target'], {}).values()]
+            found = compare_copies(name, points, recorded, source, run, self._place)
+            self.grey.extend(found.grey)
+            before.extend(found.before)
+            self.red.extend(found.red)
+            if found.issue is not None:
+                self.copies.append(found.issue)
+            if found.ran:
                 self.ran.add(f'same:{name}')        # every copy answered every compared input sealed
         return items, before
 
@@ -832,7 +899,7 @@ class Observations:
                     if expected is CONFLICT:
                         continue  # The independent rule conflict above owns this red.
                     if expected is not None and not outcome_eq(expected, actual):
-                        said = f'{C.show_cell(inputs)} -> rule {C.show(expected)}, code {str(actual) if type(actual) is bool else C.show(actual)}'
+                        said = f'{C.show_cell(inputs)} -> rule {C.show_value(expected)}, code {C.show_value(actual)}'
                         self.red.append(f'{rule.id}: {said}')
                         self._rule_red(rule, f'{said} at {self._site(point["target"])}', place=self._site(point['target']))
                         if rule.id not in quoted:
@@ -932,7 +999,7 @@ class Observations:
         model = self.state.model
         for item, result in self.state.results.items():
             if result.get('verdict') == 'grey':
-                unverified.extend(item.partition('::')[2] + '：' + str(reason) for reason in result.get('grey', ()) or ['unverified'])
+                unverified.extend(item.partition('::')[2] + ': ' + str(reason) for reason in result.get('grey', ()) or ['unverified'])
                 self._unchecked(item.partition('::')[2], [str(reason) for reason in result.get('grey', ())] or ['unverified'])
             if result.get('red'):
                 rule = model.rules.get(result.get('rule'))
@@ -952,7 +1019,7 @@ class Observations:
         # Each violated rule names the next step: correct the code, or the rule first when the need changed.
         for rule in model.rules.values():
             if any(str(message).partition('：')[0].partition(': ')[0].partition(' source')[0].partition(' 出处')[0] == rule.id for message in self.red):
-                homes = '、'.join(self._place(home.target) for home in rule.homes if not hasattr(home, 'scenario')) or rule.id + ' binding'
+                homes = [self._place(home.target) for home in rule.homes if not hasattr(home, 'scenario')] or [rule.id + ' binding']
                 said = [str(message).partition('：')[2] for message in self.red if str(message).startswith(rule.id + '：')]
                 self.steps.setdefault(rule.id, signals.rule_steps(rule.id, homes, f'{model.file_of[rule.id]}:{rule.line}', said))
         syntax = []             # files that cannot be parsed: only they are unverified
@@ -960,7 +1027,7 @@ class Observations:
             if issue.level == 'red':
                 self.red.append(issue.message)
                 place = f'{issue.file}:{issue.line}' if issue.line else issue.file
-                what, _, step = signals.ascii_text(issue.message).partition(' -> ')
+                what, step = signals.split_step(signals.ascii_text(issue.message))
                 self._found('input', f'comment:{place}:{issue.code}', f'comment {place}', what,
                             step or 'correct this flowguard comment', places=(place,), files=(issue.file,))
             elif issue.code == 'source-syntax':
@@ -990,8 +1057,9 @@ class Observations:
             self.structure = found.summary         # the session brief's count of open structure problems
             self.hidden = list(found.hidden)
         elif catalog:
-            # Without a change the map checks do not run; an invalid rules.toml or known.toml is red in every run (D4).
-            problems = sources.catalog(self.cfg).issues
+            # Without a change the map checks do not run; an invalid rules.toml or known.toml, or a known entry whose
+            # site names nothing on the map, is red in every run (D4).
+            problems = sources.input_findings(self.cfg, self.state.get_map)
             self.red.extend(issue.text for issue in problems)
             self.issues.extend(problems)
         self.red.extend(f'load {error["file"]}:{error["line"]}: {error["msg"]}' for error in model.errors)
@@ -1140,7 +1208,8 @@ class Observations:
         entry = self.findings[key]
         entry.setdefault('said', []).append(said)
         entry.setdefault('at', []).extend([place] if place and place not in entry['at'] else [])
-        homes = ', '.join(sites or entry['at']) or rule.id + ' binding'      # a scenario rule: the places its reds name
+        # where the code disagrees, else every home (a scenario rule: the places its reds name)
+        homes = entry['at'] or sites or [rule.id + ' binding']
         entry['whats'].sort(key=lambda text: not text.startswith(('self: ', 'row ', 'conflict ', 'gap in ')))
         steps = [step.rstrip('; ') for step in signals.rule_steps(rule.id, homes, where, entry['said'])]
         entry['step'] = steps[0] if steps else ''
@@ -1270,6 +1339,10 @@ def _session(config):
         state.owns_root = hold_root(state.cfg.root)
         state.previous_session, _CURRENT = _CURRENT, state
         config.add_cleanup(state.close)
+        # pytest captures the collection's stderr: from here the session's notices wait for the end of its block, and
+        # its close says those a session that ends earlier still holds
+        from .deprecation import hold
+        hold(state.notices)
     config._flowguard_intent.guard_process_exit(config)
     return config._flowguard_intent
 
@@ -1793,7 +1866,20 @@ class Block:
     def pytest_sessionfinish(self, session, exitstatus):
         result = yield
         _display(session)
+        session.config._flowguard_intent.say_notices()
         return result
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_runtestloop(self, session):
+        """The project's tests run with deprecation notices as they come (a FlowGuard call inside a test is that test's
+        own output); the session's own, before and after them, wait for the end of its block."""
+        from . import deprecation
+        notices = session.config._flowguard_intent.notices
+        deprecation.unhold(notices)
+        try:
+            return (yield)
+        finally:
+            deprecation.hold(notices)
 
 
 def _display(session):

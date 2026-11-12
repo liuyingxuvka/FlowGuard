@@ -279,6 +279,12 @@ def _old_spellings(match, notices):
             notices.add(('alone=', 'except=path:function(reason)'))
 
 
+def _inline(spelled):
+    """A comment's or the code's own spelling inside a message: its ` -> ` written `->`, as ` -> ` is where a FlowGuard
+    line puts its next step (`red: comment a.py:5: anchor return type bool->extra != source bool -> correct ...`)."""
+    return str(spelled).replace(' -> ', '->')
+
+
 def _warn_spellings(notices):
     from .deprecation import warn
     for feature, replacement in sorted(notices):
@@ -698,7 +704,7 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
                     receiver = args.pop(0).arg
                 actual = {a.arg: annotation(a.annotation) for a in args}
                 if raw is not None and (len(names) != len(actual) or set(names) != set(actual)):
-                    local.append(issue('red', 'signature', f'anchor parameters {names} != source {list(actual)}', line, name))
+                    local.append(issue('red', 'signature', f'anchor parameters {_inline(names)} != source {_inline(list(actual))}', line, name))
                 if node.args.vararg or node.args.kwarg:
                     local.append(issue('grey', 'variadic', 'variadic parameters require a calibrated test', line, name))
                 return_type = annotation(node.returns) if node.returns is not None else _return_type(node, actual)
@@ -715,9 +721,9 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
                     if meaning == '?':
                         local.append(issue('grey', 'unit-missing', f'parameter {parameter} needs its unit confirmed', line, name))
                     if meaning is not None and _unit(source_type) and _unit(source_type) != meaning:
-                        local.append(issue('red', 'unit', f'parameter {parameter} unit {meaning} != source {_unit(source_type)}', line, name))
+                        local.append(issue('red', 'unit', f'parameter {parameter} unit {_inline(meaning)} != source {_inline(_unit(source_type))}', line, name))
                 elif meaning is not None and meaning != '?' and _type_id(meaning) != _type_id(source_type) and source_type != '?':
-                    local.append(issue('red', 'type', f'parameter {parameter} type {meaning} != source {source_type}', line, name))
+                    local.append(issue('red', 'type', f'parameter {parameter} type {_inline(meaning)} != source {_inline(source_type)}', line, name))
                 params.append(Parameter(aliases.get(parameter, parameter), (meaning if meaning is not None else _unit(source_type)) if kind == 'sensor' else '',
                                         source_type, role, len(sides) < 2, parameter if parameter in aliases else ''))
             taken = set(actual) | {p.name for p in params} | ({receiver} if receiver else set())
@@ -731,7 +737,7 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
                 if output_type == '?' or return_type == '?':
                     local.append(issue('grey', 'return-missing', 'return type cannot be checked from source', line, name))
                 elif _type_id(output_type) != _type_id(return_type):
-                    local.append(issue('red', 'return', f'anchor return type {output_type} != source {return_type}', line, name))
+                    local.append(issue('red', 'return', f'anchor return type {_inline(output_type)} != source {_inline(return_type)}', line, name))
             entry = Anchor(kind, name, file, module, qual, line, node.lineno if node else 0,
                            tuple(params), output_name, output_type, calibrated_by=calibrated_by,
                            issues=tuple(local), source_digest=source_digest, receiver=receiver,

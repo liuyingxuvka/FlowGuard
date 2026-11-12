@@ -6,6 +6,8 @@ from pathlib import Path
 import sys
 import uuid
 
+import pytest
+
 from flowguard.intent import history
 from flowguard.intent.loader import load
 from tests.intent_engine._source_fixture import annotate, scenario, source_engine, source_sessions
@@ -163,3 +165,49 @@ def test_history_product_has_no_archive_rpc_or_private_test_runner():
     imports={alias.name for node in ast.walk(tree) if isinstance(node,ast.Import) for alias in node.names}
     assert not imports.intersection({'subprocess','tarfile','tempfile'})
     assert '_PROBE' not in vars(history)
+
+
+POLICY = 'def accept(x):\n    return x <= LIMIT\n'
+
+
+def _moved_policy(tmp_path, old, new):
+    """A policy this change moves from package _old to package _new with `git mv`, its source `old` before and
+    `new` after (with its sensor comment); each package has its own limits.py, LIMIT = 4 and LIMIT = 3."""
+    root, cfg, module = fixture(tmp_path)
+    (root / (module + '.py')).unlink()
+    before, after = module + '_old', module + '_new'
+    for package, limit in ((before, 4), (after, 3)):
+        (root / package).mkdir()
+        (root / package / '__init__.py').write_text('')
+        (root / package / 'limits.py').write_text(f'LIMIT = {limit}\n')
+    (root / before / 'policy.py').write_text(old)
+    git(root, 'init', '-q')
+    git(root, 'add', '.')
+    git(root, 'commit', '-qm', 'the policy before it moved')
+    base = git(root, 'rev-parse', 'HEAD')
+    git(root, 'mv', f'{before}/policy.py', f'{after}/policy.py')
+    (root / after / 'policy.py').write_text(annotate(new, 'accept', 'LIMIT', {'x': 'int'}))
+    model = load(cfg)
+    rule = model.rules['LIMIT']
+    return history.proven(cfg, rule, rule.live_rows[0], base)
+
+
+@pytest.mark.parametrize('old, new', [
+    # At the baseline the policy was _old/policy.py and read _old/limits.py's LIMIT = 4: accept(4) was True, so the
+    # row (4 is not allowed) proves an old bug. Read by its current path it had no baseline source (unknown); with
+    # its imports resolved from the current path it would read _new/limits.py's 3 and claim the row passed before.
+    ('from .limits import LIMIT\n' + POLICY, 'from .limits import LIMIT\n' + POLICY),
+    ('LIMIT = 4\n' + POLICY, 'LIMIT = 3\n' + POLICY),          # its own old constant
+])
+def test_a_policy_moved_during_the_task_is_read_at_its_old_path_with_its_old_imports(tmp_path, old, new):
+    result = _moved_policy(tmp_path, annotate(old, 'accept', 'LIMIT', {'x': 'int'}), new)
+    assert result['status'] == 'proven' and [home['actual'] for home in result['homes']] == ['True'], result
+
+
+def test_a_moved_module_that_had_no_policy_and_imported_is_no_new_code(tmp_path):
+    # Its old module is no longer loaded under its old name: its relative import is not resolved to judge it. The
+    # helpers keep the two versions alike enough for Git to call the move a rename.
+    helpers = ''.join(f'def helper{index}(x):\n    return x + {index}\n' for index in range(12))
+    result = _moved_policy(tmp_path, 'from .limits import LIMIT\n' + helpers, 'from .limits import LIMIT\n' + helpers + POLICY)
+    assert result['status'] == 'unknown' and [home['reason'] for home in result['homes']] == [
+        'old dynamic function binding cannot be restored'], result

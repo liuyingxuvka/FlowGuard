@@ -129,11 +129,25 @@ def git_blob(root, revision: str, relative: str) -> bytes | None:
 
 def git_renames(root, revision: str) -> dict[str, str]:
     """{path now: path at `revision`} of each file Git's rename detection (`diff -M`) finds moved since that
-    commit. Git compares only the files it tracks, so a file moved without `git add` (an untracked one) is no
-    rename."""
-    parts = git_run(root, "diff", "-M", "--name-status", "-z", "--diff-filter=R", revision, "--").stdout.split(b"\0")
+    commit, both paths relative to root (`--relative`: below the repository's top folder a move across root's edge
+    is none). Git compares only the files it tracks, so a file moved without `git add` (an untracked one) is no
+    rename. The one reader of renames: the map's `Change.renamed` and the comparisons read it."""
+    parts = git_run(root, "diff", "-M", "--name-status", "-z", "--relative", "--diff-filter=R", revision, "--").stdout.split(b"\0")
     return {os.fsdecode(parts[index + 2]): os.fsdecode(parts[index + 1])
             for index in range(0, len(parts) - 2, 3) if parts[index].startswith(b"R")}
+
+
+def git_files(root) -> frozenset[str]:
+    """The project's files under root, relative to root: in a Git work tree the files Git lists, tracked ones and
+    untracked ones it does not ignore; outside Git the files the map's own folder walk finds (`inventory.list_files`,
+    which skips .git, node_modules, __pycache__ and .venv). A run reads them once for its block, whose shortened
+    paths may name no other of these files (`signals.render_block`): `a/orders.py` beside `b/orders.py` is
+    `a/orders.py`, with Git or without."""
+    if git_common_directory(root) is None:
+        from .inventory import list_files
+        return frozenset(list_files(Path(root)))
+    listed = git_run(root, "ls-files", "-z").stdout + git_run(root, "ls-files", "--others", "--exclude-standard", "-z").stdout
+    return frozenset(os.fsdecode(name) for name in listed.split(b"\0") if name)
 
 
 

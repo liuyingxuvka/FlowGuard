@@ -270,12 +270,14 @@ def _load(raw):
 
 
 def _input(name, subject, place, problems, step, files):
-    """The input finding of an invalid catalog file or entry: red in every run (D4), it closes and checks nothing."""
+    """The input finding of an invalid catalog file or entry: red in every run (D4), it closes and checks nothing.
+    Its line names the file or entry once, as its subject (`red: known.x: act is one of ...`): `place` (the file, or
+    `file:table.id`) is the line's place without being repeated in its text."""
     from .health import Issue
     what = '; '.join(problems)
     # Rank 0 is no rank of the structure listing (health.RANKS): the 4.3 lines report it, not the structure checks.
     return Issue(name, 0, subject, f'{subject}: {what}', step, files=frozenset(files), new=True, family='input',
-                 subject=subject, parts=(('', place, what, step),), fresh=frozenset({''}), detail=tuple(problems))
+                 subject=subject, parts=(('', (place,), what, step),), fresh=frozenset({''}), detail=tuple(problems))
 
 
 def _date_problem(text):
@@ -386,7 +388,7 @@ def _read_catalog(cfg, revision):
             continue
         data, error = _load(raw)
         if data is None:
-            result.issues.append(_input(f'{PREFIX[table]}-file:{name}', name, name, [f'{name} is not TOML: {error}'],
+            result.issues.append(_input(f'{PREFIX[table]}-file:{name}', name, name, [f'not TOML: {error}'],
                                         f'correct the TOML syntax of {name}', [name]))
             continue
         lines = {}
@@ -397,7 +399,7 @@ def _read_catalog(cfg, revision):
         others = [key for key in data if key != table]
         if others or not isinstance(data.get(table, {}), dict):
             result.issues.append(_input(f'{PREFIX[table]}-file:{name}', name, name,
-                                        [f'{name} holds only [{table}.<id>] tables, not {", ".join(others) or repr(data[table])}'],
+                                        [f'holds only [{table}.<id>] tables, not {", ".join(others) or repr(data[table])}'],
                                         f'move each entry under [{table}.<id>] in {name}', [name]))
         entries = data.get(table, {}) if isinstance(data.get(table, {}), dict) else {}
         for identifier, value in entries.items():
@@ -640,8 +642,10 @@ def known_sites(graph, entries, change=None):
     module-level declaration of a TS/JS or Python file (`_declarations`), whatever its value, or a constant node of
     the map. `Known.nodes` holds the node of each function, method or constant site the map keeps a node for and, for
     a Model.field site, the functions that write that field now and (with `change`) at its baseline; `Known.files` the
-    schema or class file of each Model.field site and the file of each other constant site whose declaration this
-    change edits (D31: a site is touched when its node changes, or that file changes)."""
+    schema or class file of each Model.field site, the file of each other constant site whose declaration this
+    change edits, and the file of each function or method site whose text this change edits although its code is
+    the same (a comment or blank line inside it: `Change.edited`) (D31: a site is touched when its node changes, or
+    that file changes)."""
     from .anchors import _agreement_positions
     from .owners import row_function
     from ..structure.readers.registry import ECMA, language_for
@@ -695,6 +699,8 @@ def known_sites(graph, entries, change=None):
                                 + f' in {path}: name one function, object.method, constant or Model.field of that file')
             elif found:
                 nodes.update(found)
+                if change is not None and change.baseline and path in change.files and any(map(change.edited, found)):
+                    files.add(path)
             elif declared:
                 if mapped:
                     nodes.update(mapped)
@@ -711,6 +717,18 @@ def known_sites(graph, entries, change=None):
         else:
             resolved.append(replace(entry, nodes=frozenset(nodes), files=frozenset(files)))
     return resolved, issues
+
+
+def input_findings(cfg, mapped):
+    """The input findings of rules.toml and known.toml that are red in every run, with or without a baseline or a
+    source change (D4): an invalid file or entry (`catalog`), and an entry with a site that names no single
+    declaration on the map (`known_sites`). `mapped()` gives the map; it is read only when known.toml has valid
+    entries whose sites need resolving. A run whose map checks do not run (no baseline, no source change) reports
+    these, as `findings` does where they run."""
+    now = catalog(cfg)
+    if not now.known:
+        return list(now.issues)
+    return [*now.issues, *known_sites(mapped(), now.known.values())[1]]
 
 
 def _cited_file(source):

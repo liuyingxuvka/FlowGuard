@@ -332,6 +332,48 @@ def test_a_home_absent_previously_is_new_code_not_proven(tmp_path):
     assert result['status'] == 'new code', result
 
 
+# The old module's constants are folded as the sealed environments fold theirs (design 4.5, features.fold_step): an
+# exponent outside -64..64, a number above 2**256 or a text over 10,000 characters is never computed. The first two
+# cases hung and ran out of memory; the others folded although past a bound.
+@pytest.mark.parametrize('constant, why', [
+    ('BIG = 10 ** 10 ** 10', 'exponent 10000000000 is above 64'),
+    ("BIG = 'x' * 10 ** 10", 'text is longer than 10000 characters'),
+    ('BIG = 2 ** 65', 'exponent 65 is above 64'),
+    ('BIG = 4 ** 64 * 2 ** 64 * 2 ** 64 * 2', 'result is above 2**256'),
+    ("BIG = 'x' * 10_001", 'text is longer than 10000 characters'),
+    ("BIG = ('x' * 5000) + ('y' * 5001)", 'text is longer than 10000 characters'),
+    ('BIG = [0] * 10 ** 10', 'cannot fold list * int'),
+])
+def test_an_old_constant_past_a_folding_bound_is_not_computed_and_says_why(tmp_path, constant, why):
+    root, cfg, module = fixture(tmp_path)
+    path = root / (module + '.py')
+    path.write_text(f'LIMIT=3\n{constant}\n')
+    git(root, 'init', '-q')
+    git(root, 'add', '.')
+    git(root, 'commit', '-qm', 'before the home existed')
+    base = git(root, 'rev-parse', 'HEAD')
+    path.write_text(annotate('def accept(x): return x <= 3\n', 'accept', 'LIMIT', {'x': 'int'}))
+    model = load(cfg)
+    result = history.proven(cfg, model.rules['LIMIT'], model.rules['LIMIT'].live_rows[0], base)
+    assert result['status'] == 'unknown' and [home['reason'] for home in result['homes']] == [
+        f'old dynamic function binding cannot be restored: old constant BIG is not folded: {why}'], result
+
+
+def test_old_constants_within_the_folding_bounds_still_fold(tmp_path):
+    root, cfg, module = fixture(tmp_path)
+    path = root / (module + '.py')
+    path.write_text("LIMIT=3\nFACTOR = 10 ** LIMIT\nTOP = 2 ** 64 * 2 ** 64 * 2 ** 64 * 2 ** 64\nNAME = 'x' * 10_000\n"
+                    "SHARE = -LIMIT / 4\nTABLE = {'a': (FACTOR, -LIMIT), 'b': [NAME, SHARE, TOP // FACTOR % 7]}\n")
+    git(root, 'init', '-q')
+    git(root, 'add', '.')
+    git(root, 'commit', '-qm', 'before the home existed')
+    base = git(root, 'rev-parse', 'HEAD')
+    path.write_text(annotate('def accept(x): return x <= 3\n', 'accept', 'LIMIT', {'x': 'int'}))
+    model = load(cfg)
+    result = history.proven(cfg, model.rules['LIMIT'], model.rules['LIMIT'].live_rows[0], base)
+    assert result['status'] == 'new code', result
+
+
 def test_literal_data_input_changes_invalidate(tmp_path):
     root, cfg, module = fixture(tmp_path, "return x <= int(Path('limit.txt').read_text())")
     path = root / (module + '.py')
@@ -486,6 +528,26 @@ def test_pytest_pythonpath_helper_dependencies_use_the_maps_detected_roots(tmp_p
     _, changed_graph, _, changed = execute(load_config(root))
     assert changed['verdict'] == 'red', changed
     changed_graph.close()
+
+
+def test_history_reads_the_baseline_from_the_project_root_below_the_repository_top_folder(tmp_path):
+    """The project is a folder of a larger repository (a monorepo's app/): its intent and test files at the baseline
+    are read from the project's root (a bare `git show rev:tests/x.py` reads from the top folder and is refused), so
+    a removed row and a lost guard are found there too, and check runs instead of stopping on Git's refusal."""
+    (tmp_path / 'repo').mkdir()
+    root, cfg, _ = fixture(tmp_path / 'repo')
+    test = root / 'tests/test_guard.py'
+    test.write_text("import pytest\n@pytest.mark.rule('LIMIT')\ndef test_guard(): assert True\n")
+    top = root.parent
+    git(top, 'init', '-q')
+    git(top, 'add', '.')
+    git(top, 'commit', '-qm', 'baseline')
+    assert history.check(cfg, 'HEAD') == []
+    test.write_text(test.read_text().replace('assert True', "pytest.skip('lost')"))
+    path = cfg.intent / 'limit.py'
+    path.write_text(path.read_text().replace("LIMIT.rows(row(x=4,expect=False,why='fixed fourth value'))\n", ''))
+    found = history.check(cfg, 'HEAD')
+    assert any('row removed' in line for line in found) and any('guard lost' in line for line in found), found
 
 
 def test_rewriting_an_sdk_alias_does_not_look_like_deleting_a_marked_test(tmp_path):

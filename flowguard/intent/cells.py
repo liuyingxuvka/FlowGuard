@@ -705,5 +705,11 @@ def show(v) -> str:
     return repr(v) if isinstance(v, str) else str(v)
 
 
+def show_value(v) -> str:
+    """A rule's or the code's result as a red line spells it (`-> rule False, code True`): True and False in full, any
+    other value as `show` writes a cell's."""
+    return str(v) if isinstance(v, bool) else show(v)
+
+
 def show_cell(c: dict) -> str:
     return " ".join(f"{k}={show(v)}" for k, v in sorted(c.items()))

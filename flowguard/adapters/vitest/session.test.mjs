@@ -1,5 +1,6 @@
 // FlowGuard vitest adapter: the one test case of FlowGuard's own vitest project, which index.mjs adds to the run
-// after the project's tests (sequence.groupOrder). Python judges this run's observations as the teardown would and
+// after the project's tests (sequence.groupOrder), from a copy in node_modules/.cache/flowguard of the vitest root,
+// so vitest's results name it the same way in every project. It imports nothing. Python judges this run's observations as the teardown would and
 // saves the block, its status and the number of reds the static test did not already fail on; this test fails on
 // those reds with one line, so they are in vitest's own results (JSON, junit) too. The teardown prints the block
 // after vitest's summary. `test` is a global here.

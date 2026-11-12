@@ -11,8 +11,11 @@ from .cache import scan
 
 
 def _texts(cfg, revision, folder):
+    """{path: text} of the Python files under `folder` at `revision`, both relative to the project's root: ls-tree
+    names them from there, and `./` makes `git show` read them from there too, also below the repository's top
+    folder (a bare `revision:path` is read from that top folder)."""
     paths = git_run(cfg.root, 'ls-tree', '-r', '--name-only', '-z', revision, '--', folder).stdout.split(b'\0')
-    return {path.decode(): git_run(cfg.root, 'show', revision + ':' + path.decode()).stdout.decode('utf-8-sig')
+    return {path.decode(): git_run(cfg.root, 'show', revision + ':./' + path.decode()).stdout.decode('utf-8-sig')
             for path in paths if path and path.endswith(b'.py')}
 
 
@@ -212,15 +215,21 @@ def _historical_home(runtime, home, values):
     from . import anchors, sites
     from .runtime import _functions
     anchor=home.anchor
-    source=runtime._source(anchor.file)
+    file,module=runtime.baseline_place(anchor.file,anchor.module)     # a file this change moved: its old path and name
+    source=runtime._source(file)
     if source is None:return dict(status='unknown',reason='old module location cannot be restored')
     tree=ast.parse(source)
     definition=dict(_functions(tree)).get(anchor.qual)
     if definition is None:
-        constants=runtime._constants(tree,anchor.module)
-        inert=all(isinstance(node,(ast.Assign,ast.AnnAssign)) and all(isinstance(t,ast.Name) and t.id in constants for t in (node.targets if isinstance(node,ast.Assign) else [node.target])) for node in tree.body)
-        return dict(status='new code' if inert else 'unknown',reason='old production function is absent' if inert else 'old dynamic function binding cannot be restored')
-    facts=anchors.source_facts(tree,source,anchor.module,anchor.file)
+        reasons={}
+        assigned=all(isinstance(node,(ast.Assign,ast.AnnAssign)) and all(isinstance(t,ast.Name) for t in (node.targets if isinstance(node,ast.Assign) else [node.target])) for node in tree.body)
+        constants=runtime._constants(tree,module,reasons=reasons) if assigned else {}    # only assignments can be inert
+        inert=assigned and all(t.id in constants for node in tree.body for t in (node.targets if isinstance(node,ast.Assign) else [node.target]))
+        if inert:return dict(status='new code',reason='old production function is absent')
+        # the first old constant that did not fold says why, e.g. a power whose exponent is past the folding bound
+        unfolded=next(((name,reasons[name]) for name in reasons if name not in constants),None)
+        return dict(status='unknown',reason='old dynamic function binding cannot be restored'+(f': old constant {unfolded[0]} is not folded: {unfolded[1]}' if unfolded else ''))
+    facts=anchors.source_facts(tree,source,module,file)
     previous=next((old for old in facts.get('anchors',()) if old['name']==anchor.name and old['qual']==anchor.qual),None)
     if previous is None:return dict(status='unknown',reason='old source has no corresponding observation anchor')
     previous=anchors._anchor(previous)

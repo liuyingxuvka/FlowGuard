@@ -10,12 +10,14 @@ const clock = builtin?.('perf_hooks').performance;
 const now = clock?.now.bind(clock);
 const stringify = JSON.stringify.bind(JSON), parse = JSON.parse.bind(JSON);
 const finite = Number.isFinite;
-const apply = Reflect.apply;
-const define = Object.defineProperty;
+const apply = Reflect.apply, read = Reflect.get, own = Object.hasOwn;
+const source = Function.prototype.toString;
+const Wrapper = Proxy;
 const testState = expect.getState;
 const dir = proc.env.FLOWGUARD_VITEST_OBS, pid = proc.pid;
 const KEY = '__flowguard_vitest_runtime__';
 const S = globalThis[KEY] ?? (globalThis[KEY] = { seen: new Map(), out: null, seconds: 0 });
+S.originals ??= new WeakMap();      // each recorder's function, whose source its toString gives
 const primitive = (value) => value === null || typeof value === 'boolean' || typeof value === 'string'
   || (typeof value === 'number' && finite(value) && !(value === 0 && 1 / value === -Infinity));
 
@@ -32,21 +34,25 @@ if (builtin) afterAll(() => {
   S.seconds = 0;
 });
 
+// R85: the project's tests see the function they would see without FlowGuard. The recorder is a Proxy of it whose
+// only own behaviour is a call: every property (also one set with `Object.assign(f, ...)` or `f.x = ...` before or
+// after wrapping), its prototype, `new` and `instanceof` are the function's own, and `f.toString()`, `String(f)` and
+// `${f}` give its source (only Function.prototype.toString.call(f) says [native code], as for any Proxy).
 export function wrap(point, fn, release) {
   if (!builtin) return fn;
   if (typeof fn !== 'function') throw new Error(`flowguard: ${point.rel}:${point.line} ${point.fn} is not a function`);
   const seen = S.seen.get(point.id) ?? new Set();
   S.seen.set(point.id, seen);
   let stopped = seen.size >= 20, unsupported = false;
-  const wrapped = function (...args) {
-    if (stopped || seen.size >= 20) return apply(fn, this, args);
+  const called = (target, self, args) => {
+    if (stopped || seen.size >= 20) return apply(fn, self, args);
     const start = now();
     let supported = true;
     for (const arg of args) if (!primitive(arg)) { supported = false; break; }
     const key = supported ? stringify(args) : null;
     const inputSeconds = (now() - start) / 1000;
     let result, threw = false, error;
-    try { result = apply(fn, this, args); }
+    try { result = apply(fn, self, args); }
     catch (caught) { threw = true; error = caught; }
     const finish = now();
     if (!supported || threw || !primitive(result)) {
@@ -64,8 +70,15 @@ export function wrap(point, fn, release) {
     if (threw) throw error;
     return result;
   };
-  define(wrapped, 'name', { value: fn.name });
-  define(wrapped, 'length', { value: fn.length });
+  const wrapped = new Wrapper(fn, {
+    apply: called,
+    get(target, key, receiver) {
+      const found = read(target, key, receiver);
+      return key === 'toString' && found === source && !own(target, key) ? shown : found;
+    },
+  });
+  S.originals.set(wrapped, fn);
   return wrapped;
 }
+const shown = { toString() { return apply(source, S.originals.get(this) ?? this, []); } }.toString;
 S.wrap = wrap;

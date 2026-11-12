@@ -973,6 +973,26 @@ class MapHandle:
                     rows.append(dict(row, model=bound, language=facts.get('language')))
         return Rows(rows)
 
+    def sql_reads(self, table=None):
+        """The tables each function reads in the SQL of its string literals (a FROM or a JOIN), as rows {node, file,
+        line, function, method, table}, the table in lower case as the SQL reader keeps it (`analysis.sql_names`);
+        `table` keeps the reads of one table, its case aside. A write's own statement (UPDATE, INSERT, DELETE) reads
+        no table here."""
+        self._mark_query('sql_reads')
+        rows = []
+        wanted = None if table is None else 'sql:' + str(table).lower()
+        found = self.con.execute("SELECT DISTINCT k.node FROM key k WHERE k.kind = 'sql'" + (' AND k.value = ?' if table else ''),
+                                 (str(table).lower(),) if table else ()).fetchall()
+        for (ident,) in found:
+            item = self.con.execute('SELECT file, qual, line, raw FROM node WHERE id = ?', (ident,)).fetchone()
+            if item is None:
+                continue
+            file, qual, line, raw = item
+            for name in sorted((store.unpack(raw) if raw else {}).get('sr', ())):
+                if name.startswith('sql:') and (wanted is None or name == wanted):
+                    rows.append(dict(node=ident, file=file, line=line, function=qual, method='select', table=name[4:]))
+        return Rows(rows)
+
     def children(self, model):
         """Relations whose foreign key references `model`: [{child, relation, keys, on_delete, required,
         file, line, nullable}] from the mapped Prisma schemas (`readers.prisma.Models.children`)."""

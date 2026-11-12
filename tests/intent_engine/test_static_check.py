@@ -940,11 +940,11 @@ def test_archived_prisma_files_take_no_part_in_two_declarations_differ(tmp_path)
     })
     _write(tmp_path, {'prisma/schema.prisma': item % '  A\n  B\n  C\n  D\n'})
     code, text = _flowguard(tmp_path, 'check', '--static', '--leads')
-    # --leads (deprecated) lists every line without the budget
+    # --leads (deprecated) lists every line without the budget; the release snapshot keeps prisma/ in the live path
     assert code == 0 and _block(text) == [
-        "impact: declarations Item.kind: schema.prisma:1 declares 'A' | 'B' | 'C' | 'D'; src/kinds.ts:2 declares 'A' | 'B' | 'C' "
+        "impact: declarations Item.kind: prisma/schema.prisma:1 declares 'A' | 'B' | 'C' | 'D'; src/kinds.ts:2 declares 'A' | 'B' | 'C' "
         '-> fix it, or say why in your report'], text
-    assert 'deprecated: check --leads will be removed in 5.0; write python -m flowguard show --last' in text.splitlines(), text
+    assert 'deprecated: check --leads goes in 5.0 -> write python -m flowguard show --last' in text.splitlines(), text
 
 
 def test_a_prisma_client_type_under_an_alias_a_namespace_or_a_generator_output_is_gated_by_its_model(tmp_path):
@@ -1106,12 +1106,13 @@ def test_value_sets_come_from_the_schemas_in_use_keep_checks_and_keep_typescript
     code, text = _static(tmp_path, '--all')
     # 'UPDATED' is in the CHECK the database runs (the template enum lacks it); the archived description under
     # docs/ does not add 'ARCHIVED'; 'MID' passes the CHECK but not the enum of the schema in use; the frontend
-    # Demand is judged by its own union only. Every one was there at the task start: before, with --all.
+    # Demand is judged by its own union only. Every one was there at the task start: before, with --all. The central
+    # schema's migration.sql keeps the other one's path from shortening past prisma/.
     assert code == 0 and _block(text, everything=True) == [
         f'before: {subject} at {place} was broken at task start -> leave it unless your task is about it' for subject, place in (
             ('values Gauge.level', 'notice.service.ts:notify'), ('values Notice.kind', 'notice.service.ts:notify'),
             ('values Demand.unit', 'demand.ts:3'), ('declarations Gauge.level', 'central.prisma:6'),
-            ('declarations Notice.kind', 'migration.sql:1'))], text
+            ('declarations Notice.kind', 'prisma/migrations/001/migration.sql:1'))], text
     shown = _cli_fixture.last(tmp_path).splitlines()
     assert [shown[index + 1].strip() for index, line in enumerate(shown) if line.startswith('before: values ')] == [
         'declared at enum Level (backend/prisma/central/central.prisma:6)', 'declared at CHECK backend/prisma/migrations/001/migration.sql:1',
@@ -2152,6 +2153,7 @@ def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated
     differ = _block(text)
     assert code == 0 and len(differ) == 1 and differ[0].startswith('impact: declarations OrganizationNavigationLabel: '), text
     shown = _cli_fixture.last(root).splitlines()
+    assert shown[0].startswith('FlowGuard last run: check --static at ') and shown[1] == _cli_fixture.block(text)[0], shown
     drift = next(line for line in shown[shown.index('deprecated leads (5.0):'):] if 'My Organization' in line)
     assert "'My Organization'(backend/src/services/authority/organization-navigation.ts:" in drift, drift
     assert "'My organization'(frontend/src/utils/organization-navigation.ts:" in drift and 'spelling added in this task' in drift, drift
@@ -2179,22 +2181,78 @@ def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated
     # the test prints nothing and fails with the same one line.
     observations = tmp_path / 'obs'
     run = _run_generated(root, generated, env=dict(FLOWGUARD_VITEST_OBS=str(observations)))
-    # stdout holds the stub runner's one line; check's deprecation notice reaches stderr (console.error)
+    # stdout holds the stub runner's one line; stderr holds nothing: the label-spelling leads are FlowGuard's own and
+    # say no deprecation notice, and a notice check does say goes to static.json for the plugin's block (design 4.7)
     assert run.returncode == 1 and (run.stdout.splitlines(), run.stderr.splitlines()) == (
-        ['FAIL FlowGuard check --static: FlowGuard: 2 red, see the FlowGuard block at the end'],
-        ['deprecated: label-spelling leads will be removed in 5.0']), run
+        ['FAIL FlowGuard check --static: FlowGuard: 2 red, see the FlowGuard block at the end'], []), run
+    # one shape: what show --last keeps of the run (`signals.last_run`), with the parts of its first line
+    from flowguard.intent import signals
+    from flowguard.intent.vitest import static_lines
     saved = json.loads((observations / 'static.json').read_text(encoding='utf-8'))
-    assert sorted(saved) == ['deprecated', 'hidden', 'ignored', 'lines', 'seconds', 'title'], saved
+    assert sorted(saved) == ['baseline', 'baseline_kind', 'compared', 'deprecated', 'hidden', 'ignored', 'lines', 'notices', 'run',
+                             'seconds', 'stamp', 'title', 'title_parts'], saved
+    assert saved['notices'] == [], saved      # FlowGuard's own leads say no notice
     assert [line['text'] for line in saved['lines'] if line['kind'] == 'red'] == [
         "values AuditEvent.severity: backend/src/services/authority/authority-integrity-repair.service.ts:repairOrganizationAuthority writes "
         "'WARN' outside 'INFO'|'WARNING'|'ERROR'|'CRITICAL'",
         "values AuditEvent.severity: backend/src/services/notice.service.ts:notice writes 'WARN' outside 'INFO'|'WARNING'|'ERROR'|'CRITICAL'"]
-    assert saved['title'] == dict(baseline=_git(root, 'rev-parse', 'HEAD').strip(), kind='task', ahead=0, option='--base'), saved
+    head = _git(root, 'rev-parse', 'HEAD').strip()
+    assert saved['title_parts'] == dict(baseline=head, kind='task', ahead=0, option='--base'), saved
+    assert (saved['run'], saved['baseline'], saved['baseline_kind'], saved['deprecated']) == (
+        'check --static', head, 'task', []), saved
+    assert saved['title'] == signals.title(static_lines(observations)['lines'], **saved['title_parts'], seconds=saved['seconds']), saved
     assert saved['seconds'] > 0 and saved['ignored'] == 0 and any(lead['feature'] == 'label-spelling leads' for lead in saved['hidden'])
+    # the vitest report reads it as it is (`vitest.static_lines`), and show --last names the run
+    assert [line.kind for line in static_lines(observations)['lines']].count('red') == 2
+    shown = _cli_fixture.last(root).splitlines()
+    assert shown[0].startswith('FlowGuard last run: check --static at ') and shown[1] == saved['title'], shown
     run = _run_generated(root, generated, env=dict(FLOWGUARD_PYTHON=str(tmp_path / 'no-such-python')))
     output = _text(run.stdout + run.stderr)
     assert run.returncode == 1 and 'no Python that can import flowguard was found' in output, output
     assert 'set FLOWGUARD_PYTHON' in output and 'no-such-python' in output, output
+
+
+def test_check_and_check_static_name_a_file_by_an_end_no_other_file_of_the_repository_has(tmp_path):
+    # As in pytest's block (D17): pkg/policy.py never prints as policy.py in a repository that also has a policy.py,
+    # though no line of the block names that other file.
+    _commit(tmp_path, {'policy.py': 'def late_fee(days: int) -> int:\n    return days\n', 'pkg/__init__.py': '',
+                       'pkg/policy.py': 'def late_fee(days: int) -> int:\n    return days * 2\n'})
+    _write(tmp_path, {'pkg/policy.py': '# flowguard: same\ndef late_fee(days: int) -> int:\n    return days * 2\n'})
+    for command in (('check', '--static'), ('check',)):
+        code, text = _flowguard(tmp_path, *command)
+        assert code == 1 and _block(text) == [
+            'red: comment pkg/policy.py:1: invalid sensor anchor syntax -> correct this flowguard comment'], (command, text)
+
+
+@pytest.mark.parametrize('state', ['outside Git', 'unborn branch'])
+def test_every_run_names_a_file_by_an_end_no_other_project_file_has_also_where_git_lists_nothing(tmp_path, state):
+    """D17 without Git's file list: outside Git the project's files are those the map's own walk finds, so a/orders.py
+    beside b/orders.py prints as a/orders.py in pytest, check and check --static, never orders.py, though no line
+    names b/orders.py; on a branch before its first commit pytest reads Git's list though it compares nothing."""
+    _write(tmp_path, {'a/orders.py': '# flowguard: same ACCEPT ref(dayz: day)\ndef accept(days: int) -> bool:\n    return days <= 3\n',
+                      'b/orders.py': 'def other():\n    return 1\n', 'tests/test_ok.py': 'def test_ok():\n    assert True\n'})
+    if state == 'unborn branch':
+        _git(tmp_path, 'init', '-q', '-b', 'main')
+    red = "red: comment a/orders.py:1: anchor parameters ['dayz'] != source ['days'] -> correct this flowguard comment"
+    for command, (code, text) in (('pytest', _pytest(tmp_path)), ('check --static', _static(tmp_path)),
+                                  ('check', _flowguard(tmp_path, 'check'))):
+        assert code == 1 and _block(text) == [red], (command, text)
+
+
+def test_check_static_says_known_fixed_for_a_ledger_finding_once_a_ledger_judges_every_handler(tmp_path):
+    # As a pytest session: a ledger compared with the map in full judges every handler, so a known entry naming a ledger
+    # finding that is no longer found may be fixed (`ran`); without a ledger nothing judged it.
+    _commit(tmp_path, {'app.py': 'def load(path):\n    return open(path).read()\n', '.flowguard/known.toml': (
+        '[known.old-handler]\nsites = ["app.py:load"]\nwhy = "load swallowed a missing file"\nact = "leave"\n'
+        'finding = "ledger:app.py:2 load returns a default"\n')})
+    code, text = _static(tmp_path)
+    assert code == 0 and _block(text) == [], text
+    assert _flowguard(tmp_path, 'ledger', 'init')[0] == 0
+    fixed = ('known fixed?: known.old-handler: ledger:app.py:2 load returns a default no longer found '
+             '-> the owner deferred it: revert, or say why in your report')
+    for command in (('check', '--static'), ('check',)):     # check compares the ledger itself where no intent item runs
+        code, text = _flowguard(tmp_path, *command)
+        assert code == 0 and _block(text) == [fixed], (command, text)
 
 
 def test_the_files_init_writes_bring_no_label_spellings_of_their_own(tmp_path):
@@ -2246,7 +2304,7 @@ def test_check_static_all_puts_the_new_lead_first_and_names_the_command_that_lis
     assert all(lead.startswith('label-spelling leads: before: label spellings differ: ') for lead in leads if lead not in new), leads
     code, text = _static(tmp_path, '--all', '--leads')
     assert code == 0 and _leads(tmp_path) == leads, text
-    assert 'deprecated: check --leads will be removed in 5.0; write python -m flowguard show --last' in text.splitlines(), text
+    assert 'deprecated: check --leads goes in 5.0 -> write python -m flowguard show --last' in text.splitlines(), text
     code, text = _static(tmp_path)
     assert code == 0 and _block(text) == [] and _leads(tmp_path) == new, text
 
@@ -2571,7 +2629,7 @@ def test_a_changed_typescript_constant_and_function_lead_to_the_places_left_behi
     code, text = _static(tmp_path)
     # 5.0-deprecated heuristics: leads of show --last, no line of the block
     assert code == 0 and _block(text) == [], text
-    assert 'deprecated: old-value leads will be removed in 5.0' in text.splitlines(), text
+    assert 'deprecated:' not in text, text      # FlowGuard's own leads: the project uses nothing deprecated
     leads = _leads(tmp_path)
     assert 'old-value leads: old values 14 remain in 1 decisions: src/reminders.ts:2 -> if requirements changed, update them together' in leads, leads
     alone = next(lead for lead in leads if lead.startswith('similar-implementation leads: lateFee'))

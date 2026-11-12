@@ -327,7 +327,7 @@ def test_the_first_pytest_run_records_the_task_baseline_and_commits_during_the_t
     lines = text.splitlines()
     # not HEAD against HEAD; the commit since the start is named, with the next task's step
     _reported_title(text, f'since {start[:7]}, 1 commit before HEAD')
-    assert ('changed: LIMIT (app.py:2): (days=4) was False, now True; 1/2 inputs differ -> if you meant it, say so') in lines, text
+    assert ('changed: eligible (app.py:2): (days=4) was False, now True; 1/2 inputs differ -> if you meant it, say so') in lines, text
     assert cache.task_baseline(cfg) == (start, 'task')
     # The next task starts at HEAD: the committed change is no longer this task's.
     code, text = _run(root, 'new-task')
@@ -481,6 +481,29 @@ def _ledgered(tmp_path):
 _RUNS = (((), True), (('check', '--static'), False), (('check',), False))
 
 
+def test_an_explicit_base_named_by_a_ref_is_named_in_full_in_the_title(tmp_path):
+    """`--base release/task-start` is named as it was given, never cut to seven characters like a commit id; check
+    names it so also when its pytest batch (an intent rule runs) resolved it to its commit, as check --static does.
+    pytest's --flowguard-base names that commit, shortened."""
+    root, cfg = _plain(tmp_path)
+    (root / 'tests/intent/limit.py').write_text(
+        'from flowguard.intent import rule, row\n'
+        '@rule("LIMIT_RULE", decides="limit", fields={"days": int}, source="assumed: at most three days", anchor="LIMIT")\n'
+        'def LIMIT_RULE(days):\n    return days <= 3\n'
+        'LIMIT_RULE.rows(row(days=4, expect=False, why="the fourth day stays refused"))\n')
+    git(root, 'add', '.')
+    git(root, 'commit', '--quiet', '-m', 'fixture rule')
+    git(root, 'branch', 'release/task-start')
+    head = git(root, 'rev-parse', 'HEAD')
+    for arguments in (('check',), ('check', '--static')):
+        code, text = _run(root, *arguments, '--base', 'release/task-start')
+        assert code == 0, (arguments, text)
+        _reported_title(text, 'since --base release/task-start')
+    code, text = _run(root, '--flowguard-base=release/task-start', pytest_run=True)
+    assert code == 0, text
+    _reported_title(text, f'since --flowguard-base {head[:7]}')
+
+
 def test_the_title_of_every_run_says_how_far_the_task_start_lies_before_head(tmp_path):
     """A task start that commits have moved past (an agent that never runs new-task, a 4.1 rules block) is named
     with its distance and the next task's step, so earlier tasks' changes are not taken for this one's."""
@@ -535,14 +558,17 @@ def test_a_recorded_task_start_this_repository_lacks_is_named_and_compares_nothi
     prepared = vitest.prepare(root)
     seconds = prepared.pop('seconds')
     assert type(seconds) in (int, float) and math.isfinite(seconds) and seconds >= 0
-    assert prepared == dict(status='off', reason=f'recorded task baseline {gone[:7]} is not in this repository: execution comparison is off; '
-                                                'first run python -m flowguard new-task')
+    # vitest says it as the other runs do (D12, D13): its plan names the missing start in the block's title and holds
+    # nothing to compare with it
+    plan = json.loads(Path(prepared.pop('plan')).read_text(encoding='utf-8'))
+    assert prepared == dict(status='on', adapter=(vitest.ADAPTER / 'index.mjs').as_posix()), prepared
+    assert (plan['baseline'], plan['baseline_kind'], plan['files'], plan['touched']) == (gone, 'missing', {}, []), plan
     code, text = _run(root)
     assert code == 0 and text.splitlines()[0].endswith(f'; recorded {gone[:12]} is not in this repository; the task starts at HEAD'), text
     head = git(root, 'rev-parse', 'HEAD')
     assert cache.task_baseline(cfg) == (head, 'task')
     code, text = _run(root, pytest_run=True)
-    assert code == 0 and 'changed: LIMIT (app.py:2): (days=4) was False, now True; 1/2 inputs differ -> if you meant it, say so' in text, text
+    assert code == 0 and 'changed: eligible (app.py:2): (days=4) was False, now True; 1/2 inputs differ -> if you meant it, say so' in text, text
     _reported_title(text, f'since {head[:7]}')
 
 

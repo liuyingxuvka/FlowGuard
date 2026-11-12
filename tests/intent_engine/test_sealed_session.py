@@ -452,7 +452,7 @@ def test_a_function_whose_same_file_helper_changed_is_compared_before_and_after(
     text = _text(result)
     item = next((item for item in _report(tmp_path)['items'] if item.get('name') == 'FEE'), None)
     assert result.returncode == 0 and item is not None and item['changed'] == [[{'total': 60}, 5, 0]], (text, item)
-    assert any(line.startswith('changed: FEE') and 'total=60' in line for line in text.splitlines()), text
+    assert any(line.startswith('changed: fee (') and 'total=60' in line for line in text.splitlines()), text
 
 
 # ---- a moved copy is compared with its own version at the baseline (git rename detection) ------------------
@@ -509,7 +509,7 @@ def test_a_function_moved_to_another_package_reads_its_relative_imports_from_its
     ('a/fees.py', 'b/fees.py', '', ''),
 ])
 def test_a_moved_file_has_its_old_module_name_under_the_same_import_root(path, file, module, expected):
-    from flowguard.intent.plugin import _module_at
+    from flowguard.intent.runtime import _module_at
     assert _module_at(path, file, module) == expected
 
 

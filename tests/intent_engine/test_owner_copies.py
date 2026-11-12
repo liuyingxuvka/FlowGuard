@@ -323,15 +323,12 @@ def test_check_sends_a_changed_copy_back_to_the_owner_and_counts_every_copys_ans
     # named no owner.
     _project(tmp_path, {'limits.py': _copies(3, 3, 3, owner=True)})
     red, text = _checked_red(tmp_path, _copies(3, 3, 4, owner=True))
-    assert red == ['red: same LIMIT: limits.py:report changed behavior; 2 copies that answered the same are unchanged: limits.py:calendar  '
-                   'limits.py:chart -> make report match reference chart(limits.py:2)',
-                   'red: same LIMIT: on days=4: the reference limits.py:chart and limits.py:calendar return False, limits.py:report returns True '
+    # one red per member (D30): the same-name red covers the changed copy, no changed-alone red repeats it
+    assert red == ['red: same LIMIT: on days=4: the reference limits.py:chart and limits.py:calendar return False, limits.py:report returns True '
                    '-> make limits.py:report agree with the reference'], text
     # The owner changed: its copies follow it.
     red, text = _checked_red(tmp_path, _copies(4, 3, 3, owner=True))
-    assert red == ['red: same LIMIT: limits.py:chart changed behavior; 2 copies that answered the same are unchanged: limits.py:calendar  '
-                   'limits.py:report -> update together, or call chart',
-                   'red: same LIMIT: on days=4: the reference limits.py:chart returns True, limits.py:calendar and limits.py:report return False '
+    assert red == ['red: same LIMIT: on days=4: the reference limits.py:chart returns True, limits.py:calendar and limits.py:report return False '
                    '-> make limits.py:calendar, limits.py:report agree with the reference'], text
 
 
@@ -341,19 +338,33 @@ def test_check_names_the_owner_when_it_changed_with_a_copy_and_a_third_copy_stay
     # the same check sent report to the owner.
     _project(tmp_path, {'limits.py': _copies(3, 3, 3, owner=True)})
     red, text = _checked_red(tmp_path, _copies(4, 4, 3, owner=True))
-    assert red == [*(f'red: same LIMIT: limits.py:{name} changed behavior; 1 copies that answered the same are unchanged: limits.py:report '
-                     '-> update together, or call chart' for name in ('calendar', 'chart')),
-                   'red: same LIMIT: on days=4: the reference limits.py:chart and limits.py:calendar return True, limits.py:report returns False '
+    assert red == ['red: same LIMIT: on days=4: the reference limits.py:chart and limits.py:calendar return True, limits.py:report returns False '
                    '-> make limits.py:report agree with the reference'], text
 
 
 def test_check_leaves_the_choice_between_copies_when_none_is_the_owner(tmp_path):
     _project(tmp_path, {'limits.py': _copies(3, 3, 3)})
     red, text = _checked_red(tmp_path, _copies(3, 3, 4))
-    assert red == ['red: same LIMIT: limits.py:report change...anged: limits.py:calendar  limits.py:chart -> first decide which copy is correct: '
-                   'for an intended change, update together or call report; otherwise make report return to the original behavior',
-                   'red: same LIMIT: on days=4: limits.py:chart and limits.py:calendar return False, limits.py:report returns True '
+    assert red == ['red: same LIMIT: on days=4: limits.py:chart and limits.py:calendar return False, limits.py:report returns True '
                    '-> decide which copy is right, then make the others agree'], text
+
+
+KNOWN_LIMIT = (
+    '[known.limit]\nsites = ["limits.py:chart", "limits.py:calendar"]\nwhy = "the copies disagree at 4"\nact = "ask"\n'
+    'ask = "which limit is right?"\nfinding = "same:LIMIT"\n')
+
+
+def test_check_says_known_fixed_for_same_name_copies_it_compared_and_found_agreeing(tmp_path):
+    # D24: check runs the same-name copies no test reached on their current code. Copies that already disagreed and
+    # that this change leaves alone say nothing; once they agree, the known entry naming their disagreement may be
+    # fixed, as a pytest session or a vitest run that compared every copy says it (`ran`).
+    _project(tmp_path, {'limits.py': _copies(3, 4), '.flowguard/known.toml': KNOWN_LIMIT})
+    code, text = _check(tmp_path)
+    assert code == 0 and _block(text)[1:] == [], text
+    (tmp_path / 'limits.py').write_text(_copies(3, 3), encoding='utf-8')
+    code, text = _check(tmp_path)
+    assert code == 0 and _block(text)[1:] == [
+        'known fixed?: known.limit: copies of LIMIT now agree -> the owner has not decided: revert, or say why in your report'], text
 
 
 # Round 22 F1, second review: chart is the owner, report already differs from it at days=3 (`days < 3`), and this
@@ -365,19 +376,20 @@ def _split_copies(calendar):
     return source[:source.rindex('days <= 3')] + 'days < 3\n'
 
 
-# check runs copies no test reached on their current code alone: with a copy's file touched, every input where they
-# differ is this change's (D24, fail-closed); pytest compares each input with the baseline (before on days=3).
-SPLIT_RED = ['red: same LIMIT: on days=3: the reference limits.py:chart returns True, limits.py:report returns False; limits.py:calendar '
-             'differs from the reference on days=4 -> make limits.py:report agree with the reference',
-             'red: same LIMIT: on days=4: the reference limits.py:chart returns False, limits.py:calendar returns True; limits.py:report '
-             'differs from the reference on days=3 -> make limits.py:calendar agree with the reference']
+# report already differs at days=3; calendar newly differs at days=4. check compares the copies no test reached as
+# pytest compares them, each input with the baseline too (design 4.5): the old pair is before, the new one red.
+SPLIT_RED = ['red: same LIMIT: on days=4: the reference limits.py:chart and limits.py:report return False, limits.py:calendar '
+             'returns True -> make limits.py:calendar agree with the reference']
+SPLIT_BEFORE = ['before: same LIMIT disagreed at task start on days=3: the reference limits.py:chart and limits.py:calendar return True, '
+                'limits.py:report returns False -> leave it unless your task is about it']
 
 
 def test_check_names_every_copy_that_differs_from_the_owner_on_its_own_input(tmp_path):
     _project(tmp_path, {'limits.py': _split_copies(3)})
     red, text = _checked_red(tmp_path, _split_copies(4))
     assert [line for line in red if line.startswith('red: same LIMIT: on ')] == SPLIT_RED, text
-    assert len(red) == 3, text          # and the changed calendar's own red; no pair is left to a line of its own
+    assert [line for line in text.splitlines() if line.startswith('before: same LIMIT')] == SPLIT_BEFORE, text
+    assert len(red) == 1, text          # the same-name red covers the changed calendar: no changed-alone red besides
 
 
 def test_pytest_names_every_copy_that_differs_from_the_owner_on_its_own_input(tmp_path):
@@ -710,7 +722,9 @@ def test_copy_discovery_uses_sealed_source_and_lists_what_it_cannot_run(tmp_path
     assert 'rules.py:10' in unclear and '0.5' in unclear and 'completion' in unclear, unclear
     assert 'rules.py:16 (unsupported Import)' in unclear, unclear
     assert 'vendor_copy.py:4' not in unclear, unclear
-    assert 'deprecated: unregistered copy discovery' in result.stderr
+    # FlowGuard runs copy discovery itself: only the project's own 4.2 owner spelling is deprecated
+    notices = [line for line in result.stderr.splitlines() if line.startswith('deprecated: ')]
+    assert notices == ['deprecated: function owner goes in 5.0 -> write same NAME ref'], result.stderr
 
 
 def test_manual_copy_discovery_does_not_execute_module_initialization_or_function_effects(tmp_path):
@@ -806,8 +820,10 @@ def test_a_typescript_data_owner_turns_a_new_prisma_write_outside_its_writers_re
     assert code == 1 and _lines(text, 'red: ') == [
         'red: writers Employee.organizationalUnitId: rogue.ts:moveEmployee writes Employee.organizationalUnitId outside transferEmployee '
         '-> call transferEmployee instead'], text
+    # show --last names the run first; the agreement is the detail under the red line, found by its text
     shown = _cli_fixture.last(tmp_path).splitlines()
-    assert shown[2] == '    agreement: backend/src/owners.ts:1', shown
+    red = next(index for index, line in enumerate(shown) if line.startswith('red: writers Employee.organizationalUnitId: '))
+    assert shown[0].startswith('FlowGuard last run: check at ') and shown[red + 1] == '    agreement: backend/src/owners.ts:1', shown
 
 
 def test_show_lists_an_owners_old_ledger(tmp_path):
@@ -1142,12 +1158,13 @@ def test_two_declarations_of_one_name_with_different_members_are_a_lead(tmp_path
     code, text = _check(tmp_path)
     assert _block(text)[1:] == [], text                      # old: only the --all listing lists it
     code, text = _check(tmp_path, '--all')
+    # b/contracts.py and b/kinds.py keep the folder in the name of the a/ files (D17)
     assert _block(text)[1:] == [
-        'before: declarations AvailabilityStatus at contracts.py:4 was broken at task start -> leave it unless your task is about it'], text
+        'before: declarations AvailabilityStatus at a/contracts.py:4 was broken at task start -> leave it unless your task is about it'], text
     (tmp_path / 'b/kinds.py').write_text('from typing import Literal\nKind = Literal["member", "guest", "staff"]\n', encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 0 and _block(text)[1:] == [
-        "impact: declarations Kind: kinds.py:2 declares 'guest' | 'member'; b/kinds.py:2 declares 'guest' | 'member' | 'staff' "
+        "impact: declarations Kind: a/kinds.py:2 declares 'guest' | 'member'; b/kinds.py:2 declares 'guest' | 'member' | 'staff' "
         '-> fix it, or say why in your report'], text
 
 
@@ -1157,5 +1174,69 @@ def test_two_typescript_union_declarations_with_different_members_are_a_lead(tmp
     (tmp_path / 'frontend/src/lending.ts').write_text("export type LendingStatus = 'DRAFT' | 'ACTIVE';\n", encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 0 and _block(text)[1:] == [
-        "impact: declarations LendingStatus: lending.ts:1 declares 'ACTIVE' | 'DRAFT' | 'ENDED'; frontend/src/lending.ts:1 declares "
+        "impact: declarations LendingStatus: backend/src/lending.ts:1 declares 'ACTIVE' | 'DRAFT' | 'ENDED'; frontend/src/lending.ts:1 declares "
         "'ACTIVE' | 'DRAFT' -> fix it, or say why in your report"], text
+
+
+def test_a_similar_implementation_lead_leaves_out_and_never_asks_to_register_the_copies_registered_with_it(tmp_path):
+    """A changed copy of `same ACCEPT` whose former twin is the registered reference: that name's comparison covers the
+    pair, so the lead names only the unregistered look-alike, under the registered name, and asks to mark only it."""
+    root = _project(tmp_path, {
+        'orders.py': '''
+            # flowguard: same ACCEPT ref
+            def accept(days: int) -> bool:
+                return days <= 3
+
+
+            # flowguard: same ACCEPT
+            def preview_accept(days: int) -> bool:
+                return days <= 3
+
+
+            def quote_accept(days: int) -> bool:
+                return days <= 3
+        ''',
+    })
+    orders = root / 'orders.py'
+    orders.write_text(orders.read_text().replace('def preview_accept(days: int) -> bool:\n    return days <= 3',
+                                                 'def preview_accept(days: int) -> bool:\n    return days <= 4'), encoding='utf-8')
+    _check(root, '--static')
+    leads = [lead for lead in _leads(root) if lead.startswith('similar-implementation leads: ')]
+    assert len(leads) == 1 and 'orders.py:2' not in leads[0] and 'PREVIEW_ACCEPT' not in leads[0] and ' ref' not in leads[0], leads
+    assert 'orders.py:11' in leads[0] and leads[0].endswith('write above each copy not marked yet: # flowguard: same ACCEPT)'), leads
+    # check compares the behaviour instead; none of its leads asks to register the registered copies either
+    _check(root)
+    assert not any('PREVIEW_ACCEPT' in lead for lead in _leads(root)), _leads(root)
+    # With the look-alike registered too, every former twin is covered: no lead at all.
+    orders.write_text(orders.read_text().replace('\ndef quote_accept', '# flowguard: same ACCEPT\ndef quote_accept'), encoding='utf-8')
+    _git(root, 'add', '.')
+    _git(root, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'mark the look-alike')
+    orders.write_text(orders.read_text().replace('return days <= 4', 'return days <= 5'), encoding='utf-8')
+    _check(root, '--static')
+    assert not any(lead.startswith('similar-implementation leads: ') for lead in _leads(root)), _leads(root)
+
+
+def test_a_copy_this_change_makes_diverge_from_the_reference_is_new_never_broken_at_task_start(tmp_path):
+    """Copy discovery (check): two copies agreed at the task start; the change unregisters one and changes it. Its copies
+    finding is this change's (impact), not a problem the task started with (before)."""
+    root = _project(tmp_path, {
+        'orders.py': '''
+            # flowguard: same ACCEPT ref
+            def accept(days: int) -> bool:
+                return days <= 3
+
+            # flowguard: same ACCEPT
+            def preview_accept(days: int) -> bool:
+                return days <= 3
+        ''',
+        'tests/test_orders.py': 'from orders import accept, preview_accept\n\n\ndef test_accept():\n    assert accept(3) and preview_accept(2)\n',
+    })
+    orders = root / 'orders.py'
+    orders.write_text(orders.read_text().replace('# flowguard: same ACCEPT\n', '').replace(
+        'def preview_accept(days: int) -> bool:\n    return days <= 3', 'def preview_accept(days: int) -> bool:\n    return days <= 4'),
+        encoding='utf-8')
+    code, text = _check(root)
+    shown = _block(text)
+    assert code == 0 and not any(line.startswith('before: ') for line in shown), text
+    assert 'impact: copies of ACCEPT: orders.py:preview_accept is a diverged copy of the reference orders.py:accept ' \
+           '-> fix it, or say why in your report' in shown, text

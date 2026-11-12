@@ -3,10 +3,15 @@
 Each fixture commits its baseline, then edits one file, adds one and leaves the rest; the map is the working tree's.
 """
 from contextlib import closing
+from pathlib import Path
+import re
+
+import pytest
 
 from flowguard.intent import anchors, owners, sources
 from flowguard.intent.config import load_config
 from flowguard.intent.health import Issue
+from flowguard.map.common import git_renames
 from flowguard.structure import build
 from tests.intent_engine.test_static_check import _commit, _git, _write
 
@@ -191,6 +196,43 @@ def test_files_this_change_deletes_or_renames_away_are_read_at_the_baseline(tmp_
         # A file this change never had at the baseline, or that the map does not read, has no baseline facts.
         assert change.old_facts('app/new.py') == {} and change.old_part('app/new.py', 'nodes') is None
         assert change.old_facts('README.md') == {} and change.module('README.md') is None
+
+
+BODY = ''.join(f'def f{index}(x):\n    return x + {index}\n' for index in range(12))
+
+
+@pytest.mark.parametrize('top', ['', 'proj/'])
+def test_the_map_and_the_comparisons_read_a_change_s_renames_from_one_reader(tmp_path, top):
+    # map.common.git_renames is the one reader: {path now: path at the baseline}; Change.renamed is the same, the
+    # other way round. A staged rename, one edited after `git mv`, one outside app/ count; a deletion, an edit and a
+    # file moved without `git add` do not. Below the repository's top folder the paths are the project's, and a move
+    # across its edge is none (the project cannot read the other side): as Change.renamed always read them.
+    _commit(tmp_path, {f'{top}app/a.py': BODY, f'{top}app/b.py': BODY.replace('x +', 'x -'), f'{top}app/c.py': 'C = 1\n',
+                       f'{top}app/d.py': 'D = 1\n', f'{top}docs/x.md': 'notes\n' * 20, f'{top}app/out.py': BODY.replace('x +', 'x *'),
+                       'other/z.py': BODY.replace('x +', '2 *'), 'other/w.py': BODY.replace('x +', 'x //')})
+    _git(tmp_path, 'mv', f'{top}app/a.py', f'{top}app/moved.py')
+    (tmp_path / top / 'lib').mkdir()
+    _git(tmp_path, 'mv', f'{top}app/b.py', f'{top}lib/b2.py')
+    (tmp_path / top / 'lib/b2.py').write_text(BODY.replace('x +', 'x -') + 'def extra():\n    return 0\n', encoding='utf-8')
+    _git(tmp_path, 'add', f'{top}lib/b2.py')
+    _git(tmp_path, 'rm', '-q', f'{top}app/c.py')
+    (tmp_path / top / 'app/d.py').write_text('D = 2\n', encoding='utf-8')
+    (tmp_path / top / 'docs/x.md').rename(tmp_path / top / 'docs/y.md')
+    _git(tmp_path, 'mv', 'other/z.py', 'other/z2.py')
+    if top:
+        _git(tmp_path, 'mv', f'{top}app/out.py', 'other/out.py')
+        _git(tmp_path, 'mv', 'other/w.py', f'{top}app/w.py')
+    root = tmp_path / top
+    expected = {'app/a.py': 'app/moved.py', 'app/b.py': 'lib/b2.py', **({} if top else {'other/z.py': 'other/z2.py'})}
+    with closing(build(root)) as graph:
+        assert owners.Change(load_config(root), graph, 'HEAD').renamed() == expected
+        assert owners.Change(load_config(root), graph, None).renamed() == {}
+    assert git_renames(root, 'HEAD') == {new: old for old, new in expected.items()}
+    # no other code asks Git for renames
+    package = Path(git_renames.__code__.co_filename).parents[1]
+    readers = sorted(path.relative_to(package).as_posix() for path in package.rglob('*.py')
+                     if re.search(r"""['"]-M['"]|--find-renames""", path.read_text(encoding='utf-8')))
+    assert readers == ['map/common.py'], readers
 
 
 STATES = "export const S = { A: '%s', B: 'shut' } as const;\n"

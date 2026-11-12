@@ -458,8 +458,11 @@ def intercepted(fn, callback, *, keep=None):
         raise NotMutable('calibration target is not a Python function')
     if fn.__code__.co_freevars:
         raise NotMutable('calibration closure is unsupported')
-    if inspect.iscoroutinefunction(fn) or inspect.isgeneratorfunction(fn) or inspect.isasyncgenfunction(fn):
-        raise NotMutable('calibration async/generator is unsupported')
+    # Such a call returns a coroutine or a generator, not its result: say which the function is.
+    for kind, test in (('an async generator', inspect.isasyncgenfunction), ('async', inspect.iscoroutinefunction),
+                       ('a generator', inspect.isgeneratorfunction)):
+        if test(fn):
+            raise NotMutable(f'is {kind}; its calls are not recorded')
     signature = inspect.signature(fn, follow_wrapped=False)
     if any(p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD) for p in signature.parameters.values()):
         raise NotMutable('calibration variadic signature is unsupported')

@@ -113,12 +113,12 @@ def test_a_change_against_the_owner_words_is_red_with_the_sentence(shop):
     result, text = _pytest(shop)
     assert result.returncode == 1, text
     assert [line for line in block(text) if line.startswith('red: ')] == [
-        'red: rule DEPOSIT_REVIEW: deposit=101 member=T -> rule T, code False at fees.py:needs_approval (2 of 10 cells disagree) '
+        'red: rule DEPOSIT_REVIEW: deposit=101 member=T: rule True, code False at fees.py:needs_approval (2 of 10 cells disagree) '
         '(+1 more) -> change the code so fees.py:needs_approval follows rule DEPOSIT_REVIEW'], text
     # The other count and the owner's sentence are the red's detail.
     shown = last(shop).splitlines()
     detail = shown[shown.index(next(line for line in shown if line.startswith('red: rule DEPOSIT_REVIEW: '))) + 1:]
-    assert 'deposit=150 member=T -> rule T, code False at shop/fees.py:needs_approval (1 of 1 rows disagree, row L' in detail[0], shown
+    assert 'deposit=150 member=T: rule True, code False at shop/fees.py:needs_approval (1 of 1 rows disagree, row L' in detail[0], shown
     assert '    DEPOSIT_REVIEW source: owner R1: 会员也一样，不能例外。' in detail, shown
     assert 'FAILED tests/intent/rules.py::DEPOSIT_REVIEW[shop.fees.needs_approval:rows]' in text, text
 

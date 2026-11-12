@@ -55,7 +55,7 @@ FlowGuard 4.3 (since 794772d): 1 red; 0.4 s
 red: same LATE_FEE: on days=5: fees.ts:lateFee returns 4, fees.ts:previewFee returns 6 -> decide which copy is right, then make the other agree
 ```
 
-The test case then fails with one line, `FlowGuard: 1 red, see the FlowGuard block at the end`, so the red is also in vitest's results (JSON `failureMessages`, junit) and not only in the exit status.
+The test case then fails with one line, `FlowGuard: 1 red, see the FlowGuard block at the end`, so the red is also in vitest's results (JSON `failureMessages`, junit) and not only in the exit status. A run whose path filters, `-t` or `--project` leave that test out is judged by the global setup's teardown: its red reaches the exit status and the block, but not vitest's JSON or junit results, which vitest writes before any teardown; vitest 4 offers no supported way to keep a test in a filtered run or to add a result after the last test.
 
 jest, CommonJS, class methods, default exports and promise results are not observed.
 

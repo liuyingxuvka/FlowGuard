@@ -359,37 +359,51 @@ class _Fold:
         return value
 
     def _compute(self):
-        from ..structure.features import fold_step
-        stack, done = [(self.node, False)], []
-        while stack:
-            node, ready = stack.pop()
-            if isinstance(node, ast.Constant):
-                done.append(node.value)
-                continue
-            if isinstance(node, ast.Name):
-                found = self.bindings.get(node.id, _MISSING)
-                if type(found) is _Import:
-                    found = found.value()
-                if found is _MISSING or node.id in self.blocked:
-                    return None, f'{node.id} is not a number or text constant before it'
-                if type(found) is _Fold:
-                    value, why = found.result
-                    if why:
-                        return None, f'uses {node.id}: {why}'
-                    found = value
-                done.append(found)
-                continue
-            children = [node.operand] if isinstance(node, ast.UnaryOp) else [node.left, node.right]
-            if not ready:
-                stack.append((node, True))
-                stack.extend((child, False) for child in reversed(children))
-                continue
-            value, why = fold_step(_FOLDED[type(node.op)], done[-len(children):])
+        def lookup(name):
+            found = self.bindings.get(name, _MISSING)
+            if type(found) is _Import:
+                found = found.value()
+            if found is _MISSING or name in self.blocked:
+                return None, f'{name} is not a number or text constant before it'
+            if type(found) is _Fold:
+                value, why = found.result
+                return (None, f'uses {name}: {why}') if why else (value, '')
+            return found, ''
+        return _fold(self.node, lookup)
+
+
+def _fold(node, lookup, leaf=None):
+    """The value of a right side built from literals, signs, + - * / // % ** and names (`lookup(name)` gives (value,
+    why)), one operation at a time with Python's numbers (`features.fold_step`, bounded: nothing past a bound is
+    computed), walking the syntax tree without recursion: (value, '') or (None, why it does not fold). Any other part
+    is `leaf(part)`'s (value, why), or does not fold. The Python side of `vitest._ecma_fold`; `_Fold` and the old
+    module constants of `_literal` fold with it."""
+    from ..structure.features import fold_step
+    stack, done = [(node, False)], []
+    while stack:
+        node, ready = stack.pop()
+        arithmetic = isinstance(node, (ast.UnaryOp, ast.BinOp)) and type(node.op) in _FOLDED
+        if isinstance(node, ast.Constant):
+            done.append(node.value)
+            continue
+        if isinstance(node, ast.Name) or not arithmetic:
+            value, why = lookup(node.id) if isinstance(node, ast.Name) else \
+                leaf(node) if leaf is not None else (None, 'cannot fold ' + type(node).__name__)
             if why:
                 return None, why
-            del done[-len(children):]
             done.append(value)
-        return done[0], ''
+            continue
+        children = [node.operand] if isinstance(node, ast.UnaryOp) else [node.left, node.right]
+        if not ready:
+            stack.append((node, True))
+            stack.extend((child, False) for child in reversed(children))
+            continue
+        value, why = fold_step(_FOLDED[type(node.op)], done[-len(children):])
+        if why:
+            return None, why
+        del done[-len(children):]
+        done.append(value)
+    return done[0], ''
 
 
 def _receiver(function, arguments):
@@ -573,6 +587,19 @@ def _closed(source, qual, imports=None):
     return env[qual]
 
 
+def _module_at(path, file, module):
+    """The module name `path` has under the import root that names `file` `module` (a moved file's name at
+    the baseline); '' when `path` is outside that root, so no project import resolves from it."""
+    def names(rel):
+        parts = list(Path(rel).with_suffix('').parts)
+        return parts[:-1] if parts and parts[-1] == '__init__' else parts
+    own, old, dotted = names(file), names(path), module.split('.') if module else []
+    if not dotted or own[len(own) - len(dotted):] != dotted:
+        return ''
+    root = own[:len(own) - len(dotted)]
+    return '.'.join(old[len(root):]) if old[:len(root)] == root and len(old) > len(root) else ''
+
+
 def sealed(source, qual, args, kwargs, imports=None):
     """Evaluate one source-only function in fresh globals and strict JSON values. `imports` finds the source
     of a project module the function's file imports constants from (`Runtime.imports`)."""
@@ -621,19 +648,31 @@ def _functions(tree, prefix=''):
             yield from _functions(node, prefix + node.name + '.')
 
 def _literal(node, constants):
-    """Only inert constructors, never execution of a previous module initializer."""
+    """The value of an old module constant's right side, computed without running code or a previous module
+    initializer: literals and tuples, lists, sets and dicts of values, the `constants` above it, signs and
+    + - * / // % ** of numbers and texts (`_fold`, bounded as the sealed environments fold: an exponent outside
+    -64..64, a number above 2**256 or a text over 10,000 characters is not computed), and calls of the inert
+    constructors Decimal, date, datetime and timedelta. Raises ValueError with why it is not folded."""
     constructors = (Decimal, date, datetime, timedelta)
     allowed = {name: value for name, value in constants.items() if any(value is fn for fn in constructors)}
-    for part in ast.walk(node):
-        if isinstance(part, ast.Call) and not (isinstance(part.func, ast.Name) and part.func.id in allowed):
-            raise ValueError('old constant/default is not an inert expression')
-        if isinstance(part, (ast.Attribute, ast.Lambda, ast.NamedExpr, ast.ListComp, ast.DictComp,
-                             ast.SetComp, ast.GeneratorExp, ast.Await, ast.Yield)):
-            raise ValueError('old constant/default is not an inert expression')
-        if isinstance(part, ast.Name) and part.id not in constants and part.id not in allowed:
-            raise ValueError('old constant/default names an unknown value: ' + part.id)
-    return eval(compile(ast.Expression(node), '<flowguard old constant>', 'eval'),
-                {'__builtins__': {}, **allowed, **constants})
+    def lookup(name):
+        return (constants[name], '') if name in constants else (None, 'old constant/default names an unknown value: ' + name)
+    def value(part):
+        found, why = _fold(part, lookup, leaf)
+        if why:
+            raise ValueError(why)
+        return found
+    def leaf(part):
+        if isinstance(part, (ast.Tuple, ast.List, ast.Set)) and not any(isinstance(e, ast.Starred) for e in part.elts):
+            items = [value(e) for e in part.elts]
+            return (tuple(items) if isinstance(part, ast.Tuple) else items if isinstance(part, ast.List) else set(items)), ''
+        if isinstance(part, ast.Dict) and None not in part.keys:
+            return {value(k): value(v) for k, v in zip(part.keys, part.values)}, ''
+        if isinstance(part, ast.Call) and isinstance(part.func, ast.Name) and part.func.id in allowed \
+                and not any(isinstance(a, ast.Starred) for a in part.args) and all(k.arg for k in part.keywords):
+            return allowed[part.func.id](*map(value, part.args), **{k.arg: value(k.value) for k in part.keywords}), ''
+        return None, 'old constant/default is not an inert expression'
+    return value(node)
 
 def _literal_equal(left, right):
     """Compare inert source data without running a fixture object's operators."""
@@ -661,9 +700,12 @@ def _literal_equal(left, right):
     return None if None in outcomes else all(outcomes)
 
 def _binding_facts(tree):
-    """Top-level binding identity; function bodies have their own fingerprints."""
+    """Top-level binding identity; function bodies have their own fingerprints. A bare annotation (`LIMIT: int`)
+    binds nothing, as `_scope` reads it."""
     result = {}
     for statement in tree.body:
+        if isinstance(statement, ast.AnnAssign) and statement.value is None:
+            continue
         if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
             result[statement.name] = ('function', statement.name)
         elif isinstance(statement, ast.ClassDef):
@@ -683,6 +725,130 @@ def _binding_facts(tree):
                 if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
                     result[node.id] = ('value', ast.dump(value, include_attributes=False))
     return result
+
+
+def _binding_reads(tree):
+    """{name: the names its top-level binding reads}, by the statement that binds it last, as `_binding_facts` reads
+    it. A function, class or import binding reads nothing here (a same-file function is followed by its own body)."""
+    reads = {}
+    for statement in tree.body:
+        if isinstance(statement, ast.AnnAssign) and statement.value is None:
+            continue
+        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            reads.pop(statement.name, None)
+        elif isinstance(statement, (ast.Import, ast.ImportFrom)):
+            for alias in statement.names:
+                reads.pop(alias.asname or alias.name.split('.')[0], None)
+        elif isinstance(statement, ast.Delete):
+            for node in ast.walk(statement):
+                if isinstance(node, ast.Name):
+                    reads.pop(node.id, None)
+        else:
+            value = statement.value if isinstance(statement, (ast.Assign, ast.AnnAssign)) else statement
+            loaded = {node.id for node in ast.walk(value) if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)}
+            for node in ast.walk(statement):
+                if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+                    reads[node.id] = loaded
+    return reads
+
+
+def _read_through(names, reads):
+    """`names` and every name a binding of `reads` (`_binding_reads`) among them reads, at any depth: with
+    LIMIT = BASE * 2, a function reading LIMIT reads BASE too."""
+    found, todo = set(names), list(names)
+    while todo:
+        for name in reads.get(todo.pop(), ()):
+            if name not in found:
+                found.add(name)
+                todo.append(name)
+    return found
+
+
+def _changed_constants(old_tree, tree, extra=()):
+    """The top-level constants of a module whose value this change may alter: a value binding whose statement differs
+    from the baseline's (`_binding_facts`: edited, added or removed), the names in `extra` (bound to another module's
+    changed constant, `_imported_changes`), and every binding whose right side reads one of these at any depth
+    (`_binding_reads`, `_read_through`: LIMIT = BASE * 2 changes with BASE)."""
+    old, new = _binding_facts(old_tree), _binding_facts(tree)
+    direct = {name for name in old.keys() | new.keys() if old.get(name) != new.get(name)
+              and 'value' in (old.get(name, ('',))[0], new.get(name, ('',))[0])} | set(extra)
+    reads = _binding_reads(tree)
+    return direct | {name for name in reads if _read_through({name}, reads) & direct}
+
+
+def _absolute(level, name, package):
+    """The module `from {'.' * level}{name} import ...` names inside `package` (as importlib resolves it); None for a
+    relative import above the top package."""
+    if not level:
+        return name or ''
+    parts = package.split('.') if package else []
+    if level - 1 >= len(parts):
+        return None
+    return '.'.join([*parts[:len(parts) - level + 1], *([name] if name else [])])
+
+
+def _imported_changes(tree, package, changed):
+    """(names, aliases, constants) of a module's top level against other modules' changed constants (`changed`:
+    {module: its `_changed_constants`}; `package` the one its relative imports start from): the names its imports
+    bind to a changed constant (`from M import X as Y` with X changed, every changed public name of `from M import
+    *`); {name: module} of the names bound to a module, read through attribute chains (`import M as Y`, `import M.sub`
+    binding M, `from P import M`, M perhaps a submodule; `_reads_changed`); and those names together with the
+    constants whose last binding reads a changed constant through such a chain (CAP = m.LIMIT + 1). A later
+    binding of a name replaces what an import bound to it."""
+    names, aliases, derived = set(), {}, set()
+    for statement in tree.body:
+        if isinstance(statement, ast.Import):
+            for alias in statement.names:
+                local = alias.asname or alias.name.split('.')[0]
+                names.discard(local)
+                derived.discard(local)
+                aliases[local] = alias.name if alias.asname else local
+        elif isinstance(statement, ast.ImportFrom):
+            source = _absolute(statement.level, statement.module, package)
+            for alias in statement.names:
+                if source is None:
+                    continue
+                if alias.name == '*':
+                    names.update(name for name in changed.get(source, ()) if not name.startswith('_'))
+                    continue
+                local = alias.asname or alias.name
+                derived.discard(local)
+                (names.add if alias.name in changed.get(source, ()) else names.discard)(local)
+                aliases[local] = f'{source}.{alias.name}' if source else alias.name
+        elif isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.discard(statement.name)
+            aliases.pop(statement.name, None)
+            derived.discard(statement.name)
+        else:
+            value = statement.value if isinstance(statement, (ast.Assign, ast.AnnAssign)) else statement
+            reads = value is not None and _reads_changed(value, set(), aliases, changed)
+            for node in ast.walk(statement):
+                if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+                    names.discard(node.id)
+                    aliases.pop(node.id, None)
+                    (derived.add if reads and isinstance(node.ctx, ast.Store) else derived.discard)(node.id)
+    return names, aliases, names | derived
+
+
+def _reads_changed(node, names, aliases, changed):
+    """Whether `node` (a function, or the right side of a binding) reads another module's changed constant: a name of
+    `names`, or an attribute chain through a module name of `aliases` (`m.LIMIT`, `pkg.limits.LIMIT`) to a constant
+    its module's `changed` constants hold (`_imported_changes`)."""
+    for part in ast.walk(node):
+        if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load) and part.id in names:
+            return True
+        if isinstance(part, ast.Attribute) and isinstance(part.ctx, ast.Load):
+            chain, value = [part.attr], part.value
+            while isinstance(value, ast.Attribute):
+                chain.insert(0, value.attr)
+                value = value.value
+            if isinstance(value, ast.Name) and value.id in aliases:
+                dotted = [*aliases[value.id].split('.'), *chain]
+                start = aliases[value.id].count('.') + 1
+                if any(dotted[index] in changed.get('.'.join(dotted[:index]), ()) for index in range(start, len(dotted))):
+                    return True
+    return False
+
 
 @dataclass
 class Reading:
@@ -1028,8 +1194,9 @@ class Runtime:
                 self.baseline, self._baseline_error = None, str(error)
         self.readings, self.issues, self.events = [], [], []
         self.patches, self.constants, self.unavailable, self.current_constants = {}, {}, {}, {}
-        self._sources, self._trees, self._imported, self._projects, self._bindings = {}, {}, {}, {}, {}
+        self._sources, self._trees, self._imported, self._projects = {}, {}, {}, {}
         self._texts, self._exported, self._loaded = {}, {}, {}     # project modules the sealed environment reads
+        self._renames = None        # {path now: path at the baseline} of the files this change moved (`baseline_place`)
         self._seen, self._test, self.ran, self.seconds = {}, '', set(), 0.0
         self.outcomes = {}          # each ordinary test's phases that did not pass: [(when, outcome, error)]
 
@@ -1138,13 +1305,28 @@ class Runtime:
             self._loaded[file, old] = reason
         return self._loaded[file, old]
 
+    def baseline_place(self, file, module):
+        """(path, module name) a project file had at the baseline: its old path and the module name that path has
+        under the same import root when this change moved it (`git_renames`, read once per runtime), else its own.
+        A runtime given its `previous` sources reads no renames."""
+        if self._renames is None:
+            from flowguard.map.common import git_renames
+            self._renames = git_renames(self.root, self.baseline) if self.previous is None and self.baseline else {}
+        old = self._renames.get(file)
+        return (old, _module_at(old, file, module)) if old else (file, module)
+
     def _input(self, function, historical=False):
+        """(fn, file, module, source) of a function's source: its file now, or (`historical`) its baseline version,
+        which a file this change moved has at its old path, with that path's module name (`baseline_place`), so the
+        imports of the baseline source resolve as they did there."""
         fn = sites.unwrap(function)
-        file = Path(inspect.getsourcefile(fn)).resolve().relative_to(self.root).as_posix()
+        file, module = Path(inspect.getsourcefile(fn)).resolve().relative_to(self.root).as_posix(), fn.__module__
+        if historical:
+            file, module = self.baseline_place(file, module)
         source = self._source(file) if historical else (self.root / file).read_text(encoding='utf-8-sig')
         if source is None:
             raise ValueError('function has no baseline source')
-        return fn, file, source
+        return fn, file, module, source
 
     def full(self, function):
         """Twenty distinct encoded inputs of the function are recorded: its hook comes off."""
@@ -1155,8 +1337,8 @@ class Runtime:
         owner = self if historical else (_HISTORICAL.get() or self)
         try:
             old = historical or _HISTORICAL.get() is not None
-            fn, file, source = owner._input(function, historical=old)
-            _closed(source, fn.__qualname__, owner.imports(file, fn.__module__, old))
+            fn, file, module, source = owner._input(function, historical=old)
+            _closed(source, fn.__qualname__, owner.imports(file, module, old))
             if arguments is not None:
                 _json(dict(arguments))
             return ''
@@ -1170,9 +1352,9 @@ class Runtime:
                 return _value(fn, bound), ''
             historical = owner is not None
             owner = owner or self
-            function, file, source = owner._input(fn, historical=historical)
+            function, file, module, source = owner._input(fn, historical=historical)
             answer = sealed(source, function.__qualname__, list(bound.args), dict(bound.kwargs),
-                            owner.imports(file, function.__module__, historical))
+                            owner.imports(file, module, historical))
         except (Refused, ValueError, TypeError, OSError) as error:
             return None, str(error)
         if answer['status'] == 'unavailable':
@@ -1185,12 +1367,12 @@ class Runtime:
     def field_values(self, original, bound, fields, line, reading):
         """Explicit fields use the same closed engine; opaque context stays unavailable."""
         try:
-            fn, file, source = self._input(original)
+            fn, file, module, source = self._input(original)
             parameters = ', '.join(inspect.signature(fn, follow_wrapped=False).parameters)
             values = {}
             for name, expression in fields:
                 body = source + f'\ndef _flowguard_field({parameters}):\n    return ({expression})\n'
-                answer = sealed(body, '_flowguard_field', list(bound.args), dict(bound.kwargs), self.imports(file, fn.__module__))
+                answer = sealed(body, '_flowguard_field', list(bound.args), dict(bound.kwargs), self.imports(file, module))
                 if answer['status'] != 'ok':
                     reading.field_reasons.append('field ' + name + ': ' + answer.get('reason', str(answer.get('error'))))
                     return
@@ -1291,8 +1473,8 @@ class Runtime:
         fn = sites.unwrap(function)
         if fn not in self.patches:
             try:
-                _, file, source = self._input(fn, historical=True)
-                compiled = _closed(source, fn.__qualname__, self.imports(file, fn.__module__, True))
+                _, file, module, source = self._input(fn, historical=True)
+                compiled = _closed(source, fn.__qualname__, self.imports(file, module, True))
                 self.patches[fn] = Patch(fn, compiled.__code__, compiled.__defaults__, compiled.__kwdefaults__,
                                          dict(_functions(ast.parse(source)))[fn.__qualname__], source)
             except (Refused, ValueError, TypeError, OSError) as error:
@@ -1320,7 +1502,10 @@ class Runtime:
                 self._sources[file] = raw.decode('utf-8-sig') if raw is not None else None
         return self._sources[file]
 
-    def _constants(self, tree, module, seen=None, *, historical=True):
+    def _constants(self, tree, module, seen=None, *, historical=True, reasons=None):
+        """{name: value} of a module's top-level constants as `_literal` computes them from its source, in source
+        order, and of the inert constants its `from` imports bind. `reasons` (a dict) receives, for each name an
+        assignment binds to no such value, why: the error `_literal` or the constructor it calls raises."""
         seen = set() if seen is None else seen
         if module in seen:
             return {}
@@ -1333,9 +1518,11 @@ class Runtime:
             if targets and statement.value is not None:
                 try:
                     value = _literal(statement.value, constants)
-                except (ValueError, TypeError, SyntaxError, ArithmeticError):
+                except (ValueError, TypeError, SyntaxError, ArithmeticError) as error:
                     for name in names:
                         constants.pop(name, None)
+                        if reasons is not None:
+                            reasons[name] = str(error) or type(error).__name__
                 else:
                     constants.update((name, value) for name in names)
             elif isinstance(statement, ast.ImportFrom):
@@ -1390,12 +1577,6 @@ class Runtime:
         if key not in self._imported:
             self._imported[key] = self._constants(tree, module, seen, historical=historical)
         return copy.deepcopy(self._imported[key])
-
-    def _binding_facts(self, tree):
-            """_binding_facts of a tree, once per tree object (callers only read them)."""
-            if id(tree) not in self._bindings or self._bindings[id(tree)][0] is not tree:
-                self._bindings[id(tree)] = tree, _binding_facts(tree)
-            return self._bindings[id(tree)][1]
 
     def _project_file(self, file):
         """project_code, once per file for this runtime (its callers ask for every name a function reads)."""
