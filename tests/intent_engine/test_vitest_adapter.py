@@ -1007,6 +1007,39 @@ def test_vitest_reports_copies_rules_and_the_changed_case_class(vitest_home):
     assert not [line for line in text.splitlines() if line.startswith('unverified') and 'fee-preview.ts' in line], text
 
 
+def test_a_careless_change_of_a_function_reading_a_folded_constant_is_changed(vitest_home):
+    # Round 23, Planning Tool: roundFteShare reads FTE_SHARE_FACTOR = 10 ** FTE_SHARE_DECIMALS. That constant was
+    # "nonliteral", so its old and new versions were not compared and a careless change passed every test unseen.
+    root = vitest_home / 'folded'
+    _commit(root, {
+        'package.json': '{"name":"folded","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/quantity.ts': '''
+            const FTE_SHARE_DECIMALS = 4;
+            const FTE_SHARE_FACTOR = 10 ** FTE_SHARE_DECIMALS;
+
+            function roundFteShare(value: number): number {
+              return Math.round(value * FTE_SHARE_FACTOR) / FTE_SHARE_FACTOR;
+            }
+
+            export function toFteShare(hours: number, reference: number): number {
+              return roundFteShare(hours / reference);
+            }
+        ''',
+        'tests/quantity.test.ts': ("import {it,expect} from 'vitest'; import {toFteShare} from '../src/quantity';\n"
+                                   "it('gives a share', () => { expect(toFteShare(0.75, 40)).toBeGreaterThan(0); "
+                                   "expect(toFteShare(20, 40)).toBe(0.5); });\n"),
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired')
+    quantity = root / 'src/quantity.ts'
+    quantity.write_text(quantity.read_text(encoding='utf-8').replace('return Math.round(value * FTE_SHARE_FACTOR) / FTE_SHARE_FACTOR;',
+                                                                     'return Number(value.toFixed(FTE_SHARE_DECIMALS));'), encoding='utf-8')
+    code, text = _vitest(root, vitest_home)
+    assert code == 0 and 'nonliteral constant' not in text, text
+    changed = [line for line in text.splitlines() if line.startswith('changed') and 'roundFteShare' in line]
+    assert changed and 'function result 0.0188 → 0.0187' in changed[0] and 'value=0.01875' in changed[0], text
+
+
 def test_a_disagreeing_same_name_pair_is_compared_again_in_a_run_without_a_ts_change(vitest_home):
     root = vitest_home / 'again'
     _commit(root, {
@@ -1259,6 +1292,66 @@ def test_source_only_comparison_strips_types_keeps_defaults_and_same_file_helper
                          input=json.dumps([dict(source=source, fn='fee', args=[])]),
                          text=True, capture_output=True, check=True, timeout=30)
     assert json.loads(run.stdout) == [{'value': 6}], run.stdout + run.stderr
+
+
+def _sealed(source, fn, args):
+    from flowguard.intent.vitest import ADAPTER
+    run = subprocess.run([_tool('node'), str(ADAPTER / 'sealed.mjs')], input=json.dumps([dict(source=source, fn=fn, args=args)]),
+                         text=True, capture_output=True, check=True, timeout=30)
+    [result] = json.loads(run.stdout)
+    return result
+
+
+# Design 4.5: a constant whose right side is built from number and string literals, signs, + - * / % ** and
+# constants of the same file above it is folded with JavaScript's numbers by walking its syntax; nothing runs.
+# Round 23: Planning Tool's `FTE_SHARE_FACTOR = 10 ** FTE_SHARE_DECIMALS` was "nonliteral", so roundFteShare
+# was never compared and a careless change of it went unseen.
+ROUND_SHARE = '\nfunction roundShare(value: number): number {\n  return Math.round(value * FTE_SHARE_FACTOR) / FTE_SHARE_FACTOR;\n}\n'
+
+
+@pytest.mark.parametrize('constants', [
+    'const FTE_SHARE_DECIMALS = 4;\nconst FTE_SHARE_FACTOR = 10 ** FTE_SHARE_DECIMALS;',
+    'const BASE = 10;\nexport const DECIMALS = BASE - 6;\nconst FTE_SHARE_FACTOR = BASE ** (DECIMALS as number);',    # three
+    'const FTE_SHARE_FACTOR = ((7 % 3) + 3) * 5000 / 2 - -0 + +0;',
+    'const SECOND = 1000, DAY = 24 * 60 * 60 * SECOND;\nconst FTE_SHARE_FACTOR = DAY /* a day */ / 8640;',
+])
+def test_a_constant_built_from_literals_and_constants_above_it_is_folded_for_the_sealed_run(constants):
+    from flowguard.intent.vitest import sealed_source
+    source, why = sealed_source((constants + ROUND_SHARE).encode(), 'src/share.ts', 'roundShare')
+    assert not why and 'const FTE_SHARE_FACTOR = 10000;' in source, (source, why)
+    assert _sealed(source, 'roundShare', [0.01875]) == {'value': 0.0188}
+
+
+def test_a_folded_constant_has_the_value_javascript_gives_it():
+    from flowguard.intent.vitest import sealed_source
+    source, why = sealed_source(b"const R = -7 % 3;\nconst P = 'FTE' + \"-\" + 'share\\t';\nexport function f() { return P + R; }",
+                                'src/f.ts', 'f')
+    assert not why and 'const R = -1;' in source, (source, why)       # Python's -7 % 3 is 2
+    assert _sealed(source, 'f', []) == {'value': 'FTE-share\t-1'}
+
+
+DOUBLED = "const S0 = '0123456789';\n" + ''.join(f'const S{n + 1} = S{n} + S{n};\n' for n in range(10))
+
+
+@pytest.mark.parametrize('constants, reason', [
+    ('const A = B + 1;\nconst B = A + 1;', 'uses A: B is not a number or text constant before it'),           # a cycle
+    ('const A = 2 ** 300;', 'uses A: exponent 300 is above 64'),
+    ('const A = 2 ** 64 * 2 ** 64 * 2 ** 64 * 2 ** 64 * 2;', 'uses A: result is above 2**256'),
+    ('const A = 10 ** -4;', 'uses A: 10 ** -4 is not exact in floating point'),
+    ('const A = 2 ** 0.5;', 'uses A: exponent 0.5 is not a whole number'),
+    (DOUBLED + 'const A = S10;', 'uses A: uses S10: text is longer than 10000 characters'),
+    ('const HUGE = 2 ** 300;\nconst A = HUGE / 2;', 'uses A: uses HUGE: exponent 300 is above 64'),
+    ('const A = 1 / 0;', 'uses A: divides by zero'),
+    ("const A = 'a' + 1;", 'uses A: cannot fold string + number'),
+    ("const A = '6' * 2;", 'uses A: cannot fold string * number'),
+    ('const A = 10n ** 2n;', 'uses A: cannot fold 10n'),
+    ('let D = 4;\nconst A = 10 ** D;', 'uses A: D is not a number or text constant before it'),
+    ('const A = 10 ** Number("4");', 'uses nonliteral constant A'),                           # a call is never run
+])
+def test_a_constant_that_does_not_fold_stays_not_compared_with_why(constants, reason):
+    from flowguard.intent.vitest import sealed_source
+    found = sealed_source((constants + '\nexport function f(x: number) { return x + A; }').encode(), 'src/f.ts', 'f')
+    assert found == ('', reason), found
 
 
 @pytest.mark.parametrize('body,reason', [

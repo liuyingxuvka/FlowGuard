@@ -232,9 +232,9 @@ SITES = {
 }
 
 
-def _resolved(tmp_path, sites):
+def _resolved(tmp_path, sites, files=SITES):
     cfg = _project(tmp_path, rules=None, known='[known.x]\nsites = ' + repr(list(sites)).replace("'", '"')
-                   + '\nwhy = "w"\nact = "leave"\n', **SITES)
+                   + '\nwhy = "w"\nact = "leave"\n', **files)
     found = sources.catalog(cfg)
     assert found.issues == [], found.issues
     with closing(build(tmp_path, workers=1)) as graph:
@@ -281,6 +281,95 @@ def test_a_site_that_names_no_single_declaration_is_an_input_finding(tmp_path, s
     resolved, issues = _resolved(tmp_path, ['src/fees.py:fee', site])
     assert resolved == [] and [issue.name for issue in issues] == ['known-entry:known.x'], issues
     assert issues[0].parts[0][2].startswith(problem), issues[0].parts
+
+
+# Design 4.4: a site's symbol may be a constant, whatever its value. Round 23: Planning Tool's zod schema
+# `export const projectRequestCreateSchema = z.object(...)`, `APPLICATION_ROLES = [...]` and `appConfig = {...}`
+# named nothing, as the map keeps a node only for a constant of a literal value.
+CONSTANTS = {
+    'web/c.ts': '''
+        import { z } from 'zod';
+        import { memo } from 'react';
+        export const projectRequestCreateSchema = z.object({ name: z.string() });
+        export const APPLICATION_ROLES = ['ADMIN', 'USER'] as const;
+        export const appConfig = { port: 3000 };
+        export let counter = 0;
+        var legacy = 1;
+        export const Badge = memo(() => 1);
+        var twice = 1;
+        var twice = 2;
+        export function roles() { return APPLICATION_ROLES; }
+    ''',
+    'src/settings.py': '''
+        defaults = {"grace_days": 3}
+        limit = 1
+        limit = 2
+        if True:
+            fallback = [1]
+        else:
+            fallback = [2]
+
+
+        def grace():
+            return defaults["grace_days"]
+
+
+        grace = None
+    ''',
+}
+
+
+@pytest.mark.parametrize('site', ['web/c.ts:projectRequestCreateSchema', 'web/c.ts:APPLICATION_ROLES', 'web/c.ts:appConfig',
+                                  'web/c.ts:counter', 'web/c.ts:legacy', 'web/c.ts:Badge', 'src/settings.py:defaults'])
+def test_a_module_level_constant_of_any_value_is_a_site(tmp_path, site):
+    resolved, issues = _resolved(tmp_path, [site], CONSTANTS)
+    assert issues == [] and [entry.sites for entry in resolved] == [(site,)], issues
+
+
+@pytest.mark.parametrize('site, problem', [
+    ('web/c.ts:twice', 'site web/c.ts:twice names 2 declarations in web/c.ts'),
+    ('src/settings.py:limit', 'site src/settings.py:limit names 2 declarations in src/settings.py'),
+    ('src/settings.py:fallback', 'site src/settings.py:fallback names 2 declarations in src/settings.py'),
+    ('src/settings.py:grace', 'site src/settings.py:grace names 2 declarations in src/settings.py'),   # a def and a value
+    ('web/c.ts:z', 'site web/c.ts:z names nothing in web/c.ts'),                       # an import declares no constant
+    ('web/c.ts:port', 'site web/c.ts:port names nothing in web/c.ts'),                 # nor does an object's key
+    ('src/settings.py:grace_days', 'site src/settings.py:grace_days names nothing in src/settings.py'),
+])
+def test_a_constant_site_still_names_exactly_one_declaration(tmp_path, site, problem):
+    resolved, issues = _resolved(tmp_path, ['src/fees.py:fee', site], {**SITES, **CONSTANTS})
+    assert resolved == [] and [issue.name for issue in issues] == ['known-entry:known.x'], issues
+    assert issues[0].parts[0][2].startswith(problem), issues[0].parts
+
+
+def test_a_constant_site_is_touched_when_this_change_edits_its_declaration(tmp_path):
+    known = '''
+        [known.roles]
+        sites = ["web/c.ts:APPLICATION_ROLES"]
+        why = "two role lists"
+        act = "ask"
+        ask = "Which roles exist?"
+
+        [known.grace]
+        sites = ["src/settings.py:defaults"]
+        why = "grace read on two scales"
+        act = "leave"
+    '''
+    cfg = _project(tmp_path, rules=None, known=known, **CONSTANTS)
+    _commit(tmp_path)
+    base = _git(tmp_path, 'rev-parse', 'HEAD').strip()
+    def known_lines(ts, py):
+        _write(tmp_path, {'web/c.ts': ts, 'src/settings.py': py})
+        with closing(build(tmp_path, workers=1)) as graph:
+            found = owners.static_findings(cfg, graph, anchors.collect(graph), base)
+        lines, _ = deliver(found.issues, touched_functions=found.touched_functions, touched_files=found.touched_files,
+                           known=found.known, ran=found.ran, extra=found.lines)
+        return [line.text for line in lines if line.kind == 'known']
+    ts, py = CONSTANTS['web/c.ts'], CONSTANTS['src/settings.py']
+    # Another declaration of the same files changed: neither entry's site is touched.
+    assert known_lines(ts.replace('port: 3000', 'port: 3001'), py.replace('limit = 2', 'limit = 3')) == []
+    # Each site's own declaration edited: its entry's line, as for a function site.
+    assert known_lines(ts.replace("'USER'", "'GUEST'"), py.replace('"grace_days": 3', '"grace_days": 4')) == [
+        'known.roles at web/c.ts:APPLICATION_ROLES', 'known.grace at src/settings.py:defaults']
 
 
 def test_static_findings_carry_the_resolved_entries_input_findings_and_sources_that_do_not_hold(tmp_path):

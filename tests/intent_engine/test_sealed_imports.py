@@ -209,9 +209,12 @@ def test_modules_that_import_each_other_are_each_read_once(tmp_path, monkeypatch
     'from shop import settings\ndef allows(days):\n    return days <= settings.GRACE\n',
 ])
 def test_an_attribute_chain_names_why_a_literal_of_its_module_is_not_read(tmp_path, policy):
-    files = {'shop/__init__.py': 'from shop import settings\nsettings.GRACE = 9\n', 'shop/settings.py': 'GRACE = 3\nLATE = 2 * 2\n'}
+    # `2 * 2` folds (design 4.5) and is a constant of the module like GRACE; a shift is not folded.
+    files = {'shop/__init__.py': 'from shop import settings\nsettings.GRACE = 9\n', 'shop/settings.py': 'GRACE = 3\nLATE = 2 << 1\n'}
     assert _policy(tmp_path, files, policy) == {
         'status': 'unavailable', 'reason': 'uses GRACE: shop/__init__.py:2 writes an attribute or item when the module loads'}
+    assert _policy(tmp_path / 'folded', {**files, 'shop/settings.py': 'GRACE = 3\nLATE = 2 * 2\n'}, policy.replace('GRACE', 'LATE')) == {
+        'status': 'unavailable', 'reason': 'uses LATE: shop/__init__.py:2 writes an attribute or item when the module loads'}
     # A name that is no literal of the module says only that.
     assert _policy(tmp_path / 'late', files, policy.replace('GRACE', 'LATE')) == {
         'status': 'unavailable', 'reason': 'uses unavailable attribute LATE'}

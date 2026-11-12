@@ -243,36 +243,22 @@ def sealed_source(data, rel, name, read=None, tables=None):
         if node.type in ('array', 'object', 'pair'):
             return all(literal(child) or child.type == 'property_identifier' for child in node.named_children)
         return node.type == 'unary_expression' and text(node, source)[:1] in '+-' and all(literal(child) for child in node.named_children)
-    # Reuse the reader's literal folder, without admitting calls, attributes or dynamic bindings.
-    import ast
-    from ..structure import features
-    from ..structure.api import _expression
-    folded, environment = {}, {}
-    arithmetic = (ast.Constant, ast.Name, ast.Load, ast.BinOp, ast.UnaryOp,
-                  ast.Add, ast.Sub, ast.Mult, ast.Div, ast.USub, ast.UAdd)
-    def number_ast(node):
-        if isinstance(node, ast.BinOp):
-            return ast.BinOp(number_ast(node.left), node.op, number_ast(node.right))
-        if isinstance(node, ast.UnaryOp):
-            return ast.UnaryOp(node.op, number_ast(node.operand))
-        if isinstance(node, ast.Constant) and type(node.value) in (int, float):
-            return ast.Constant(float(node.value))
-        return node
+    # Design 4.5: a constant built from number and string literals, signs, + - * / % ** and constants of this file
+    # above it is folded in source order (a cycle never folds); one that is no arithmetic is left to `literal`.
+    folded, reasons = {}, {}
+    def lookup(constant):
+        if constant in folded:
+            return folded[constant], ''
+        if constant in reasons:
+            return None, f'uses {constant}: {reasons[constant]}'
+        return None, f'{constant} is not a number or text constant before it'
     for constant, node in constants.items():
-        expression = _expression(stripped(node))
-        if constant in blocked or expression is None or any(not isinstance(part, arithmetic) for part in ast.walk(expression)):
-            continue
-        numeric = [part for part in ast.walk(expression) if isinstance(part, ast.Constant) and type(part.value) in (int, float)]
-        if any(abs(part.value) > sys.float_info.max for part in numeric):
-            continue
-        # Preserve the reader's cached AST; JS Number rounds each step, not only the final value.
-        value = features.fold(number_ast(expression), environment, {})
-        if value is not None and (value[0] == 'str' or value[0] == 'num' and math.isfinite(value[1])):
-            environment[constant] = value
-            primitive = value[1]
-            if type(primitive) is float and primitive.is_integer() and not (primitive == 0 and math.copysign(1, primitive) < 0):
-                primitive = int(primitive)
-            folded[constant] = json.dumps(primitive, ensure_ascii=False)
+        if constant not in blocked:
+            value, why = _ecma_fold(node, source, lookup)
+            if why:
+                reasons[constant] = why
+            elif why is not None:
+                folded[constant] = value
     pending, used, pieces = [name], set(), []
     while pending:
         current = pending.pop()
@@ -308,12 +294,99 @@ def sealed_source(data, rel, name, read=None, tables=None):
         else:
             node = constants[current]
             if current in folded:
-                pieces.append(f'const {current} = {folded[current]};')
+                pieces.append(f'const {current} = {_ecma_literal(folded[current])};')
             elif literal(node):
                 pieces.append(f'const {current} = {stripped(node)};')
+            elif current in reasons:
+                return '', f'uses {current}: {reasons[current]}'
             else:
                 return '', 'uses nonliteral constant ' + current
     return '\n'.join(reversed(pieces)), ''
+
+
+_ECMA_WRAPPERS = ('parenthesized_expression', 'as_expression', 'satisfies_expression', 'non_null_expression')
+_ECMA_ESCAPES = {'n': '\n', 'r': '\r', 't': '\t', 'b': '\b', 'f': '\f', 'v': '\v', '0': '\0', "'": "'", '"': '"',
+                 '\\': '\\', '\n': '', '\u2028': '', '\u2029': ''}
+
+
+def _ecma_fold(node, source, lookup):
+    """The value of a constant's right side built from number and string literals, signs, + - * / % ** and names
+    (`lookup(name)` gives (value, why)), with JavaScript's doubles (`features.fold_step`), walking the syntax
+    tree without recursion: (value, '') or (None, why it does not fold), and (None, None) when the right side is no
+    such arithmetic (a call, an object, a template)."""
+    from ..structure.features import FOLD_NUMBER, fold_step
+    from ..structure.readers.common import text
+    from ..structure.readers.ecma import COMMENTS, literal, operator
+    stack, done = [(node, False)], []
+    while stack:
+        item, ready = stack.pop()
+        while item is not None and item.type in _ECMA_WRAPPERS:
+            item = next((child for child in item.named_children if child.type not in COMMENTS), None)
+        if item is None:
+            return None, None
+        if item.type == 'number':
+            valid, number = literal(item, source)
+            if not valid or type(number) not in (int, float) or type(number) is int and abs(number) > FOLD_NUMBER \
+                    or not math.isfinite(number):
+                return None, 'cannot fold ' + text(item, source)
+            done.append(float(number))
+            continue
+        if item.type in ('string', 'identifier'):
+            value, why = _ecma_text(item, source) if item.type == 'string' else lookup(text(item, source))
+            if why:
+                return None, why
+            done.append(value)
+            continue
+        sign = item.type == 'unary_expression' and operator(item) in ('+', '-')
+        if not sign and not (item.type == 'binary_expression' and operator(item) in ('+', '-', '*', '/', '%', '**')):
+            return None, None
+        children = [item.child_by_field_name('argument')] if sign else [item.child_by_field_name('left'), item.child_by_field_name('right')]
+        if not ready:
+            stack.append((item, True))
+            stack.extend((child, False) for child in reversed(children))
+            continue
+        value, why = fold_step(operator(item), done[-len(children):], javascript=True)
+        if why:
+            return None, why
+        del done[-len(children):]
+        done.append(value)
+    return done[0], ''
+
+
+def _ecma_text(node, source):
+    """(the text of a JS string literal, '') or (None, why): its fragments, and the escapes that mean one character
+    (\\n, \\xHH, \\uHHHH, \\u{H}, a line continuation...). A lone surrogate or any other escape is not read."""
+    from ..structure.readers.common import text
+    units = []
+    for child in node.named_children:
+        spelled = text(child, source)
+        if child.type == 'string_fragment':
+            units.extend(map(ord, spelled))
+        elif child.type == 'escape_sequence' and spelled[1:] in _ECMA_ESCAPES:
+            units.extend(map(ord, _ECMA_ESCAPES[spelled[1:]]))
+        elif child.type == 'escape_sequence' and re.fullmatch(r'\\(x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|u\{[0-9a-fA-F]{1,6}\})', spelled):
+            units.append(int(spelled[2:].strip('{}'), 16))
+        else:
+            return None, 'cannot fold ' + text(node, source)
+    joined, at = [], 0
+    while at < len(units):
+        unit = units[at]
+        if 0xD800 <= unit < 0xDC00 and at + 1 < len(units) and 0xDC00 <= units[at + 1] < 0xE000:
+            joined.append(chr(0x10000 + (unit - 0xD800) * 0x400 + units[at + 1] - 0xDC00))
+            at += 2
+            continue
+        if 0xD800 <= unit < 0xE000 or unit > 0x10FFFF:
+            return None, 'cannot fold ' + text(node, source)
+        joined.append(chr(unit))
+        at += 1
+    return ''.join(joined), ''
+
+
+def _ecma_literal(value):
+    """A folded value as JavaScript source: a whole number below 2**53 without its fraction, -0 kept."""
+    if type(value) is float and value.is_integer() and abs(value) < 2 ** 53 and not (value == 0 and math.copysign(1, value) < 0):
+        value = int(value)
+    return json.dumps(value, ensure_ascii=False)
 
 
 def _top_level(qual):
