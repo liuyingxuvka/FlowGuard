@@ -1144,10 +1144,15 @@ def static_lines(observations):
 
 def merged(own, static, said):
     """The block's lines: this run's, then those of the map checks (`static_lines`), each (kind, name, function) once
-    and in KINDS order; a known entry this run already speaks for (`said`) keeps this run's line only."""
+    and in KINDS order; a known entry this run already speaks for (`said`) keeps this run's line only, except that a
+    `known fixed?` of the map checks is always listed (D8) and replaces this run's `known` line of its entry: the map
+    checks judged that entry's finding in the whole project and found it gone, while this run's line only says that
+    the change touches the entry's sites (no check of this run judges a family the map checks run)."""
     from .signals import KINDS
+    fixed = {line.name for line in static if line.kind == 'known fixed?'}
     unique = {}
-    for line in [*own, *(line for line in static if not (line.kind in ('known', 'known fixed?') and line.name in said))]:
+    for line in [*(line for line in own if not (line.kind == 'known' and line.name in fixed)),
+                 *(line for line in static if not (line.kind == 'known' and line.name in said))]:
         unique.setdefault((line.kind, line.name, line.function), line)
     return sorted(unique.values(), key=lambda line: KINDS.index(line.kind))
 

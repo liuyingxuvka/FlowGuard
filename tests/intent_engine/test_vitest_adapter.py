@@ -341,6 +341,10 @@ def test_a_known_entry_this_run_speaks_for_keeps_its_own_line_beside_the_map_che
               Line('before', 'pair:X>Y', 'c.ts:h', 'together X at c.ts:h was broken at task start', 'leave it unless your task is about it')]
     assert merged(own, static, {'known.limit'}) == [static[2], own[0], static[1]]
     assert merged(own, static, set()) == [static[2], own[0], static[0], static[1]]
+    # the map checks found the entry's finding gone: their known fixed? is listed (D8) instead of this run's known line
+    fixed = Line('known fixed?', 'known.limit', '', 'known.limit: declarations:Limit no longer found',
+                 'the owner has not decided: revert, or say why in your report')
+    assert merged(own, [fixed, static[1]], {'known.limit'}) == [static[1], fixed]
 
 
 def test_the_report_title_says_how_far_head_lies_after_the_task_start_as_pytest_does(tmp_path):
@@ -1234,6 +1238,41 @@ def test_type_guard_copies_are_compared_and_a_pair_this_change_broke_is_red(vite
     assert _sealed('function f(age): age is number { return age > 1; }', 'f', [2]) == \
         {'reason': "the sealed source does not parse: Unexpected token ':'"}
     assert _sealed('function f() { for (;;) {} }', 'f', []) == {'reason': 'sealed execution failed or timed out'}
+
+
+def test_a_known_fixed_of_the_map_checks_is_listed_in_a_vitest_run_that_touches_the_entrys_sites(vitest_home):
+    # Review of 4.3: check --static says `known fixed?` for an entry whose finding is gone, but the vitest run of the
+    # same tree said `known ... -> leave it`, the opposite step, because this run's own line for the touched sites
+    # replaced the map checks' line. known fixed? is listed in full (D8), in the block and in show --last.
+    root = vitest_home / 'declared'
+    _commit(root, {
+        'package.json': '{"name":"declared","private":true,"type":"module","scripts":{"test":"vitest run"},'
+                        '"devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/a.ts': "export type Status = 'open' | 'closed';\nexport function isOpen(s: string): boolean {\n  return s === 'open';\n}\n",
+        'src/b.ts': "export type Status = 'open' | 'done';\nexport function label(s: string): string {\n  return s.toUpperCase();\n}\n",
+        'tests/app.test.ts': ("import { it, expect } from 'vitest';\nimport { isOpen } from '../src/a';\nimport { label } from '../src/b';\n"
+                              "it('real', () => { expect(isOpen('open')).toBe(true); expect(label('x')).toBe('X'); });\n"),
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, {'.flowguard/known.toml': '''
+        [known.status]
+        sites = ["src/a.ts:isOpen", "src/b.ts:label"]
+        why = "two Status declarations differ"
+        act = "leave"
+        finding = "declarations:Status"
+    '''}, message='wired, with the known difference')
+    other = root / 'src/b.ts'
+    other.write_text(other.read_text(encoding='utf-8').replace("'open' | 'done'", "'open' | 'closed'")
+                     .replace('s.toUpperCase()', 's.trim().toUpperCase()'), encoding='utf-8', newline='\n')
+    fixed = ('known fixed?: known.status: declarations:Status no longer found -> the owner deferred it: revert, or say why '
+             'in your report')
+    code, text = _flowguard(root, 'check', '--static')
+    assert code == 0 and fixed in text.splitlines(), text
+    code, text = _vitest(root, vitest_home)
+    block = _block(text)
+    assert code == 0 and fixed in block and not [line for line in block if line.startswith('known: ')], text
+    assert re.fullmatch(r'FlowGuard \S+ \(since \w+\): 0 red, 1 known fixed\?; [0-9.]+ s', block[0]), block
+    assert fixed in _cli_fixture.last(root) and 'known: known.status' not in _cli_fixture.last(root), _cli_fixture.last(root)
 
 
 def test_a_recorded_function_keeps_its_stack_positions_after_a_line_or_paragraph_separator(vitest_home):
