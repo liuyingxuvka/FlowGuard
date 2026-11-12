@@ -404,6 +404,41 @@ def test_a_changed_line_shows_the_smallest_changed_input_and_how_many_differ():
         'no flowguard comment: compared because its code changed'
 
 
+def test_a_changed_line_and_the_check_view_take_list_and_dict_inputs():
+    """A recorded input is any JSON value: lists and dicts are compared by their JSON (equal JSON is one value),
+    never hashed."""
+    rows = [({'items': [5], 'order': {'b': 1, 'a': 2}}, 5, 6), ({'items': [1, 2], 'order': {'a': 2, 'b': 1}}, 3, 4),
+            ({'items': [1, 2], 'order': {'a': 1}}, 3, 5)]
+    line = signals.changed_line('TOTAL', 'calc:total', 'calc.py', 2, rows, 3)
+    assert line.text == 'TOTAL (calc.py:2): (items=[1, 2], order={"a": 1}) was 3, now 5; 3/3 inputs differ', line
+    assert line.detail[0] == '(items=[5], order={"a": 2, "b": 1}) was 5, now 6', line
+    # check still renders a pytest batch's report with the 4.2 view of its changed points
+    item = dict(name='TOTAL', file='calc.py', line=2, status='ok', complete=True, total=3, changed=rows,
+                rows=[(inputs, new) for inputs, _, new in rows])
+    text = signals.render(dict(session=True, baseline='a' * 40, baseline_kind='task', source_changed=True, items=[item]))
+    assert 'changed: TOTAL' in text and 'items=[1, 2]' in text, text
+
+
+def test_a_pytest_run_whose_changed_function_takes_a_list_prints_and_keeps_its_changed_line(tmp_path):
+    from tests.intent_engine.test_default_runtime_signals import _project, _run
+    from tests.intent_engine._cli_fixture import block, last
+    policy = _project(tmp_path, '''
+        # flowguard: same TOTAL
+        def total(items: list) -> int:
+            return sum(items)
+    ''', '''
+        from policy import total
+        def test_total():
+            assert total([1, 2]) >= 3 and total([5]) >= 5
+    ''')
+    policy.write_text(policy.read_text().replace('sum(items)', 'sum(items) + 1'))
+    result = _run(tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    changed = 'changed: TOTAL (policy.py:2): (items=[1, 2]) was 3, now 4; 2/2 inputs differ -> if you meant it, say so'
+    assert block(result)[1:] == [changed], result.stdout
+    assert changed in last(tmp_path).splitlines()
+
+
 def test_every_stdout_line_of_a_pytest_block_has_one_of_the_shapes(tmp_path):
     """Design 4.7 over real pytest runs: the block is the last thing on stdout, each of its lines starts with the
     first line, one of the kinds or `+N more:`; deprecation notices go to stderr only."""

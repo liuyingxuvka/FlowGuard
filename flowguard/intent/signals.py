@@ -65,12 +65,30 @@ def _points(values):
     return ','.join(dict.fromkeys(_shown(value) for value in values))
 
 
+def _distinct(values):
+    """Each recorded value once, in the order first seen: values with equal JSON are one value (a list or a dict too,
+    which cannot be hashed; an int and a float stay apart)."""
+    import json
+    kept = {}
+    for value in values:
+        kept.setdefault(json.dumps(value, sort_keys=True), value)
+    return list(kept.values())
+
+
+def _ordered(values):
+    """`_distinct` values in the order `cells.smallest` reads a field's points: by type, then value; a list or a dict
+    by its JSON."""
+    import json
+    return sorted(_distinct(values), key=lambda value: (type(value).__name__, json.dumps(value, sort_keys=True))
+                  if type(value) in (dict, list) else C._k(value))
+
+
 def _region(rows):
     if rows[0].get('region'):
         labels = list(dict.fromkeys(row.get('region', '') for row in rows))
         return labels[0] + (f' and {len(labels)} classes' if len(labels) > 1 else '')
     names = tuple(rows[0].get('inputs', {}))
-    values = {name: list(dict.fromkeys(row['inputs'][name] for row in rows)) for name in names}
+    values = {name: _distinct(row['inputs'][name] for row in rows) for name in names}
     combinations = 1
     for choices in values.values():
         combinations *= len(choices)
@@ -136,7 +154,7 @@ def _facts(item, *, comparison=False):
         def smallest(members):
             row = members[0]
             if row.get('inputs'):
-                points = {key: sorted({entry['inputs'][key] for entry in members}, key=C._k) for key in row['inputs']}
+                points = {key: _ordered(entry['inputs'][key] for entry in members) for key in row['inputs']}
                 least = C.smallest([entry['inputs'] for entry in members], points)
                 row = next(entry for entry in members if entry['inputs'] == least)
             return row
@@ -599,7 +617,7 @@ def changed_line(name, target, file, line, changes, compared, *, cause=None, una
     rows = [dict(inputs=inputs, before=old, after=new) for inputs, old, new in changes]
     first = rows[0]
     if all(row['inputs'] for row in rows):
-        points = {key: sorted({row['inputs'][key] for row in rows if key in row['inputs']}, key=C._k) for key in first['inputs']}
+        points = {key: _ordered(row['inputs'][key] for row in rows if key in row['inputs']) for key in first['inputs']}
         least = C.smallest([row['inputs'] for row in rows], points)
         first = next((row for row in rows if row['inputs'] == least), first)
     def said(row):
