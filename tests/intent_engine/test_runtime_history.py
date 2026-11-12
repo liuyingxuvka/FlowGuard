@@ -141,23 +141,21 @@ LIMIT.rows(row(x=4,expect=False,why='real fourth-day correction'))
     return history.proven(model.cfg,rule,rule.live_rows[0],base)
 
 
-NOT_RUN_AGAIN=('source observation unavailable: not compared: the scenario test ran with x=0; '
-               'another input needs the test to run again, which FlowGuard never does')
-
-
 def test_historical_scenario_is_unknown_without_old_event_path_replay(tmp_path):
     result=scene_case(tmp_path)
-    # The row (x=4) is not the input the scenario test ran with (its fixture's 0), and no test runs again:
-    # the current row is unknown, so no historical answer is claimed, old or new.
-    assert result['status']=='unknown' and result['reason']=='current row does not pass at every home',result
-    assert result['current']['homes']==[dict(home=result['current']['homes'][0]['home'],status='unknown',reason=NOT_RUN_AGAIN)],result
-    assert 'homes' not in result and not any('actual' in answer for answer in result['current']['homes'])
+    # The row (x=4) is not the input the scenario test ran with (its fixture's 0): the current row is that
+    # recorded call with x=4 put in place, evaluated sealed, and passes. No old scenario path is replayed and no
+    # test runs again, so the previous answer is unknown and no old actual is claimed.
+    assert result['status']=='unknown' and 'reason' not in result and 'current' not in result,result
+    assert result['homes']==[dict(home=result['homes'][0]['home'],status='unknown',
+                                  reason='not compared: old scenario event/path replay is unavailable; a leaf does not establish the previous path')],result
 
 
 def test_changed_native_fixture_context_is_unknown(tmp_path):
     result=scene_case(tmp_path,changed_fixture=True)
-    assert result['status']=='unknown' and result['reason']=='current row does not pass at every home',result
-    assert [answer['reason'] for answer in result['current']['homes']]==[NOT_RUN_AGAIN],result
+    assert result['status']=='unknown' and 'reason' not in result and 'current' not in result,result
+    assert [answer for answer in result['homes'] if 'actual' in answer]==[],result
+    assert [answer['reason'] for answer in result['homes']]==['old test context cannot be restored'],result
 
 
 def test_history_product_has_no_archive_rpc_or_private_test_runner():

@@ -202,18 +202,19 @@ def _source_engine(model):
 
 
 def ordinary_run(model,runtime,items,events,nextitem):
-    """The native tests' one ordinary run, recorded as the pytest plugin records it: each calibrated anchor's
-    real calls (`Runtime.hook`) and each test's anchor events (`Capture`). Calibration reads only these; no
-    test runs again (design 4.5, 8). The outer FlowGuard session does not observe this private run."""
+    """The native tests' one ordinary run, recorded as the pytest plugin records it: the real calls of every
+    production sensor (`Runtime.hook`) and each test's anchor events (`Capture`). Calibration reads only these;
+    no test runs again (design 4.5, 8). The outer FlowGuard session does not observe this private run."""
     from _pytest.runner import runtestprotocol
     from flowguard.intent import sites
     from flowguard.intent.flow import Capture
     from flowguard.intent.runtime import _PRIVATE
-    calibrated={home.anchor.target:home.anchor for rule in model.rules.values() for home in rule.homes
-                if not hasattr(home,'scenario') and home.anchor and home.anchor.calibrated_by}
     index=model.anchor_index
     if not items:
         return
+    # A calibrated anchor's calls, and the calls a scenario test makes, which a sealed scenario point reads.
+    # An event's calls are not recorded, as in the plugin.
+    sensors={anchor.target:anchor for anchor in index.entries if anchor.kind=='sensor' and anchor.source_role!='test'}
     def loaded(target):
         """The loaded function of a target, or None when its module or member is not loaded."""
         module,_,qual=target.partition(':')
@@ -225,10 +226,13 @@ def ordinary_run(model,runtime,items,events,nextitem):
     codes=[(loaded(anchor.target).__code__,anchor.target) for anchor in index.entries
            if anchor.kind in ('sensor','event') and loaded(anchor.target) is not None]
     with ExitStack() as hooks:
-        for anchor in calibrated.values():
+        for anchor in sensors.values():
             if loaded(anchor.target) is not None:
-                hooks.enter_context(runtime.hook(loaded(anchor.target),name=anchor.name,private=True,
-                                                 fields=anchor.fields,line=anchor.line))
+                try:
+                    hooks.enter_context(runtime.hook(loaded(anchor.target),name=anchor.name,private=True,
+                                                     fields=anchor.fields,line=anchor.line))
+                except sites.NotMutable:
+                    continue    # the plugin cannot hook it either: it has no recorded calls, and a point says so
         for item in items:
             runtime.test=item.nodeid
             function=sites.unwrap(item.obj)

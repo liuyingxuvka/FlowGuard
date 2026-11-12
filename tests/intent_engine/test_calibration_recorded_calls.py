@@ -125,11 +125,10 @@ def test_an_ordinary_run_runs_each_test_body_once_with_calibrated_and_scenario_a
         results = {item.partition('::')[2]: json.loads(payload) for item, payload in connection.execute('SELECT item, payload FROM result')}
     # The calibrated row is evaluated sealed with the named test's own call as its context.
     assert results['FEE[shop.fees.late_fee:rows]']['verdict'] == 'ok', results['FEE[shop.fees.late_fee:rows]']
-    # The scenario's own run gives its recorded input; the other row would need the test to run again.
+    # The scenario's own run gives its recorded input; the other row (x=5) is that recorded call with x put
+    # in place, evaluated sealed: both rows are compared and the scenario test body still ran once.
     scenario = next(value for key, value in results.items() if key.startswith('CHOICE_RULE[') and key.endswith(':rows]'))
-    assert scenario['verdict'] == 'grey', scenario
-    assert any('the scenario test ran with x=2; another input needs the test to run again' in reason
-               for reason in scenario['grey']), scenario
+    assert scenario['verdict'] == 'ok' and not scenario['grey'] and not scenario['red'], scenario
 
 
 def test_calibrated_points_never_run_the_named_test_body_again(tmp_path):

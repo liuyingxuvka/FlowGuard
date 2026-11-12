@@ -160,6 +160,11 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
+["flowguard/intent/calibration.py:_passed_arguments:TypeError"]
+count = 1
+reason = "When the scenario test's call expression does not bind to the anchor function's parameters, the sealed point says it is not compared with the binding error's own text; the contract stays unverified and nothing is evaluated from a guessed argument."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
 ["flowguard/intent/calibration.py:_scenario:Exception"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
@@ -914,6 +919,11 @@ rule = "旧账"
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
+
+["tests/intent_engine/_source_fixture.py:ordinary_run:sites.NotMutable"]
+count = 1
+reason = "The test fixture records the calls of every production sensor as the pytest plugin does; a function the plugin cannot hook (a closure) gets no recorded calls here either, and a sealed scenario point then says it has no recorded JSON reading."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
 ["tests/intent_engine/test_flow_request_bytes.py:run_cases:(AssertionError, OSError)"]
 count = 1

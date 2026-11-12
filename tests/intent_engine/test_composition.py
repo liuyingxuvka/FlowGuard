@@ -140,3 +140,47 @@ def _changed(model, module, source):
 
 
 
+
+
+def _recorded_events():
+    from flowguard.intent import calibration
+    return calibration._CURRENT.get().events
+
+
+def test_sealed_points_complete_both_lower_contracts_and_the_flow_from_one_recorded_run(tmp_path):
+    # The scenario test ran once, with ended=0, suspended=False, owed=0, stock=False. Every other point of the
+    # finite domains is that recorded call with the point's inputs put in place, evaluated sealed (design 4.5).
+    model, engine, _ = project(tmp_path)
+    # The ordinary check, as `flowguard check` runs it: the --deep live item installs mutants, which the one
+    # recorded run never executed, so it is not part of this contract.
+    model.deep = False
+    for identifier in ('STANDING', 'CHECKOUT'):
+        # A pytest session gives each lower contract its items' actual results (Engine.contract_summary),
+        # each with its rule and target as the plugin stores them.
+        rule = model.rules[identifier]
+        parts = [dict(engine.run_rules(rule), rule=identifier, target=None),
+                 *(dict(engine.run_home(rule, home, part), rule=identifier, target=home.target)
+                   for home in rule.homes for part in ('rows', 'cells'))]
+        assert all(part['verdict'] == 'ok' for part in parts), (identifier, parts)
+        contract = engine.contract_summary(rule, parts=parts)
+        assert contract['verdict'] == 'ok' and contract['complete'] and not contract['reasons'], (identifier, contract)
+    flow = engine.run_flow(model.flows['STANDING_CHECKOUT'], _recorded_events())
+    assert flow['verdict'] == 'ok' and not flow['grey'] and not flow['red'], flow
+    assert flow['finite']['exhausted'] and flow['runtime']['checked_relations'] == 2
+
+
+def test_a_lower_contract_the_sealed_environment_cannot_run_stays_grey_with_its_reason(tmp_path):
+    # refusal reads a module value the sealed environment does not have: only the recorded input is compared.
+    code = CODE.replace('def refusal(', "MAXIMUM = int('3')\n\ndef refusal(", 1).replace('if ended > 3:', 'if ended > MAXIMUM:')
+    model, engine, _ = project(tmp_path, code=code)
+    model.deep = False
+    standing = model.rules['STANDING']
+    home, = standing.homes
+    cells = engine.run_home(standing, home, 'cells')
+    assert cells['verdict'] == 'grey' and not cells['red'], cells
+    assert any('uses unavailable binding MAXIMUM' in reason for reason in cells['grey']), cells['grey']
+    contract = engine.contract_summary(standing)
+    assert contract['verdict'] == 'grey', contract
+    flow = engine.run_flow(model.flows['STANDING_CHECKOUT'], _recorded_events())
+    assert flow['verdict'] == 'grey' and not flow['red'], flow
+    assert 'lower model STANDING: real contract is not a complete verified finite contract' in flow['grey'], flow['grey']

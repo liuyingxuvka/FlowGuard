@@ -46,11 +46,11 @@ def test_declared_tuple_points_use_actual_native_tests_without_creating_a_kind(t
     assert anchors.parameter_kind(parameter, ()) is None
     actual=calibration._observe_scenario_current(tmp_path,binding,{'values':()})
     assert actual.status=='ok' and actual.value is False,actual.reasons
-    # The test ran with its fixture's (); another tuple point would need the test to run again.
+    # The test ran with its fixture's (); another tuple point would go into that recorded call, but the sealed
+    # environment takes JSON data only and a tuple is not JSON: not compared, with why, and no second run.
     actual=calibration._observe_scenario_current(tmp_path,binding,{'values':('red',)})
     assert actual.status=='grey' and actual.value is None,actual.reasons
-    assert actual.reasons==('not compared: the scenario test ran with values=(); another input needs the test to run again, '
-                            'which FlowGuard never does',),actual.reasons
+    assert actual.reasons==("not compared: the scenario test's call of CHECK has no recorded JSON reading (not JSON data)",),actual.reasons
     with pytest.raises(ValueError):
         anchors._kind('tuple')
 

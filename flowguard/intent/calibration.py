@@ -3,17 +3,20 @@
 There is no transport, collector or test runner here, and no test runs again (design 4.5, 8): the
 pytest integration supplies its real items, the runtime's recorded calls and the anchor events of the
 ordinary run. A calibrated point is the named test's recorded JSON call with the requested inputs put
-in place, evaluated in the sealed environment.
+in place, evaluated in the sealed environment; a scenario point is the scenario test's own recorded calls
+with the inputs it passes straight through put in place, evaluated the same way and read through its Flow.
 """
 from __future__ import annotations
 
 import ast
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 import inspect
+import json
 from pathlib import Path
+import types
 
 from . import sites
 from .cells import Raised
@@ -33,6 +36,7 @@ class _Session:
     items: tuple
     nextitem: object = None
     events: list = ()           # the anchor events the ordinary tests recorded
+    sealed: dict = field(default_factory=dict)      # sealed answers of this session's recorded calls (_sealed_call)
 
 
 @contextmanager
@@ -326,15 +330,15 @@ def _tuple_point(value):
 
 def _scenario(root, binding, values):
     """The scenario test's own recorded run: its entry arguments and the production anchor reading the Flow
-    projects. A requested input other than the recorded one would need the test to run again, which never
-    happens (design 4.5, 8): that point is not compared."""
+    projects. A requested input other than the recorded one is put into the recorded calls the scenario test
+    made itself and evaluated in the sealed environment (`_sealed_point`); no test runs again (design 4.5, 8)."""
     from .anchors import _source, _accepts, parameter_kind
     from .flow import relation_observations
     issue = _values(binding.scenario, values)
     if issue:
         return issue
     try:
-        _source(root, binding.scenario)
+        _, _, definition = _source(root, binding.scenario)
         if binding.scenario.kind != 'event' or binding.scenario.source_role != 'test':
             return _unavailable('scenario must reference a real ordinary-test event', status='red')
         scope, item = _context(root, binding.testnode)
@@ -351,6 +355,7 @@ def _scenario(root, binding, values):
         if len(entries) != 1:
             return _unavailable('scenario must reach exactly one actual pytest entry')
         recorded = entries[0].values
+        changed = {}
         for name, value in values.items():
             parameter = next(p for p in binding.scenario.parameters if p.name == name)
             actual = recorded.get(name)
@@ -361,29 +366,367 @@ def _scenario(root, binding, values):
                     and _accepts(parameter.source_type, value) and _accepts(parameter.source_type, actual)):
                 return _unavailable(name + ': actual test context cannot be replaced')
             _value_in_context(binding.scenario, function, name, value, actual)
-            if name not in recorded or not outcome_equal(recorded[name], value):
-                shown = repr(recorded[name]) if name in recorded else 'no recorded value'
-                return _unavailable(f'not compared: the scenario test ran with {name}={shown}; another input '
-                                    'needs the test to run again, which FlowGuard never does')
+            if not outcome_equal(recorded[name], value):
+                changed[name] = value
         projection = relation_observations(binding.flow, events, binding.anchor_index, _rule_id(binding))
         observations = [row for row in projection['observations'] if row['relation_index'] in binding.relation_indices]
         if projection['status'] != 'observed' or len(observations) != 1:
             return _unavailable('; '.join(projection['grey']) or 'scenario has ambiguous actual reading scopes')
         observed = observations[0]
-        if observed['sources'].get('$actual', {}).get('site') not in binding.actual_targets:
+        site = observed['sources'].get('$actual', {}).get('site')
+        if site not in binding.actual_targets:
             return _unavailable('actual reading does not come from a declared production anchor')
+        # The recorded run passed, or failed only by raising the declared outcome it observed.
+        if failed := _passed(scope, item, observed['actual'] if isinstance(observed['actual'], Raised) else None):
+            return failed
+        if changed:
+            observed = _sealed_point(scope, item, binding, function, definition, events, entries[0], changed)
+            if 'status' in observed:
+                return observed
         requested = getattr(binding, 'requested_inputs', {field: values[parameter] for field, parameter in binding.field_map.items() if parameter in values})
         for field, value in requested.items():
             if field not in observed['inputs'] or not outcome_equal(observed['inputs'][field], value):
                 return _unavailable('actual scenario input did not match ' + field)
-        if failed := _passed(scope, item, observed['actual'] if isinstance(observed['actual'], Raised) else None):
-            return failed
         from .tracer import recorded_entry
-        recorded_entry(sites.unwrap(sites.resolve_loaded(observed['sources']['$actual']['site'])).__code__)
+        recorded_entry(sites.unwrap(sites.resolve_loaded(site)).__code__)
         return dict(status='ok', outcome=observed['actual'], inputs=observed['inputs'], sources=observed['sources'])
     except Exception as error:
         return _unavailable(str(error) if isinstance(error, _Unavailable)
                             else 'scenario verification failed: ' + type(error).__name__ + ': ' + str(error))
+
+
+def _sealed_point(scope, item, binding, test, definition, events, entry, changed):
+    """The Flow's reading of the scenario's recorded events with the `changed` inputs put in place (design 4.5, 8).
+
+    The entry takes the inputs. Each production anchor call a relation of this rule reads is the scenario test's
+    own recorded JSON call, with every argument the test passes straight from a changed input replaced, evaluated
+    in the sealed environment; the Flow then projects these events as it projects the recorded ones. A call that
+    is not the test's own, that takes a changed input any other way, or that the sealed environment cannot run
+    is not compared, with why. Nothing runs the test again. Returns the observation, or why there is none."""
+    from dataclasses import replace
+    from .flow import _caller_matches, relation_observations
+    sources = {parameter.name: parameter.source for parameter in binding.scenario.parameters}
+    passed = {sources[name]: name for name in changed}          # the test's own parameter -> its scenario input
+    # What the test's source says about these inputs, read once per source version and set of changed inputs.
+    facts = ('test', binding.scenario.file, binding.scenario.source_digest, binding.scenario.qual, item.nodeid,
+             frozenset(passed))
+    if facts not in scope.sealed:
+        # No call changes an inert input the test did not change, nor a module, function or class it names globally.
+        immutable = {sources[name] for name, value in entry.values.items() if name not in changed and _inert(value)}
+        immutable |= {name for name, value in test.__globals__.items()
+                      if isinstance(value, (types.ModuleType, types.FunctionType, type))}
+        scope.sealed[facts] = (sorted(set(passed) & _stored(definition)), _tainted(definition, set(passed), immutable),
+                               _spans(definition))
+    assigned, tainted, calls = scope.sealed[facts]
+    if assigned:
+        return _unavailable(f'not compared: the scenario test assigns {assigned[0]}; another input cannot be put '
+                            'into its calls')
+    flow, index = binding.flow, binding.anchor_index
+    relations = [flow.relations[position] for position in binding.relation_indices]
+    read = {part.node for relation in relations for part in (*relation.inputs.values(), relation.actual) if part is not None}
+    read |= {relation.on or flow.nodes[-1].name for relation in relations}
+    nodes = [node for node in flow.nodes if node.name in read]
+    begun = entry.anchor, entry.site, entry.occurrence
+    evaluated = {}
+    for event in events:
+        identity = event.anchor, event.site, event.occurrence
+        if event.phase != 'call' or identity == begun or not any(
+                node.reference == event.anchor and node.occurrence in (None, event.occurrence)
+                and _caller_matches(node, event, flow, events, index) for node in nodes):
+            continue
+        point = _sealed_call(scope, item, index, test, calls, event, passed, changed, tainted)
+        if isinstance(point, dict):
+            return point
+        evaluated[identity] = point
+    substituted, raised = [], None
+    for event in events:
+        identity = event.anchor, event.site, event.occurrence
+        if raised is not None:
+            if identity == begun and event.phase != 'call':     # the error leaves the test: its entry raises it
+                substituted.append(replace(event, values={**event.values, **changed}, phase='raise', result=None, error=raised))
+            continue
+        if identity == begun:
+            substituted.append(replace(event, values={**event.values, **changed}))
+        elif identity not in evaluated:
+            substituted.append(event)
+        else:
+            values, outcome, propagates = evaluated[identity]
+            if event.phase == 'call':
+                substituted.append(replace(event, values=values))
+                continue
+            failed = isinstance(outcome, Raised)
+            if event.phase == 'raise' and not failed:
+                return _unavailable(f'not compared: {event.anchor} raised in the recorded call and returns with these '
+                                    'inputs; the rest of the scenario test was not recorded')
+            if failed and event.phase == 'return':
+                if not propagates:
+                    return _unavailable(f'not compared: {event.anchor} raises with these inputs inside a try or with '
+                                        'block of the scenario test; what the test does then was not recorded')
+                raised = outcome.error
+            substituted.append(replace(event, values=values, phase='raise' if failed else 'return',
+                                       result=None if failed else outcome, error=outcome.error if failed else None))
+    projection = relation_observations(flow, substituted, index, _rule_id(binding))
+    observations = [row for row in projection['observations'] if row['relation_index'] in binding.relation_indices]
+    if projection['status'] != 'observed' or len(observations) != 1:
+        return _unavailable('not compared: ' + ('; '.join(projection['grey']) or 'the sealed point has no single reading'))
+    observed = observations[0]
+    if observed['sources'].get('$actual', {}).get('site') not in binding.actual_targets:
+        return _unavailable('actual reading does not come from a declared production anchor')
+    return observed
+
+
+def _sealed_call(scope, item, index, test, calls, event, passed, changed, tainted):
+    """(anchor values, outcome, whether its error leaves the test) of one production anchor call the scenario
+    test made itself: its recorded JSON call with each argument the test passes straight from a changed input
+    replaced, evaluated sealed. The recorded call's own sealed outcome must be the recorded one first. Or why it
+    is not compared. `calls`: the test's call expressions by source span."""
+    from .flow import _resolved
+    anchors = [anchor for anchor in index.named(event.anchor) if anchor.target == event.site]
+    if len(anchors) != 1:
+        return _unavailable(f'not compared: {event.anchor} has no unique indexed source anchor')
+    anchor = anchors[0]
+    if (len(event.caller) < 4 or _resolved(event.caller[0]) != _resolved(test.__code__.co_filename)
+            or event.caller[1] != test.__qualname__.replace('.<locals>.', '.')):
+        return _unavailable(f'not compared: {anchor.name} is called inside another function, not by the scenario '
+                            'test itself; another input cannot be put into that call')
+    function = sites.unwrap(sites.resolve_loaded(anchor.target))
+    if (not inspect.isfunction(function) or _resolved(function.__code__.co_filename) != _resolved(str(scope.runtime.root / anchor.file))
+            or function.__qualname__.replace('.<locals>.', '.') != anchor.qual):
+        return _unavailable('loaded function does not match the actual source anchor')
+    # The sealed environment is deterministic: one answer per source, recorded call and inputs in this session.
+    # A source that changed since its anchor was indexed fails the Flow's source identity check after this.
+    from .runtime import _HISTORICAL
+    answers, source = scope.sealed, (_HISTORICAL.get(), anchor.target, anchor.source_digest)
+    if source not in answers:
+        answers[source] = scope.runtime.safety(function)
+    if answers[source]:                     # a source the sealed environment cannot run is never compared
+        return _unavailable(answers[source])
+    reading = _call_reading(scope, item, anchor, function, event)
+    if isinstance(reading, dict):
+        return reading
+    signature = inspect.signature(function, follow_wrapped=False)
+    bound = inspect.BoundArguments(signature, dict(reading.sample['inputs']))
+    recorded = source + (reading.index,)
+    if recorded not in answers:
+        answers[recorded] = scope.runtime.guarded(function, bound)
+    expected, reason = answers[recorded]
+    if reason:
+        return _unavailable(reason)
+    actual = reading.actual[1]
+    agrees = outcome_equal(actual, expected) if isinstance(actual, Raised) else \
+        not isinstance(expected, Raised) and outcome_equal(reading.json_result, expected)
+    if not agrees:
+        return _unavailable(f'not compared: the scenario test\'s recorded call of {anchor.name} differs from its sealed '
+                            'source outcome')
+    span = tuple(event.caller[3])               # the call expression at the span the runtime recorded
+    if span not in calls:
+        return _unavailable(f'not compared: the scenario test\'s call of {anchor.name} is not one call expression '
+                            'in its source')
+    call, propagates = calls[span]
+    arguments, failure = _passed_arguments(call, signature, passed, tainted, anchor.name)
+    if failure:
+        return failure
+    if not arguments:
+        return dict(event.values), expected, propagates
+    requested = inspect.BoundArguments(signature, dict(bound.arguments))
+    values = dict(event.values)
+    for parameter, name in arguments.items():
+        requested.arguments[parameter] = changed[name]
+        values.update((declared.name, changed[name]) for declared in anchor.parameters if declared.source == parameter)
+    point = recorded + tuple(sorted((parameter, type(changed[name]).__qualname__, repr(changed[name]))
+                                    for parameter, name in arguments.items()))
+    if point not in answers:
+        answers[point] = scope.runtime.guarded(function, requested)
+    outcome, reason = answers[point]
+    if reason:
+        return _unavailable(reason)
+    return values, outcome, propagates
+
+
+def _call_reading(scope, item, anchor, function, event):
+    """The runtime's recorded JSON call of `function` that the named test made with this event's anchor values."""
+    target = function.__module__ + ':' + function.__qualname__
+    found = [reading for reading in scope.runtime.readings if reading.target == target and item.nodeid in reading.tests]
+    calls = {}
+    for reading in found:
+        if reading.sample is None or reading.actual is None:
+            continue
+        inputs = reading.sample['inputs']
+        if all(parameter.source in inputs and parameter.name in event.values
+               and outcome_equal(inputs[parameter.source], event.values[parameter.name]) for parameter in anchor.parameters):
+            calls[json.dumps(inputs, sort_keys=True)] = reading      # one call: the same encoded inputs
+    if len(calls) > 1:
+        return _unavailable(f'not compared: the scenario test made several recorded calls of {anchor.name} that its '
+                            'anchor values do not tell apart')
+    if not calls:
+        reasons = list(dict.fromkeys(reason for reading in found for reason in reading.reasons))
+        if not found and scope.runtime.full(function):
+            reasons.append('20 distinct inputs were recorded before the scenario test ran')
+        return _unavailable(f'not compared: the scenario test\'s call of {anchor.name} has no recorded JSON reading'
+                            + (' (' + '; '.join(reasons) + ')' if reasons else ''))
+    reading = next(iter(calls.values()))
+    if isinstance(reading.actual[1], Raised) and not isinstance(reading.actual[1].error, Exception):
+        return _unavailable(f'not compared: the scenario test\'s call of {anchor.name} ended with '
+                            + type(reading.actual[1].error).__name__)
+    return reading
+
+
+def _passed_arguments(call, signature, passed, tainted, name):
+    """({function parameter: scenario input}, None) for the arguments `call` passes straight from a changed
+    input (`passed`: the test's parameter name -> its input), or (None, why it is not compared): the call is
+    chosen by, or an argument is computed from, a changed input or a name whose value may depend on one
+    (`tainted`)."""
+    def mentions(node):
+        return {part.id for part in ast.walk(node) if isinstance(part, ast.Name) and part.id in tainted}
+    if found := sorted(mentions(call.func)):
+        return None, _unavailable(f'not compared: the scenario test chooses its call of {name} by {", ".join(found)}')
+    expressions = [*call.args, *(keyword.value for keyword in call.keywords)]
+    if any(isinstance(argument, ast.Starred) for argument in call.args) or any(k.arg is None for k in call.keywords):
+        found = sorted(set().union(*map(mentions, expressions)))
+        return (None, _unavailable(f'not compared: the scenario test unpacks the arguments of {name} from '
+                                   f'{", ".join(found)}')) if found else ({}, None)
+    try:
+        bound = signature.bind(*call.args, **{keyword.arg: keyword.value for keyword in call.keywords})
+    except TypeError as error:
+        return None, _unavailable(f'not compared: the scenario test\'s call of {name} does not bind to its '
+                                  f'parameters: {error}')
+    arguments = {}
+    for parameter, expression in bound.arguments.items():
+        if isinstance(expression, ast.Name) and expression.id in passed:
+            arguments[parameter] = passed[expression.id]
+            continue
+        parts = expression if isinstance(expression, tuple) else tuple(expression.values()) \
+            if isinstance(expression, dict) else (expression,)
+        if found := sorted(set().union(*map(mentions, parts))):
+            return None, _unavailable(f'not compared: the scenario test computes the {parameter} argument of {name} '
+                                      f'from {", ".join(found)}; the sealed environment does not run the test')
+    return arguments, None
+
+
+def _inert(value):
+    """A value no call can change: None, a bool, number or string, an enum member, or a tuple of these."""
+    if type(value) is tuple:
+        return all(_inert(item) for item in value)
+    return isinstance(value, Enum) or type(value) in (type(None), bool, int, float, str)
+
+
+def _stored(definition):
+    """Every name the test `definition` binds anywhere in its body, or declares global or nonlocal."""
+    names = set()
+    for node in ast.walk(definition):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            names.add(node.id)
+        elif isinstance(node, (ast.Global, ast.Nonlocal)):
+            names.update(node.names)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node is not definition:
+            names.add(node.name)
+        elif isinstance(node, ast.alias):
+            names.add((node.asname or node.name).split('.')[0])
+        elif isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)) and node.name:
+            names.add(node.name)
+        elif isinstance(node, ast.MatchMapping) and node.rest:
+            names.add(node.rest)
+    return names
+
+
+def _tainted(definition, seed, immutable):
+    """The names of the test `definition` whose value may depend on the changed inputs `seed`: one assigned from
+    an expression that names such a name, or inside a branch, loop, with or try block whose condition or body
+    names one; an object given to, or called on by, a call whose arguments name one (the call may change it), unless
+    `immutable` says no call can; and every name declared global or nonlocal."""
+    tainted = set(seed) | {name for node in ast.walk(definition) if isinstance(node, (ast.Global, ast.Nonlocal))
+                           for name in node.names}
+    def mentions(*nodes):
+        return any(isinstance(part, ast.Name) and part.id in tainted for node in nodes if node is not None
+                   for part in ast.walk(node))
+    def mark(target):
+        tainted.update(part.id for part in ast.walk(target) if isinstance(part, ast.Name))
+    def base(node):
+        while isinstance(node, (ast.Attribute, ast.Subscript, ast.Starred)):
+            node = node.value
+        return node.id if isinstance(node, ast.Name) else None
+    def expressions(node, controlled):
+        for part in ast.walk(node):
+            if isinstance(part, ast.NamedExpr) and (controlled or mentions(part.value)):
+                mark(part.target)
+            elif isinstance(part, ast.comprehension) and (controlled or mentions(part.iter, *part.ifs)):
+                mark(part.target)
+            elif isinstance(part, ast.Call):
+                given = [*part.args, *(keyword.value for keyword in part.keywords)]
+                if mentions(*given):
+                    owner = base(part.func) if not isinstance(part.func, ast.Name) else None
+                    tainted.update(name for name in [owner, *map(base, given)] if name and name not in immutable)
+    def visit(statements, controlled):
+        for statement in statements:
+            if isinstance(statement, (ast.If, ast.While)):
+                expressions(statement.test, controlled)
+                inner = controlled or mentions(statement.test)
+                visit(statement.body, inner)
+                visit(statement.orelse, inner)
+            elif isinstance(statement, (ast.For, ast.AsyncFor)):
+                expressions(statement.iter, controlled)
+                inner = controlled or mentions(statement.iter)
+                if inner:
+                    mark(statement.target)
+                visit(statement.body, inner)
+                visit(statement.orelse, inner)
+            elif isinstance(statement, (ast.With, ast.AsyncWith)):
+                inner = controlled
+                for part in statement.items:
+                    expressions(part.context_expr, controlled)
+                    inner = inner or mentions(part.context_expr)
+                    if part.optional_vars is not None and inner:
+                        mark(part.optional_vars)
+                visit(statement.body, inner)
+            elif isinstance(statement, (ast.Try, ast.TryStar)):
+                visit(statement.body, controlled)
+                inner = controlled or mentions(*statement.body)
+                for handler in statement.handlers:
+                    if handler.name and inner:
+                        tainted.add(handler.name)
+                    visit(handler.body, inner)
+                visit(statement.orelse, inner)
+                visit(statement.finalbody, inner)
+            elif isinstance(statement, ast.Match):
+                expressions(statement.subject, controlled)
+                for case in statement.cases:
+                    inner = controlled or mentions(statement.subject, case.guard)
+                    if inner:
+                        tainted.update(name for part in ast.walk(case.pattern)
+                                       for name in (getattr(part, 'name', None), getattr(part, 'rest', None)) if name)
+                    visit(case.body, inner)
+            elif isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                if mentions(statement):
+                    tainted.add(statement.name)
+            else:
+                if isinstance(statement, ast.Assign) and (controlled or mentions(statement.value)):
+                    for target in statement.targets:
+                        mark(target)
+                elif isinstance(statement, ast.AugAssign) and (controlled or mentions(statement.value, statement.target)):
+                    mark(statement.target)
+                elif isinstance(statement, ast.AnnAssign) and statement.value is not None \
+                        and (controlled or mentions(statement.value)):
+                    mark(statement.target)
+                expressions(statement, controlled)
+    while True:
+        before = set(tainted)
+        visit(definition.body, False)
+        if tainted == before:
+            return tainted
+
+
+def _spans(definition):
+    """Each call expression of the test `definition` by its source span, with whether an error it raises leaves
+    the test: no try or with block of the test encloses it."""
+    spans = {}
+    def visit(node, enclosed):
+        if isinstance(node, ast.Call):
+            spans[node.lineno, node.end_lineno, node.col_offset, node.end_col_offset] = node, not enclosed
+        enclosed = enclosed or isinstance(node, (ast.Try, ast.TryStar, ast.With, ast.AsyncWith))
+        for child in ast.iter_child_nodes(node):
+            visit(child, enclosed)
+    visit(definition, False)
+    return spans
 
 
 def _scenario_key(binding):

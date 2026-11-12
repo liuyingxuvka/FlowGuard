@@ -871,10 +871,10 @@ def _reading_source(observed, index, read, cache=None):
     anchor = sites[0]
     path = Path(observed.file)
     if cache is None:
-        digest = content_digest(path) if path.is_file() else None
+        digest = _source_digest(path)
     else:
         if str(path) not in cache:
-            cache[str(path)] = content_digest(path) if path.is_file() else None
+            cache[str(path)] = _source_digest(path)      # hashed again only when the file's status changed
         digest = cache[str(path)]
     if observed.source_digest != anchor.source_digest or digest != observed.source_digest:
         raise Unverified(f'{observed.anchor}: reading source identity changed; verify current source')
@@ -1091,6 +1091,17 @@ def _resolved(filename):
     return str(Path(filename).resolve())
 
 
+def _call_span(frame):
+    """(line, end line, column, end column) of the expression `frame` is executing now: during a call, the
+    call expression. Python 3.11+ keeps one source position per code unit; a frame between instructions or
+    without a position has ()."""
+    from itertools import islice
+    if frame.f_lasti < 0:
+        return ()
+    position = next(islice(frame.f_code.co_positions(), frame.f_lasti // 2, None), None)
+    return tuple(position) if position is not None and None not in position else ()
+
+
 _DIGESTS = {}
 
 
@@ -1282,7 +1293,10 @@ class Capture:
                     return None
                 kept.add(identity)
             parents=[];parent=source_caller(frame)
-            caller=(parent.f_code.co_filename,parent.f_code.co_qualname.replace('.<locals>.','.'),parent.f_lineno)if parent else ()
+            # The caller's file, function and line, and the source span of the call expression it is making:
+            # a sealed point reads the test's own arguments from that expression (calibration._sealed_point).
+            caller=(parent.f_code.co_filename,parent.f_code.co_qualname.replace('.<locals>.','.'),parent.f_lineno,
+                    _call_span(parent))if parent else ()
             while parent is not None:
                 found=self._frames.get(id(parent))
                 if found: parents.append((found[0].name,found[0].target,found[2]))

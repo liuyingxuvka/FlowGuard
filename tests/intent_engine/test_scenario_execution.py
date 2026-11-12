@@ -5,6 +5,8 @@ import importlib
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from flowguard.intent import anchors, calibration, sites
 from flowguard.intent.flow import Flow, Node, Read, Relation
 from flowguard.intent.cells import Raised
@@ -12,7 +14,7 @@ from flowguard.intent.runtime import Runtime
 from tests.intent_engine._source_fixture import source_sessions
 from tests.intent_engine._protocol_controls import bind_scenario
 
-def scenario(tmp_path, *, enum=False, refusal=False, extra='', value=2):
+def scenario(tmp_path, *, enum=False, refusal=False, extra='', value=2, call=None, code=None):
     if enum:
         (tmp_path/'kinds.py').write_text('from enum import Enum\nclass QuoteCase(Enum):\n    EXACT="exact"\n    CHANGED="changed"\n')
         (tmp_path/'policy.py').write_text('''from kinds import QuoteCase
@@ -22,12 +24,12 @@ def choice(quote: QuoteCase) -> bool:
 ''')
         declaration='quote: QuoteCase'; values='QuoteCase.EXACT'; imports='from kinds import QuoteCase\n'; call='choice(quote)'; field='quote'
     else:
-        (tmp_path/'policy.py').write_text('''# flowguard: sensor choice(x: count) -> allowed: bool
+        (tmp_path/'policy.py').write_text(code or '''# flowguard: sensor choice(x: count) -> allowed: bool
 def choice(x: int) -> bool:
     if x < 0: raise ValueError('native negative refusal')
     return x <= 3
 ''')
-        declaration='x: int';values=str(value);imports='';call='choice(x)';field='x'
+        declaration='x: int';values=str(value);imports='';call=call or 'choice(x)';field='x'
     (tmp_path/'test_case.py').write_text(imports+'from policy import choice\nimport pytest\n'+
         '# flowguard: event CASE('+declaration+')\n'+
         '@pytest.mark.parametrize("'+field+'", ['+values+'])\n'+
@@ -47,18 +49,56 @@ def choice(x: int) -> bool:
                            observed_rule='RULE',relation_indices=tuple(range(len(relations))),actual_targets=(target.target,),targets=(target.target,))
 
 
-NOT_RUN_AGAIN = 'another input needs the test to run again, which FlowGuard never does'
-
-
 def test_scenario_gets_actual_production_result_not_test_none_or_predicate(tmp_path):
     binding = scenario(tmp_path)
     bind_scenario(tmp_path, binding)
     actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 2})
     assert actual.status == 'ok' and actual.value is True, actual.reasons
-    # Another input would need the scenario test to run again (design 4.5, 8): not compared, with why.
+    # Another input is put into the call the scenario test made and evaluated sealed (design 4.5, 8):
+    # the production function's own result, never the test's None, the rule predicate or a second run.
     actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 4})
-    assert actual.status == 'grey' and actual.value is None
-    assert actual.reasons == ('not compared: the scenario test ran with x=2; ' + NOT_RUN_AGAIN,), actual.reasons
+    assert actual.status == 'ok' and actual.value is False, actual.reasons
+
+
+@pytest.mark.parametrize('call,code,reason', [
+    # The test computes the argument: another x is not the same expression's value.
+    ('choice(x + 0)', None, 'not compared: the scenario test computes the x argument of choice from x; '
+                            'the sealed environment does not run the test'),
+    # The production function reads a binding the sealed environment does not have (design 4.5 whitelist).
+    ('choice(x)', 'LIMIT = int("3")\n# flowguard: sensor choice(x: count) -> allowed: bool\n'
+                  'def choice(x: int) -> bool:\n    return x <= LIMIT\n', 'uses unavailable binding LIMIT'),
+])
+def test_another_scenario_input_is_not_compared_when_the_sealed_call_cannot_take_it(tmp_path, call, code, reason):
+    binding = scenario(tmp_path, call=call, code=code)
+    bind_scenario(tmp_path, binding)
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 2})
+    assert actual.status == 'ok' and actual.value is True, actual.reasons       # the recorded input is observed
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 4})
+    assert actual.status == 'grey' and actual.value is None and actual.reasons == (reason,), actual.reasons
+
+
+def test_scenario_test_that_assigns_its_input_is_not_compared_at_another_input(tmp_path):
+    binding = scenario(tmp_path, call='choice(x)\n    x = 0')
+    bind_scenario(tmp_path, binding)
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': 4})
+    assert actual.status == 'grey' and actual.reasons == (
+        'not compared: the scenario test assigns x; another input cannot be put into its calls',), actual.reasons
+
+
+def test_a_sealed_point_that_raises_is_read_through_the_declared_refusal_node(tmp_path):
+    # The test ran with x=2 and returned; at x=-1 the sealed call raises, the error leaves the test (no try or
+    # with block around the call), and the Flow reads it at its raise node, as the real run would.
+    binding = scenario(tmp_path, refusal=True)
+    bind_scenario(tmp_path, binding)
+    actual = calibration._observe_scenario_current(tmp_path, binding, {'x': -1})
+    assert actual.status == 'ok' and isinstance(actual.value, Raised), actual.reasons
+    assert type(actual.value.error) is ValueError and str(actual.value.error) == 'native negative refusal'
+    guarded = scenario(tmp_path, refusal=True, call='None\n    try:\n        answer = choice(x)\n    except ValueError:\n        raise')
+    bind_scenario(tmp_path, guarded)
+    actual = calibration._observe_scenario_current(tmp_path, guarded, {'x': -1})
+    assert actual.status == 'grey' and actual.reasons == (
+        'not compared: choice raises with these inputs inside a try or with block of the scenario test; '
+        'what the test does then was not recorded',), actual.reasons
 
 
 def test_scenario_enum_identity_is_real_member_not_its_string_value(tmp_path):
@@ -67,8 +107,9 @@ def test_scenario_enum_identity_is_real_member_not_its_string_value(tmp_path):
     enum = importlib.import_module('kinds').QuoteCase
     actual = calibration._observe_scenario_current(tmp_path, binding, {'quote': enum.EXACT})
     assert actual.status == 'ok' and actual.value is True, actual.reasons
+    # The sealed environment has no project enum class: the other member is not compared, with why.
     actual = calibration._observe_scenario_current(tmp_path, binding, {'quote': enum.CHANGED})
-    assert actual.status == 'grey' and actual.value is None and NOT_RUN_AGAIN in actual.reasons[0], actual.reasons
+    assert actual.status == 'grey' and actual.value is None and actual.reasons == ('uses attribute EXACT',), actual.reasons
     forged = object.__new__(enum)
     forged._name_, forged._value_ = 'CHANGED', 'not-the-value'
     actual = calibration._observe_scenario_current(tmp_path, binding, {'quote': forged})
@@ -214,9 +255,9 @@ def test_repeated_current_scenario_keeps_the_same_real_items_and_imports(tmp_pat
     binding = scenario(tmp_path)
     scope, item = bind_scenario(tmp_path, binding)
     native = importlib.import_module('policy')
-    for x, expected in [(2,True),(4,None),(2,True)]:
+    for x, expected in [(2,True),(4,False),(2,True)]:
         result = calibration._observe_scenario_current(tmp_path,binding,{'x':x})
-        assert result.status==('ok' if expected is not None else 'grey') and result.value is expected,result.reasons
+        assert result.status=='ok' and result.value is expected,result.reasons
         assert calibration._context(tmp_path,binding.testnode)==(scope,item)
         assert importlib.import_module('policy') is native
 
