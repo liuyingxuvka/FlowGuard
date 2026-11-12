@@ -967,7 +967,7 @@ rule = { file = "AGENTS.md", text = "One route per function: when a step fails, 
 
 ["flowguard/adapters/vitest/sealed.mjs:run:any"]
 count = 1
-reason = "Reports a failed or timed out isolated VM call as unavailable; it cannot inspect an untrusted exception object in the host or assert an answer."
+reason = "Reports a copy whose source does not parse with the host compiler's own message, and a failed or timed out isolated VM call as unavailable; it never inspects an exception object of the copy in the host or asserts an answer."
 rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
 ["flowguard/intent/runtime.py:_scope:(ValueError, TypeError, SyntaxError)"]

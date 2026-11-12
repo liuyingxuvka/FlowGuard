@@ -1200,6 +1200,42 @@ def test_a_disagreeing_same_name_pair_is_compared_again_in_a_run_without_a_ts_ch
         in block, block
 
 
+def test_type_guard_copies_are_compared_and_a_pair_this_change_broke_is_red(vitest_home):
+    # Review of 4.3: a type guard's `age is number` reached the sealed run unstripped, node refused to parse it, and
+    # the broken pair was `not compared (sealed execution failed or timed out)` with exit 0; the same Python copies
+    # are red under pytest. A guard's predicate and an assertion's `asserts` are TypeScript only, as a type is.
+    root = vitest_home / 'guards'
+    guard = "// flowguard: same IS_ADULT\nexport function {name}(age: unknown): age is number {{\n  return typeof age === 'number' && age >= 18;\n}}\n"
+    _commit(root, {
+        'package.json': '{"name":"guards","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/a.ts': guard.format(name='isAdult'),
+        'src/b.ts': guard.format(name='adult'),
+        'tests/p.test.ts': ("import { it, expect } from 'vitest';\nimport { isAdult } from '../src/a';\nimport { adult } from '../src/b';\n"
+                            "it('adult', () => { expect(isAdult(20)).toBe(true); expect(adult(30)).toBe(true); });\n"),
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired')
+    first = root / 'src/a.ts'
+    first.write_text(first.read_text(encoding='utf-8').replace('age >= 18', 'age > 18'), encoding='utf-8', newline='\n')
+    code, text = _vitest(root, vitest_home)
+    block = _block(text)
+    assert code == 1 and 'red: same IS_ADULT: on age=18: a.ts:isAdult returns False, b.ts:adult returns True ' \
+                         '-> decide which copy is right, then make the other agree' in block, text
+    assert not [line for line in block if line.startswith('not compared')], block
+    from flowguard.intent.vitest import sealed_source
+    asserting = b"export function check(age: unknown): asserts age is number {\n  if (typeof age !== 'number') throw new TypeError('no age');\n}\n" \
+                b"export function present(value: unknown): asserts value {\n  if (!value) throw new TypeError('empty');\n}\n"
+    for name, args, answer in (('check', ['x'], {'error': {'name': 'TypeError', 'message': 'no age'}}),
+                               ('present', [0], {'error': {'name': 'TypeError', 'message': 'empty'}})):
+        source, why = sealed_source(asserting, 'src/check.ts', name)
+        assert not why and 'asserts' not in source and ' is ' not in source, (source, why)
+        assert _sealed(source, name, args) == answer, source
+    # Syntax the reader leaves in is said as what it is, not as a failed or timed out run.
+    assert _sealed('function f(age): age is number { return age > 1; }', 'f', [2]) == \
+        {'reason': "the sealed source does not parse: Unexpected token ':'"}
+    assert _sealed('function f() { for (;;) {} }', 'f', []) == {'reason': 'sealed execution failed or timed out'}
+
+
 def test_a_recorded_function_keeps_its_stack_positions_after_a_line_or_paragraph_separator(vitest_home):
     # JavaScript ends a line at U+2028 and U+2029 too: the recorder's source map counts lines the same way,
     # so a stack position inside a recorded function is the one vitest gives without FlowGuard (line 7, column 13).

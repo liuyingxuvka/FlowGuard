@@ -227,7 +227,9 @@ def sealed_source(data, rel, name, read=None, tables=None):
                 blocked.add(text(target, source))
     if name not in found:
         return '', 'only module-level functions can be compared'
-    omitted = {'type_annotation', 'type_parameters', 'type_arguments'}
+    # TypeScript's own syntax, which JavaScript does not parse: a parameter's or result's type, a type guard's
+    # `x is T` and an assertion's `asserts x`, and type parameters and arguments
+    omitted = {'type_annotation', 'type_predicate_annotation', 'asserts_annotation', 'type_parameters', 'type_arguments'}
     wrappers = {'as_expression', 'satisfies_expression', 'non_null_expression'}
     forbidden = {'enum_declaration', 'internal_module', 'decorator', 'jsx_element', 'jsx_self_closing_element', 'meta_property',
                  'accessibility_modifier', 'readonly', 'this', 'await_expression', 'yield_expression'}
