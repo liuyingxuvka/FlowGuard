@@ -10,7 +10,7 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
-["flowguard/adapters/vitest/runtime.mjs:wrap.wrapped:any"]
+["flowguard/adapters/vitest/runtime.mjs:wrap.called:any"]
 count = 1
 reason = "测试自己的真实调用出错时先记下这次调用的结果，然后在同一个函数里原样重新抛出给测试，错误不会被吞掉"
 rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }

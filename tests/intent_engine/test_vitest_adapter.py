@@ -1755,6 +1755,69 @@ def test_nonprimitive_arguments_are_untouched_and_the_real_value_is_returned(vit
         'only primitive JSON arguments and results are recorded'], text
 
 
+def test_a_recorded_function_keeps_its_properties_prototype_constructor_and_source_text(vitest_home):
+    # R85, review of 4.3: the recorder copied only name and length, so a property set with Object.assign(f, ...) or
+    # `(f as any).x = ...` (which the mutable-binding guard does not see) was gone in the project's own tests, which
+    # failed only with FlowGuard. The recorded function is the project's function in every respect but its calls.
+    root = vitest_home / 'properties'
+    _commit(root, {
+        'package.json': '{"name":"properties","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/greet.ts': '''
+            export function greet(name: string): string {
+              return 'hi ' + name;
+            }
+            Object.assign(greet, { prefix: 'hi' });
+
+            export function shout(name: string): string {
+              return name.toUpperCase();
+            }
+            (shout as any).level = 2;
+
+            export function Point(this: any, x: number) {
+              this.x = x;
+            }
+            Object.assign(Point.prototype, { double(this: any) { return this.x * 2; } });
+        ''',
+        'tests/greet.test.ts': '''
+            import { it, expect } from 'vitest';
+            import { greet, shout, Point } from '../src/greet';
+            it('keeps properties', () => {
+              expect(greet('a')).toBe('hi a');
+              expect((greet as any).prefix).toBe('hi');
+              expect(shout('a')).toBe('A');
+              shout('a ');
+              expect((shout as any).level).toBe(2);
+              (greet as any).later = 3;
+              expect((greet as any).later).toBe(3);
+              expect([greet.name, greet.length]).toEqual(['greet', 1]);
+            });
+            it('keeps the prototype and new', () => {
+              const point = new (Point as any)(2);
+              expect(point.double()).toBe(4);
+              expect(point instanceof (Point as any)).toBe(true);
+              expect(Object.getPrototypeOf(point)).toBe((Point as any).prototype);
+            });
+            it('keeps the source text', () => {
+              for (const text of [greet.toString(), String(greet), `${greet}`]) expect(text.startsWith('function greet(')).toBe(true);
+              expect(greet.toString.call(shout).startsWith('function shout(')).toBe(true);
+            });
+        ''',
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired')
+    greet = root / 'src/greet.ts'
+    greet.write_text(greet.read_text(encoding='utf-8').replace("'hi ' + name;", "'hi ' + name.trim();")
+                     .replace('name.toUpperCase();', 'name.trim().toUpperCase();').replace('this.x = x;', 'this.x = x + 0;'),
+                     encoding='utf-8', newline='\n')
+    plan = json.loads(Path(_prepare(root)['plan']).read_text(encoding='utf-8'))
+    assert sorted(point['fn'] for entry in plan['files'].values() for point in entry['points'] if point['recordable']) == \
+        ['Point', 'greet', 'shout'], plan
+    code, text = _vitest(root, vitest_home)
+    assert code == 0 and re.search(r'Tests +5 passed \(5\)', text), text      # three of the project's, two of FlowGuard
+    # the calls were recorded through the same functions
+    assert "changed: shout (greet.ts:6): (name='a ') was 'A ', now 'A'; 1/2 inputs differ -> if you meant it, say so" in _block(text), text
+
+
 def _judged(root, records, package=None):
     """(result, lines) of one vitest run in `root` judged on `records` (`vitest.judge`): every line it gives the block
     (`vitest.delivered`), before the budget."""
