@@ -228,10 +228,13 @@ class Models:
 
 def bind(rows, models: Models):
     """Writes with model, field and column, from one reader's Prisma path rows (one row per written
-    field per call: the first path that reaches it keeps its position)."""
-    out, seen = [], set()
+    field per call: the first path that reaches it keeps its position). A row keeps the call's `selector` (its
+    `where`), the `callback` that registers its module-level function and, when every path that reaches the field
+    is conditional, the `conditional` positions of the first."""
+    out, seen = [], {}
     for row in rows:
-        base = {key: row[key] for key in ('node', 'function', 'file', 'line', 'column', 'call_line', 'loop') if key in row}
+        base = {key: row[key] for key in ('node', 'function', 'file', 'line', 'column', 'call_line', 'loop', 'selector',
+                                          'callback', 'conditional') if key in row}
         base.update(how='prisma', method=row['method'], receiver=row.get('receiver', ''), accessor=row['accessor'])
         model = models.by_accessor.get(row['accessor'])
         kind = row['method'] + (':' + row['branch'] if row.get('branch') else '')
@@ -245,8 +248,10 @@ def bind(rows, models: Models):
         for item in found:
             key = (item['file'], item.get('call_line'), item['model'], item['field'], item['kind'])
             if key not in seen:
-                seen.add(key)
+                seen[key] = len(out)
                 out.append(item)
+            elif 'conditional' not in item:
+                out[seen[key]].pop('conditional', None)     # another path writes the field whatever the condition
     return out
 
 

@@ -1502,6 +1502,42 @@ def test_unsealable_imports_still_leave_real_primitive_calls_for_intent_rules(vi
     assert 'uses imported or mutable binding Number' in text, text
 
 
+def test_an_intent_rule_citing_a_rule_has_the_source_gate_of_pytest(vitest_home):
+    # Stage 3: the TS observation path checked a rule's expectations without its source; a source this change broke
+    # is red there as in pytest's intent items, one already broken at task start is before and fails nothing.
+    root = vitest_home / 'cited-rule'
+    _commit(root, {
+        'package.json': '{"name":"cited-rule","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'pyproject.toml': '[tool.flowguard]\nauthority_docs = ["SPEC.md"]\n',
+        'SPEC.md': 'The next value is the input plus one.\n',
+        '.flowguard/rules.toml': '[rule.next]\ntext = "The next value is the input plus one."\n'
+                                 "source = 'doc SPEC.md \"The next value is the input plus one.\"'\n",
+        'src/sample.ts': '''
+            // flowguard: same CALC
+            export function calc(x: number) { return x + 1; }
+        ''',
+        'tests/app.test.ts': "import {it,expect} from 'vitest'; import {calc} from '../src/sample'; it('actual result',()=>expect(calc(5)).toBe(6));\n",
+        'tests/intent/calc.py': '''
+            from flowguard.intent import rule
+            @rule('CALC_RULE', decides='next value', fields={'x': int}, anchor='CALC', source='rule.next')
+            def expected(x):
+                return x + 1
+        ''',
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='intent fixture baseline')
+    code, text = _vitest(root, vitest_home)
+    assert code == 0 and 'CALC_RULE' not in text, text
+    (root / 'SPEC.md').write_text('The next value is the input plus two.\n', encoding='utf-8')
+    code, text = _vitest(root, vitest_home)
+    gone = 'CALC_RULE: rule.next: SPEC.md does not contain "The next value is the input plus one." -> quote the document exactly'
+    assert code == 1 and 'red: ' + gone in text, text
+    _commit(root, message='the quote is gone at the start of the next task')
+    assert _flowguard(root, 'new-task')[0] == 0
+    code, text = _vitest(root, vitest_home)
+    assert code == 0 and 'before: ' + gone in text and 'red: ' + gone not in text, text
+
+
 def test_a_real_same_file_helper_named_number_does_not_replace_the_comparison_codec():
     from flowguard.intent.vitest import ADAPTER, sealed_source
     source, reason = sealed_source(b'function Number(x: number) { return x + 10; } export function f(x: number) { return Number(x); }', 'src/f.ts', 'f')

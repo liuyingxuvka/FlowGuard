@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import re
 
-from .common import MapError, git_common_directory, git_head, git_run, sha256_bytes
+from .common import MapError, git_blob, git_common_directory, git_head, git_run, normalize_newlines, sha256_bytes
 from .records import (NO_ORIGINAL_FACT, Unverifiable, integrity_problem, prepare_directory, protected_paths, restore_advice,
                       validate_new_files, write_once, read_original_bytes)
 
@@ -325,22 +325,38 @@ def request_state(root: Path, identifier: str) -> dict | None:
     """owner_words' row for one stored request (None when there is none), checking only that request's
     files and the requests whose sidecar may name it as superseded, not every stored request.
     `cited_by` is not read here (it is history, not a state)."""
+    return request_states(root, [identifier])[identifier]
+
+
+def request_states(root: Path, identifiers) -> dict:
+    """`request_state` of each identifier ({id: row, or None when it is not stored}), the archive's listing, its
+    retire records and each sidecar read once for all of them: every row a source check cites costs that
+    request's own files, not another listing of the archive."""
     root = Path(root).resolve()
-    identifiers = _identifiers(root)
-    if identifier not in identifiers:
-        return None
+    stored = _identifiers(root)
+    states = dict.fromkeys(identifiers)
+    wanted = [identifier for identifier in states if identifier in stored]
+    if not wanted:
+        return states
     common = git_common_directory(root)
-    row = _owner_row(root, identifier, {identifier: None} if identifier in _stems(root, RETIRED_DIR) else {}, {}, common)
-    for other in identifiers:
+    retired = set(_stems(root, RETIRED_DIR))
+    rows = {identifier: _owner_row(root, identifier, {identifier: None} if identifier in retired else {}, {}, common)
+            for identifier in wanted}
+    for other in stored:
         meta = root / REQUEST_DIR / (other + '.json')
         if not meta.is_file() or not _readable(meta):
             continue        # without a readable sidecar its row is invalid and supersedes nothing
         raw = meta.read_bytes()
-        if identifier.encode() not in raw and b'\\u' not in raw:
-            continue        # its sidecar does not spell this id (even escaped), so it cannot list it
-        if identifier in (row if other == identifier else _owner_row(root, other, {}, {}, common))['supersedes']:
-            row['superseded_by'].append(other)
-    return row
+        # Only a sidecar that spells an id (even escaped) can list it.
+        named = [identifier for identifier in wanted if identifier.encode() in raw or b'\\u' in raw]
+        if not named:
+            continue
+        supersedes = (rows[other] if other in rows else _owner_row(root, other, {}, {}, common))['supersedes']
+        for identifier in named:
+            if identifier in supersedes:
+                rows[identifier]['superseded_by'].append(other)
+    states.update(rows)
+    return states
 
 
 def owner_words(root: Path) -> dict:
@@ -417,3 +433,18 @@ def quote_matches(text: str, quote: str) -> bool:
             return False
         position = found + len(fragment)
     return bool(quote.strip())
+
+
+def exact_quote(raw: bytes, quote: str) -> bool:
+    """The strict quote of `.flowguard/rules.toml` and `.flowguard/known.toml`: `quote` occurs in `raw` exactly,
+    after only CRLF and CR become LF on both sides (`normalize_newlines`). No whitespace is folded and `...` is three
+    dots, not an elision; an empty quote matches nothing."""
+    words = normalize_newlines(quote.encode('utf-8')).decode('utf-8')
+    return bool(words) and words in normalize_newlines(raw).decode('utf-8-sig')
+
+
+def added_since(root: Path, baseline: str, identifier: str) -> bool:
+    """Whether the request `identifier` was stored after `baseline`: its sidecar is not in that commit. Requests are
+    only ever added, so a request that supersedes another and was stored in this task is exactly this case. Its fields
+    are read by the one sidecar validator (`request_state`), never here."""
+    return git_blob(root, baseline, (REQUEST_DIR / (identifier + '.json')).as_posix()) is None

@@ -180,8 +180,8 @@ class Engine:
     def __init__(self, model):
         self.m = model
         self.is_project = project_code(model.cfg)
-        from .sources import Archive
-        self.archive = Archive(model.cfg.root)
+        from .sources import shared_archive
+        self.archive = shared_archive(model.cfg.root)
         self._rr_space: dict = {}
         self._rr_info: dict = {}
         self._readings: dict = {}
@@ -205,6 +205,8 @@ class Engine:
         self._proven_rows = {}
         # The calls a `fields` anchor's tests reached: set by the pytest plugin for its session.
         self.call_sites = None
+        # The session's comparison commit, which a source judged at the baseline reads; set by the pytest plugin.
+        self.baseline = None
 
     def child_nodes(self, rule):
         nodes = set()
@@ -388,9 +390,10 @@ class Engine:
     def run_states(self, declaration):
         from flowguard.structure import build
         from contextlib import closing
-        from .sources import authority
-        valid, why = authority(parse_source(declaration.source), None, self.m.cfg, self.archive)
-        red, grey = [], [] if valid else [why]
+        from .sources import source_state
+        source, why = source_state(self, declaration, gone_red=False)
+        valid = source == 'ok'
+        red, grey = ([why] if source == 'red' else []), ([why] if source == 'grey' else [])
         from .anchors import value_gate
         with closing(build(self.m.cfg.root, roots=self.m.cfg.roots)) as graph:
             writes = [row for row in graph.assignments(include_unknown=True) if row['field'] == declaration.target
@@ -401,14 +404,16 @@ class Engine:
         if not writes:
             grey.append(f'no literal writes found for {declaration.target} -> check the field binding')
         return dict(kind='states', verdict='red' if red else 'grey' if grey else 'ok', red=red, grey=grey,
-                    info=[], n=len(writes), files=sorted({write['file'] for write in writes}), provisional=valid and self.provisional(declaration))
+                    info=[], n=len(writes), files=sorted({write['file'] for write in writes}), provisional=valid and self.provisional(declaration),
+                    **self._judged(source, why))
 
     def run_structure(self, declaration):
         from flowguard.structure import build
         from contextlib import closing
-        from .sources import authority
-        valid, why = authority(parse_source(declaration.source), None, self.m.cfg, self.archive)
-        red, grey = [], [] if valid else [why]
+        from .sources import source_state
+        source, why = source_state(self, declaration, gone_red=False)
+        valid = source == 'ok'
+        red, grey = ([why] if source == 'red' else []), ([why] if source == 'grey' else [])
         files = set()
         coverage = None
         with closing(build(self.m.cfg.root, roots=self.m.cfg.roots)) as graph:
@@ -438,7 +443,7 @@ class Engine:
                             f'{issue["reason"]} ({location}) -> use a supported explicit scope or reader')
         return dict(kind='structure', verdict='red' if red else 'grey' if grey else 'ok', red=red, grey=grey,
                     info=[], n=len(violations), files=sorted(files), listing=True, query_coverage=coverage,
-                    provisional=valid and self.provisional(declaration))
+                    provisional=valid and self.provisional(declaration), **self._judged(source, why))
 
     # ------------------------------------------------------------ cells
 
@@ -633,10 +638,12 @@ class Engine:
                 out["overrides"].append(dict(winner=win.id, loser=lose.id, n=len(bad)))
                 continue
             i = cells.index(smallest([cells[i] for i in bad], pts))
-            sa, sb = parse_source(a.source), parse_source(b.source)
+            # rule.<id> cites its rules.toml entry's words: two rules backed by the owner's words ask the owner.
+            from .sources import cited
+            sa, sb = (cited(parse_source(side.source), self.m.cfg) for side in (a, b))
             out["conflicts"].append(dict(a=a.id, b=b.id, n=len(bad), of=len(both), cell=show_cell(cells[i]),
                                          va=show(va[i]), vb=show(vb[i]),
-                                         ask_owner=sa.kind == "owner" and sb.kind == "owner",
+                                         ask_owner=sa.kind in ("owner", "request") and sb.kind in ("owner", "request"),
                                          rids=list(sa.rids + sb.rids)))
         if live:
             gap = [i for i in range(len(cells)) if all(vals[r.id][i] is None for r in live)]
@@ -883,10 +890,11 @@ class Engine:
             red.append(f"gap in {rule.decides} (total=True): no rule decides {g['n']} cells, smallest {g['cell']}")
         grey += self.independence(rule)
         grey += getattr(self.m, 'scenario_issues', {}).get(rule.id, [])
-        from .sources import authority
-        valid, source_reason = authority(parse_source(rule.source), rule.confirmed, self.m.cfg, self.archive, rule.quote)
-        if not valid:
-            (red if 'quote gone' in source_reason else grey).append(source_reason)
+        from .sources import source_state
+        source, source_reason = source_state(self, rule, rule.confirmed, rule.quote)
+        if source in ('red', 'grey'):
+            (red if source == 'red' else grey).append(source_reason)
+        valid = source == 'ok'
         in_model = any(getattr(relation.rule, 'id', relation.rule) == rule.id
                        for model in self.m.flows.values() for relation in model.relations)
         if not rule.homes and not in_model:
@@ -906,11 +914,20 @@ class Engine:
         return dict(kind="rules", verdict="red" if red else "grey" if grey else "ok", red=red, grey=grey, info=info,
                     cells=k["cells"], label=k["label"], seconds=k["seconds"],
                     sampled_by=[x for x in rr["space_reasons"] if x.startswith(rule.id + ": ")], provisional=pending,
-                    proven_rows=self._proven_rows.get(rule.id, []))
+                    proven_rows=self._proven_rows.get(rule.id, []), **self._judged(source, source_reason))
+
+    def _judged(self, source, reason):
+        """The result keys of a source judged against the session's baseline (`sources.source_state`): `before`, the
+        reason of a citation that already failed there (it makes no verdict red), and `source_baseline`, the commit
+        a red or before source was judged with, which `deps.record` keeps so a result is not reused against another."""
+        keys = dict(before=[reason]) if source == 'before' else {}
+        if source in ('red', 'before') and self.baseline is not None:
+            keys['source_baseline'] = self.baseline
+        return keys
 
     def run_flow(self, model, events=(), issues=(), *, _context=None, _scopes=None):
         from .flow import check_flow
-        from .sources import authority
+        from .sources import source_state
         _context = _context if _context is not None else dict(stack=[], proofs={}, children={})
         contracts = {}
         for node in model.nodes:
@@ -922,9 +939,10 @@ class Engine:
                             _context=_context, _scopes=_scopes)
         result['info'].append('scope: observed anchor paths and declared finite model; '
                               'unexecuted source routes remain unverified (static path proof is frozen)')
-        valid, reason = authority(parse_source(model.source), None, self.m.cfg, self.archive, None)
-        if not valid:
-            result['red' if 'quote gone' in reason else 'grey'].append(reason)
+        source, reason = source_state(self, model)
+        if source in ('red', 'grey'):
+            result[source].append(reason)
+        result.update(self._judged(source, reason))
         result['grey'].extend(issues)
         result['verdict'] = 'red' if result['red'] else 'grey' if result['grey'] else 'ok'
         children = list(_context['children'].values())

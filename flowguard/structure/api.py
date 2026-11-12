@@ -255,21 +255,25 @@ class MapHandle:
         envs = self.__dict__.setdefault('_value_envs', {})
         if module not in envs:
             envs[module] = {}
-            own = decide.own_env(self.con.execute("SELECT qual, sig FROM node WHERE module=? AND kind='const' ORDER BY line",
-                                                  (module,)).fetchall())
-            stored = self.con.execute('SELECT path FROM file WHERE module=? LIMIT 1', (module,)).fetchone()
-            stored = stored and self.con.execute("SELECT data FROM part WHERE kind='facts.imports' AND path=?", stored).fetchone()
-            imports = store.unpack(stored[0]) if stored else {}
-            def own_of(name):
-                return decide.own_env(self.con.execute("SELECT qual, sig FROM node WHERE module=? AND kind='const' ORDER BY line",
-                                                       (name,)).fetchall())
-            envs[module] = decide.module_env(own, imports, own_of)
+            envs[module] = decide.module_env(decide.own_env(self._const_rows(module)), self._module_imports(module),
+                                             lambda name: decide.own_env(self._const_rows(name)))
         return envs[module]
 
-    def _folded(self, row):
+    def _const_rows(self, module):
+        """(qual, sig) of the module's constants in line order, as `decide.own_env` folds them."""
+        return self.con.execute("SELECT qual, sig FROM node WHERE module=? AND kind='const' ORDER BY line", (module,)).fetchall()
+
+    def _module_imports(self, module):
+        """The `imports` of the module's Python facts ({} without them)."""
+        stored = self.con.execute('SELECT path FROM file WHERE module=? LIMIT 1', (module,)).fetchone()
+        stored = stored and self.con.execute("SELECT data FROM part WHERE kind='facts.imports' AND path=?", stored).fetchone()
+        return store.unpack(stored[0]) if stored else {}
+
+    def _folded(self, row, env_of=None):
+        """The row with the constant values its right side folds to; `env_of(module)` stands for `_value_env`."""
         if not row.get('expr') or row.get('literal') or '(' in row['expr'] and ' if ' not in row['expr']:
             return row                    # a call's result is not a constant this map can fold
-        values = _fold_values(row['expr'], self._value_env(row['node'].partition(':')[0]))
+        values = _fold_values(row['expr'], (env_of or self._value_env)(row['node'].partition(':')[0]))
         if values is None:
             return row
         return dict(row, values=values, **({'value': values[0]} if len(values) == 1 else {}))
@@ -282,13 +286,7 @@ class MapHandle:
         return self._derived['schema_rows']
 
     def _read_schema_rows(self):
-        from .readers.registry import SCHEMA_LANGUAGES, SUFFIXES
-        suffixes = [suffix for suffix, language in SUFFIXES.items() if language in SCHEMA_LANGUAGES]
-        rows = []
-        for path, _, facts in self._kinds('language', 'schema'):
-            if path.lower().endswith(tuple(suffixes)) and facts.get('language') in SCHEMA_LANGUAGES:
-                rows.append((path, facts.get('schema', {})))
-        return rows
+        return _schema_rows_of((path, facts) for path, _, facts in self._kinds('language', 'schema'))
 
     def schemas(self):
         """What every mapped Prisma schema (models, fields, @map, @@map, @relation) and SQL file
@@ -299,11 +297,16 @@ class MapHandle:
 
     def _models(self):
         if 'models' not in self._derived:
-            from .readers.prisma import Models
-            self._derived['models'] = Models([(path, schema) for path, schema in self._schema_rows() if schema.get('kind') == 'prisma'])
+            self._derived['models'] = _models_of(self._schema_rows())
         return self._derived['models']
 
-    def writes(self, target=None, *, language=None, by_name=False, facts=None, fold=True):
+    def definitions(self, replaced):
+        """The definitions values and models are read from (`writes(definitions=)`) when the files of `replaced`,
+        [(path, module, facts)], hold those facts instead of the map's ({} for a file absent there), such as their
+        facts at a baseline commit: every other file keeps the map's. Built as the map builds its own."""
+        return Definitions(self, replaced)
+
+    def writes(self, target=None, *, language=None, by_name=False, facts=None, fold=True, definitions=None):
         """Who writes what, statically: Prisma client writes bound to schema models (connect and nested
         writes follow @relation), SQL write statements (TS/JS raw SQL, .sql files and Python string literals,
         recorded for the function holding them), and Python attribute assignments bound to a class. A Python
@@ -312,11 +315,15 @@ class MapHandle:
         a model or table, or a bare field/column name; rows whose fields are not visible (spread,
         non-literal data) are kept for their model with `unclear=True`. `facts` reads these file facts
         (for example one file's facts at a baseline commit) instead of the map's; `fold=False` skips folding Python
-        right sides into `values` (who writes, not what). Never execution evidence."""
+        right sides into `values` (who writes, not what). `definitions` (`definitions()`) binds models, resolves JS/TS
+        set names and folds Python constants with other definitions than the map's, such as the baseline's.
+        Never execution evidence."""
         from .readers.prisma import bind, bind_sql
         from .readers.registry import ECMA, language_for
         self._mark_query('writes', language)
-        models = self._models()
+        models = self._models() if definitions is None else definitions.models
+        sets = None if definitions is None else definitions.sets
+        env_of = None if definitions is None else definitions.env
         rows = []
         if facts is None:
             listed = self._kinds('language', 'writes')
@@ -328,10 +335,10 @@ class MapHandle:
             if language is not None and kind != language:
                 continue
             writes = facts.get('writes', [])
-            rows += [self._resolved(dict(row, language=kind)) for row in bind([w for w in writes if w.get('via') == 'prisma'], models)]
+            rows += [self._resolved(dict(row, language=kind), sets) for row in bind([w for w in writes if w.get('via') == 'prisma'], models)]
             rows += [dict(row, language=kind) for row in bind_sql([w for w in writes if w.get('via') == 'sql'], models)]
             for row in facts.get('assignments', []):
-                row = self._folded(row) if kind == 'python' and fold else row
+                row = self._folded(row, env_of) if kind == 'python' and fold else row
                 if kind in ECMA and row.get('form') == 'member' and by_name and row.get('field'):
                     rows.append(dict(node=row['node'], function=row['node'].partition(':')[2] or '<module>', file=row['file'],
                                      line=row['line'], column=row.get('column'), call_line=row['line'], how='name',
@@ -475,11 +482,7 @@ class MapHandle:
         """{name: [row]} of the JS/TS value sets (`as const` arrays and objects, `new Set([...])`, closed
         string unions and aliases of them), read once per handle."""
         if 'ts_sets' not in self._derived:
-            found = {}
-            for _, _, facts in self._kinds('value_sets'):
-                for row in facts.get('value_sets', ()):
-                    found.setdefault(row['name'], []).append(row)
-            self._derived['ts_sets'] = found
+            self._derived['ts_sets'] = _sets_of(facts for _, _, facts in self._kinds('value_sets'))
         return self._derived['ts_sets']
 
     def _ts_values(self, name, file=None, seen=frozenset()):
@@ -526,16 +529,17 @@ class MapHandle:
         target = self.con.execute('SELECT path FROM file WHERE module=?', (found[0],)).fetchone()
         return (target[0], found[1]) if target else None
 
-    def _resolved(self, row):
-        """A write's `values` with its `Name.KEY` spellings read from `{KEY: 'v'} as const` objects; a row
-        with a spelling no object resolves keeps no values (the value is not visible)."""
+    def _resolved(self, row, sets=None):
+        """A write's `values` with its `Name.KEY` spellings read from `{KEY: 'v'} as const` objects (of `sets`,
+        `_ts_sets` by default); a row with a spelling no object resolves keeps no values (the value is not visible)."""
         refs = row.pop('refs', None)
         if not refs:
             return row if row.get('values') else {key: value for key, value in row.items() if key != 'values'}
         values = list(row.get('values') or ())
+        sets = self._ts_sets() if sets is None else sets
         for ref in refs:
             name, _, key = ref.partition('.')
-            members = [found for found in self._ts_sets().get(name, []) if found['kind'] == 'const-object' and key in found['members']]
+            members = [found for found in sets.get(name, []) if found['kind'] == 'const-object' and key in found['members']]
             if len({found['members'][key] for found in members}) != 1:
                 return {key: value for key, value in row.items() if key != 'values'}
             values.append(members[0]['members'][key])
@@ -857,7 +861,7 @@ class MapHandle:
             found[key].extend(item for name in sorted(names) for item in by_name.get(name, ()))
         return found
 
-    def typed_writes(self, facts=None):
+    def typed_writes(self, facts=None, *, definitions=None):
         """Values JS/TS code gives a typed member: a class field initializer, `this.f = 'v'` in a class, and
         the literal fields of an object written as `const x: T = {...}`, `{...} satisfies T` or `{...} as T`.
         Not database writes: they feed the value gate only; `prisma` marks a `T` the file imports from the
@@ -866,9 +870,12 @@ class MapHandle:
         gated by `model`, the imported model's name; `schema` is the schema whose client output the import
         names ('' for `@prisma/client`). A module that re-exports the client's types is not followed.
         `type_from` is the module a `T` of the file's own project is imported from by a relative path, as a
-        path without its extension ('' otherwise). `facts` reads these file facts instead."""
+        path without its extension ('' otherwise). `facts` reads these file facts instead; `definitions`
+        (`definitions()`) resolves `Name.KEY` spellings and binds models with other definitions than the map's, such
+        as the baseline's (as `writes(definitions=)`)."""
         rows, seen = [], set()
-        models = self._models().by_name
+        models = (self._models() if definitions is None else definitions.models).by_name
+        sets = None if definitions is None else definitions.sets
         for facts in [data for _, _, data in self._kinds('language', 'typed_writes', 'dependencies')] if facts is None else facts:
             written = facts.get('typed_writes', ())
             if not written:
@@ -895,7 +902,7 @@ class MapHandle:
                     model = client[space] if client.get(space) not in (None, '*', 'default') else None
                 rows.append(self._resolved(dict(row, model=model or row['container'], language=facts.get('language'),
                                                 prisma=model is not None, schema=origin.get(space, '') if model else '',
-                                                type_from='' if dot or model else imported.get(space, ''))))
+                                                type_from='' if dot or model else imported.get(space, '')), sets))
         return Rows(rows)
 
     def _prisma_client(self, file, module):
@@ -1851,6 +1858,70 @@ def literal_shape(value: str) -> tuple[str, str]:
     body = body[len(lead):].strip()
     kind = 'code' if not any(ch.islower() for ch in body) else 'text' if any(ch.isspace() for ch in body) else 'word'
     return lead, kind
+
+
+class Definitions:
+    """The value sets (`sets`, as `MapHandle._ts_sets`), schema models (`models`, as `_models`) and each module's
+    folded constants (`env(module)`, as `_value_env`) of the map with some files' facts replaced
+    (`MapHandle.definitions`); every one is built as the map builds its own."""
+
+    def __init__(self, graph, replaced):
+        self.graph = graph
+        records = {path: facts for path, _, facts in replaced}
+        self.modules = {module: facts for _, module, facts in replaced if module}
+        held = {path: facts for path, _, facts in graph._kinds('value_sets')}
+        held.update(records)
+        self.sets = _sets_of(held[path] for path in sorted(held))
+        schemas = dict((path, schema) for path, schema in graph._schema_rows() if path not in records)
+        schemas.update(_schema_rows_of(records.items()))
+        self.models = _models_of([(path, schemas[path]) for path in sorted(schemas)])
+        self._owns, self._envs = {}, {}
+
+    def _own(self, module):
+        from . import decide
+        if module not in self._owns:
+            if module in self.modules:
+                facts = self.modules[module]
+                consts = sorted((node for node in facts['nodes'] if node['kind'] == 'const'), key=lambda node: node['line']) \
+                    if facts else []
+                rows = [(node['qual'], node['sig']) for node in consts]
+            else:
+                rows = self.graph._const_rows(module)
+            self._owns[module] = decide.own_env(rows)
+        return self._owns[module]
+
+    def env(self, module):
+        from . import decide
+        if module not in self._envs:
+            if module in self.modules:
+                facts = self.modules[module]
+                imports = facts['facts'].get('imports', {}) if facts else {}     # a test file keeps no `facts`
+            else:
+                imports = self.graph._module_imports(module)
+            self._envs[module] = decide.module_env(self._own(module), imports, self._own)
+        return self._envs[module]
+
+
+def _sets_of(records):
+    """{name: [row]} of the JS/TS value sets of these fact records, in their order."""
+    found = {}
+    for facts in records:
+        for row in facts.get('value_sets', ()):
+            found.setdefault(row['name'], []).append(row)
+    return found
+
+
+def _schema_rows_of(listed):
+    """(path, schema facts) of each (path, facts) of a Prisma or SQL file."""
+    from .readers.registry import SCHEMA_LANGUAGES, SUFFIXES
+    suffixes = tuple(suffix for suffix, language in SUFFIXES.items() if language in SCHEMA_LANGUAGES)
+    return [(path, facts.get('schema', {})) for path, facts in listed
+            if path.lower().endswith(suffixes) and facts.get('language') in SCHEMA_LANGUAGES]
+
+
+def _models_of(rows):
+    from .readers.prisma import Models
+    return Models([(path, schema) for path, schema in rows if schema.get('kind') == 'prisma'])
 
 
 def _writes_target(row, target, models) -> bool:
