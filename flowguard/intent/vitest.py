@@ -263,7 +263,7 @@ def _constants_changed(before, now):
 def plan(cfg, commit, changed, key):
     """The points to observe and everything the Node adapter needs, as one JSON-ready dict."""
     from contextlib import closing
-    from ..map.common import git_blob
+    from ..map.common import git_blob, git_renames
     from ..structure import build
     from ..structure.extract import extract
     from .anchors import collect
@@ -277,12 +277,13 @@ def plan(cfg, commit, changed, key):
             if anchor.kind == 'sensor' and _ecma(anchor.file) and anchor.source_role != 'test':
                 wanted[anchor.target] = (anchor.name, True, anchor.file, anchor.qual)
         old_sources, readers = {}, {}
+        renamed = git_renames(cfg.root, commit)         # a moved file's baseline version is at its old path
         for rel in changed:
             if rel not in modules or is_test_rel(rel) or not (cfg.root / rel).is_file():
                 continue
             if (cfg.root / rel).read_text(encoding='utf-8-sig').startswith(INIT_MARK):
                 continue  # FlowGuard's generated wiring is not an application probe.
-            old = git_blob(cfg.root, commit, rel)
+            old = git_blob(cfg.root, commit, renamed.get(rel, rel))
             old_sources[rel] = old
             before = extract(cfg.root, rel, old, modules[rel], False) if old is not None else dict(nodes=[], const_tables=[])
             now = extract(cfg.root, rel, (cfg.root / rel).read_bytes(), modules[rel], False)
@@ -335,7 +336,7 @@ def plan(cfg, commit, changed, key):
                     if token.parent.type == 'unary_expression' and text(token.parent, code).startswith('-'):
                         number = -number
                     extra_numbers.append(number)
-            old = old_sources.get(rel) if rel in old_sources else git_blob(cfg.root, commit, rel)
+            old = old_sources.get(rel) if rel in old_sources else git_blob(cfg.root, commit, renamed.get(rel, rel))
             prior, old_skip = (sealed_source(old, rel, qual) if old is not None and qual in declarations(old, rel)
                                else ('', 'function absent at baseline'))
             points.append(dict(id=ident, name=name, anchored=anchored, owner=ident in owners, rel=rel, file=(cfg.root / rel).as_posix(), fn=qual,
@@ -608,8 +609,10 @@ def _inside(cfg, rel, package):
 
 
 def closed_rows(data, records):
-    """Compare source-only functions after the session, using real JSON inputs and copy neighbours."""
+    """Compare source-only functions after the session, using real JSON inputs and copy neighbours. Returns the
+    rows, the reasons by point and, by same name, what the input limit left out (`signals.copy_inputs`)."""
     import subprocess
+    from .signals import copy_inputs
     points = {point['id']: point for entry in data['files'].values() for point in entry['points']}
     actual, groups, reasons = {}, {}, {}
     for record in records:
@@ -630,17 +633,14 @@ def closed_rows(data, records):
             if len(result) == limit:
                 break
         return result
-    shared = {}
+    shared, cuts = {}, {}
     for name, peers in groups.items():
         if len(peers) < 2:
             continue
-        samples = unique([args for peer in peers for args in actual.get(peer['id'], ())], LIMIT)
-        extra, constants = [], sorted({number for peer in peers for number in peer['numbers']})
-        for args in samples:
-            for index, item in enumerate(args):
-                if type(item) in (int, float):
-                    extra.extend([*args[:index], number, *args[index + 1:]] for number in [item - 1, item + 1, *constants])
-        shared[name] = unique([*samples, *extra], LIMIT)
+        # The same union as the pytest side, on the positions of the arguments.
+        inputs, cuts[name] = copy_inputs([dict(enumerate(args)) for peer in peers for args in actual.get(peer['id'], ())],
+                                         [number for peer in peers for number in peer['numbers']], LIMIT)
+        shared[name] = [[row[index] for index in sorted(row)] for row in inputs]
     wanted, jobs, keys = {}, [], {}
     for ident, point in points.items():
         wanted[ident] = unique([*actual.get(ident, ()), *shared.get(point['name'], ())], None)
@@ -695,7 +695,7 @@ def closed_rows(data, records):
                 same=any(_same(args, sample) for sample in shared.get(point['name'], ())),
                 copies={copy['id']: outcome(copy['id'], False, args) for copy in point['copies']},
                 old_copies={copy['id']: outcome(copy['id'], True, args) for copy in point['copies']}))
-    return rows, reasons
+    return rows, reasons, cuts
 
 
 def judge(cfg, data, records, package=None):
@@ -707,7 +707,7 @@ def judge(cfg, data, records, package=None):
     from .loader import load
     from .sources import parse
     points = {point['id']: point for entry in data['files'].values() for point in entry['points']}
-    rows, reasons_by_point = closed_rows(data, records)
+    rows, reasons_by_point, cuts = closed_rows(data, records)
     calls = {}
     for record in records:
         calls.setdefault(record['id'], []).append(record)
@@ -755,10 +755,11 @@ def judge(cfg, data, records, package=None):
                           before=C.show(value(row['old'])), after=C.show(value(row['now']))) for row in changes],
             reasons=['TS classes come from comparison constants; this does not prove a complete partition'] + list(dict.fromkeys(reasons)),
             rows=[(row['in'], row['now']) for row in collected]))
-    # Same-name copies share replayed inputs. Classify disagreements by function pair: an old
-    # broken pair cannot hide another pair newly broken on a different input.
+    # Same-name copies share replayed inputs. Each input is judged on its own against the copies at the
+    # baseline: an old disagreement on one input cannot hide a pair newly broken on another (design 4.5).
     same_name = dict(compared=set(), disagreed={})
-    from .signals import copy_partition, rule_steps
+    from .signals import copy_cut, copy_partition, rule_steps
+    unverified.extend(line for name, left in cuts.items() if (line := copy_cut(name, LIMIT, left)))
     def copy_report(name, lines, existing=False):
         return (f'same-name anchor {name}: ' + '; '.join(
             f'{where}, {text}' + ('' if existing else f' -> {step}') for where, text, step, _ in lines)
@@ -770,49 +771,44 @@ def judge(cfg, data, records, package=None):
             continue
         handled.add(point['name'])
         samples = [row for row in rows.get(ident, ()) if row['same']]
-        current_rows, past_rows, old_unknown = [], [], False
+        current_rows, complete = [], True
         places = {target: f'{other["rel"]}:{other["target_line"]} {other["fn"]}'
                   for target, other in points.items()}
         owner = next((places[target] for target in [ident, *(copy['id'] for copy in point['copies'])]
                       if points[target].get('owner')), None)
+        missing = lambda answer: isinstance(answer, dict) and '$missing' in answer
+        threw = lambda answer: isinstance(answer, dict) and '$threw' in answer
         for row in sorted(samples, key=_counterexample(point, [record for record in calls.get(ident, ()) if 'args' in record])):
             inputs = ', '.join(f'{name}={C.show(value(item))}' for name, item in row['in'])
             old = [(ident, row['old']), *row['old_copies'].items()]
             old = [(target, answer) for target, answer in old
                    if points[target]['old_skip'] != 'function absent at baseline']
-            complete = all(not (isinstance(answer, dict) and '$missing' in answer) for _, answer in old)
-            if not complete:
-                old_unknown = True
-            available_old = [(places[target], answer) for target, answer in old
-                             if not (isinstance(answer, dict) and '$missing' in answer)]
-            if available_old and all(isinstance(answer, dict) and '$threw' in answer for _, answer in available_old) and all(
-                    _same(answer, available_old[0][1]) for _, answer in available_old):
-                old_unknown = True
-            past_rows.append((inputs, available_old))
+            known = [answer for _, answer in old if not missing(answer)]
+            complete = complete and len(known) == len(old) and not (
+                known and all(threw(answer) for answer in known) and all(_same(answer, known[0]) for answer in known))
             answers = [(places[ident], row['now'])]
             for copy in point['copies']:
                 theirs = row['copies'].get(copy['id'])
-                if theirs is not None and not (isinstance(theirs, dict) and '$missing' in theirs):
+                if theirs is not None and not missing(theirs):
                     answers.append((places[copy['id']], theirs))
             if len(answers) < 2:
                 continue
-            if all(isinstance(answer, dict) and '$threw' in answer for _, answer in answers) and all(
+            if all(threw(answer) for _, answer in answers) and all(
                     _same(answer, answers[0][1]) for _, answer in answers):
                 unverified.append(point['name'] + ': all copies raised the same exception; not compared')
                 continue
-            current_rows.append((inputs, answers))
-        new_lines, previous_lines = copy_partition(current_rows, past_rows, _same, lambda item: C.show(value(item)),
-                                                   owner=owner, total=len(point['copies']) + 1)
-        if not old_unknown and any(len(answers) == len(point['copies']) + 1 for _, answers in current_rows):
+            current_rows.append((inputs, answers, {places[target]: (answer, threw(answer)) for target, answer in old if not missing(answer)},
+                                 {places[target] for target, answer in old if missing(answer)}))
+        new_lines, previous_lines, open_lines = copy_partition(current_rows, _same, lambda item: C.show(value(item)),
+                                                               owner=owner, total=len(point['copies']) + 1)
+        if complete and any(len(answers) == len(point['copies']) + 1 for _, answers, _, _ in current_rows):
             same_name['compared'].add(point['name'])
         if previous_lines:
             before.append(copy_report(point['name'], previous_lines, existing=True))
         if new_lines:
-            line = copy_report(point['name'], new_lines)
-            if old_unknown:
-                unverified.append(line + ': baseline could not be compared')
-            else:
-                red.append(line)
+            red.append(copy_report(point['name'], new_lines))
+        if open_lines:
+            unverified.append(copy_report(point['name'], open_lines) + ': baseline could not be compared')
         if new_lines or previous_lines:
             same_name['disagreed'][point['name']] = copy_report(point['name'], new_lines + previous_lines)
     # rules on the observed calls and replayed classes, as the pytest side checks a reading

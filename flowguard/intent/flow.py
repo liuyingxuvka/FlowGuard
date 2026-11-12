@@ -1003,6 +1003,25 @@ def _snapshot(value, depth=0):
     return _Opaque(type(value).__name__)
 
 
+def _inert_key(value):
+    """A hashable identity of a `_snapshot` value that runs no project code: its type and value, an enum by its
+    class and member name; any other object (a Path) only by its identity."""
+    if type(value) is dict:
+        return 'dict', tuple((type(key).__name__, key, _inert_key(item)) for key, item in value.items())
+    if type(value) in (list, tuple):
+        return type(value).__name__, tuple(_inert_key(item) for item in value)
+    if isinstance(value, Enum):
+        return 'enum', type(value).__module__, type(value).__qualname__, object.__getattribute__(value, '_name_')
+    if type(value) is _Opaque:
+        return 'opaque', value.reason
+    if type(value) in (type(None), bool, int, float, str, bytes):
+        return type(value).__name__, value
+    return 'object', id(value)
+
+
+_SAMPLE = 20        # distinct calls kept of an anchor no Flow reads, when no Flow scopes the capture
+
+
 _MISSING = object()
 
 
@@ -1104,19 +1123,21 @@ class Capture:
         self._discover = discover
         self.on_event, self.diagnostic_issues = on_event, []
         self._ordinary = _ordinary
-        self._model_scopes = None
+        self._model_scopes = self._read = None
+        self._read_states, self._sampled = False, {}      # anchor target -> the inert keys of the calls kept
         if models is not None:
-            entries = set()
-            for model in models:
-                test_start = _test_entry_references(model, index)
-                if test_start:
-                    entries.update(test_start)
-                else:
-                    # _scenario_scopes keeps the whole case for production
-                    # entries, including a downstream call without its start.
-                    break
+            models = list(models)
+            entries = [_test_entry_references(model, index) for model in models]
+            if models and all(entries):
+                self._model_scopes = frozenset().union(*entries)
             else:
-                self._model_scopes = frozenset(entries)
+                # No test entry scopes every Flow. _scenario_scopes keeps the whole case for a production entry,
+                # including a downstream call without its start, so every event of an anchor a Flow names is kept,
+                # and with transitions every event that read a declared state. Of any other anchor (all of them
+                # in a project without Flows) the first _SAMPLE distinct calls are kept for `show NAME`: the
+                # capture does not grow with the number of calls.
+                self._read = frozenset(node.reference for model in models for node in model.nodes)
+                self._read_states = any(model.transitions for model in models)
         self.events, self.issues = [], []
         self._frames, self._counts, self._sites = {}, Counter(), {}
         for anchor in index.entries:
@@ -1250,8 +1271,16 @@ class Capture:
             # test-entry model. Only its unused value/state/event work is pruned.
             if not self._in_model_scope(anchor, frame):
                 return None
+            sampled = self._read is not None and anchor.name not in self._read
+            if sampled and not self._read_states and len(self._sampled.get(anchor.target, ())) >= _SAMPLE:
+                return None
             args={p.name:_snapshot(frame.f_locals.get(p.name,_Opaque('missing parameter')))for p in anchor.parameters}
             before=self._states(frame,anchor)
+            if sampled and not (self._read_states and before):
+                kept, identity = self._sampled.setdefault(anchor.target, set()), _inert_key(args)
+                if identity in kept or len(kept) >= _SAMPLE:
+                    return None
+                kept.add(identity)
             parents=[];parent=source_caller(frame)
             caller=(parent.f_code.co_filename,parent.f_code.co_qualname.replace('.<locals>.','.'),parent.f_lineno)if parent else ()
             while parent is not None:
