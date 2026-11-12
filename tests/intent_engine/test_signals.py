@@ -299,13 +299,13 @@ def test_everything_lists_every_line_uncut_and_one_line_per_item_not_compared():
     assert block[-1] == 'not compared: subject 3: file3.py:f3 broke -> do it', block
 
 
-def test_a_line_keeps_200_characters_besides_its_paths_and_its_subject_places_and_step():
+def test_a_line_keeps_200_characters_besides_its_places_and_its_subject_places_and_step():
     deep = 'src/' + '/'.join(f'level{number}' for number in range(30)) + '/policy.py'
     line = Line('red', 'rule:R', 'm:f', f'rule R: {"a" * 150} at {deep}:standing and {"b" * 150}', 'change the code',
                 (f'{deep}:standing',))
     said, = _block([line])[1:]
     assert said.startswith('red: rule R: a') and said.endswith(' -> change the code') and 'policy.py:standing' in said, said
-    assert '...' in said and deep not in said and len(said) - len('policy.py') <= 200, said
+    assert '...' in said and deep not in said and len(said) - len('policy.py:standing') == 200, said
     # Project text on several lines stays on one line of the block.
     broken = Line('red', 'rule:S', '', 'rule S: "first\nsecond"\r\nthird', 'x')
     assert _block([broken])[1:] == ['red: rule S: "first second" third -> x']
@@ -376,7 +376,7 @@ def test_same_name_copies_are_worded_for_the_43_lines_without_choosing_a_copy():
     assert signals.copy_says([('c.py:h', 'x'), ('a.py:f', 'y')], same, signals.value_text, owner='a.py:f',
                              apart=[('b.py:g', 'n=2')]) == (
         "the reference a.py:f returns 'y', c.py:h returns 'x'; b.py:g differs from the reference on n=2",
-        'make c.py:h agree with the reference a.py:f')
+        'make c.py:h agree with the reference')
     issue = signals.copies_issue('WEEKS', [('year=2026', 'a.py:f returns 52, b.py:g returns 53', 'decide', {frozenset(('a.py:f', 'b.py:g'))})],
                                  [('year=2025', 'b.py:g returns 52, a.py:f returns 53', 'decide', {frozenset(('a.py:f', 'b.py:g'))})],
                                  places=['a.py:f', 'b.py:g'], files={'a.py', 'b.py'})
@@ -402,3 +402,84 @@ def test_a_changed_line_shows_the_smallest_changed_input_and_how_many_differ():
     assert line.detail == ('(days=9) was False, now True', '(days=5) was False, now True', "(days=7) was 'x', now raises ValueError: no")
     assert signals.changed_line('late', 'm:late', 'm.py', 0, [({}, 1, 2)], 1, unanchored=True).detail[-1] == \
         'no flowguard comment: compared because its code changed'
+
+
+def test_every_stdout_line_of_a_pytest_block_has_one_of_the_shapes(tmp_path):
+    """Design 4.7 over real pytest runs: the block is the last thing on stdout, each of its lines starts with the
+    first line, one of the kinds or `+N more:`; deprecation notices go to stderr only."""
+    from tests.intent_engine.test_default_runtime_signals import _project, _run
+    from tests.intent_engine._cli_fixture import display_text
+    policy = _project(tmp_path / 'copies', '''
+        import sqlite3
+        # flowguard: same STANDING
+        def standing(days: int) -> bool:
+            return days <= 3
+        # flowguard: same STANDING
+        def preview(days: int) -> bool:
+            return days <= 3
+        def late_fee(days: int) -> int:
+            return days * 2
+        # flowguard: sensor AVAILABLE
+        def available(db: sqlite3.Connection, stock: int) -> bool:
+            return stock > 0
+    ''', '''
+        import sqlite3
+        from policy import standing, preview, late_fee, available
+        def test_native():
+            assert standing(0) and preview(0) and late_fee(2) in (4, 6)
+            with sqlite3.connect(':memory:') as db:
+                assert available(db, 1)
+    ''', rule='''
+        from flowguard.intent import rule, row
+        @rule('STANDING_RULE', decides='standing', fields={'days': int}, anchor='STANDING',
+              source='doc policy.txt "At most three days."')
+        def STANDING_RULE(days):
+            return days <= 3
+        STANDING_RULE.rows(row(days=4, expect=False, why='the fourth day must remain refused'))
+    ''')
+    policy.write_text(policy.read_text().replace('return days <= 3', 'return days <= 7', 1)
+                      .replace('days * 2', 'days * 3').replace('stock > 0', 'stock >= 0'))
+    result = _run(tmp_path / 'copies')
+    lines = display_text(result.stdout).splitlines()
+    start = next(index for index, line in enumerate(lines) if line.startswith('FlowGuard '))
+    block = lines[start:]
+    assert result.returncode == 1 and all(SHAPE.match(line) for line in block), block
+    kinds = {line.partition(': ')[0] for line in block[1:]}
+    assert {'red', 'changed', 'not compared'} <= kinds, block
+    assert not any(line.startswith('deprecated') for line in lines), lines
+    assert 'deprecated: old-value leads will be removed in 5.0' in result.stderr.splitlines(), result.stderr
+
+
+def test_the_block_follows_pytests_summary_with_every_reporter_option_and_after_an_interrupt(tmp_path):
+    """Design 4.7 (D25): the block prints after pytest's own summary line, also with --no-summary, without the
+    terminal reporter (-p no:terminal, which prints nothing else) and when a test interrupts the run."""
+    from tests.intent_engine.test_default_runtime_signals import _project, _run
+    changed = 'changed: late_fee (policy.py:1): (days=2) was 4, now 6; 1/1 inputs differ -> if you meant it, say so'
+    policy = _project(tmp_path / 'p', 'def late_fee(days: int) -> int:\n    return days * 2\n', '''
+        from policy import late_fee
+        def test_fee():
+            assert late_fee(2) in (4, 6)
+    ''')
+    policy.write_text(policy.read_text().replace('days * 2', 'days * 3'))
+    import subprocess
+    import sys
+    from tests.intent_engine._cli_fixture import SOURCE
+    bootstrap = 'import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; raise SystemExit(pytest.main(sys.argv[1:]))'
+    for options in ((), ('--no-summary',), ('-p', 'no:terminal')):
+        result = _run(tmp_path / 'p', *options) if 'no:terminal' not in options else subprocess.run(   # -q needs the reporter
+            [sys.executable, '-c', bootstrap, SOURCE, '-p', 'flowguard.intent.plugin', *options], cwd=tmp_path / 'p',
+            capture_output=True, text=True, timeout=60)
+        lines = result.stdout.splitlines()
+        start = next(index for index, line in enumerate(lines) if line.startswith('FlowGuard '))
+        assert result.returncode == 0 and _re.fullmatch(rf'FlowGuard {_re.escape(VERSION)} \(since [0-9a-f]{{7}}\): 0 red, 1 changed; '
+                                                         r'\d+\.\d s', lines[start]) and lines[start + 1:] == [changed], (options, lines)
+        if 'no:terminal' in options:
+            assert lines == lines[start:start + 2], lines            # nothing else prints
+        else:
+            assert _re.match(r'1 passed in ', lines[start - 1]), lines  # right after pytest's summary line
+    (tmp_path / 'p/tests/test_stop.py').write_text('def test_stop():\n    raise KeyboardInterrupt\n', encoding='utf-8')
+    result = _run(tmp_path / 'p')
+    lines = result.stdout.splitlines()
+    start = next(index for index, line in enumerate(lines) if line.startswith('FlowGuard '))
+    assert result.returncode == 2 and lines[start + 1:] == [changed], lines
+    assert any('KeyboardInterrupt' in line for line in lines[:start]) and _re.search(r'\d+ passed in ', lines[start - 1]), lines

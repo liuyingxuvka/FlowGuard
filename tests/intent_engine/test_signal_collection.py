@@ -5,6 +5,7 @@ import re
 import subprocess
 import sys
 
+from tests.intent_engine._cli_fixture import block, last
 from tests.intent_engine.test_default_runtime_signals import _project, _git, _text
 
 
@@ -86,7 +87,10 @@ def _assert_rule_red_only_with_its_items(tmp_path):
                               cwd=tmp_path, capture_output=True, text=True, timeout=60)
     text = _text(complete)
     assert complete.returncode == 1, text
-    assert 'STANDING_RULE' in text and 'days=4' in text and 'At most three days.' in text, text
+    red, = [line for line in block(complete) if line.startswith('red: ')]
+    assert red.startswith('red: rule STANDING_RULE: days=4 -> rule F, code True at policy.py:standing (') and red.endswith(
+        ' cells disagree) (+1 more) -> change the code so policy.py:standing follows rule STANDING_RULE'), text
+    assert '    STANDING_RULE source: At most three days.' in last(tmp_path).splitlines()
     assert 'FAILED tests/intent/decisions.py::STANDING_RULE' in text, text
 
 
@@ -108,7 +112,7 @@ def test_changed_import_binding_is_not_silent_when_the_unanchored_body_is_unchan
     result = _run(tmp_path)
     text = _text(result)
     assert result.returncode == 0, text
-    assert 'unverified: permit(unanchored, automatic)（policy.py:2）：uses unavailable binding decide' in text, text
+    assert 'not compared: permit (policy.py:2) (uses unavailable binding decide) -> not a failure' in block(result), text
     assert 'total 0 classes，changed 0 classes' not in text, text
 
 
@@ -128,8 +132,9 @@ def test_changed_global_constant_selects_an_unchanged_unanchored_function(tmp_pa
     result = _run(tmp_path)
     text = _text(result)
     assert result.returncode == 0, text
-    line = next(line for line in text.splitlines() if line.startswith('changed: permit(unanchored, automatic)'))
-    assert 'policy.py:2' in line and 'x=4' in line and 'function result False → True' in line, text
+    assert ('changed: permit (policy.py:2): (x=4) was False, now True; 1/2 inputs differ -> if you meant it, say so'
+            in block(result)), text
+    assert '    no flowguard comment: compared because its code changed' in last(tmp_path).splitlines()
 
 
 def test_unchanged_source_bound_rule_is_checked_by_its_intent_items(tmp_path):

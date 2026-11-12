@@ -3,6 +3,7 @@ import json
 import sqlite3
 import textwrap
 
+from tests.intent_engine._cli_fixture import last
 from tests.intent_engine.test_default_runtime_signals import _git, _text
 from tests.intent_engine.test_plugin import run
 
@@ -104,7 +105,7 @@ def test_unchanged_partial_scenario_violation_reports_rule_and_original_quote(tm
     assert any(e['anchor']=='CASE' and e['phase']=='call' and e['values']['x']==4 for e in events),events
     assert any(e['anchor']=='OUTCOME' and e['phase']=='return' and e['result'] is True for e in events),events
     assert result.returncode != 0,text
-    assert rule in text and QUOTE in text,text
+    assert rule in text and QUOTE in last(tmp_path),text            # the owner's words are the red's detail
     assert 'x=4' in text and 'False' in text and 'True' in text,text
     assert report['red'],report
     witness = ' '.join(report['red']).lower()
@@ -143,7 +144,7 @@ def test_actual_partial_violation_survives_an_unverified_lower_without_full_veri
     rule = project(tmp_path,lower=True,forbid_contracts=True)
     result,text,report,events = exercise(tmp_path)
     assert any(e['anchor']=='OUTCOME' and e['phase']=='return' and e['result'] is True for e in events),events
-    assert result.returncode != 0 and rule in text and QUOTE in text,text
+    assert result.returncode != 0 and rule in text and QUOTE in last(tmp_path),text
     witness = ' '.join(report['red']).lower()
     assert 'false' in witness and 'true' in witness,report
     assert not (tmp_path / '.flowguard/cache/forbidden-contract.txt').exists(),text

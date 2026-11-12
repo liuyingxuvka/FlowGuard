@@ -21,7 +21,7 @@ import pytest
 
 from flowguard.intent import anchors
 from flowguard.intent.runtime import Reading, Runtime
-from tests.intent_engine._cli_fixture import display_text
+from tests.intent_engine._cli_fixture import block, display_text, last
 
 SOURCE = str(Path(__file__).resolve().parents[2])
 FIXTURE = Path(__file__).resolve().parents[1] / 'fixtures/round20_fields'
@@ -47,17 +47,15 @@ def _pytest(root, *options):
     return result, text
 
 
-def _block(text):
-    lines = text.splitlines()
-    start = next((index for index, line in enumerate(lines) if line.startswith('FlowGuard（')), None)
-    if start is None:
-        return []
-    block = []
-    for line in lines[start + 1:]:
-        if not line.strip() or line.startswith(('====', '____')) or re.match(r'\d+ (passed|failed)', line):
-            break
-        block.append(line)
-    return block
+def _block(result):
+    """The lines after the first line of the FlowGuard block, last on the run's stdout."""
+    return block(result)[1:]
+
+
+def _leads(root):
+    """The 5.0-deprecated leads of the last run, which only `show --last` prints."""
+    shown = last(root).splitlines()
+    return shown[shown.index('deprecated leads (5.0):') + 1:] if 'deprecated leads (5.0):' in shown else []
 
 
 def _results(root):
@@ -124,9 +122,11 @@ def test_sample_13_a_broken_judgment_is_never_green_and_its_rule_lead_names_the_
     # The rule cannot read its fields sealed, so it claims no verdict on the calls; the static leads
     # still point at the changed judgment and its unchanged rule.
     assert result.returncode == 0, text
-    block = _block(text)
-    assert 'lead: rule BORROW still uses old value 10(tests/intent/borrow.py decision line 7): if requirements changed, update the rule first' in block, block
-    assert any(line.startswith('lead: MAY_BORROW copies at shop/hires.py:may_borrow changed; rule BORROW is unchanged') for line in block), block
+    block = _block(result)
+    # Both leads are 5.0-deprecated heuristics: no line of the block, each in show --last.
+    leads = _leads(shop)
+    assert '    old-value leads: rule BORROW still uses old value 10(tests/intent/borrow.py decision line 7): if requirements changed, update the rule first' in leads, leads
+    assert any(line.startswith('    MAY_BORROW copies at shop/hires.py:may_borrow changed; rule BORROW is unchanged') for line in leads), leads
     results = _results(shop)
     assert all(results[item]['verdict'] == 'grey' and FIELD_REASON in results[item]['grey'] for item in BORROW_ITEMS), results
     assert not any(f'PASSED {item}' in text for item in BORROW_ITEMS) and not any(line.startswith('red: ') for line in block), text
@@ -137,7 +137,7 @@ def test_sample_13_a_field_that_cannot_be_read_is_grey_and_names_the_field(shop)
     result, text = _pytest(shop, '-vv')       # -q is already on: -vv is one -v
     assert result.returncode == 0, text
     assert all(f'{item} UNVERIFIED' in text for item in BORROW_ITEMS), text
-    assert not any(line.startswith('red: BORROW') for line in _block(text)), text
+    assert not any(line.startswith('red: rule BORROW') for line in _block(result)), text
     # The first field the sealed environment cannot read names itself, before the broken one is reached.
     cells = _results(shop)[BORROW_ITEMS[0]]
     assert cells['verdict'] == 'grey' and not cells['red'], cells
@@ -150,9 +150,11 @@ def test_sample_13_a_partial_run_without_the_rule_items_names_the_unread_field(s
     _edit(shop, 'shop/hires.py', '<= 10:', '<= 9:')
     result, text = _pytest(shop, 'tests/test_hires.py')
     assert result.returncode == 0 and '1 passed' in result.stdout, text
-    block = _block(text)
-    assert 'unverified: BORROW：field days: uses attribute due' in block, block
-    assert not any(line.startswith('red: ') for line in block), block
+    block = _block(result)
+    assert block == ['not compared: 2 items: BORROW and MAY_BORROW (field days: uses attribute due, no verified current reading '
+                     'in this test context, or 1 other reason) -> not a failure'], block
+    shown = last(shop).splitlines()
+    assert shown[shown.index('not compared: BORROW -> not a failure') + 1] == '    field days: uses attribute due', shown
 
 
 def test_a_field_that_writes_the_database_never_runs_and_is_grey_with_its_field(shop):
@@ -170,17 +172,18 @@ def test_a_field_that_writes_the_database_never_runs_and_is_grey_with_its_field(
 def test_sample_14_the_changed_grace_constant_leaves_both_rule_leads(shop):
     _edit(shop, 'shop/policy.py', 'GRACE_DAYS = 14', 'GRACE_DAYS = 21')
     result, text = _pytest(shop)
-    leads = [line for line in _block(text) if line.startswith('lead: ')]
-    assert 'lead: rule GRACE still uses old value 14(tests/intent/grace.py decision line 7、regression row line 12): if requirements changed, update the rule first' in leads, leads
+    assert not any(' old value ' in line or ' copies at ' in line for line in _block(result)), text
+    leads = _leads(shop)
+    assert '    old-value leads: rule GRACE still uses old value 14(tests/intent/grace.py decision line 7, regression row line 12): if requirements changed, update the rule first' in leads, leads
     copy = next(line for line in leads if ' copies at ' in line)
-    assert copy == ('lead: STANDING copies at shop/policy.py:standing changed; rule GRACE is unchanged -> if requirements changed, first use python -m flowguard req add to store the new owner words, then update rule tests/intent/grace.py:4; otherwise confirm that this code change is correct'), copy
+    assert copy == ('    STANDING copies at shop/policy.py:standing changed; rule GRACE is unchanged -> if requirements changed, first use python -m flowguard req add to store the new owner words, then update rule tests/intent/grace.py:4; otherwise confirm that this code change is correct'), copy
 
 
 def test_sample_14_a_change_that_also_edits_the_rule_has_no_copy_lead(shop):
     _edit(shop, 'shop/policy.py', 'GRACE_DAYS = 14', 'GRACE_DAYS = 21')
     _edit(shop, 'tests/intent/grace.py', 'return days <= 14', 'return days <= 21')
     result, text = _pytest(shop)
-    assert not any(' copies at ' in line for line in _block(text)), text
+    assert not any(' copies at ' in line for line in [*_block(result), *_leads(shop)]), text
 
 
 def test_the_scenario_route_with_a_calibrated_event_anchor_still_checks_its_rule(shop):
@@ -192,8 +195,9 @@ def test_the_scenario_route_with_a_calibrated_event_anchor_still_checks_its_rule
     result, text = _pytest(shop)
     assert result.returncode == 1, text
     assert 'FAILED tests/intent/notices.py::NOTICE[shop.notices.send_notice:rows]' in text, text
-    red = next(line for line in _block(text) if line.startswith('red: NOTICE'))
-    assert 'days=4 -> rule T, code False (row L10)' in red, red
+    assert ('red: rule NOTICE: days=4 -> rule T, code False at shop/notices.py:send_notice (1 of 6 cells disagree) (+1 more) '
+            '-> change the code so shop/notices.py:send_notice follows rule NOTICE') in _block(result), text
+    assert '    days=4 -> rule T, code False at shop/notices.py:send_notice (1 of 1 rows disagree, row L10)' in last(shop).splitlines()
 
 
 # ---- the comment syntax ------------------------------------------------------------------------------

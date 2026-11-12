@@ -13,7 +13,9 @@ import sys
 import textwrap
 
 from flowguard.intent import ledger
-from tests.intent_engine._cli_fixture import display_text
+import re
+
+from tests.intent_engine._cli_fixture import block, display_text, unchecked
 
 SOURCE = str(Path(__file__).resolve().parents[2])
 REASON = '这个判断现在会写审计文件，回放会被拦住；它由 test_standing 的断言守住，不再回放比较'
@@ -111,8 +113,8 @@ def test_a_new_write_is_not_compared_and_an_unverified_reason_is_still_checked(t
     policy.write_text(policy.read_text(encoding='utf-8').replace('    return days <= 3', '    open("audit.log", "a").close()\n    return days <= 3'), encoding='utf-8')
     result, text = _pytest(root, '-q')
     # The sealed environment refuses the write before it runs: not compared, with its reason, not a failure.
-    assert result.returncode == 0 and '2 passed' in text and 'red: ' not in text, text
-    assert 'unverified: STANDING（policy.py:2）：uses attribute close' in text, text
+    assert result.returncode == 0 and '2 passed' in text and not re.search(r'^red: ', text, re.M), text
+    assert block(result)[1:] == [STANDING_UNCHECKED], text
     assert not (root / 'audit.log').exists()
     # A reason too short is red in the ledger's own check; a real reason is accepted.
     (root / ledger.LEDGER).parent.mkdir(exist_ok=True)
@@ -121,7 +123,7 @@ def test_a_new_write_is_not_compared_and_an_unverified_reason_is_still_checked(t
     assert short.returncode == 1 and '[unverified] item "STANDING": reason has' in text, text
     (root / ledger.LEDGER).write_text('[unverified]\nSTANDING = ' + ledger._quote(REASON) + '\n', encoding='utf-8')
     listed, text = _pytest(root, '-q')
-    assert listed.returncode == 0 and 'red: ' not in text, text
+    assert listed.returncode == 0 and not re.search(r'^red: ', text, re.M), text
 
 
 def test_a_grey_that_the_baseline_shares_is_not_a_lost_observation(tmp_path):
@@ -131,8 +133,8 @@ def test_a_grey_that_the_baseline_shares_is_not_a_lost_observation(tmp_path):
     policy = root / 'policy.py'
     policy.write_text(policy.read_text(encoding='utf-8').replace('days <= 3', 'days <= 4'), encoding='utf-8')
     result, text = _pytest(root, '-q')
-    assert result.returncode == 0 and 'red: ' not in text, text
-    assert 'unverified: STANDING（policy.py:2）：uses attribute close' in text, text
+    assert result.returncode == 0 and not re.search(r'^red: ', text, re.M), text
+    assert block(result)[1:] == [STANDING_UNCHECKED], text
 
 
 def test_check_all_fails_a_grey_rule_quoting_the_owner_unless_it_is_listed(tmp_path):
@@ -215,6 +217,15 @@ def pytest_cmdline_main(config):
 '''
 
 REFUSED = 'FlowGuard judges a test session in one pytest process: pytest-xdist workers'
+COPIES_RED = ('red: same STANDING: on days=4: policy.py:standing returns True, policy.py:preview returns False '
+              '-> decide which copy is right, then make the other agree')
+STANDING_UNCHECKED = 'not compared: STANDING (policy.py:2) (uses attribute close) -> not a failure'
+
+
+def _summary(text):
+    """pytest's own summary line (`N passed`): the line before the FlowGuard block."""
+    lines = text.splitlines()
+    return lines[next(index for index, line in enumerate(lines) if re.match(r'FlowGuard \d+\.\d+ \(', line)) - 1]
 
 
 COPIES = {
@@ -256,16 +267,16 @@ def test_distributed_workers_are_refused_before_a_red_can_be_lost(tmp_path):
     env = dict(os.environ, PYTHONPATH=os.pathsep.join(filter(None, [str(plugins), os.environ.get('PYTHONPATH')])))
     stand_in = ('-q', '-p', 'no:xdist', '-p', 'xdist_stand_in')
     plain, text = _pytest(root, *stand_in, env=env)
-    assert plain.returncode == 1 and 'red: same-name anchor STANDING' in text, text
+    assert plain.returncode == 1 and COPIES_RED in block(plain), text
     for options in (['-n', '2'], ['--dist', 'load', '--tx', 'popen'], ['--as-worker']):
         refused, text = _pytest(root, *stand_in, *options, env=env)
         assert refused.returncode == 4 and REFUSED in text, (options, text)
-        assert not _ran(text) and 'red: ' not in text, (options, text)
+        assert not _ran(text) and not re.search(r'^red: ', text, re.M), (options, text)
     for options in (['-n', '0'], ['--dist', 'load'], ['-n', '2', '--collect-only']):   # no worker starts
         single, text = _pytest(root, *stand_in, *options, env=env)
         assert REFUSED not in text, (options, text)
         assert single.returncode == (0 if '--collect-only' in options else 1), (options, text)
-        assert '--collect-only' in options or 'red: same-name anchor STANDING' in text, (options, text)
+        assert '--collect-only' in options or COPIES_RED in block(single), (options, text)
 
 
 def test_dash_n_two_never_ends_as_a_passed_run_with_or_without_xdist(tmp_path):
@@ -300,11 +311,12 @@ def test_junit_xml_marks_a_grey_item_and_writes_a_session_red_as_a_failed_testca
     # A session red exits 1 although every test passed: the XML has the same failed verdict.
     root = _red_project(tmp_path / 'red')
     result, text = _pytest(root, '-q', f'--junitxml={tmp_path / "red.xml"}')
-    assert result.returncode == 1 and '2 passed' in text and 'red: same-name anchor STANDING' in text, text
+    assert result.returncode == 1 and '2 passed' in text and COPIES_RED in block(result), text
     suite, cases, properties = _junit(tmp_path / 'red.xml')
     assert suite.get('failures') == '1', cases
     failure = cases['flowguard::session'].find('failure')
-    assert failure is not None and 'red: same-name anchor STANDING' in failure.get('message'), failure
+    # The testcase carries the block: its first line, then the red.
+    assert failure is not None and failure.get('message').splitlines()[1:] == [COPIES_RED], failure.get('message')
     assert 'days=4' in failure.text, failure.text
     assert all(case.find('failure') is None for name, case in cases.items() if name != 'flowguard::session'), cases
 
@@ -346,13 +358,13 @@ def test_a_flow_item_shows_the_verdict_of_the_events_it_was_judged_on(tmp_path):
     result, text = _pytest(green, '-v', f'--junitxml={tmp_path / "green.xml"}')
     line = next(line for line in text.splitlines() if 'PRECEDES_STORED_SHIPPED[flow]' in line)
     assert result.returncode == 0 and 'PASSED' in line and 'UNVERIFIED' not in line, text
-    assert 'unverified' not in text.splitlines()[-1], text
+    assert 'unverified' not in _summary(text), text
     assert not any(_junit(tmp_path / 'green.xml')[2].values())
     red = _owner_flow(tmp_path / 'red', tmp_path, ['ship', 'store'])
     result, text = _pytest(red, '-v', f'--junitxml={tmp_path / "red.xml"}')
     line = next(line for line in text.splitlines() if 'PRECEDES_STORED_SHIPPED[flow]' in line)
     assert result.returncode == 1 and 'FAILED' in line and 'UNVERIFIED' not in line, text
-    assert '1 failed, 2 passed' in text.splitlines()[-1], text
+    assert '1 failed, 2 passed' in _summary(text), text
     suite, cases, properties = _junit(tmp_path / 'red.xml')
     # The red is the Flow test's own failure; the session adds no second testcase for it.
     assert suite.get('failures') == '1' and cases['tests.intent.flows::PRECEDES_STORED_SHIPPED[flow]'].find('failure') is not None, cases
@@ -389,15 +401,15 @@ def test_a_result_that_is_no_longer_json_is_not_compared(tmp_path):
     root = _project(tmp_path / 'opaque', GATE)
     _change(root, 'gate.py', '    return age >= 18', '    return Answer(age >= 18)')
     result, text = _pytest(root, '-q')
-    assert result.returncode == 0 and '2 passed' in text and 'red: ' not in text, text
-    assert 'unverified: GATE：no comparable JSON result' in text, text
+    assert result.returncode == 0 and '2 passed' in text and not re.search(r'^red: ', text, re.M), text
+    assert block(result)[1:] == ['not compared: GATE (no comparable JSON result) -> not a failure'], text
     # The baseline already returned the object: the same not-compared line, still no failure.
     shared = _project(tmp_path / 'shared', dict(GATE, **{'gate.py': textwrap.dedent(GATE['gate.py']).replace(
         '    return age >= 18', '    return Answer(age >= 18)')}))
     _change(shared, 'gate.py', 'age >= 18', 'age >= 21')
     result, text = _pytest(shared, '-q')
-    assert result.returncode == 0 and 'red: ' not in text, text
-    assert 'unverified: GATE：no comparable JSON result' in text, text
+    assert result.returncode == 0 and not re.search(r'^red: ', text, re.M), text
+    assert block(result)[1:] == ['not compared: GATE (no comparable JSON result) -> not a failure'], text
 
 
 def test_a_call_that_became_a_generator_or_coroutine_is_not_compared(tmp_path):
@@ -410,14 +422,14 @@ def test_a_call_that_became_a_generator_or_coroutine_is_not_compared(tmp_path):
             _change(root, 'gate.py', 'def gate(age: int):', 'async def gate(age: int):')
         _change(root, 'tests/test_gate.py', 'assert gate(30)', 'assert ' + call)
         result, text = _pytest(root, '-q')
-        assert result.returncode == 0 and '2 passed' in text and 'red: ' not in text, (name, text)
-        assert 'unverified: GATE：calibration async/generator is unsupported' in text, (name, text)
+        assert result.returncode == 0 and '2 passed' in text and not re.search(r'^red: ', text, re.M), (name, text)
+        assert 'calibration async/generator is unsupported' in unchecked(root)['GATE'], (name, text)
     # A test that never enters the generator: the same not-compared line.
     root = _project(tmp_path / 'unentered', GATE)
     _change(root, 'gate.py', '    return age >= 18', '    yield age >= 18')
     result, text = _pytest(root, '-q')
     assert result.returncode == 0 and 'observation lost' not in text, text
-    assert 'unverified: GATE：calibration async/generator is unsupported' in text, text
+    assert 'calibration async/generator is unsupported' in unchecked(root)['GATE'], text
 
 
 def test_an_unanchored_changed_function_whose_replay_is_refused_is_listed_unverified(tmp_path):
@@ -437,9 +449,8 @@ def test_an_unanchored_changed_function_whose_replay_is_refused_is_listed_unveri
     _change(root, 'policy.py', '    return days <= 3', '    open("audit.log", "a").close()\n    return days <= 3')
     result, text = _pytest(root, '-q')
     # Not an anchor or a rule: nothing is lost and nothing is red, but the grey is never quiet.
-    assert result.returncode == 0 and 'observation lost' not in text and 'red: ' not in text, text
-    assert 'unverified 1 items (not passed)' in text, text
-    assert 'unverified: limit(unanchored, automatic)（policy.py:1）：uses attribute close' in text, text
+    assert result.returncode == 0 and 'observation lost' not in text and not re.search(r'^red: ', text, re.M), text
+    assert block(result)[1:] == ['not compared: limit (policy.py:1) (uses attribute close) -> not a failure'], text
     assert not (root / 'audit.log').exists()
 
 

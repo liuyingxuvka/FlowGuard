@@ -593,10 +593,10 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
             fields = _field_items(field_text) if field_text is not None else ()
         except (ValueError, tokenize.TokenError) as error:
             # A wrong anchor is red at its own line, with the way to write it.
-            reason = (f'invalid anchor: unmatched parentheses or quotes ({error.args[0]}）' if isinstance(error, tokenize.TokenError)
+            reason = (f'invalid anchor: unmatched parentheses or quotes ({error.args[0]})' if isinstance(error, tokenize.TokenError)
                       else f'invalid fields: {error}')
             problems.append(issue('red', 'syntax', f'{file}:{line} {reason}' + ('' if isinstance(error, tokenize.TokenError)
-                                  else '。' + FIELDS_HELP), line))
+                                  else '. ' + FIELDS_HELP), line))
             continue
         if fields and kind in ('states', 'event'):
             problems.append(issue('red', 'syntax', f'{file}:{line} fields apply only to sensor and function owner anchors. {FIELDS_HELP}', line))

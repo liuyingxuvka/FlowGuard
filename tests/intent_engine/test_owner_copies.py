@@ -63,6 +63,12 @@ def _check(root, *options, before_main=''):
     return result.returncode, _text(result)
 
 
+def _deprecated_leads(root):
+    """The 5.0-deprecated leads of the last run in `root`, which only `show --last` prints."""
+    shown = _cli_fixture.last(root).splitlines()
+    return shown[shown.index('deprecated leads (5.0):') + 1:]
+
+
 def _lines(text, prefix='lead: '):
     return [line for line in text.splitlines() if line.startswith(prefix)]
 
@@ -220,15 +226,15 @@ def test_fixed_6_copies_with_different_return_forms_are_compared_through_their_p
             assert preview(0).ok
     '''}) / 'policy.py'
     agreed = _pytest(tmp_path)
-    assert agreed.returncode == 0 and 'same-name anchor' not in _text(agreed), _text(agreed)
+    assert agreed.returncode == 0 and not re.search(r'^red: same ', _text(agreed), re.M), _text(agreed)
     policy.write_text(policy.read_text(encoding='utf-8').replace('overdue_days <= 3', 'overdue_days <= 5'), encoding='utf-8')
     result = _pytest(tmp_path)
     text = _text(result)
     # Both ordinary calls still run and retain their original projections. Their tuple/dataclass
     # results are not JSON, so the closed comparison must stay explicitly unverified.
     assert result.returncode == 0 and '1 passed' in result.stdout, text
-    assert 'unverified: ELIGIBLE' in text and 'no comparable JSON result' in text, text
-    assert 'red: same-name anchor ELIGIBLE' not in text
+    assert _cli_fixture.block(result)[1:] == [
+        'not compared: ELIGIBLE (no recorded JSON inputs, or no comparable JSON result) -> not a failure'], text
 
 
 # ---- round 22 F1: a same-name red names every copy's answer and chooses none -------------------------------
@@ -253,7 +259,8 @@ def _same_name_red(root, source):
     result = _pytest(root)
     text = _text(result)
     assert result.returncode == 1, text
-    return [line for line in text.splitlines() if line.startswith('red: same-name anchor LIMIT')], text
+    lines = _cli_fixture.block(result)
+    return [line for line in lines if line.startswith('red: same LIMIT')], lines
 
 
 def test_three_same_name_copies_are_counted_by_answer_and_the_red_does_not_choose_the_right_one(tmp_path):
@@ -261,18 +268,21 @@ def test_three_same_name_copies_are_counted_by_answer_and_the_red_does_not_choos
     # agree: done as written, it copies the odd one's answer. The red counts the answers and leaves the choice.
     _project(tmp_path, {'limits.py': _copies(3, 3, 3), **REACHES_CHART})
     red, text = _same_name_red(tmp_path, _copies(3, 3, 4))
-    assert red == ['red: same-name anchor LIMIT：days=4，3 copies: 2 copies return F (limits.py:2 chart, limits.py:7 calendar), 1 copies return T (limits.py:12 report) -> first decide which copy is correct, then make the remaining copies agree with it; if intentionally different, use different anchor names and declare distinct'], text
+    assert red == ['red: same LIMIT: on days=4: limits.py:chart and limits.py:calendar return False, limits.py:report returns True '
+                   '-> decide which copy is right, then make the others agree'], text
 
 
 def test_two_same_name_copies_are_one_answer_each_and_an_owner_stays_the_reference(tmp_path):
     _project(tmp_path, {'limits.py': _copies(3, 3), **REACHES_CHART})
     red, text = _same_name_red(tmp_path, _copies(4, 3))
     # one each: no side is the larger one, and the step names no copy to change
-    assert red == ['red: same-name anchor LIMIT：days=4，2 copies: 1 copies return T (limits.py:2 chart), 1 copies return F (limits.py:7 calendar) -> first decide which copy is correct, then make the other copy agree with it; if intentionally different, use different anchor names and declare distinct'], text
+    assert red == ['red: same LIMIT: on days=4: limits.py:chart returns True, limits.py:calendar returns False '
+                   '-> decide which copy is right, then make the other agree'], text
     # The owner is the reference its copies follow: the copy changes, also when the test reaches the owner
     # (4.2 then said `让 chart 和同名副本一致`, the owner after its copy).
     red, text = _same_name_red(tmp_path, _copies(3, 4, owner=True))
-    assert red == ['red: same-name anchor LIMIT：days=4，2 copies: 1 copies return F (reference limits.py:2 chart), 1 copies return T (limits.py:7 calendar) -> make limits.py:7 calendar agree with the reference; if intentionally different, use different anchor names and declare distinct'], text
+    assert red == ['red: same LIMIT: on days=4: the reference limits.py:chart returns False, limits.py:calendar returns True '
+                   '-> make limits.py:calendar agree with the reference'], text
 
 
 def _checked_red(root, source):
@@ -336,8 +346,11 @@ def test_pytest_names_every_copy_that_differs_from_the_owner_on_its_own_input(tm
     _project(tmp_path, {'limits.py': _split_copies(3), **REACHES_CHART})
     red, text = _same_name_red(tmp_path, _split_copies(4))
     # report already differs at days=3; calendar newly differs at days=4. The old pair cannot hide the new one.
-    assert red == ['red: same-name anchor LIMIT：days=4，3 copies: 2 copies return F (reference limits.py:2 chart, limits.py:12 report), 1 copies return T (limits.py:7 calendar) -> make limits.py:7 calendar agree with the reference; if intentionally different, use different anchor names and declare distinct'], text
-    assert [line for line in text.splitlines() if line.startswith('before: same-name anchor LIMIT')] == ['before: same-name anchor LIMIT：days=3，3 copies: 2 copies return T (reference limits.py:2 chart, limits.py:7 calendar), 1 copies return F (limits.py:12 report) -> make limits.py:12 report agree with the reference; if intentionally different, use different anchor names and declare distinct'], text
+    assert red == ['red: same LIMIT: on days=4: the reference limits.py:chart and limits.py:report return False, limits.py:calendar '
+                   'returns True -> make limits.py:calendar agree with the reference'], text
+    assert [line for line in text if line.startswith('before: same LIMIT')] == [
+        'before: same LIMIT disagreed at task start on days=3: the reference limits.py:chart and limits.py:calendar return True, '
+        'limits.py:report returns False -> leave it unless your task is about it'], text
 
 
 # ---- fixed examples 10 and 11: the KWP rounding copies ---------------------------------------------------
@@ -421,13 +434,14 @@ def test_fixed_8_one_changed_grace_copy_names_the_other_four(tmp_path):
     (tmp_path / 'policy.py').write_text(changed, encoding='utf-8')
     result = _pytest(tmp_path)
     text = _text(result)
-    assert result.returncode == 0, text
-    lead = next(line for line in _lines(text) if 'old values 14' in line)
+    assert result.returncode == 0 and 'old values' not in result.stdout, text
+    # A 5.0-deprecated heuristic: the lead is no line of the block, show --last lists it.
+    lead = next(line for line in _deprecated_leads(tmp_path) if 'old values 14' in line)
     expected = [f'policy.py:{number}' for number, line in enumerate(changed.splitlines(), 1)
                 if re.search(r'(<=|>) 14:?$|LIMITS\[0\]', line)]
     assert len(expected) == 4 and 'remain in 4 decisions:' in lead, (expected, text)
     assert all(place in lead for place in expected) and lead.count('(in a large function)') == 2, text
-    assert '…' not in lead and '# flowguard: same NAME ref' in lead
+    assert '…' not in lead and lead.startswith('    old-value leads: '), lead
 
 
 def test_fixed_14_a_rule_that_still_holds_the_old_value_is_a_lead(tmp_path):
@@ -462,7 +476,8 @@ def test_fixed_14_a_rule_that_still_holds_the_old_value_is_a_lead(tmp_path):
     '''}) / 'policy.py'
     policy.write_text(policy.read_text(encoding='utf-8').replace('GRACE_DAYS = 14', 'GRACE_DAYS = 21'), encoding='utf-8')
     text = _text(_pytest(tmp_path))
-    assert 'lead: rule GRACE still uses old value 14(tests/intent/grace.py decision line 7、regression row line 12): if requirements changed, update the rule first' in text, text
+    assert ('    old-value leads: rule GRACE still uses old value 14(tests/intent/grace.py decision line 7, regression row line 12): '
+            'if requirements changed, update the rule first') in _deprecated_leads(tmp_path), text
 
 
 def test_fixed_18_numbers_equal_only_at_zero_are_unrelated_and_dict_keys_never_drift(tmp_path):
@@ -529,7 +544,8 @@ def test_a_new_write_outside_a_data_owner_is_red_and_older_ones_are_the_old_ledg
     assert 'hires.reserved：shop/api.py:2 cancel（sql:update, value 0）' in red and 'allowed only: shop.store:reserve' in red, red
     assert 'add shop.api:cancel to the writers agreement (comment at shop/store.py:1）' in red and 'legacy' not in red, red
     result = _pytest(tmp_path)
-    assert result.returncode == 1 and 'red: new write outside the declared writer for hires.reserved' in _text(result), _text(result)
+    assert result.returncode == 1 and 'red: writers hires.reserved: api.py:cancel writes hires.reserved outside reserve -> call reserve instead' \
+        in _cli_fixture.block(result), _text(result)
 
 
 # ---- copy discovery: replay route, timeout, import errors, a new copy of an owner ---------------------------

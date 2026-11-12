@@ -1,4 +1,4 @@
-"""The 4.3 interfaces: the last run's lines in the cache, `show --last` (which prints nothing yet), `show rules` over
+"""The 4.3 interfaces: the last run's lines in the cache, `show --last`, `show rules` over
 the catalog, the new finding fields and the session's comparison commit on the engine."""
 from contextlib import closing
 from dataclasses import asdict
@@ -33,16 +33,32 @@ def test_the_last_run_round_trips_through_the_cache_meta_and_is_none_before_any_
     assert cache.read_last(cfg)['lines'] == []
 
 
-def test_show_last_prints_one_line_and_the_catalog_queries_read_the_catalog_and_leave_every_other_show_alone(tmp_path, capsys):
+def test_show_last_prints_every_line_and_the_catalog_queries_read_the_catalog_and_leave_every_other_show_alone(tmp_path, capsys):
     root = str(tmp_path)
     assert cli.main(['--root', root, 'show', '--last']) == 0
     assert capsys.readouterr().out == 'FlowGuard: no last run recorded\n'
     cfg = load_config(tmp_path)
     cfg.cache.mkdir(parents=True)
+    lines = [Line('red', 'pair:A>B', 'm:f', 'together A: src/deep/a.py:f writes A without B', 'also write B in f', ('src/deep/a.py:f',),
+                  ('JS/TS calls resolved by name',)),
+             *(Line('not compared', f'not compared:{name}', '', name, 'not a failure', (), ('uses attribute close',)) for name in 'NM')]
     with closing(connect(cfg.cache / 'map.sqlite')) as con, con:
-        cache.save_last(con, dict(lines=[]))
+        cache.save_last(con, dict(stamp=1.0, run='pytest', baseline='a' * 40, baseline_kind='task', seconds=0.5,
+                                  title='FlowGuard 4.2 (since aaaaaaa): 1 red, 2 not compared; 0.5 s',
+                                  lines=[asdict(line) for line in lines], ignored=2, deprecated=['sensor', 'owner writers='],
+                                  hidden=[dict(feature='old-value leads', text='old values 14 remain in 4 decisions'),
+                                          dict(feature='', text='STANDING copies changed; rule GRACE is unchanged')],
+                                  compared=['K0 (knobs.py:2): 2 inputs compared, none differs']))
     assert cli.main(['--root', root, 'show', '--last']) == 0
-    assert capsys.readouterr().out == 'FlowGuard: a last run is recorded, but this version does not print it yet\n'
+    # No budget and no shortening: every line, its paths in full, its detail indented under it.
+    assert capsys.readouterr().out.splitlines() == [
+        'FlowGuard 4.2 (since aaaaaaa): 1 red, 2 not compared; 0.5 s',
+        'red: together A: src/deep/a.py:f writes A without B -> also write B in f', '    JS/TS calls resolved by name',
+        'not compared: N -> not a failure', '    uses attribute close', 'not compared: M -> not a failure', '    uses attribute close',
+        'ignored: 2 (act = "ignore")', 'deprecated features used (5.0): sensor, owner writers=',
+        'compared, unchanged:', '    K0 (knobs.py:2): 2 inputs compared, none differs',
+        'deprecated leads (5.0):', '    old-value leads: old values 14 remain in 4 decisions',
+        '    STANDING copies changed; rule GRACE is unchanged']
     assert cli.main(['--root', root, 'show', '--last', 'NAME']) == 2
     assert 'show --last takes no NAME' in capsys.readouterr().err
     (tmp_path / '.flowguard').mkdir(exist_ok=True)

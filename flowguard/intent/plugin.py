@@ -14,6 +14,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import sqlite3
 import sys
 import threading
@@ -28,6 +29,7 @@ from .readings import classify, classify_collection
 from .tracer import Footprint
 
 SENTINEL = 'test_flowguard_intent'
+FLOW_STEP = 'make the observed path follow flow {id}'
 NO_SKIP = 'this suite allows no skip, expected failure or early exit: a check that did not run is never reported as fine'
 _CURRENT = None
 _SIGNALS = ContextVar('flowguard_signals', default=None)
@@ -40,11 +42,13 @@ CREATE TABLE IF NOT EXISTS result(item TEXT PRIMARY KEY, rule TEXT, verdict TEXT
 
 
 class SignalReports(list):
-    """One check's reports and its already computed static findings; never serialized."""
+    """One check's reports (JSON data), its already computed static findings and, for the 4.3 block, each batch's
+    `signals.delivery` (`signals.collect` merges them with the static findings); the last two are never serialized."""
     def __init__(self, everything=False):
         super().__init__()
         self.everything = everything
         self.static = {}
+        self.deliveries = []
 
 
 @contextmanager
@@ -122,6 +126,9 @@ class Session:
         self.ledger_result = None
         self.sentinel_ledger = False
         self.session_red = []            # reds only the session decides: a failed JUnit testcase
+        from . import deprecation
+        self.deprecations = deprecation.mark()      # the deprecated features this session uses (`show --last`)
+        self.finishing = None            # when the session's own judgement began (`pytest_sessionfinish`)
         self.tool_seconds = time.perf_counter() - timing
 
     @property
@@ -428,10 +435,13 @@ class Observations:
             self.mapped = {os.fsdecode(value) for value in (changed + added).split(b'\0')
                            if value and language_for(os.fsdecode(value)) not in (None, 'python')}
             self.renamed = git_renames(self.cfg.root, baseline)
+            # every file the change edits, adds or deletes: a finding's member there is touched (`signals.deliver`)
+            self.touched = {os.fsdecode(value) for value in (changed + added).split(b'\0') if value}
         except MapError:
             self.files = set()
             self.differs = set()
             self.mapped = set()
+            self.touched = set()
         self.points = {a.target: dict(anchor=a, target=a.target, file=a.file, module=a.module, qual=a.qual,
                                      name=a.name, kind=a.kind, node=None)
                        for a in self.index.entries if a.kind in ('sensor', 'event') and a.source_role != 'test'
@@ -443,6 +453,12 @@ class Observations:
         self.event_record = self.capture = None
         self.request, self.text = _TRY.get(), ''
         self.session_red = []       # set by report(): the reds no failed test carries
+        # The 4.3 lines (`signals.collect`): findings by (name, member), what was not compared and why, the changed
+        # lines, and for `show --last` the unchanged points an explicit comparison compared.
+        self.findings, self.unchecked, self.changes, self.compared = {}, {}, [], []
+        self.lines, self.ignored, self.hidden, self.carried = [], 0, [], set()
+        self.copies = []            # the same-name findings of `_compare` (`signals.copies_issue`)
+        self.issues = []            # other findings made whole: a source that failed at the baseline, catalog problems
         self.rules = {}
         for rule in state.model.rules.values():
             for home in rule.homes:
@@ -605,9 +621,19 @@ class Observations:
                 rows.append((inputs, value(now)))
                 if not equal(old, now):
                     changes.append((inputs, value(old), value(now)))
-            items.append(dict(name=point['name'], file=point['file'], line=getattr(point['anchor'], 'target_line', 0) or getattr(point['node'], 'lineno', 0),
+            line = getattr(point['anchor'], 'target_line', 0) or getattr(point['node'], 'lineno', 0)
+            items.append(dict(name=point['name'], file=point['file'], line=line,
                               unanchored=point['anchor'] is None, status='grey' if reasons else 'ok', complete=not reasons,
                               rows=rows, changed=changes, total=len(calls), reasons=list(dict.fromkeys(reasons))))
+            from . import signals
+            if changes:
+                self.changes.append(signals.changed_line(point['name'], target, point['file'], line, changes, len(rows),
+                                                         unanchored=point['anchor'] is None))
+            elif reasons:
+                self._unchecked(f'{point["name"]} ({point["file"]}:{line})', reasons, function=target,
+                                places=(f'{point["file"]}:{line}',))
+            elif self.comparison_requested:
+                self.compared.append(f'{point["name"]} ({point["file"]}:{line}): {len(rows)} inputs compared, none differs')
         groups = {}
         for point in self.points.values():
             if point['anchor'] and point['kind'] == 'sensor':
@@ -625,6 +651,7 @@ class Observations:
                 self.grey.append(cut)
             places = {point['target']: self._place(point['target']) + ' ' + point['qual'] for point in points}
             owner = next((places[point['target']] for point in points if point['anchor'].owner), None)
+            named = {point['target']: f'{point["file"]}:{point["qual"]}' for point in points}     # the 4.3 places
             rows = []       # (input, current answers, baseline answers, places whose baseline could not run)
             for row in inputs:
                 answered = []       # (point, current outcome, baseline outcome or None) of each copy that ran sealed
@@ -647,13 +674,18 @@ class Observations:
                 if all(out['status'] == 'raised' for out in outcomes) and all(equal(out, outcomes[0]) for out in outcomes[1:]):
                     self.grey.append(name + ': copies raise exceptions')
                     continue
-                rows.append((', '.join(f'{key}={C.show(value)}' for key, value in row.items()),
-                             [(places[point['target']], value(out)) for point, out, _ in answered],
-                             {places[point['target']]: (value(past), past['status'] == 'raised') for point, _, past in answered
+                rows.append((row,
+                             [(point['target'], value(out)) for point, out, _ in answered],
+                             {point['target']: (value(past), past['status'] == 'raised') for point, _, past in answered
                               if past is not None and past['status'] != 'unavailable'},
-                             {places[point['target']] for point, _, past in answered
+                             {point['target'] for point, _, past in answered
                               if past is not None and past['status'] == 'unavailable'}))
-            new_lines, previous_lines, open_lines = signals.copy_partition(rows, equal, C.show, owner, len(points))
+            def spelled(labels, show):
+                """The rows with each input and copy's target spelled as `show` and `labels` write them."""
+                return [(', '.join(f'{key}={show(value)}' for key, value in row.items()), [(labels[target], value) for target, value in now],
+                         {labels[target]: past for target, past in old.items()}, {labels[target] for target in unknown})
+                        for row, now, old, unknown in rows]
+            new_lines, previous_lines, open_lines = signals.copy_partition(spelled(places, C.show), equal, C.show, owner, len(points))
             if previous_lines:
                 before.append(signals.copy_red(name, previous_lines))
             if new_lines:
@@ -661,6 +693,12 @@ class Observations:
             if open_lines:
                 self.grey.append(name + ': baseline comparison unavailable; current copies disagree ('
                                  + '; '.join(f'{where}, {text}' for where, text, _, _ in open_lines) + ')')
+            reference = next((named[point['target']] for point in points if point['anchor'].owner), None)
+            fresh, old, _ = signals.copy_partition(spelled(named, signals.value_text), equal, signals.value_text, reference, len(points),
+                                                  words=signals.copy_says)
+            if fresh or old:
+                self.copies.append(signals.copies_issue(name, fresh, old, places=list(named.values()),
+                                                        files={point['file'] for point in points}))
         return items, before
 
     @contextmanager
@@ -747,6 +785,8 @@ class Observations:
                     self.grey.extend(rule.id + ': ' + reason for reason in reasons)
                     continue
                 self.red.extend(rule.id + ': ' + message for guard in guards for message in guard['red'])
+                for message in (message for guard in guards for message in guard['red']):
+                    self._rule_red(rule, message)
                 required = {field for other in active for field in other.fields}
                 for inputs, actual in rows:
                     if not required <= inputs.keys():
@@ -756,11 +796,14 @@ class Observations:
                         expected = engine.effective(rule, inputs)
                     except PredicateError as error:
                         self.red.append(str(error))
+                        self._rule_red(rule, str(error).removeprefix(rule.id + ': '), place=self._site(point['target']))
                         continue
                     if expected is CONFLICT:
                         continue  # The independent rule conflict above owns this red.
                     if expected is not None and not outcome_eq(expected, actual):
-                        self.red.append(f'{rule.id}: {C.show_cell(inputs)} -> rule {C.show(expected)}, code {str(actual) if type(actual) is bool else C.show(actual)}')
+                        said = f'{C.show_cell(inputs)} -> rule {C.show(expected)}, code {str(actual) if type(actual) is bool else C.show(actual)}'
+                        self.red.append(f'{rule.id}: {said}')
+                        self._rule_red(rule, f'{said} at {self._site(point["target"])}', place=self._site(point['target']))
                         if rule.id not in quoted:
                             source = parse(rule.source)
                             self.red.append(rule.id + ' source: ' + (source.quote or source.text))
@@ -823,12 +866,20 @@ class Observations:
                 if (quote := source.quote or source.text) not in quotes.values():
                     quotes[identifier] = quote
                 self.red.extend(name + ' source: ' + quote for name, quote in quotes.items())
+                where = f'{state.model.file_of[identifier]}:{model.line}'
+                for reason in observed['red']:
+                    cases = re.findall(r'(?<![\w./-])[\w./-]+\.py::[\w./#\[\]-]+', reason)    # the tests' cases it names
+                    self._found('flow', f'flow:{identifier}', f'flow {identifier}', reason, FLOW_STEP.format(id=identifier),
+                                places=(where, *cases), detail=[f'{name} source: {quote}' for name, quote in quotes.items()])
             results.append(observed)
         return results
 
     def report(self):
+        """Judge the session: the legacy report dict (the runtime_observations payload, and what `check` merges from
+        its batches) and the 4.3 lines (`self.lines`, `signals.collect`) of every finding the session decides. True
+        when a line is red: FlowGuard fails a run only for red."""
         timing = time.perf_counter()
-        from . import signals
+        from . import signals, sources
         self._rule_signals()
         partial_flows = self._flow_signals()
         items, before = self._compare()
@@ -843,11 +894,13 @@ class Observations:
                          if self.runtime.readings[index].sample is None
                          and (point['changed'] or copies[point['name']] > 1))
         unverified, failed_items = [], set()      # an intent item's red is already a failed test
+        model = self.state.model
         for item, result in self.state.results.items():
             if result.get('verdict') == 'grey':
                 unverified.extend(item.partition('::')[2] + '：' + str(reason) for reason in result.get('grey', ()) or ['unverified'])
+                self._unchecked(item.partition('::')[2], [str(reason) for reason in result.get('grey', ())] or ['unverified'])
             if result.get('red'):
-                rule = self.state.model.rules.get(result.get('rule'))
+                rule = model.rules.get(result.get('rule'))
                 quote = ''
                 if rule:
                     from .sources import parse
@@ -858,19 +911,32 @@ class Observations:
                     lines.append(str(result.get('rule') or 'rule') + ' source: ' + quote)
                 self.red.extend(lines)
                 failed_items.update(lines)
+                if result.get('kind') != 'load':           # a declaration that does not load is the model's error below
+                    self.carried.add(self._item_red(result))
+            if result.get('before'):
+                self._item_before(item, result)
         # Each violated rule names the next step: correct the code, or the rule first when the need changed.
-        for rule in self.state.model.rules.values():
+        for rule in model.rules.values():
             if any(str(message).partition('：')[0].partition(': ')[0].partition(' source')[0].partition(' 出处')[0] == rule.id for message in self.red):
                 homes = '、'.join(self._place(home.target) for home in rule.homes if not hasattr(home, 'scenario')) or rule.id + ' binding'
                 said = [str(message).partition('：')[2] for message in self.red if str(message).startswith(rule.id + '：')]
-                self.steps.setdefault(rule.id, signals.rule_steps(rule.id, homes, f'{self.state.model.file_of[rule.id]}:{rule.line}', said))
+                self.steps.setdefault(rule.id, signals.rule_steps(rule.id, homes, f'{model.file_of[rule.id]}:{rule.line}', said))
+        syntax = []             # files that cannot be parsed: only they are unverified
         for issue in self.index.issues:
             if issue.level == 'red':
                 self.red.append(issue.message)
+                place = f'{issue.file}:{issue.line}' if issue.line else issue.file
+                what, _, step = signals.ascii_text(issue.message).partition(' -> ')
+                self._found('input', f'comment:{place}:{issue.code}', f'comment {place}', what,
+                            step or 'correct this flowguard comment', places=(place,), files=(issue.file,))
             elif issue.code == 'source-syntax':
-                self.grey.append(f'{issue.file}' + (f':{issue.line}' if issue.line else '')
-                                 + ': cannot be parsed, only this file is unverified: ' + issue.message)
-        if self.changed or self.mapped:
+                syntax.append(f'{issue.file}' + (f':{issue.line}' if issue.line else '')
+                              + ': cannot be parsed, only this file is unverified: ' + issue.message)
+                self._unchecked(issue.file, ['cannot be parsed: ' + signals.ascii_text(issue.message)],
+                                places=(issue.file,))
+        found = None
+        catalog = sources.catalog_files(self.cfg)
+        if self.changed or self.mapped or set(sources.CATALOG_FILES) & self.touched:
             # Static leads and owner writes need no replay: an old value still elsewhere (rules too),
             # a new spelling of a label, a new write outside a data owner's writers, a pair, a value.
             from . import anchors, owners
@@ -888,11 +954,33 @@ class Observations:
             self.red.extend(found.red)
             leads.extend(found.leads)
             self.structure = found.summary         # the session brief's count of open structure problems
-        self.red.extend(f'load {error["file"]}:{error["line"]}: {error["msg"]}' for error in self.state.model.errors)
-        items = [dict(name='uncovered', status='grey', complete=False, changes=[], changed=0, total=0, reasons=[reason]) for reason in dict.fromkeys(self.grey)] + items
+            self.hidden = list(found.hidden)
+        elif catalog:
+            # Without a change the map checks do not run; an invalid rules.toml or known.toml is red in every run (D4).
+            problems = sources.catalog(self.cfg).issues
+            self.red.extend(issue.text for issue in problems)
+            self.issues.extend(problems)
+        self.red.extend(f'load {error["file"]}:{error["line"]}: {error["msg"]}' for error in model.errors)
+        for error in model.errors:
+            place = f'{error["file"]}:{error["line"]}'
+            self._found('input', f'load:{place}', f'load {place}', signals.ascii_text(error['msg']),
+                        'correct this declaration; until then none of its file is checked', places=(place,), files=(error['file'],))
+        items = [dict(name='uncovered', status='grey', complete=False, changes=[], changed=0, total=0, reasons=[reason]) for reason in dict.fromkeys([*self.grey, *syntax])] + items
         fallbacks = self.state.ledger()
+        from .ledger import LEDGER
         # a [structure] entry of a later FlowGuard is unverified, never red, also in a run without a source change
         unverified.extend(fallbacks.later)
+        for finding in fallbacks.red:
+            places = (LEDGER, *re.findall(r'(?<![\w./-])[\w./-]+\.[A-Za-z]\w*:\d+', finding.text))   # the code it names
+            key = self._found('ledger', f'ledger:{finding.text}', 'ledger', signals.ascii_text(finding.text), signals.LEDGER_STEP,
+                              places=places, files=(LEDGER,), detail=list(finding.fix))      # the entry to copy, as it is
+            if self.state.sentinel_ledger:
+                self.carried.add(key)       # the sentinel test already failed on it
+        for reason in dict.fromkeys(self.grey):
+            subject, why = signals._grey(signals.ascii_text(reason))
+            self._unchecked(subject or why, [why])
+        for reason in fallbacks.later:              # a [structure] entry of a later FlowGuard: it checks nothing here
+            self._unchecked(LEDGER, [signals.ascii_text(reason)], places=(LEDGER,))
         report = dict(session=True, baseline=self.missing or self.runtime.baseline, baseline_kind=self.baseline_kind,
                       baseline_ahead=self.baseline_ahead,
                       # the overflow's command keeps --flowguard-base, as `--base`, so it lists these leads
@@ -902,6 +990,8 @@ class Observations:
                       leads=leads, before=list(dict.fromkeys(before)), red=list(dict.fromkeys(self.red)), steps=self.steps, partial_flows=partial_flows, unverified=unverified,
                       ledger_red=[dict(text=finding.text, fix=list(finding.fix)) for finding in fallbacks.red],
                       seconds=self.state.tool_seconds + getattr(self.runtime, 'seconds', 0) + time.perf_counter() - timing)
+        delivery = self.delivery()
+        self.lines, self.ignored = signals.collect([delivery], found)
         from dataclasses import fields
         from .flow import Event
         names = [field.name for field in fields(Event)]
@@ -910,14 +1000,141 @@ class Observations:
                                           for event in self.state.events if type(event) is Event]))
         collector = _SIGNALS.get()
         if collector is not None:
+            # `check` merges its batches' reports and renders them itself (`collector.deliveries` for the block).
             collector.append(report)
+            collector.deliveries.append(delivery)
         else:
-            self.text = signals.render(report)
+            self.text = self.block(self.seconds())
         # The reds no failed test carries: a lost observation, a copy, a static finding; the ledger's
         # unless the sentinel test already failed on it.
-        self.session_red = [*(line for line in report['red'] if line not in failed_items),
-                            *([] if self.state.sentinel_ledger else [finding['text'] for finding in report['ledger_red']])]
-        return bool(self.red or fallbacks.red)
+        self.session_red = [line for line in self.lines if line.kind == 'red' and (line.name, line.function) not in self.carried]
+        return any(line.kind == 'red' for line in self.lines)
+
+    def delivery(self):
+        """What this session gives the block (`signals.delivery`): its own findings, the changed and not compared
+        lines, and the functions and files the change touches (a same-name finding where one of its copies' files
+        is touched; the static findings add their own)."""
+        from . import signals
+        issues = [signals.finding(entry['family'], name, entry['subject'], entry['whats'], entry['step'], function=function,
+                                  places=entry['places'], files=entry['files'], detail=entry['detail'])
+                  for (name, function), entry in self.findings.items()]
+        issues += self.copies + self.issues
+        touched = {target for target, point in self.points.items() if point.get('changed')}
+        touched |= {part[0] for issue in self.copies if issue.files & self.touched for part in issue.parts}
+        unchecked = [signals.not_compared(subject, entry['reasons'], function=function, places=entry['places'])
+                     for (subject, function), entry in self.unchecked.items()]
+        return signals.delivery(issues, [*self.changes, *unchecked], touched_functions=touched, touched_files=self.touched)
+
+    def seconds(self):
+        """FlowGuard's own time in this session so far: its setup, collection and recording, and its judgement."""
+        return self.state.tool_seconds + getattr(self.runtime, 'seconds', 0)
+
+    def block(self, seconds):
+        """The end-of-run block (`signals.render_block`) with FlowGuard's own `seconds` in its first line."""
+        from . import signals
+        heading = signals.title(self.lines, baseline=self.missing or self.runtime.baseline, kind=self.baseline_kind,
+                                ahead=self.baseline_ahead, seconds=seconds)
+        return signals.render_block(self.lines, title=heading)
+
+    def last(self, seconds):
+        """The payload `cache.save_last` keeps for `show --last`."""
+        from dataclasses import asdict
+        from . import deprecation
+        return dict(stamp=self.state.started, run='pytest', baseline=self.missing or self.runtime.baseline,
+                    baseline_kind=self.baseline_kind, title=self.block(seconds).partition('\n')[0], seconds=seconds,
+                    lines=[asdict(line) for line in self.lines], ignored=self.ignored,
+                    deprecated=deprecation.used(self.state.deprecations), hidden=self.hidden, compared=self.compared)
+
+    def _found(self, family, name, subject, what, step, *, function='', places=(), files=(), detail=()):
+        """Add `what` to the finding (name, function) of this session; returns that key."""
+        entry = self.findings.setdefault((name, function), dict(family=family, subject=subject, step=step, places=tuple(places),
+                                                                files=set(), whats=[], detail=[]))
+        entry['whats'].append(what)
+        entry['places'] = tuple(dict.fromkeys((*entry['places'], *places)))
+        entry['files'].update(file for file in files if file)
+        for line in detail:
+            if line not in entry['detail']:
+                entry['detail'].append(line)
+        if entry['step'] is None:
+            entry['step'] = step
+        return name, function
+
+    def _unchecked(self, subject, reasons, *, function='', places=()):
+        """Add why `subject` (a function when `function`, its id) was not compared."""
+        entry = self.unchecked.setdefault((subject, function), dict(places=tuple(places), reasons=[]))
+        entry['reasons'].extend(reason for reason in reasons if reason not in entry['reasons'])
+
+    def _site(self, target):
+        """A function's place as the 4.3 lines spell one: `path:qualified name`."""
+        point = self.points.get(target)
+        return f'{point["file"]}:{point["qual"]}' if point is not None else target
+
+    def _declared_at(self, identifier):
+        model = self.state.model
+        declaration = (model.rules.get(identifier) or model.states.get(identifier) or model.structures.get(identifier)
+                       or model.flows.get(identifier) or model.anchor_distincts.get(identifier))
+        return f'{model.file_of[identifier]}:{declaration.line}' if declaration is not None and identifier in model.file_of else ''
+
+    def _rule_red(self, rule, what, *, place=None):
+        """A red of rule `rule`: an intent rule's own check, or the code at one of its homes (`place`). One line per
+        rule (D30: its member is the rule): the rule's own reds first, then the code's, its step from
+        `signals.rule_steps` over every red the engine gave it (a row the rule contradicts is the row's red, not the
+        code's), every step and the owner's words in its detail."""
+        from . import signals
+        from .sources import parse
+        model = self.state.model
+        where = self._declared_at(rule.id)
+        source = parse(rule.source)
+        sites = [self._site(home.target) for home in rule.homes if not hasattr(home, 'scenario')]
+        said = what
+        found = re.match(r'(?:\S+: )?(\d+ of \d+ (?:cells|rows) disagree); smallest (.+? -> rule .+?)(?: \((row L\d+)\))?$', what)
+        if found and place:     # the engine's count of one home: its smallest input first, as the code's red reads
+            what = f'{found[2]} at {place} ({found[1]}' + (f', {found[3]})' if found[3] else ')')
+        key = self._found('rule', f'rule:{rule.id}', f'rule {rule.id}', what, None,
+                          places=tuple(dict.fromkeys(item for item in (where, place, *sites) if item)),
+                          files=(model.file_of.get(rule.id, ''),))
+        entry = self.findings[key]
+        entry.setdefault('said', []).append(said)
+        entry.setdefault('at', []).extend([place] if place and place not in entry['at'] else [])
+        homes = ', '.join(sites or entry['at']) or rule.id + ' binding'      # a scenario rule: the places its reds name
+        entry['whats'].sort(key=lambda text: not text.startswith(('self: ', 'row ', 'conflict ', 'gap in ')))
+        steps = [step.rstrip('; ') for step in signals.rule_steps(rule.id, homes, where, entry['said'])]
+        entry['step'] = steps[0] if steps else ''
+        entry['detail'] = [*steps, f'{rule.id} source: {source.quote or source.text}']
+        return key
+
+    def _item_red(self, result):
+        """The red of a failed intent item: its rule's or flow's (the item's target its member), already a failed test."""
+        from . import signals
+        model, identifier = self.state.model, result.get('rule') or ''
+        target = result.get('target') or ''
+        if identifier in model.rules:
+            key = None
+            for message in result['red']:
+                key = self._rule_red(model.rules[identifier], str(message), place=self._site(target) if target else None)
+            return key
+        kind = {'flow': 'flow', 'states': 'states', 'structure': 'structure', 'anchor_distinct': 'distinct'}.get(result.get('kind'), 'rule')
+        step = FLOW_STEP.format(id=identifier) if kind == 'flow' else \
+            f'correct the code or {kind} {identifier} at {self._declared_at(identifier)}'
+        key = None
+        for message in result['red']:
+            key = self._found('flow' if kind == 'flow' else 'rule', f'{kind}:{identifier}', f'{kind} {identifier}',
+                              signals.ascii_text(message), step, function=target,
+                              places=(self._declared_at(identifier),) if self._declared_at(identifier) else ())
+        return key
+
+    def _item_before(self, item, result):
+        """A cited source that already failed at the baseline (`engine._judged`): before where the change touches the
+        file that declares it, never red."""
+        from . import signals
+        from .health import Issue, LINES_ONLY
+        identifier = result.get('rule') or item.partition('::')[2]
+        where = self._declared_at(identifier) or item.partition('::')[0]
+        reasons = tuple(dict.fromkeys(signals.ascii_text(reason) for reason in result['before']))
+        subject = f'source {identifier}'
+        self.issues.append(Issue(f'source:{identifier}', LINES_ONLY, subject, f'{subject}: {reasons[0]}', signals.BEFORE_STEP,
+                                 files=frozenset({where.partition(':')[0]}), family='source', subject=subject,
+                                 parts=(('', where, reasons[0], signals.BEFORE_STEP),), detail=reasons))
 
     def _red(self, subject, *texts, next=()):
         from . import signals
@@ -991,6 +1208,8 @@ def pytest_configure(config):
     config.addinivalue_line('markers', 'rule(ID): this test must actually enter a source anchor of the declared rule')
     _refuse_distribution(config)
     _session(config)
+    if not config.pluginmanager.has_plugin('flowguard-block'):
+        config.pluginmanager.register(Block(), 'flowguard-block')
 
 
 def _refuse_distribution(config):
@@ -1397,6 +1616,13 @@ def _meta(con, name, value):
     put_meta(con, name, _json(value))
 
 
+def _save_last(con, state):
+    """The session's lines for `show --last` (`cache.save_last`), when this run prints the block."""
+    if state.observations is not None and state.observations.text:
+        from .cache import save_last
+        save_last(con, state.observations.last(_seconds(state)))
+
+
 def _save_readings(con, state):
     con.executemany('INSERT OR REPLACE INTO reading VALUES(?,?,?,?,?,?,?)',
                     [(test, r['outcome'], r['kind'], r['reason'], r['phase'], r['seconds'], state.started)
@@ -1458,28 +1684,59 @@ def _completion_policy(session, state, declared):
 
 @pytest.hookimpl(tryfirst=True)     # the session verdict exists before junitxml writes its file
 def pytest_sessionfinish(session, exitstatus):
+    """The session's verdict and its transaction; the block prints later, after pytest's summary (`Block`)."""
     state = session.config._flowguard_intent
+    state.finishing = time.perf_counter()
     with state.verification():
         result = finish_verified(session, exitstatus)
     _junit_session(session, state)
-    # Verification and transaction completion precede optional terminal output.
-    if state.observations is not None and state.observations.text:
-        from .differences import display
-        reporter = session.config.pluginmanager.get_plugin('terminalreporter')
-        if reporter is not None and reporter._tw.width_of_current_line:
-            reporter._tw.line()             # never after the progress line of the last test
-        try:
-            display(state.observations.text)
-        except (OSError, ValueError) as error:
-            state.observations.payload['display_unavailable'] = type(error).__name__
-            path = state.cfg.cache / 'map.sqlite'
-            if path.is_file():
-                try:
-                    with closing(sqlite3.connect(path, timeout=30)) as con, con:
-                        _meta(con, 'runtime_observations', state.observations.payload)
-                except sqlite3.Error:
-                    pass  # The earlier committed verdict remains authoritative.
+    state.tool_seconds += time.perf_counter() - state.finishing
     return result
+
+
+class Block:
+    """FlowGuard's block after pytest's own summary (design 4.7, D25).
+
+    The outermost wrapper of `pytest_sessionfinish` (tryfirst): after it yields, the verdict above, junitxml and every
+    other implementation and wrapper, the terminal summary and its `N passed` line among them, have finished, so the
+    block is the last thing the run prints, with -q, --no-summary, -p no:terminal and after an interrupt alike."""
+
+    @pytest.hookimpl(wrapper=True, tryfirst=True)
+    def pytest_sessionfinish(self, session, exitstatus):
+        result = yield
+        _display(session)
+        return result
+
+
+def _display(session):
+    """Print the block; its first line's time is FlowGuard's own work in the session up to printing it. A console
+    that cannot take it leaves the committed verdict as it is and records why in the observations."""
+    state = session.config._flowguard_intent
+    if state.observations is None or not state.observations.text:
+        return
+    from .differences import display
+    timing = time.perf_counter()
+    reporter = session.config.pluginmanager.get_plugin('terminalreporter')
+    if reporter is not None and reporter._tw.width_of_current_line:
+        reporter._tw.line()             # never after the progress line of the last test
+    text = state.observations.block(state.observations.seconds() + time.perf_counter() - timing)
+    try:
+        display(text)
+    except (OSError, ValueError) as error:
+        state.observations.payload['display_unavailable'] = type(error).__name__
+        path = state.cfg.cache / 'map.sqlite'
+        if path.is_file():
+            try:
+                with closing(sqlite3.connect(path, timeout=30)) as con, con:
+                    _meta(con, 'runtime_observations', state.observations.payload)
+            except sqlite3.Error as failure:
+                print(f'FlowGuard: the verdict is committed; recording that its block could not be shown failed: {failure}',
+                      file=sys.stderr)
+
+
+def _seconds(state):
+    """FlowGuard's own time in the session so far, its judgement in `pytest_sessionfinish` included."""
+    return state.observations.seconds() + (time.perf_counter() - state.finishing if state.finishing is not None else 0)
 
 
 def _junit_session(session, state):
@@ -1517,7 +1774,8 @@ def finish_verified(session, exitstatus):
     if state.observations is not None and state.observations.report():
         session.exitstatus = pytest.ExitCode.TESTS_FAILED
         if state.observations.session_red:
-            state.session_red.extend(state.observations.text.splitlines() or state.observations.session_red)
+            state.session_red.extend(state.observations.text.splitlines()
+                                     or ['red: ' + line.text for line in state.observations.session_red])
     state.session_red[:0] = state.session_errors
     exitstatus = session.exitstatus
     missing = _missing(state, declared)
@@ -1546,6 +1804,7 @@ def finish_verified(session, exitstatus):
                     if state.observations is not None and state.observations.structure is not None:
                         from .cache import save_structure
                         save_structure(con, state.observations.structure)
+                    _save_last(con, state)
                     _save_readings(con, state)
                     _save_ordinary_collection(con, session, state)
         return
@@ -1559,6 +1818,7 @@ def finish_verified(session, exitstatus):
         if state.observations is not None and state.observations.structure is not None:
             from .cache import save_structure
             save_structure(con, state.observations.structure)
+        _save_last(con, state)
         if not missing and state.sentinel == 'ok' and not state.session_errors:
             _meta(con, 'intent_collection', attempt)
             if not model.deep:

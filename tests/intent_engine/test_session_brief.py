@@ -298,15 +298,19 @@ def _plain(tmp_path):
 
 
 def _reported_title(text, title, *, timed=True):
-    """The first FlowGuard line keeps the exact baseline and mandatory own timer."""
-    headers = [line for line in text.splitlines() if line.startswith(('FlowGuard（', 'FlowGuard('))]
-    assert len(headers) == 1, text
-    if not timed:  # CLI header unification is a later stage; keep its exact baseline text now.
+    """The first FlowGuard line keeps the exact baseline and mandatory own timer. A pytest run (`timed`) prints the 4.3
+    first line `FlowGuard M.m ({title}): N red...; T s`, `title` what it compared with; `check` and `check --static`
+    print their 4.2 header, `title`, exactly until their lane moves them to the block."""
+    if not timed:
+        headers = [line for line in text.splitlines() if line.startswith(('FlowGuard（', 'FlowGuard('))]
         assert headers == [title], text
         return
-    match = re.fullmatch(re.escape(title) + r'; ([0-9]+(?:\.[0-9]+)?) s', headers[0])
+    headers = [line for line in text.splitlines() if re.match(r'FlowGuard \d+\.\d+ \(', line)]
+    assert len(headers) == 1, text
+    match = re.fullmatch(rf'FlowGuard {re.escape(VERSION)} \({re.escape(title)}\): \d+ red(, \d+ [a-z ?]+)*; ([0-9]+\.[0-9]) s',
+                         headers[0])
     assert match is not None, text
-    seconds = float(match.group(1))
+    seconds = float(match.group(2))
     assert math.isfinite(seconds) and seconds >= 0, text
 
 
@@ -315,11 +319,11 @@ def test_the_first_pytest_run_records_the_task_baseline_and_commits_during_the_t
     start = git(root, 'rev-parse', 'HEAD')
     code, text = _run(root, '--flowguard-base=HEAD', pytest_run=True)
     assert code == 0 and cache.task_baseline(cfg) == (start, 'HEAD'), text    # an explicit baseline records nothing
-    _reported_title(text, f'FlowGuard（since --flowguard-base {start[:7]}）')
+    _reported_title(text, f'since --flowguard-base {start[:7]}')
     code, text = _run(root, pytest_run=True)
     # Even an unchanged first run prints its baseline and own timer; HEAD is recorded.
     assert code == 0, text
-    _reported_title(text, f'FlowGuard（since task start {start[:7]}）')
+    _reported_title(text, f'since {start[:7]}')
     assert cache.task_baseline(cfg) == (start, 'task')
     (root / 'app.py').write_text('# flowguard: sensor LIMIT\ndef eligible(days: int):\n    return days <= 4\n')
     git(root, 'commit', '--quiet', '-am', 'fixture change committed during the task')
@@ -327,8 +331,8 @@ def test_the_first_pytest_run_records_the_task_baseline_and_commits_during_the_t
     assert code == 0, text
     lines = text.splitlines()
     # not HEAD against HEAD; the commit since the start is named, with the next task's step
-    _reported_title(text, f'FlowGuard（since task start {start[:7]}, commits before HEAD: 1; first run python -m flowguard new-task for a new task)')
-    assert any(line.startswith('changed: LIMIT（app.py:2）') and 'days=4; function result False → True' in line for line in lines), text
+    _reported_title(text, f'since {start[:7]}, 1 commit before HEAD')
+    assert ('changed: LIMIT (app.py:2): (days=4) was False, now True; 1/2 inputs differ -> if you meant it, say so') in lines, text
     assert cache.task_baseline(cfg) == (start, 'task')
     # The next task starts at HEAD: the committed change is no longer this task's.
     code, text = _run(root, 'new-task')
@@ -337,14 +341,14 @@ def test_the_first_pytest_run_records_the_task_baseline_and_commits_during_the_t
     assert cache.task_baseline(cfg) == (head, 'task') and head != start
     code, text = _run(root, pytest_run=True)
     assert code == 0, text
-    _reported_title(text, f'FlowGuard（since task start {head[:7]}）')
+    _reported_title(text, f'since {head[:7]}')
     # A fresh clone (an empty cache, as in CI) compares with its HEAD on its first run and changes nothing.
     clone = tmp_path / 'clone'
     subprocess.run(['git', 'clone', '--quiet', str(root), str(clone)], check=True, capture_output=True, timeout=60)
     assert cache.task_baseline(load_config(clone)) == (head, 'HEAD')
     code, text = _run(clone, pytest_run=True)
     assert code == 0, text
-    _reported_title(text, f'FlowGuard（since task start {head[:7]}）')
+    _reported_title(text, f'since {head[:7]}')
     assert cache.task_baseline(load_config(clone)) == (head, 'task')
 
 
@@ -390,7 +394,7 @@ def test_a_detached_head_or_a_collect_only_session_records_no_task_baseline(tmp_
     assert code == 0 and cache.task_baseline(cfg) == (head, 'HEAD'), text        # discovery on the branch neither
     code, text = _run(root, pytest_run=True)
     assert code == 0 and cache.task_baseline(cfg) == (head, 'task'), text
-    _reported_title(text, f'FlowGuard（since task start {head[:7]}）')
+    _reported_title(text, f'since {head[:7]}')
 
 
 def test_runs_on_a_commit_outside_the_task_never_move_its_baseline(tmp_path):
@@ -415,7 +419,7 @@ def test_runs_on_a_commit_outside_the_task_never_move_its_baseline(tmp_path):
         code, text = _run(root, pytest_run=True)
         lines = text.splitlines()
         assert code == 0, text
-        _reported_title(text, f'FlowGuard（since task start {start[:7]}, commits before HEAD: 1; first run python -m flowguard new-task for a new task)')
+        _reported_title(text, f'since {start[:7]}, 1 commit before HEAD')
         # Only 3 and 4 were really called: changing <=5 to <=4 changes neither result.
         assert not any(line.startswith('changed: ') for line in lines), text
         assert cache.task_baseline(cfg) == (start, 'task')
@@ -497,14 +501,14 @@ def test_the_title_of_every_run_says_how_far_the_task_start_lies_before_head(tmp
     for arguments, pytest_run in _RUNS:
         code, text = _run(root, *arguments, pytest_run=pytest_run)
         assert code == 1, (arguments, text)
-        _reported_title(text, title, timed=pytest_run)
+        _reported_title(text, f'since {start[:7]}, 2 commits before HEAD' if pytest_run else title, timed=pytest_run)
     code, text = _run(root, 'new-task')
     head = git(root, 'rev-parse', 'HEAD')
     assert code == 0 and cache.task_baseline(cfg) == (head, 'task'), text
     for arguments, pytest_run in _RUNS:
         code, text = _run(root, *arguments, pytest_run=pytest_run)
         assert code == 1, (arguments, text)
-        _reported_title(text, f'FlowGuard（since task start {head[:7]}）', timed=pytest_run)
+        _reported_title(text, f'since {head[:7]}' if pytest_run else f'FlowGuard（since task start {head[:7]}）', timed=pytest_run)
 
 
 def test_check_and_check_static_title_head_standing_in_on_a_detached_head_as_pytest_does(tmp_path):
@@ -515,7 +519,7 @@ def test_check_and_check_static_title_head_standing_in_on_a_detached_head_as_pyt
     for arguments, pytest_run in _RUNS:
         code, text = _run(root, *arguments, pytest_run=pytest_run)
         assert code == 1, (arguments, text)
-        _reported_title(text, f'FlowGuard（since HEAD {head[:7]}）', timed=pytest_run)
+        _reported_title(text, f'since HEAD {head[:7]}' if pytest_run else f'FlowGuard（since HEAD {head[:7]}）', timed=pytest_run)
         assert cache.task_baseline(cfg) == (head, 'HEAD'), arguments          # nothing recorded: HEAD stands in
 
 
@@ -533,7 +537,8 @@ def test_a_recorded_task_start_this_repository_lacks_is_named_and_compares_nothi
     for arguments, pytest_run in _RUNS:
         code, text = _run(root, *arguments, pytest_run=pytest_run)
         assert code == 0 and 'changed: ' not in text, (arguments, text)
-        _reported_title(text, title, timed=pytest_run)
+        _reported_title(text, f'since {gone[:7]}, not in this repository: nothing compared; run python -m flowguard new-task'
+                        if pytest_run else title, timed=pytest_run)
         assert cache.task_baseline(cfg) == (gone, 'missing') and cache.session_baseline(cfg) is None, arguments
     prepared = vitest.prepare(root)
     seconds = prepared.pop('seconds')
@@ -545,8 +550,8 @@ def test_a_recorded_task_start_this_repository_lacks_is_named_and_compares_nothi
     head = git(root, 'rev-parse', 'HEAD')
     assert cache.task_baseline(cfg) == (head, 'task')
     code, text = _run(root, pytest_run=True)
-    assert code == 0 and 'changed: LIMIT（app.py:2）' in text, text
-    _reported_title(text, f'FlowGuard（since task start {head[:7]}）')
+    assert code == 0 and 'changed: LIMIT (app.py:2): (days=4) was False, now True; 1/2 inputs differ -> if you meant it, say so' in text, text
+    _reported_title(text, f'since {head[:7]}')
 
 
 def test_ledger_check_names_a_recorded_task_start_this_repository_lacks(tmp_path):

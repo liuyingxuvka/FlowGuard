@@ -258,6 +258,9 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
     sites this change touches (`Known.nodes` in `touched_functions` or `Known.files` in `touched_files`, every
     entry with `everything`) and that has no line yet is `known`. `extra` are lines already of their kind
     (changed, impact, loosened, not compared). Lines are unique by (kind, name, function), the first one kept.
+    A part's place is one 'path:symbol' (the line reads `{subject}: {place} {what}`, before `{subject} at {place} was
+    broken at task start`) or a tuple of them that `what` names itself (`{subject}: {what}`; before: `{subject}
+    disagreed at task start {what}` for same-name copies, `was broken at task start` otherwise).
     Pure: no map, no Git, no file."""
     touched_functions, touched_files = frozenset(touched_functions), frozenset(touched_files)
     entries = list(known)
@@ -341,7 +344,7 @@ SHOWN = {'changed': 3, 'impact': 2}        # lines of these kinds shown; the oth
 OLD = 2                     # before and known lines shown; the others are one count line
 NOT_COMPARED_STEP = 'not a failure'
 CHANGED_STEP = 'if you meant it, say so'
-LEDGER_STEP = 'python -m flowguard ledger check prints the entry to add or change'
+LEDGER_STEP = 'python -m flowguard ledger check prints what to change'
 
 
 def version():
@@ -414,7 +417,7 @@ def _summary(lines, names):
     line's reasons are its detail)."""
     reasons = Counter()
     for line in lines:
-        for reason in dict.fromkeys(_one_line(reason).removeprefix('not compared: ') for reason in line.detail or ('no reason recorded',)):
+        for reason in dict.fromkeys(_reason(reason) for reason in line.detail or ('no reason recorded',)):
             reasons[reason] += 1
     ranked = [reason for reason, _ in sorted(reasons.items(), key=lambda item: -item[1])]
     noun = 'function' if all(line.function for line in lines) else 'item'
@@ -432,6 +435,13 @@ def _summary(lines, names):
     else:
         what = f'{len(lines)} {noun}s'
     return f'not compared: {what} ({said}) -> {NOT_COMPARED_STEP}'
+
+
+def _reason(text):
+    """A reason as the not compared line sums it up: its head, before a parenthesis or a semicolon, at most 80
+    characters (the whole reason is the line's detail in `show --last`)."""
+    head = re.split(r' \(|; ', _one_line(text).removeprefix('not compared: '), maxsplit=1)[0].strip()
+    return head if len(head) <= 80 else head[:77] + '...'
 
 
 def _one_line(text):
@@ -463,18 +473,19 @@ def _said(line, names, *, cap=True):
     """One line of the block: `{kind}: {text} -> {step}`, its places' paths shortened, at most three places and 200
     characters besides its paths (`cap`)."""
     text, step = _one_line(line.text), _one_line(line.step)
-    if cap and len(line.places) > PLACES:
-        for place in line.places[PLACES:]:
-            for joined in (', ' + place, '  ' + place, ' ' + place, place):
+    named = [place for place in dict.fromkeys(line.places) if place and place in text]
+    if cap and len(named) > PLACES:
+        for place in named[PLACES:]:
+            for joined in (', ' + place, ' and ' + place, '  ' + place, ' ' + place, place):
                 if joined in text:
                     text = text.replace(joined, '', 1)
                     break
-        text += f' (+{len(line.places) - PLACES} places)'
+        text += f' (+{len(named) - PLACES} places)'
     said = _shorten(f'{line.kind}: {text}' + (f' -> {step}' if step else ''), line.places, names)
     if not cap:
         return said
     return _cap(said, [names.get(path, path) for path in map(_path_of, line.places) if path],
-                [_shorten(place, (place,), names) for place in line.places[:PLACES] if place])
+                [_shorten(place, (place,), names) for place in line.places if place])
 
 
 def _shorten(text, places, names):
@@ -485,17 +496,22 @@ def _shorten(text, places, names):
 
 
 def _cap(said, paths=(), places=()):
-    """`said` within WIDTH characters besides the `paths` it names: the longest stretch of its text that is neither the
-    head up to the first ': ' (kind and subject), one of its `places`, nor the step after the last ' -> ' gives way in
-    its middle."""
+    """`said` within WIDTH characters besides the paths and places (`path:symbol`) it names: the longest stretch of its
+    text that is neither the head up to the first ': ' (kind and subject, and the input `on ...: ` a line is about),
+    one of its `places`, nor the step after the last ' -> ' gives way in its middle."""
+    spans = sorted({piece for piece in (*places, *paths) if piece}, key=len, reverse=True)
     def width(text):
-        return len(text) - sum(text.count(path) * len(path) for path in set(paths) if path)
+        for piece in spans:
+            text = text.replace(piece, '')
+        return len(text)
     if width(said) <= WIDTH:
         return said
     head, _, body = said.partition(': ')
     subject, colon, body = body.partition(': ') if ': ' in body[:80] else ('', '', body)
     body, arrow, step = body.rpartition(' -> ') if ' -> ' in body else (body, '', '')
     head = head + ': ' + subject + colon
+    if witness := re.match(r'on .*?: ', body):        # the input a same-name line is about
+        head, body = head + witness[0], body[witness.end():]
     kept = {piece for piece in (*places, *paths) if piece}
     pattern = '(' + '|'.join(re.escape(piece) for piece in sorted(kept, key=len, reverse=True)) + ')' if kept else None
     pieces = [piece for piece in (re.split(pattern, body) if pattern else [body]) if piece]
@@ -674,7 +690,7 @@ def copy_says(answers, same, show, owner=None, total=None, apart=()):
         text += f'; {missing} other cop{"y has" if missing == 1 else "ies have"} no result for this input'
     if owner is not None:
         others = [place for value, places in groups if owner not in places for place in places]
-        return text, f'make {", ".join(others)} agree with the reference {owner}'
+        return text, f'make {", ".join(others)} agree with the reference'
     return text, 'decide which copy is right, then make the ' + ('other agree' if len(answers) == 2 else 'others agree')
 
 
@@ -704,7 +720,8 @@ def copy_lines(inputs, same, show, owner=None, total=None, *, only=None, words=N
     such copy is named, with its step, on its own first input that differs; without an owner that answers, where
     it first shows two copies that differ. `pairs` holds the pairs of places the line shows to differ. On another
     line a copy that answers as the owner but differs from it elsewhere is set apart (`copy_answers`). `only`, one
-    set of pairs per input, keeps each input to those of its pairs."""
+    set of pairs per input, keeps each input to those of its pairs. `words` words each line (`copy_answers` when
+    None, the 4.2 lines `check` and vitest still print; `copy_says` for the 4.3 block)."""
     owned = owner is not None and any(place == owner for _, answers in inputs for place, _ in answers)
     kept, seen = [], set()
     for number, (where, answers) in enumerate(inputs):
@@ -745,7 +762,8 @@ def copy_partition(rows, same, show, owner=None, total=None, *, words=None):
     it at the baseline ({place: (value, raised)}) and the places whose baseline could not run on it; a place in
     neither did not exist at the baseline. A pair that differs now is red where it agreed at the baseline (or one
     of its copies is new), before where it already differed on this input, and not compared where a baseline of
-    it could not run or both raised the same exception there. Returns the `copy_lines` of each, in that order."""
+    it could not run or both raised the same exception there. Returns the `copy_lines` of each, in that order,
+    worded by `words` (`copy_lines`)."""
     inputs = [(where, now) for where, now, _, _ in rows]
     owned = owner if owner is not None and any(place == owner for _, now in inputs for place, _ in now) else None
     split = ([], [], [])

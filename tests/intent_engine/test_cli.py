@@ -377,12 +377,20 @@ def test_a_violated_rule_has_the_next_step_of_its_kind_in_pytest_and_every_check
         policy.write_text(policy.read_text() + FOURTH)
         code = root / (root.name + '.py')
         code.write_text(code.read_text().replace('return days <= 3', 'return days <= 3 or days == 4'))
-    steps = {'code': [f'    change the code so {root.name}.py:2 follows rule LIMIT; ', REQ_ADD],
-             'own row': ['    correct regression rows or rule tests/intent/policy.py:2 so the rule and its regression rows agree; ', REQ_ADD],
-             'conflict': ['    rules LIMIT and LONGER conflict; choose one by asking the owner; ',
-                          '    when the owner decides, first store the exact owner words with python -m flowguard req add, then update rule tests/intent/policy.py:2'],
-             'gap': ['    add rules or regression rows at tests/intent/policy.py:2 so undecided cells have a rule result; ', REQ_ADD],
-             'decision of': ['    correct regression rows or rule tests/intent/policy.py:2 so the rule and its regression rows agree; ', REQ_ADD]}[kind]
+    # pytest prints the 4.3 block: one red line for the rule, its first step after ' -> ', every step in its detail
+    # (show --last). `check` still prints the 4.2 lines with their indented steps until its lane moves to the block.
+    steps = {'code': [f'change the code so {root.name}.py:accept follows rule LIMIT', REQ_ADD.strip()],
+             'own row': ['correct regression rows or rule tests/intent/policy.py:2 so the rule and its regression rows agree', REQ_ADD.strip()],
+             'conflict': ['rules LIMIT and LONGER conflict; choose one by asking the owner',
+                          'when the owner decides, first store the exact owner words with python -m flowguard req add, then update rule tests/intent/policy.py:2'],
+             'gap': ['add rules or regression rows at tests/intent/policy.py:2 so undecided cells have a rule result', REQ_ADD.strip()],
+             'decision of': ['correct regression rows or rule tests/intent/policy.py:2 so the rule and its regression rows agree', REQ_ADD.strip()]}[kind]
+    legacy = {'code': [f'    change the code so {root.name}.py:2 follows rule LIMIT; ', REQ_ADD],
+              'own row': ['    correct regression rows or rule tests/intent/policy.py:2 so the rule and its regression rows agree; ', REQ_ADD],
+              'conflict': ['    rules LIMIT and LONGER conflict; choose one by asking the owner; ',
+                           '    when the owner decides, first store the exact owner words with python -m flowguard req add, then update rule tests/intent/policy.py:2'],
+              'gap': ['    add rules or regression rows at tests/intent/policy.py:2 so undecided cells have a rule result; ', REQ_ADD],
+              'decision of': ['    correct regression rows or rule tests/intent/policy.py:2 so the rule and its regression rows agree; ', REQ_ADD]}[kind]
     cli.init(cfg)
     capsys.readouterr()
     def block(text):
@@ -393,15 +401,24 @@ def test_a_violated_rule_has_the_next_step_of_its_kind_in_pytest_and_every_check
     bootstrap = 'import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; raise SystemExit(pytest.main(sys.argv[1:]))'
     ran = subprocess.run([sys.executable, '-c', bootstrap, cli_fixture.SOURCE, '-q'], cwd=root, capture_output=True, text=True, timeout=120)
     assert ran.returncode == 1, ran.stdout + ran.stderr
-    line, after = block(ran.stdout)
-    assert after == steps, cli_fixture.display_text(ran.stdout)
+    reds = [line for line in cli_fixture.block(ran) if line.startswith('red: rule LIMIT: ')]
+    assert len(reds) == 1 and 'show the rule' not in ran.stdout and 'correct its source' not in ran.stdout, ran.stdout
+    assert reds[0].endswith(' -> ' + steps[0].replace('tests/intent/policy.py', 'policy.py')), reds
+    shown = cli_fixture.last(root).splitlines()
+    full = next(line for line in shown if line.startswith('red: rule LIMIT: '))
+    detail = shown[shown.index(full) + 1:]
+    assert ['    ' + step for step in steps] in [detail[index:index + 2] for index in range(len(detail))], shown
     assert kind not in ('gap', 'decision of') or ('gap in acceptance (total=True)' if kind == 'gap' else
-                                                  'the decision of an overriding rule is T') in line, line
+                                                  'the decision of an overriding rule is T') in full, full
+    lines = []
     for run in ('check reuses the result pytest saved', 'check again', 'check --all reruns the rule'):
         assert cli_fixture.check(cfg, everything=run.startswith('check --all')) == 1
         text = capsys.readouterr().out
-        assert block(text)[1] == steps, (run, text)
-    assert block(text)[0] == line, text            # pytest's finding, once, without a second step on it
+        line, after = block(text)
+        assert after == legacy, (run, text)
+        lines.append(line)
+    # The finding once in every check, without a second step on it; rerun, with the owner's words.
+    assert lines[1] == lines[0] and lines[2].endswith('  LIMIT source: At most three days.'), lines
 
 
 def test_a_red_that_is_no_rule_keeps_a_next_step_in_pytest_and_check(tmp_path, capsys):

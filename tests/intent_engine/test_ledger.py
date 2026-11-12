@@ -3,6 +3,7 @@
 from contextlib import closing
 from pathlib import Path
 import json
+import re
 import subprocess
 import sys
 import textwrap
@@ -12,6 +13,7 @@ import pytest
 
 from flowguard.intent import ledger
 from flowguard.intent.config import load_config
+from tests.intent_engine._cli_fixture import last
 from flowguard.structure import build
 from tests._pure_helpers import git, write
 from tests.intent_engine._cli_fixture import display_text
@@ -553,8 +555,11 @@ def test_ordinary_pytest_fails_on_a_new_fallback_and_prints_the_entry_to_copy(sh
     output = failed.stdout + failed.stderr
     assert failed.returncode == 1, output
     assert 'FAILED tests/test_flowguard_intent.py::test_flowguard_intent' in output and '1 failed, 1 passed' in output
-    assert 'red: New unregistered fallback: src/shop/stock.py:12 except KeyError can end without raising' in output
-    block = output[output.index('    to retain this handler, in .flowguard/ledger.toml add:'):]
+    assert ('red: ledger: New unregistered fallback: stock.py:12 except KeyError can end without raising '
+            '-> python -m flowguard ledger check prints what to change') in output.splitlines(), output
+    # The entry to copy is the red's detail: show --last prints it under the line, as ledger check does.
+    shown_last = last(shop)
+    block = shown_last[shown_last.index('    to retain this handler, in .flowguard/ledger.toml add:'):]
     assert block.splitlines()[1:5] == ['    ["src/shop/stock.py:lookup:KeyError"]', '    count = 1',
                                       '    reason = ' + ledger._quote(ledger.PLACEHOLDER_REASON),
                                       '    rule = { file = "file containing the written rule", text = "an exact sentence that must occur in that file" }']
@@ -562,13 +567,13 @@ def test_ordinary_pytest_fails_on_a_new_fallback_and_prints_the_entry_to_copy(sh
     assert attempt(shop)['sentinel'] == 'ok'                # The intent collection itself stayed complete.
     # The plugin route also fails a run that does not collect the sentinel.
     partial = pytest_run(shop, 'tests/test_stock.py')
-    assert partial.returncode == 1 and 'red: New unregistered fallback' in partial.stdout, partial.stdout + partial.stderr
+    assert partial.returncode == 1 and 'red: ledger: New unregistered fallback' in partial.stdout, partial.stdout + partial.stderr
     add_entry(shop, entry('src/shop/stock.py:lookup:KeyError'))
     green = pytest_run(shop)
-    assert green.returncode == 0 and '2 passed' in green.stdout and 'red: ' not in green.stdout, green.stdout + green.stderr
+    assert green.returncode == 0 and '2 passed' in green.stdout and not re.search(r'^red: ', green.stdout, re.M), green.stdout + green.stderr
     (shop / ledger.LEDGER).unlink()                         # Deleting the ledger does not turn it off.
     deleted = pytest_run(shop)
-    assert deleted.returncode == 1 and 'red: Fallback ledger .flowguard/ledger.toml existed at the baseline but is now missing' in deleted.stdout, \
+    assert deleted.returncode == 1 and 'red: ledger: Fallback ledger ledger.toml existed at the baseline but is now missing' in deleted.stdout, \
         deleted.stdout + deleted.stderr
 
 
@@ -625,11 +630,11 @@ def test_junit_xml_has_the_ledger_red_once_with_or_without_the_sentinel(shop, tm
     git(shop, 'commit', '-qm', 'sentinel')
     append(shop, LOOKUP)
     whole = pytest_run(shop, f'--junitxml={tmp_path / "whole.xml"}')
-    assert whole.returncode == 1 and 'red: New unregistered fallback' in whole.stdout, whole.stdout + whole.stderr
+    assert whole.returncode == 1 and 'red: ledger: New unregistered fallback' in whole.stdout, whole.stdout + whole.stderr
     # The sentinel test fails on the ledger: the session adds no second failure for the same red.
     assert failed(tmp_path / 'whole.xml') == ('1', ['tests.test_flowguard_intent::test_flowguard_intent'])
     partial = pytest_run(shop, 'tests/test_stock.py', f'--junitxml={tmp_path / "partial.xml"}')
-    assert partial.returncode == 1 and 'red: New unregistered fallback' in partial.stdout, partial.stdout + partial.stderr
+    assert partial.returncode == 1 and 'red: ledger: New unregistered fallback' in partial.stdout, partial.stdout + partial.stderr
     assert failed(tmp_path / 'partial.xml') == ('1', ['flowguard::session'])
 
 

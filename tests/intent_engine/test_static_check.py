@@ -6,6 +6,7 @@ and `tests/fixtures/planning_tool_static` (sources and line ranges in their READ
 """
 from contextlib import closing
 import json
+import re
 import os
 from pathlib import Path
 import shutil
@@ -16,7 +17,7 @@ import textwrap
 import pytest
 
 from tests.intent_engine import _cli_fixture
-from tests.intent_engine._cli_fixture import display_text as _text
+from tests.intent_engine._cli_fixture import display_text as _text, unchecked
 
 from flowguard.intent import anchors
 from flowguard.structure import build
@@ -1236,7 +1237,9 @@ def test_pytest_reports_a_pair_that_a_typescript_change_breaks(tmp_path):
     '''})
     code, text = _pytest(tmp_path)
     assert code == 1, text
-    assert 'red: missing paired write for Central.orgUnitId：src/admin.ts:2 editCentral(JS/TS calls resolved by name) writes Central.orgUnitId' in text, text
+    assert ('red: together Central.orgUnitId: admin.ts:editCentral writes Central.orgUnitId without Local.unitId '
+            '-> also write Local.unitId in editCentral') in text.splitlines(), text
+    assert _cli_fixture.last(tmp_path).splitlines()[2] == '    JS/TS calls resolved by name'
 
 
 def test_the_value_gate_reads_the_fallback_of_a_nullish_default(tmp_path):
@@ -2110,7 +2113,7 @@ def test_the_overflow_of_a_run_against_base_names_that_base_in_the_command_that_
     assert code == 0 and len(_lines(text, 'lead: ')) == 12, text
 
 
-def test_the_overflow_of_a_pytest_session_against_flowguard_base_keeps_that_base_as_base(tmp_path):
+def test_a_pytest_session_against_flowguard_base_names_that_base_and_keeps_its_leads_for_show_last(tmp_path):
     words = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel', 'India', 'Juliet', 'Kilo', 'Lima']
     _commit(tmp_path, {'src/upper.ts': ''.join(f"export function is{word}(x: string) {{ return x === '{word} Label'; }}\n"
                                                for word in words),
@@ -2119,10 +2122,15 @@ def test_the_overflow_of_a_pytest_session_against_flowguard_base_keeps_that_base
     _write(tmp_path, {'src/lower.ts': ''.join(f"export function was{word}(x: string) {{ return x === '{word.lower()} label'; }}\n"
                                               for word in words)})
     _commit(tmp_path, message='twelve new spellings')
-    # The session's leads are against HEAD~1; the command that lists them all must be too.
+    # The session compares with HEAD~1 and says so; its label-spelling leads (5.0-deprecated) get no line of the
+    # block: show --last lists all twelve, against that base.
     code, text = _pytest(tmp_path, '--flowguard-base', 'HEAD~1')
-    leads = _lines(text, 'lead: ')
-    assert code == 0 and leads[-1].endswith('entries: python -m flowguard check --static --base HEAD~1 --leads lists all leads'), text
+    base = _git(tmp_path, 'rev-parse', 'HEAD~1').strip()
+    title, *lines = _cli_fixture.block(text)
+    assert code == 0 and title.startswith(f'FlowGuard 4.2 (since --flowguard-base {base[:7]}): 0 red; ') and lines == [], text
+    shown = _cli_fixture.last(tmp_path).splitlines()
+    leads = shown[shown.index('deprecated leads (5.0):') + 1:]
+    assert len(leads) == 12 and all(line.startswith('    label-spelling leads: label spellings differ: ') for line in leads), shown
 
 
 def test_the_overflow_of_show_spells_a_phrase_query_so_cmd_exe_reads_it_too(tmp_path):
@@ -2212,9 +2220,10 @@ def test_a_change_that_touches_an_open_structure_problem_gets_one_lead(tmp_path)
     hold = tmp_path / 'shop/hold.py'
     hold.write_text(hold.read_text().replace("'held'", "'paused'"))
     lead = ('lead: Open structure issue: Job.status is written by 3 files without a registered writer agreement: shop/close.py:5  shop/hold.py:5  shop/reopen.py:5 -> ask the owner who is responsible; then write # flowguard: writers Job.status shop/close.py:close,shop/hold.py:hold,shop/reopen.py:reopen (retain only writers the owner approves), and record the decision in .flowguard/ledger.toml:')
+    # pytest prints the 4.3 block: fields several files write without an agreement get no line of their own (the
+    # impact line of a function whose written fields change names them); check --static keeps its 4.2 lead.
     code, text = _pytest(tmp_path)
-    assert code == 0 and lead in text, text
-    assert '    [structure."writers:Job.status"]' in text, text
+    assert code == 0 and _cli_fixture.block(text)[1:] == [], text
     code, text = _static(tmp_path)
     assert code == 0 and lead in text, text
     code, text = _static(tmp_path, '--all')
@@ -2285,9 +2294,15 @@ def test_a_structure_entry_with_fields_of_a_later_flowguard_is_unverified_and_cl
     assert '1. write：Job.status is written by 3 files without a registered writer agreement' in text, text      # the entry closes no problem
     code, text = _flowguard(tmp_path, 'ledger', 'check')
     assert code == 0 and 'not checked: ' + grey in text, text
-    for run in (lambda: _static(tmp_path), lambda: _pytest(tmp_path), lambda: _flowguard(tmp_path, 'check')):
+    for run in (lambda: _static(tmp_path), lambda: _flowguard(tmp_path, 'check')):
         code, text = run()
         assert code == 0 and 'red: ' not in text and grey in text, text
+    # pytest's block: one not compared line for the ledger, the entry's reason in show --last.
+    code, text = _pytest(tmp_path)
+    assert code == 0 and not re.search(r'^red: ', text, re.M), text
+    assert ('not compared: ledger.toml (Structure entry [structure."writers:Job.status"] has fields this version does...) '
+            '-> not a failure') in text.splitlines(), text
+    assert any(grey in reason for reason in unchecked(tmp_path)['.flowguard/ledger.toml']), text
     # A decision with a field of a later FlowGuard beside it does not close its problem either.
     (tmp_path / 'owner.txt').write_text('Job.status belongs to the close workflow; the other writers must call it.\n')
     assert _flowguard(tmp_path, 'req', 'add', str(tmp_path / 'owner.txt'), '--id', 'R1')[0] == 0

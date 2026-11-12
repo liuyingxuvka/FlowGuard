@@ -14,7 +14,7 @@ import sys
 import textwrap
 
 from flowguard.intent import anchors, calibration
-from tests.intent_engine._cli_fixture import display_text
+from tests.intent_engine._cli_fixture import display_text, last
 from tests.intent_engine._protocol_controls import bind_anchor
 from tests.intent_engine._source_fixture import source_sessions  # noqa: F401 (fixture)
 
@@ -180,6 +180,7 @@ def test_real_call_of_a_config_reader_is_checked_against_its_rule(tmp_path):
     changed = _pytest(root)
     text = display_text(changed)
     assert changed.returncode == 1, text
-    assert 'LIMIT: days=4 -> rule F, code True' in text, text
-    assert 'LIMIT source: At most three days.' in text, text
+    assert ('red: rule LIMIT: days=4 -> rule F, code True at policy.py:accept '
+            '-> change the code so policy.py:accept follows rule LIMIT') in text.splitlines(), text
+    assert '    LIMIT source: At most three days.' in last(root).splitlines(), text
     assert 'no verified current reading' not in text, text

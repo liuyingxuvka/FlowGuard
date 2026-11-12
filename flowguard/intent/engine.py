@@ -1216,7 +1216,7 @@ class Engine:
                     reached = [outcome for inputs, outcome, _ in calls
                                if all(name in inputs and outcome_eq(inputs[name], value) for name, value in cell.items())]
                     if not reached:
-                        grey.append(f'{home.short}: {label}（{show_cell(cell)}) was not checked by a call reached in tests; '
+                        grey.append(f'{home.short}: {label} ({show_cell(cell)}) was not checked by a call reached in tests; '
                                     f'fields are evaluated only at calls; see [rules] for regression-row and rule checks')
                         continue
                     cases += 1

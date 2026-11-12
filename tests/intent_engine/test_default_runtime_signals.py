@@ -11,7 +11,7 @@ import subprocess
 import sys
 import textwrap
 
-from tests.intent_engine._cli_fixture import display_text as _text
+from tests.intent_engine._cli_fixture import display_text as _text, last as _last
 
 
 def _git(root, *arguments):
@@ -81,7 +81,7 @@ def test_fixed_1_a_database_call_is_not_compared_and_never_claims_a_complete_gre
     text = _text(result)
     assert result.returncode == 0 and '1 passed' in result.stdout, text
     # The connection argument is not JSON: the call is not compared, and says why (4.5, 6.4).
-    assert 'AVAILABLE：no comparable JSON result' in text, text
+    assert 'not compared: AVAILABLE (no comparable JSON result) -> not a failure' in text.splitlines(), text
     assert not re.search(r'changed:.*AVAILABLE|AVAILABLE.*classes', text), text
     assert not [item for item in _observations(tmp_path)['items'] if item.get('name') == 'AVAILABLE'], text
     policy.write_text(original)
@@ -129,8 +129,7 @@ def test_fixed_2_database_writes_stay_grey_without_replaying_the_effect(tmp_path
     result = _run(tmp_path)
     text = _text(result)
     assert result.returncode == 0, text
-    assert 'COUNTED' in text or 'hire_count' in text, text
-    assert re.search(r'灰|grey|side.effect|副作用|unverified', text, re.I), text
+    assert 'not compared: COUNTED (no comparable JSON result) -> not a failure' in text.splitlines(), text
 
 
 def test_fixed_3_old_function_uses_old_module_constant_on_the_recorded_call(tmp_path):
@@ -150,9 +149,8 @@ def test_fixed_3_old_function_uses_old_module_constant_on_the_recorded_call(tmp_
     text = _text(result)
     assert result.returncode == 0, text
     # The baseline runs with its own GRACE_DAYS = 3, the current source with 7: only days=5 differs.
-    line = next(line for line in text.splitlines() if line.startswith('changed: STANDING'))
-    assert 'policy.py:3' in line and 'total 2 classes，changed 1 classes' in line, text
-    assert 'days=5' in line and 'function result False → True' in line, text
+    assert ('changed: STANDING (policy.py:3): (days=5, suspended=False, owed=0) was False, now True; 1/2 inputs differ '
+            '-> if you meant it, say so') in text.splitlines(), text
     item = next(item for item in _observations(tmp_path)['items'] if item.get('name') == 'STANDING')
     assert item['changed'] == [[{'days': 5, 'suspended': False, 'owed': 0}, False, True]], item
 
@@ -171,8 +169,10 @@ def test_fixed_4_changed_function_needs_no_anchor_to_report_member_changes(tmp_p
     result = _run(tmp_path)
     text = _text(result)
     assert result.returncode == 0, text
-    line = next(line for line in text.splitlines() if line.startswith('changed: late_fee'))
-    assert '(unanchored, automatic)' in line and 'member=T' in line and 'function result 2 → 3' in line, text
+    assert ('changed: late_fee (policy.py:1): (days=5, member=True) was 2, now 3; 1/2 inputs differ '
+            '-> if you meant it, say so') in text.splitlines(), text
+    # It has no flowguard comment: compared because its own code changed.
+    assert '    no flowguard comment: compared because its code changed' in _last(tmp_path).splitlines()
     item = next(item for item in _observations(tmp_path)['items'] if item.get('name') == 'late_fee')
     assert item['unanchored'] and item['changed'] == [[{'days': 5, 'member': True}, 2, 3]], item
 
@@ -202,8 +202,8 @@ def test_fixed_5_passing_release_test_reports_the_changed_decision_and_records_i
     result = _run(tmp_path)
     text = _text(result)
     assert result.returncode == 0, text
-    line = next(line for line in text.splitlines() if line.startswith('changed: NEEDS_SAVE'))
-    assert "payload='document'" in line and 'function result True → False' in line, text
+    assert ("changed: NEEDS_SAVE (policy.py:2): (payload='document') was True, now False; 1/1 inputs differ "
+            '-> if you meant it, say so') in text.splitlines(), text
     # The test is not run again with the old code (6.5): no old path, only the real current one.
     assert 'became' not in text, text
     with sqlite3.connect(tmp_path / '.flowguard/cache/map.sqlite') as connection:
@@ -232,10 +232,10 @@ def test_fixed_6_same_name_copies_disagree_on_a_real_shared_input(tmp_path):
     text = _text(result)
     assert result.returncode == 1, text
     assert '1 passed' in result.stdout, text
-    assert 'STANDING' in text and re.search(r'红|red|disagree|inconsistent', text, re.I), text
     # The witness comes from the union of the recorded call (0), its neighbours and the copies' constants.
-    red = next(line for line in text.splitlines() if line.startswith('red: same-name anchor STANDING'))
-    assert 'days=7' in red, text
+    assert [line for line in text.splitlines() if line.startswith('red: ')] == [
+        'red: same STANDING: on days=7: policy.py:standing returns True, policy.py:preview returns False '
+        '-> decide which copy is right, then make the other agree'], text
 
 
 def test_fixed_7_rule_failure_preserves_its_independent_source_sentence(tmp_path):
@@ -259,8 +259,11 @@ def test_fixed_7_rule_failure_preserves_its_independent_source_sentence(tmp_path
     result = _run(tmp_path)
     text = _text(result)
     assert result.returncode == 1, text
-    assert 'STANDING_RULE' in text and re.search(r'days\s*[=:]\s*4', text), text
-    assert 'At most three days.' in text, text
+    assert [line for line in text.splitlines() if line.startswith('red: ')] == [
+        'red: rule STANDING_RULE: days=4 -> rule F, code True at policy.py:standing (1 of 6 cells disagree) (+1 more) '
+        '-> change the code so policy.py:standing follows rule STANDING_RULE'], text
+    # The owner's sentence is the red's detail, which show --last prints under it.
+    assert '    STANDING_RULE source: At most three days.' in _last(tmp_path).splitlines()
 
 
 def test_fixed_8_old_values_in_four_copies_include_large_function_interiors(tmp_path):
@@ -289,9 +292,12 @@ def renewal(days: int) -> bool:
     result = _run(tmp_path)
     text = _text(result)
     assert result.returncode == 0, text
-    assert re.search(r'旧值\s*14.*4\s*个判断|old.*14.*4', text, re.I), text
-    assert all(location in text for location in locations), text
-    assert re.search(r'线索|lead', text, re.I), text
+    # A 5.0-deprecated heuristic: no line of the block, the lead only in show --last.
+    assert 'old values' not in text and 'deprecated: old-value leads will be removed in 5.0' in result.stderr, text
+    last = _last(tmp_path).splitlines()
+    leads = last[last.index('deprecated leads (5.0):') + 1:]
+    lead = next(line for line in leads if 'old values 14 remain in 4 decisions' in line)
+    assert all(location in lead for location in locations), last
 
 
 def test_fixed_9_reused_connection_calls_run_once_each_and_are_not_compared(tmp_path):
@@ -319,7 +325,7 @@ def test_fixed_9_reused_connection_calls_run_once_each_and_are_not_compared(tmp_
     result = _run(tmp_path)
     text = _text(result)
     assert result.returncode == 0 and '1 passed' in result.stdout, text   # the project's own row count holds
-    assert 'STANDING：no comparable JSON result' in text, text
+    assert 'not compared: STANDING (no comparable JSON result) -> not a failure' in text.splitlines(), text
     assert not re.search(r'changed:.*STANDING|STANDING[^\n]*classes', text), text
     report = _observations(tmp_path)
     assert not [item for item in report['items'] if item.get('name') == 'STANDING'], report
@@ -343,8 +349,8 @@ def test_late_imported_sensor_is_observed_without_eagerly_importing_its_module(t
     result = _run(tmp_path)
     text = _text(result)
     assert result.returncode == 0 and '1 passed' in result.stdout, text
-    line = next(line for line in text.splitlines() if line.startswith('changed: LATE_STANDING'))
-    assert 'policy.py:3' in line and 'days=5' in line and 'function result False → True' in line, text
+    assert ('changed: LATE_STANDING (policy.py:3): (days=5) was False, now True; 1/2 inputs differ '
+            '-> if you meant it, say so') in text.splitlines(), text
 
 
 def test_same_name_database_copies_are_compared_in_the_same_real_context(tmp_path):
@@ -375,11 +381,11 @@ def test_same_name_database_copies_are_compared_in_the_same_real_context(tmp_pat
     text = _text(result)
     assert result.returncode == 0 and '1 passed' in result.stdout, text
     assert 'STANDING' in text, text
-    assert not re.search(r'红\s*同名锚点|red[^\n]*STANDING|STANDING[^\n]*(?:disagree|inconsistent)', text, re.I), text
+    assert not re.search(r'^red: |STANDING[^\n]*(?:disagree|inconsistent)', text, re.I | re.M), text
 
 
 def test_same_name_copy_union_finds_a_baseline_disagreement_and_reports_it_as_before(tmp_path):
-    _project(tmp_path, '''
+    policy = _project(tmp_path, '''
         # flowguard: sensor STANDING
         def owner(days: int) -> bool:
             return False
@@ -395,11 +401,17 @@ def test_same_name_copy_union_finds_a_baseline_disagreement_and_reports_it_as_be
     result = _run(tmp_path)
     text = _text(result)
     # 91, a constant of one copy, is in the compared union; the copies already disagreed there at the
-    # baseline, so it is `before`, not red (4.5), and the run passes.
+    # baseline, so it is `before`, not red (4.5), and the run passes. A before line needs the change to touch a
+    # copy's file (4.7): untouched, the old disagreement says nothing.
     assert result.returncode == 0 and '1 passed' in result.stdout, text
-    line = next(line for line in text.splitlines() if line.startswith('before: same-name anchor STANDING'))
-    assert re.search(r'days\s*[=:]\s*91', line), text
-    assert not any(line.startswith('red:') for line in text.splitlines()), text
+    assert not any(line.startswith(('red: ', 'before: ')) for line in text.splitlines()), text
+    policy.write_text(policy.read_text() + '# a documentation-only edit\n')
+    result = _run(tmp_path)
+    text = _text(result)
+    assert result.returncode == 0 and '1 passed' in result.stdout, text
+    assert [line for line in text.splitlines() if line.startswith(('red: ', 'before: '))] == [
+        'before: same STANDING disagreed at task start on days=91: policy.py:owner returns False, policy.py:peer returns True '
+        '-> leave it unless your task is about it'], text
 
 
 def test_fixture_constant_override_never_enters_the_sealed_comparison(tmp_path):
@@ -423,8 +435,8 @@ def test_fixture_constant_override_never_enters_the_sealed_comparison(tmp_path):
     assert result.returncode == 0 and '1 passed' in result.stdout, text
     # Each version runs on its own source constant (3, then 7), never the fixture's live 100:
     # days=5 was allowed by the baseline and is refused now, though the real call (LIMIT 100) refused it.
-    line = next(line for line in text.splitlines() if line.startswith('changed: LIMIT_BOUNDARY'))
-    assert 'policy.py:3' in line and 'days=5' in line and 'function result True → False' in line, text
+    assert ('changed: LIMIT_BOUNDARY (policy.py:3): (days=5) was True, now False; 1/2 inputs differ '
+            '-> if you meant it, say so') in text.splitlines(), text
     assert not re.search(r'days\s*[=:]\s*100', text), text
     item = next(item for item in _observations(tmp_path)['items'] if item.get('name') == 'LIMIT_BOUNDARY')
     assert item['changed'] == [[{'days': 5}, True, False]] and item['total'] == 2, item

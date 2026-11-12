@@ -75,6 +75,9 @@ def test_real_comparison_displays_survive_cp1252_and_keep_unicode_data(tmp_path)
         if name=='compare':
             assert r'\u2194'in shown and r'\u2192'in shown,(name,shown)
             assert 'total 3 classes'in shown,(name,shown)
+        elif name=='pytest':
+            # The 4.3 block reports the actual same-name contradiction: what each copy answered on the input.
+            assert 'red: same GRACE: on ' in shown and ' returns ' in shown,(name,shown)
         else:
             # The three-signal view reports the actual same-name contradiction: what each copy answered (`2 份：1 份得 …`).
             assert 'same-name anchor'in shown and 'copies return'in shown,(name,shown)
