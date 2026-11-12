@@ -393,6 +393,36 @@ def test_same_name_copies_are_worded_for_the_43_lines_without_choosing_a_copy():
          'leave it unless your task is about it')]
 
 
+def test_four_or_more_same_name_copies_name_three_and_count_the_others_where_they_belong():
+    """A line names at most three places: of four or more copies the others are counted in the group of their answer,
+    never cut out of a `who returns what` clause (that left another copy's answer pinned on a place); every copy is
+    in the finding's detail."""
+    same = lambda left, right: left == right
+    four = [(f'limits.py:{name}', value) for name, value in (('chart', 1), ('calendar', 2), ('report', 3), ('export', 4))]
+    five = [(f'limits.py:{name}', value) for name, value in
+            (('chart', 1), ('calendar', 1), ('report', 2), ('export', 2), ('summary', 3))]
+    assert signals.copy_says(four, same, signals.value_text) == (
+        'limits.py:chart returns 1, limits.py:calendar returns 2, limits.py:report returns 3, 1 other copy returns 4',
+        'decide which copy is right, then make the others agree')
+    assert signals.copy_says(five, same, signals.value_text)[0] == (
+        'limits.py:chart and limits.py:calendar return 1, limits.py:report and 1 other copy return 2, 1 other copy returns 3')
+    assert signals.copy_says(five, same, signals.value_text, limit=None)[0] == (
+        'limits.py:chart and limits.py:calendar return 1, limits.py:report and limits.py:export return 2, limits.py:summary returns 3')
+    # the reference first; the step names the copies the text names and counts the rest
+    assert signals.copy_says(five, same, signals.value_text, owner='limits.py:report', apart=[('limits.py:export', 'days=2')]) == (
+        'the reference limits.py:report returns 2, limits.py:chart and limits.py:calendar return 1, 1 other copy returns 3; '
+        '1 other copy differs from the reference on other inputs',
+        'make limits.py:chart, limits.py:calendar and 1 other copy agree with the reference')
+    places = [place for place, _ in five]
+    lines = signals.copy_lines([('days=1', five)], same, signals.value_text, total=5, words=signals.copy_says)
+    issue = signals.copies_issue('LIMIT', lines, [], places=places, files={'limits.py'})
+    found, _ = signals.deliver([issue], touched_functions=(), touched_files=())
+    assert _block(found)[1:] == [
+        'red: same LIMIT: on days=1: limits.py:chart and limits.py:calendar return 1, limits.py:report and 1 other copy return 2, '
+        '1 other copy returns 3 -> decide which copy is right, then make the others agree'], found
+    assert found[0].detail == ('copies: ' + ', '.join(places),), found
+
+
 def test_a_changed_line_shows_the_smallest_changed_input_and_how_many_differ():
     line = signals.changed_line('STANDING', 'policy:standing', 'shop/policy.py', 3,
                                 [({'days': 9}, False, True), ({'days': 5}, False, True), ({'days': 7}, 'x', {'raises': 'ValueError: no'})], 12)

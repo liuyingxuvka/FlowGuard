@@ -695,11 +695,13 @@ def copy_answers(answers, same, show, owner=None, total=None, apart=()):
     return text, 'first decide which copy is correct, then make ' + ('the other copy' if len(answers) == 2 else 'the remaining copies') + ' agree with it'
 
 
-def copy_says(answers, same, show, owner=None, total=None, apart=()):
+def copy_says(answers, same, show, owner=None, total=None, apart=(), limit=PLACES):
     """(what, step) of one input of same-name copies in the words of the 4.3 lines, without choosing which copy is
     right: `a.py:f returns 52, b.py:g returns 53`; copies with one answer are listed together (`a and b return 52`),
     the reference first when `owner` names it, whose step is then to make the others agree with it. `apart` and
-    `total` as in `copy_answers`."""
+    `total` as in `copy_answers`. At most `limit` copies are named (None: all), as a line names at most three
+    places: the others are counted in the group of their answer (`c and 2 other copies return 53`), never cut out
+    of it, and the step names only the copies the text names (`copies_issue` keeps every copy in the detail)."""
     aside = dict(apart)
     groups = []
     for place, value in answers:
@@ -711,25 +713,42 @@ def copy_says(answers, same, show, owner=None, total=None, apart=()):
         else:
             group[1].append(place)
     groups.sort(key=lambda group: (owner not in group[1], -len(group[1])))
+    room = len(answers) + len(aside) if limit is None else limit
+    named = set()
+    def name(places):
+        nonlocal room
+        shown = places[:room]
+        room -= len(shown)
+        named.update(shown)
+        return shown, len(places) - len(shown)
+    def others(count):
+        return f'{count} other cop{"y" if count == 1 else "ies"}'
     def who(places):
-        names = [('the reference ' if place == owner else '') + place for place in places]
+        shown, hidden = name(places)
+        names = [('the reference ' if place == owner else '') + place for place in shown] + ([others(hidden)] if hidden else [])
         return names[0] if len(names) == 1 else ', '.join(names[:-1]) + ' and ' + names[-1]
     text = ', '.join(f'{who(places)} {"returns" if len(places) == 1 else "return"} {show(value)}' for value, places in groups)
     if aside:
-        text += '; ' + ', '.join(f'{place} differs from the reference on {where}' for place, where in aside.items())
+        shown, hidden = name(list(aside))
+        text += '; ' + ', '.join([*(f'{place} differs from the reference on {aside[place]}' for place in shown),
+                                  *([f'{others(hidden)} differ{"s" * (hidden == 1)} from the reference on other inputs'] if hidden else [])])
     missing = (total or len(answers)) - len(answers)
     if missing:
         text += f'; {missing} other cop{"y has" if missing == 1 else "ies have"} no result for this input'
     if owner is not None:
-        others = [place for value, places in groups if owner not in places for place in places]
-        return text, f'make {", ".join(others)} agree with the reference'
+        wrong = [place for value, places in groups if owner not in places for place in places]
+        listed = [place for place in wrong if place in named]
+        hidden = len(wrong) - len(listed)
+        listed = ', '.join(listed) + (' and ' if listed and hidden else '') + (others(hidden) if hidden else '')
+        return text, f'make {listed} agree with the reference'
     return text, 'decide which copy is right, then make the ' + ('other agree' if len(answers) == 2 else 'others agree')
 
 
 def copies_issue(name, fresh, old, *, places, files=()):
     """The `same:NAME` finding (`deliver`) of same-name copies from the `copy_partition` lines worded by `copy_says`:
     one member per line, the pairs of copies it shows to differ (`a|b`, sorted), new where this change broke them
-    (`fresh`), else old. Its places are the copies the line names; it is touched where a copy's file is."""
+    (`fresh`), else old. Its places are the copies the line names; it is touched where a copy's file is. Of more than
+    three copies, which a line names three of (`copy_says`), every copy is named in the detail."""
     from .health import Issue, LINES_ONLY
     parts, new = [], set()
     for lines, added in ((fresh, True), (old, False)):
@@ -739,9 +758,10 @@ def copies_issue(name, fresh, old, *, places, files=()):
             parts.append((function, named, f'on {_one_line(where)}: {_one_line(text)}', step))
             if added:
                 new.add(function)
+    every = list(dict.fromkeys(places))
     return Issue(f'same:{name}', LINES_ONLY, f'same {name}', f'same {name}: copies disagree', parts[0][3] if parts else '',
                  files=frozenset(files), new=bool(new), family='same', subject=f'same {name}', parts=tuple(parts),
-                 fresh=frozenset(new))
+                 fresh=frozenset(new), detail=(f'copies: {", ".join(every)}',) if len(every) > PLACES else ())
 
 
 def copy_lines(inputs, same, show, owner=None, total=None, *, only=None, words=None):
