@@ -28,11 +28,12 @@ def _release_421(target):
 
 def _run_421(release, project, code):
     """`code` under 4.2.1: `-I -S` reads no PYTHONPATH and no .pth file (so not the editable 4.3 install); the
-    release comes first on the path, then this interpreter's site-packages for its dependencies."""
+    release comes first on the path, then this interpreter's site-packages for its dependencies. `-X utf8`: 4.2.1
+    prints its red lines as written (U+7EA2), not escaped for a Windows console, so RED can find them there too."""
     paths = [str(release), *site.getsitepackages()]
     boot = f'import sys; sys.path[:0] = {paths!r}; import flowguard; assert flowguard.__version__ == "4.2.1"; ' + code
-    return subprocess.run([sys.executable, '-I', '-S', '-c', boot], cwd=project, capture_output=True, text=True,
-                          encoding='utf-8', timeout=600)
+    return subprocess.run([sys.executable, '-I', '-S', '-X', 'utf8', '-c', boot], cwd=project, capture_output=True,
+                          text=True, encoding='utf-8', timeout=600)
 
 
 FILES = {
