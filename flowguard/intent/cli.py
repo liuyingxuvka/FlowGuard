@@ -360,10 +360,10 @@ def _silent_lines(cfg, index, rid, full, limit=10):
 
 def show_last(cfg, full=False):
     """`show --last`: which run it was and when (`FlowGuard last run: pytest at 2026-11-12 14:03:51`, local time), the
-    run's first line, then every one of its lines (no budget, no cut, full paths) with
-    its detail indented under it; how many members an `act = "ignore"` entry of known.toml (or a `[structure]`
-    decision) covered; the deprecated features the run used; the unchanged points an explicit comparison compared;
-    and the 5.0-deprecated heuristic leads, which no longer get a line, under `deprecated leads (5.0):`. Read from
+    run's first line, then every one of its lines (no budget, no cut, full paths) with its detail indented under
+    it; how many members an `act = "ignore"` entry of known.toml (or a `[structure]` decision) covered, when any
+    did; the deprecated features the run used; the unchanged points an explicit comparison compared; and the
+    5.0-deprecated heuristic leads, which no longer get a line, under `deprecated leads (5.0):`. Read from
     the cache (`cache.read_last`), without building the map."""
     from .differences import display
     last = cache.read_last(cfg)
@@ -375,7 +375,8 @@ def show_last(cfg, full=False):
     for line in last['lines']:
         lines.append(f'{line["kind"]}: {line["text"]}' + (f' -> {line["step"]}' if line['step'] else ''))
         lines.extend('    ' + detail for detail in line['detail'])
-    lines.append(f'ignored: {last["ignored"]} (act = "ignore")')
+    if last['ignored']:
+        lines.append(f'ignored: {last["ignored"]} (act = "ignore")')
     if last['deprecated']:
         lines.append('deprecated features used (5.0): ' + ', '.join(last['deprecated']))
     if last.get('compared'):
