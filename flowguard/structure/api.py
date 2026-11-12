@@ -328,7 +328,7 @@ class MapHandle:
         if facts is None:
             listed = self._kinds('language', 'writes')
             if by_name or any(data.get('language', 'python') == 'python' for _, _, data in listed):
-                listed = self._kinds('language', 'writes', 'assignments')     # only these rows read assignments
+                listed = self.write_records()      # only these rows read assignments
             facts = [data for _, _, data in listed]
         for facts in list(facts):
             kind = facts.get('language', 'python')
@@ -361,6 +361,13 @@ class MapHandle:
         if target is not None:
             rows = [row for row in rows if _writes_target(row, target, models)]
         return Rows(sorted(rows, key=lambda row: (row['file'], row['line'], row.get('column') or 0, str(row['field']))))
+
+    def write_records(self):
+        """(path, parse error, record) of every mapped file in path order, its record as `writes(facts=)` reads it: its
+        `language`, its `writes` and, as `assignments`, the assignment rows `writes` reads (the `assignments.writes`
+        part: none of a JS/TS file but its member assignments with a field)."""
+        return [(path, error, {('assignments' if kind == 'assignments.writes' else kind): value for kind, value in data.items()})
+                for path, error, data in self._kinds('language', 'writes', 'assignments.writes')]
 
     def writes_to(self, rows, target):
         """The rows of `writes()` that write `target`, in their order: what `writes(target)` gives when `rows` is
@@ -459,6 +466,9 @@ class MapHandle:
             return None
         key = self._baseline_key(blob, path, module, is_test)
         parts = self._derived.setdefault('baseline_parts', {})
+        whole = self._derived.get('baseline_facts', {})
+        if (key, kind) not in parts and key in whole:
+            parts[(key, kind)] = whole[key].get(kind)  # the record this handle already decoded holds it
         if (key, kind) not in parts:
             row = self.con.execute('SELECT v FROM meta WHERE k=?', (key + ':' + kind,)).fetchone()
             kinds = None if row is not None else self.con.execute('SELECT v FROM meta WHERE k=?', (key + ':',)).fetchone()
@@ -994,13 +1004,19 @@ class MapHandle:
             return self._derived['calls']
         from .readers.ecma import PRISMA_READS, PRISMA_WRITES
         from .readers.registry import ECMA
+        prisma = PRISMA_WRITES | PRISMA_READS
         down = {}
         for src, dst in self.con.execute("SELECT src, dst FROM edge WHERE kind = 'calls' AND dst NOT LIKE 'unknown-%'"):
             down.setdefault(src, {})[dst] = 'edge'
+        foreign = {}                        # file: is it JS/TS (read once per file)
+        def ecma(file):
+            if file not in foreign:
+                foreign[file] = language_of(file) in ECMA
+            return foreign[file]
         by_name, by_holder, owners = {}, {}, {}
         for ident, file, qual, raw in self.con.execute(
                 "SELECT n.id, n.file, n.qual, n.raw FROM node n WHERE n.kind IN ('function', 'method')"):
-            if not file or language_of(file) not in ECMA or '<anonymous' in qual:
+            if not file or not ecma(file) or '<anonymous' in qual:
                 continue
             data = store.unpack(raw) if raw else {}
             name = data.get('name') or qual.rpartition('.')[2]
@@ -1009,32 +1025,46 @@ class MapHandle:
             if holder:
                 by_holder.setdefault((holder, name), []).append((ident, file))
                 owners[ident] = holder
-        def one(candidates, file):
-            candidates = [(ident, where) for ident, where in candidates if self.package(where) == self.package(file)]
-            local = [ident for ident, where in candidates if where == file]
-            chosen = local if len(local) == 1 else [ident for ident, _ in candidates]
-            return chosen[0] if len(chosen) == 1 else None
-        for _, _, facts in self._kinds('language', 'syntax_calls'):
-            if facts.get('language') not in ECMA:
-                continue
-            for call in facts.get('syntax_calls', ()):
-                if call.get('resolved') or call.get('kind') == 'jsx-element':
-                    continue
-                parts = call['text'].split('.')
+        # Each list of candidates (named by `key`) grouped by package once, and each answer kept for its file: the
+        # calls of one file name the same functions again and again.
+        packages, grouped, chosen = {}, {}, {}
+        def package(file):
+            if file not in packages:
+                packages[file] = self.package(file)
+            return packages[file]
+        def one(key, candidates, file):
+            if (key, file) not in chosen:
+                if key not in grouped:
+                    grouped[key] = {}
+                    for ident, where in candidates:
+                        grouped[key].setdefault(package(where), []).append((ident, where))
+                candidates = grouped[key].get(package(file), [])
+                local = [ident for ident, where in candidates if where == file]
+                picked = local if len(local) == 1 else [ident for ident, _ in candidates]
+                chosen[(key, file)] = picked[0] if len(picked) == 1 else None
+            return chosen[(key, file)]
+        holders = {}                        # caller: the holder `this` names in it
+        def holder_of(caller):
+            if caller not in holders:
+                named = caller.partition(':')[0] + ':' + '.'.join(part for part in caller.partition(':')[2].split('.')
+                                                                  if not part.startswith('<anonymous'))
+                holders[caller] = owners.get(named) or next((owners[ident] for ident in owners if named.startswith(ident + '.')), '')
+            return holders[caller]
+        # The JS/TS syntax calls the linker left unresolved, JSX elements aside (`store.save_facts`).
+        for _, _, facts in self._kinds('syntax_calls.unresolved'):
+            for caller, file, text in facts.get('syntax_calls.unresolved', ()):
+                parts = text.split('.')
                 name = parts[-1]
-                if not name.isidentifier() or len(parts) >= 3 and name in PRISMA_WRITES | PRISMA_READS:
+                if not name.isidentifier() or len(parts) >= 3 and name in prisma:
                     continue
                 receiver = parts[-2] if len(parts) >= 2 else ''
-                caller = call['node']
                 if receiver == 'this':
-                    named = caller.partition(':')[0] + ':' + '.'.join(part for part in caller.partition(':')[2].split('.')
-                                                                      if not part.startswith('<anonymous'))
-                    holder = owners.get(named) or next((owners[ident] for ident in owners if named.startswith(ident + '.')), '')
-                    target = one(by_holder.get((holder, name), []), call['file']) if holder else None
+                    holder = holder_of(caller)
+                    target = one(('holder', holder, name), by_holder.get((holder, name), []), file) if holder else None
                 elif receiver:
-                    target = one(by_holder.get((receiver, name), []) or by_name.get(name, []), call['file'])
+                    target = one(('receiver', receiver, name), by_holder.get((receiver, name), []) or by_name.get(name, []), file)
                 else:
-                    target = one(by_name.get(name, []), call['file'])
+                    target = one(('name', name), by_name.get(name, []), file)
                 if target and target != caller:
                     down.setdefault(caller, {}).setdefault(target, 'name')
         up = {}
@@ -1051,7 +1081,9 @@ class MapHandle:
         'name' (some JS/TS call on the way was resolved by name) or 'self'."""
         import bisect
         down, upward = self.call_index()
-        callers = self._derived.setdefault('callers', sorted(down))
+        if 'callers' not in self._derived:
+            self._derived['callers'] = sorted(down)
+        callers = self._derived['callers']
         if 'test_modules' not in self._derived:
             self._derived['test_modules'] = {module for (module,) in self.con.execute('SELECT module FROM file WHERE is_test = 1')}
         tests = self._derived['test_modules']
@@ -1291,6 +1323,21 @@ class MapHandle:
             self._mark_query('symbol_reads',language)
             rows += self._syntax('symbol_reads')
         return self._language_rows(rows,language)
+
+    def python_calls(self):
+        """The rows of `calls()` that Python files make (each row's `file` is the file whose facts hold it), read from
+        those files' parts alone: a JS/TS project's calls are not unpacked for them. The query counts as `calls()`
+        (`query_coverage`): its other rows are only left out."""
+        from .readers.registry import language_for
+        self._mark_query('calls')
+        wanted = [path for (path,) in self.con.execute('SELECT path FROM file ORDER BY path') if language_for(path) == 'python']
+        rows = []
+        for start in range(0, len(wanted), 500):
+            chunk = wanted[start:start + 500]
+            found = dict(self.con.execute(f"SELECT path, data FROM part WHERE kind='syntax_calls' AND path IN "
+                                          f"({','.join('?' * len(chunk))})", chunk))
+            rows.extend(row for path in chunk for row in store.unpack(found.get(path)) or ())
+        return Rows(rows)
 
     def imports(self, *, declarations=False, language=None):
         """Dependency links, or literal source declarations including external imports.
@@ -1924,11 +1971,16 @@ def _models_of(rows):
     return Models([(path, schema) for path, schema in rows if schema.get('kind') == 'prisma'])
 
 
+def _write_names(row):
+    """(names, fields) a write row is found by: its model and table, its field and column, case folded."""
+    return ({str(row.get('model') or '').casefold(), str(row.get('table') or '').casefold()} - {''},
+            {str(row.get('field') or '').casefold(), str(row.get('db_column') or '').casefold()} - {''})
+
+
 def _writes_target(row, target, models) -> bool:
     """`Model.field`, `table.column`, a model or table name, or a bare field/column name."""
     head, dot, tail = target.rpartition('.')
-    names = {str(row.get('model') or '').casefold(), str(row.get('table') or '').casefold()} - {''}
-    fields = {str(row.get('field') or '').casefold(), str(row.get('db_column') or '').casefold()} - {''}
+    names, fields = _write_names(row)
     if not dot:
         wanted = target.casefold()
         return wanted in names or wanted in fields

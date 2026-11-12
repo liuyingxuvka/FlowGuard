@@ -152,7 +152,7 @@ def fallbacks(cfg, graph):
     covered = _scope(cfg)
     graph.reset_query_coverage()
     rows = [row for row in graph.handlers() if covered(row['file']) and row['non_raising']]
-    rows += [dict(row, kind='warning_filter', type=row['resolved']) for row in graph.calls()
+    rows += [dict(row, kind='warning_filter', type=row['resolved']) for row in graph.python_calls()
              if row['resolved'] in WARNING_FILTERS and language_for(row['file']) == 'python' and covered(row['file'])]
     unread = {file: issue['reason'] for issue in graph.query_coverage()['issues']
               for file in issue['files'] if covered(file)}

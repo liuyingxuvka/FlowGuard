@@ -242,7 +242,7 @@ class Change:
         if key not in self._baseline_writes:
             paths = self.baseline_paths()
             if paths:
-                facts = [data for path, _, data in self.graph._kinds('language', 'writes', 'assignments') if path not in paths]
+                facts = [data for path, _, data in self.graph.write_records() if path not in paths]
                 facts += [record for record in map(self.old_facts, sorted(paths)) if record]
                 self._baseline_writes[key] = self.graph.writes(target, by_name=by_name, facts=facts,
                                                                definitions=self.baseline_definitions())
@@ -882,6 +882,29 @@ class _Calls:
         return True, ''
 
 
+class _TargetWrites:
+    """The rows of `rows` (write rows) that write a target (`_writes_target`), in their order, each target's kept: only
+    the rows that name the target's model, table, field or column (`_write_names`) are judged, as no other row can
+    write it."""
+
+    def __init__(self, rows, models):
+        from flowguard.structure.api import _write_names
+        self.rows, self.models, self.named, self.held = rows, models, {}, {}
+        for at, row in enumerate(rows):
+            names, fields = _write_names(row)
+            for name in names | fields:
+                self.named.setdefault(name, []).append(at)
+
+    def __call__(self, target):
+        from flowguard.structure.api import _writes_target
+        if target not in self.held:
+            head, dot, tail = target.rpartition('.')
+            near = set(self.named.get(head.casefold(), ())) | set(self.named.get(tail.casefold(), ())) if dot \
+                else self.named.get(tail.casefold(), ())
+            self.held[target] = [self.rows[at] for at in sorted(near) if _writes_target(self.rows[at], target, self.models)]
+        return self.held[target]
+
+
 def _pair_place(row):
     """'path:symbol' of a write's function; 'path:line' for a module-level write or callback."""
     return f'{row["file"]}:{row["function"] if row["function"] != "<module>" else row["line"]}'
@@ -920,13 +943,11 @@ def owner_pairs(change, index, *, everything=False):
     trees, guard, every = {}, _Calls(change), {}
     def writes(target, *, old=False):
         """`graph.writes(target, by_name=True)` (`old`: `Change.baseline_writes`), every row read once per side."""
-        from flowguard.structure.api import _writes_target
         if old not in every:
-            every[old] = (change.baseline_writes(by_name=True), change.baseline_definitions().models
-                          if change.baseline_paths() else change.graph._models()) if old else \
-                (change.graph.writes(by_name=True), change.graph._models())
-        rows, models = every[old]
-        return [row for row in rows if _writes_target(row, target, models)]
+            every[old] = _TargetWrites(change.baseline_writes(by_name=True), change.baseline_definitions().models
+                                       if change.baseline_paths() else change.graph._models()) if old else \
+                _TargetWrites(change.graph.writes(by_name=True), change.graph._models())
+        return every[old](target)
     def tree_of(function):
         if function not in trees:
             trees[function] = operation(change.graph, function, fold=_member)
