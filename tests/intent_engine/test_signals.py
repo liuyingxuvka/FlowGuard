@@ -742,3 +742,32 @@ def test_an_intent_item_failing_only_on_a_source_broken_at_task_start_passes_and
     assert [line for line in block(touched) if line.startswith(('red: ', 'before: '))] == [
         'before: source STANDING_RULE at decisions.py:2 was broken at task start -> leave it unless your task is about it'
     ], touched.stdout
+
+
+def test_a_rule_whose_source_does_not_parse_is_a_red_input_line_of_the_session_never_a_crash(tmp_path):
+    """D4: a source that is no source form (a bare sentence) is an input problem: the loader's red `load` line names
+    the declaration and the parser's words, and the session judges nothing of the refused rule (it crashed doing so)
+    while it still prints, keeps and judges everything else; an item of the rule that ran keeps its own red."""
+    from tests.intent_engine.test_default_runtime_signals import _project, _run
+    from tests.intent_engine._cli_fixture import block, last
+    policy = _project(tmp_path, '# flowguard: sensor STANDING\ndef standing(days: int) -> bool:\n    return days <= 3\n',
+                      'from policy import standing\ndef test_native():\n    assert standing(4) in (True, False)\n', rule='''
+        from flowguard.intent import rule
+        @rule('STANDING_RULE', decides='standing', fields={'days': int}, anchor='STANDING', source='At most three days.')
+        def STANDING_RULE(days):
+            return days <= 3
+    ''')
+    policy.write_text(policy.read_text().replace('days <= 3', 'days <= 5'))
+    load = ('red: load tests/intent/decisions.py:2: STANDING_RULE: source needs rule.<id> (a rule of .flowguard/rules.toml), '
+            'R<id> "exact words", owner R-id, doc PATH "quoted words", assumed: or lesson: '
+            '-> correct this declaration; until then none of its file is checked')
+    for options, rule in (((), ['red: rule STANDING_RULE: days=4 -> rule F, code True at policy.py:standing']),
+                          (('tests/test_case.py',), [])):          # with and without the rule's own items
+        result = _run(tmp_path, *options)
+        assert result.returncode == 1 and 'Traceback' not in result.stderr, result.stdout + result.stderr
+        reds = [line for line in block(result) if line.startswith('red: ')]
+        assert [line.partition(' (')[0] for line in reds if line.startswith('red: rule ')] == rule, result.stdout
+        assert [line.partition(': source needs')[0] for line in reds if line.startswith('red: load ')] == [
+            'red: load decisions.py:2: STANDING_RULE'], result.stdout
+        assert load in last(tmp_path).splitlines(), last(tmp_path)
+        assert 'changed: STANDING (policy.py:2)' in '\n'.join(block(result)), result.stdout

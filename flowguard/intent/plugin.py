@@ -788,7 +788,6 @@ class Observations:
         from . import cells as C
         from .engine import CONFLICT, PredicateError, outcome_eq
         from .loader import item_names
-        from .sources import parse
         engine, checked, quoted = self.state.engine, {}, set()
         for index, point, part, unknown, cause in self.records:
             if index >= len(self.runtime.readings):
@@ -806,6 +805,8 @@ class Observations:
                     continue
                 active = [other for other in self.state.model.active(rule.decides)
                           if other is rule or not self.state.model.distinct_pair(rule.id, other.id)]
+                if any(self._parsed(other) is None for other in active):
+                    continue    # a rule the loader refused: its load line is red, nothing of it is judged
                 for other in active:
                     if other.id not in checked:
                         item = self.state.model.file_of[other.id] + '::' + other.id + '[rules]'
@@ -835,7 +836,7 @@ class Observations:
                         self.red.append(f'{rule.id}: {said}')
                         self._rule_red(rule, f'{said} at {self._site(point["target"])}', place=self._site(point['target']))
                         if rule.id not in quoted:
-                            source = parse(rule.source)
+                            source = self._parsed(rule)
                             self.red.append(rule.id + ' source: ' + (source.quote or source.text))
                             quoted.add(rule.id)
                         break
@@ -844,7 +845,7 @@ class Observations:
         """Check actual projected readings without proving or replaying a contract."""
         from dataclasses import replace
         from .flow import runtime_check, _rule, _test_entry_references, Unverified
-        from .sources import authority, parse
+        from .sources import authority
         state, results, guards = self.state, [], {}
         self.grey.extend(state.anchor_issues)
         observed_anchors = {event.anchor for event in state.events}
@@ -860,6 +861,8 @@ class Observations:
             entries = _test_entry_references(model, self.index)
             if entries and not entries.intersection(observed_calls):
                 continue  # A sensor called outside this explicit scenario is not its case.
+            if self._parsed(model) is None:
+                continue  # the loader refused it: its load line is red, nothing of it is judged
             relations, grey, quotes = [], [], {}
             for relation in model.relations:
                 try:
@@ -871,8 +874,10 @@ class Observations:
                 for active in state.model.active(rule.decides):
                     if active is not rule and state.model.distinct_pair(rule.id, active.id):
                         continue
-                    if active.id not in guards:
-                        source = parse(active.source)
+                    if active.id not in guards and self._parsed(active) is None:
+                        guards[active.id] = ([f'refused by the loader ({self._declared_at(active.id)})'], active.source)
+                    elif active.id not in guards:
+                        source = self._parsed(active)
                         valid, reason = authority(source, active.confirmed, self.cfg, state.engine.archive, active.quote)
                         borrowed = state.engine.borrowed(active)
                         guards[active.id] = (([reason] if not valid else []) + borrowed, source.quote or source.text)
@@ -884,7 +889,7 @@ class Observations:
                     relations.append(relation)
             observed = runtime_check(replace(model, relations=tuple(relations)), state.events, self.index,
                                      rules=state.model.rules, engine=state.engine, _observed_only=True)
-            source = parse(model.source)
+            source = self._parsed(model)
             valid, reason = authority(source, None, self.cfg, state.engine.archive, None)
             observed['grey'].extend([*grey, *([] if valid else [reason])])
             observed['verdict'] = 'red' if observed['red'] else 'grey' if observed['grey'] else 'ok'
@@ -932,9 +937,7 @@ class Observations:
             if result.get('red'):
                 rule = model.rules.get(result.get('rule'))
                 quote = ''
-                if rule:
-                    from .sources import parse
-                    source = parse(rule.source)
+                if rule and (source := self._parsed(rule)) is not None:
                     quote = source.quote or source.text
                 lines = [signals.constraint(message, result.get('rule') or 'rule') for message in result['red']]
                 if quote:
@@ -1108,16 +1111,24 @@ class Observations:
                        or model.flows.get(identifier) or model.anchor_distincts.get(identifier))
         return f'{model.file_of[identifier]}:{declaration.line}' if declaration is not None and identifier in model.file_of else ''
 
+    def _parsed(self, declaration):
+        """The parsed source of a declaration the loader accepted (`loader._validate` parsed it), else None: the loader
+        refused it, a source that does not parse among the reasons, which is the red `load FILE:LINE` line (D4), and the
+        session judges nothing of it (its items fail on their own)."""
+        if _refused(self.state.model, declaration):
+            return None
+        from .sources import parse
+        return parse(declaration.source)
+
     def _rule_red(self, rule, what, *, place=None):
         """A red of rule `rule`: an intent rule's own check, or the code at one of its homes (`place`). One line per
         rule (D30: its member is the rule): the rule's own reds first, then the code's, its step from
         `signals.rule_steps` over every red the engine gave it (a row the rule contradicts is the row's red, not the
         code's), every step and the owner's words in its detail."""
         from . import signals
-        from .sources import parse
         model = self.state.model
         where = self._declared_at(rule.id)
-        source = parse(rule.source)
+        source = self._parsed(rule)
         sites = [self._site(home.target) for home in rule.homes if not hasattr(home, 'scenario')]
         said = what
         found = re.match(r'(?:\S+: )?(\d+ of \d+ (?:cells|rows) disagree); smallest (.+? -> rule .+?)(?: \((row L\d+)\))?$', what)
@@ -1133,7 +1144,7 @@ class Observations:
         entry['whats'].sort(key=lambda text: not text.startswith(('self: ', 'row ', 'conflict ', 'gap in ')))
         steps = [step.rstrip('; ') for step in signals.rule_steps(rule.id, homes, where, entry['said'])]
         entry['step'] = steps[0] if steps else ''
-        entry['detail'] = [*steps, f'{rule.id} source: {source.quote or source.text}']
+        entry['detail'] = [*steps, f'{rule.id} source: ' + (source.quote or source.text if source is not None else rule.source)]
         return key
 
     def _item_name(self, identifier, kind):
@@ -1144,15 +1155,19 @@ class Observations:
 
     def _judged_names(self):
         """Put into `ran` the finding names of the declarations every intent item of which this session judged (none
-        unverified, nor its check on the observed calls): `rule:ID` (or `flow:ID`, ...), and `source:ID` when every
-        item passed, which no source of its that fails does."""
+        unverified, nor its check on the observed calls, nor refused by the loader): `rule:ID` (or `flow:ID`, ...), and
+        `source:ID` when every item passed, which no source of its that fails does."""
         verdicts, kinds = {}, {}
         for result in self.state.results.values():
             if result['rule']:
                 verdicts.setdefault(result['rule'], []).append(result['verdict'])
                 kinds.setdefault(result['rule'], result.get('kind'))
+        model = self.state.model
         for identifier, found in verdicts.items():
-            if 'grey' in found or any(str(reason).startswith(identifier + ': ') for reason in self.grey):
+            declaration = (model.rules.get(identifier) or model.states.get(identifier) or model.structures.get(identifier)
+                           or model.flows.get(identifier) or model.anchor_distincts.get(identifier))
+            if 'grey' in found or any(str(reason).startswith(identifier + ': ') for reason in self.grey) \
+                    or declaration is not None and _refused(model, declaration):
                 continue
             self.ran.add(self._item_name(identifier, kinds[identifier]))
             if all(verdict == 'ok' for verdict in found):
@@ -1838,6 +1853,12 @@ def finish_verified(session, exitstatus):
         state.session_red.extend(observed.text.splitlines() or ['red: ' + line.text for line in observed.session_red])
 
 
+def _refused(model, declaration):
+    """Whether the loader refused `declaration` at its own line (`loader._validate`: its source does not parse, a field
+    or a rule it names does not fit, ...): its load line is red, and no session check or record judges it."""
+    return any(error['file'] == model.file_of[declaration.id] and error['line'] == declaration.line for error in model.errors)
+
+
 def _verify(session, exitstatus):
     state = session.config._flowguard_intent
     from .calibration import probe_context
@@ -1917,6 +1938,8 @@ def _verify(session, exitstatus):
             for rid in fresh:
                 declaration = (model.rules.get(rid) or model.states.get(rid) or model.structures.get(rid)
                                or model.flows.get(rid) or model.anchor_distincts.get(rid))
+                if _refused(model, declaration):
+                    continue        # a declaration the loader refused is judged again once it loads; no record
                 records[rid] = record(state.cfg, model, declaration,
                                       [r for r in state.results.values() if r['rule'] == rid], mapping, now, found)
             save_dependencies(con, records)
