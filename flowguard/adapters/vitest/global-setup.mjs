@@ -1,4 +1,7 @@
-// The root project owns the observations directory and the final report.
+// The root project owns the observations directory and the final report. Its setup runs before vitest starts any
+// worker and sets FLOWGUARD_VITEST_OBS, which vitest hands to the workers of both pools (forks and threads) with the
+// rest of process.env; the recorders and the static test write into that folder. Its teardown runs after vitest's
+// summary and prints the FlowGuard block there.
 const builtin = typeof process.getBuiltinModule === 'function' ? process.getBuiltinModule.bind(process) : null;
 const fs = builtin?.('fs'), path = builtin?.('path');
 const read = fs?.readFileSync, exists = fs?.existsSync, remove = fs?.rmSync, mkdir = fs?.mkdirSync;
@@ -38,6 +41,7 @@ export function teardown() {
   const output = ((run.stdout || '') + (run.stderr || '')).trimEnd();
   if (run.error) throw run.error;
   if (run.status !== 0 && run.status !== 1) throw new Error(`FlowGuard report exit ${run.status}:\n${output}`);
-  if (output) console.log('\n' + output);
+  if (run.stdout.trim()) console.log('\n' + run.stdout.trimEnd());
+  if (run.stderr.trim()) console.error(run.stderr.trimEnd());       // deprecated: lines
   if (run.status === 1) process.exitCode = 1;
 }

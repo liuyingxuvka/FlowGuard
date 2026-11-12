@@ -1,8 +1,11 @@
 // FlowGuard vitest adapter: the one test case of FlowGuard's own vitest project, which index.mjs adds to the run
-// after the project's tests (sequence.groupOrder). Python judges this run's observations as the teardown would;
-// a red fails this test, so the red is in vitest's own results (JSON, junit), not only in the exit status. The
-// text and status are saved for the teardown, which prints them after the summary. `test` is a global here.
+// after the project's tests (sequence.groupOrder). Python judges this run's observations as the teardown would and
+// saves the block, its status and the number of reds the static test did not already fail on; this test fails on
+// those reds with one line, so they are in vitest's own results (JSON, junit) too. The teardown prints the block
+// after vitest's summary. `test` is a global here.
 const { spawnSync } = process.getBuiltinModule('child_process');
+const { existsSync, readFileSync } = process.getBuiltinModule('fs');
+const { join } = process.getBuiltinModule('path');
 
 test('FlowGuard execution side', () => {
   const [command, ...prefix] = JSON.parse(process.env.FLOWGUARD_VITEST_PYTHON);
@@ -12,7 +15,15 @@ test('FlowGuard execution side', () => {
     encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
   });
   const output = ((run.stdout || '') + (run.stderr || '')).trimEnd();
+  const saved = join(process.env.FLOWGUARD_VITEST_OBS, 'report.json');
   if (run.error) throw run.error;
-  if (run.status !== 0 && run.status !== 1) throw new Error(`FlowGuard report exit ${run.status}:\n${output}`);
-  if (run.status === 1) throw new Error('FlowGuard found red in the execution side:\n' + output);
+  // a report that did not finish (Python exits 1 on an error too) saved nothing: its output says why
+  if ((run.status !== 0 && run.status !== 1) || !existsSync(saved)) throw new Error(`FlowGuard report exit ${run.status}:\n${output}`);
+  const { red } = JSON.parse(readFileSync(saved, 'utf8'));
+  if (red) {
+    // One line: what the reds are is the block's job, printed after the summary.
+    const error = new Error(`FlowGuard: ${red} red, see the FlowGuard block at the end`);
+    error.stack = error.message;
+    throw error;
+  }
 }, 600000);

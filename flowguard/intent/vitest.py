@@ -30,14 +30,19 @@ def _ecma(rel):
     return language_for(rel) in ECMA
 
 
-def _changed(cfg, commit):
-    """The TS/JS files the working tree changed against the baseline commit, untracked ones included."""
+def _differs(cfg, commit):
+    """The files the working tree changed against the baseline commit, untracked ones included (none in
+    node_modules)."""
     import os
     from ..map.common import git_run
     changed = git_run(cfg.root, 'diff', '--name-only', '-z', commit).stdout
     added = git_run(cfg.root, 'ls-files', '--others', '--exclude-standard', '-z').stdout
-    return sorted({os.fsdecode(value) for value in (changed + added).split(b'\0')
-                   if value and _ecma(os.fsdecode(value)) and b'node_modules/' not in value})
+    return sorted({os.fsdecode(value) for value in (changed + added).split(b'\0') if value and b'node_modules/' not in value})
+
+
+def _changed(cfg, commit):
+    """The TS/JS files the working tree changed against the baseline commit, untracked ones included."""
+    return [rel for rel in _differs(cfg, commit) if _ecma(rel)]
 
 
 def _digest(data):
@@ -46,11 +51,13 @@ def _digest(data):
 
 def _key(cfg, commit, changed, kind):
     """The plan's fingerprint; `kind` is part of it, as the plan's title says whether its commit is a recorded
-    task start or HEAD."""
+    task start or HEAD, and so are rules.toml and known.toml, whose entries the plan keeps with their sites
+    resolved."""
     from ..structure.store import reader_digest
+    from .sources import CATALOG_FILES
     own = [Path(__file__), *sorted(ADAPTER.glob('*.mjs'))]
     parts = [commit, kind, reader_digest(), *(_digest(path.read_bytes()) for path in own)]
-    for rel in changed:
+    for rel in [*changed, *CATALOG_FILES]:
         path = cfg.root / rel
         parts.append(rel + ':' + (_digest(path.read_bytes()) if path.is_file() else 'deleted'))
     return _digest('\n'.join(parts).encode())[:20]
@@ -419,7 +426,7 @@ def plan(cfg, commit, changed, key):
         for anchor in index.entries:
             if anchor.kind == 'sensor' and _ecma(anchor.file) and anchor.source_role != 'test':
                 wanted[anchor.target] = (anchor.name, True, anchor.file, anchor.qual)
-        old_sources, readers = {}, {}
+        old_sources, readers, touched = {}, {}, set()
         renamed = git_renames(cfg.root, commit)         # a moved file's baseline version is at its old path
         for rel in changed:
             if rel not in modules or is_test_rel(rel) or not (cfg.root / rel).is_file():
@@ -431,6 +438,9 @@ def plan(cfg, commit, changed, key):
             before = extract(cfg.root, rel, old, modules[rel], False) if old is not None else dict(nodes=[], const_tables=[])
             now = extract(cfg.root, rel, (cfg.root / rel).read_bytes(), modules[rel], False)
             prior = {row['qual']: row['fp'] for row in before['nodes']}
+            # what this change touches (a known entry's site, D31): a declaration it adds, edits or removes
+            touched.update(modules[rel] + ':' + row['qual'] for row in now['nodes'] if prior.get(row['qual']) != row['fp'])
+            touched.update(modules[rel] + ':' + qual for qual in prior.keys() - {row['qual'] for row in now['nodes']})
             for row in now['nodes']:
                 ident = modules[rel] + ':' + row['qual']
                 if row['kind'] == 'function' and _top_level(row['qual']) and prior.get(row['qual']) != row['fp'] and ident not in wanted:
@@ -494,6 +504,7 @@ def plan(cfg, commit, changed, key):
                                source=closed, old_source=prior, old_skip=old_skip,
                                changed=(rel in changed and (old is None or closed != prior)),
                                consts=numbers.get((rel, qual), []) + extra_numbers, labels=sorted(set(strings.get((rel, qual), [])))))
+        known, inputs = _catalog(cfg, graph)
     groups = {}
     for point in points:
         if point['anchored']:
@@ -511,7 +522,38 @@ def plan(cfg, commit, changed, key):
                              for other in peers])
     for point in points:
         files.setdefault(point['file'], dict(points=[]))['points'].append(point)
-    return dict(key=key, root=cfg.root.as_posix(), baseline=commit, limit=LIMIT, files=files, unplanned=unplanned)
+    return dict(key=key, root=cfg.root.as_posix(), baseline=commit, limit=LIMIT, files=files, unplanned=unplanned,
+                touched=sorted(touched), known=known, inputs=inputs)
+
+
+def _catalog(cfg, graph):
+    """(known entries, input findings) of .flowguard/known.toml and rules.toml for the plan: the valid entries with
+    their sites resolved on the map (`sources.known_sites`) and the findings of an invalid file, entry or site, both
+    as JSON (`_known`, `_issue` read them back)."""
+    from dataclasses import asdict
+    from . import sources
+    if not sources.catalog_files(cfg):
+        return [], []
+    found = sources.catalog(cfg)
+    entries, unresolved = sources.known_sites(graph, found.known.values())
+    known = [dict(asdict(entry), sites=list(entry.sites), nodes=sorted(entry.nodes), files=sorted(entry.files)) for entry in entries]
+    inputs = [dict(asdict(issue), nodes=sorted(issue.nodes), files=sorted(issue.files), fresh=sorted(issue.fresh))
+              for issue in [*found.issues, *unresolved]]
+    return known, inputs
+
+
+def _known(fields):
+    """A known entry of the plan (`_catalog`) as `sources.Known`."""
+    from .sources import Known
+    return Known(**dict(fields, sites=tuple(fields['sites']), nodes=frozenset(fields['nodes']), files=frozenset(fields['files'])))
+
+
+def _issue(fields):
+    """An input finding of the plan (`_catalog`) as `health.Issue`: a place that names several places is a tuple."""
+    from .health import Issue
+    parts = tuple((function, tuple(place) if isinstance(place, list) else place, what, step) for function, place, what, step in fields['parts'])
+    return Issue(**dict(fields, nodes=frozenset(fields['nodes']), files=frozenset(fields['files']), fresh=frozenset(fields['fresh']),
+                        entry=tuple(fields['entry']), detail=tuple(fields['detail']), parts=parts))
 
 
 def prepare(root):
@@ -713,7 +755,7 @@ def case_class(point, inputs):
             parts.append(f'{name}={C.show(item)}' if item in labels else f'{name}=other')
         else:
             parts.append(f'{name}={C.show(item)}')
-    return '，'.join(parts)
+    return ', '.join(parts)
 
 
 def _observations(directory):
@@ -846,27 +888,68 @@ def closed_rows(data, records):
     return rows, reasons, cuts
 
 
+def _plain(encoded):
+    """A recorded value (read by `value`) as the 4.3 lines spell it with `signals.value_text`: numbers, strings,
+    booleans and None as they are; a thrown error {'raises': 'Name: message'}; a date its ISO text; a set or a map
+    its JSON items as a list."""
+    from datetime import datetime
+    from . import cells as C
+    def spelled(item):
+        if isinstance(item, C.Raised):
+            return {'raises': str(item.error)}
+        if isinstance(item, datetime):
+            return item.isoformat()
+        if isinstance(item, frozenset):
+            return [json.loads(member) for member in sorted(item)]
+        if isinstance(item, tuple):
+            return [[json.loads(key), json.loads(member)] for key, member in item]
+        if isinstance(item, list):
+            return [spelled(member) for member in item]
+        if isinstance(item, dict):
+            return {key: spelled(member) for key, member in item.items()}
+        return item
+    return spelled(value(encoded))
+
+
+def _shown(encoded):
+    from .signals import value_text
+    return value_text(_plain(encoded))
+
+
 def judge(cfg, data, records, package=None):
-    """The session report signals.render prints: changes per case class, same-name and rule reds, grey.
-    `package` is the folder of the vitest run: a point in another package cannot be reached by its tests
-    and is not listed as unreached. Each unverified point is one item, named with its place."""
-    from . import cache, cells as C
+    """What this run found, as the 4.3 block reads it (`delivered`): `delivery` holds same-name copies as family
+    'same' (one member per input: red where this change broke a pair that agreed at the baseline, before where the
+    copies already differed on that input, `signals.copy_partition`), the changed line of each changed function whose
+    sealed run answers a recorded input differently than its baseline does, the rules bound to observed points (red
+    where the code disagrees; their source through the gate of `Engine.run_rules`: red where this change broke it,
+    before where it already failed at task start), an intent file that does not load and an invalid known.toml or
+    rules.toml (red), one not compared item per point, copy group or rule that could not be compared, with its
+    reasons, and what the change touches. `known` are the plan's known entries; `agreed` the same names whose copies
+    this run compared on every copy and found to agree. `package` is the folder of the vitest run: a point in another
+    package cannot be reached by its tests and is not listed as unreached."""
+    from . import cache, cells as C, signals
     from .engine import CONFLICT, Engine, PredicateError, outcome_eq
+    from .health import LINES_ONLY, Issue
     from .loader import load
-    from .sources import parse
+    from .sources import cited, parse, source_state
     points = {point['id']: point for entry in data['files'].values() for point in entry['points']}
     rows, reasons_by_point, cuts = closed_rows(data, records)
     calls = {}
     for record in records:
         calls.setdefault(record['id'], []).append(record)
-    items, red, before, steps, unverified = [], [], [], {}, []
+    issues, lines, unchecked = [], [], {}
+    def skipped(subject, reasons, *, function='', places=()):
+        entry = unchecked.setdefault((subject, function), dict(places=tuple(places), reasons=[]))
+        entry['reasons'].extend(reason for reason in reasons if reason not in entry['reasons'])
     for item in data['unplanned']:
         if _inside(cfg, item['rel'], package):
-            unverified.append(f'{item["name"]}（{item["rel"]}:{item["line"]}）：{item["reason"]}')
+            where = f'{item["rel"]}:{item["line"]}'
+            skipped(f'{item["name"]} ({where})', [item['reason']], function=item['id'], places=(where,))
     for ident, point in points.items():
         where = f'{point["rel"]}:{point["target_line"]}'
+        subject = f'{point["name"]} ({where})'
         collected = [dict(row, label=case_class(point, row['in'])) for row in rows.get(ident, ())]
-        reasons = reasons_by_point.get(ident, [])
+        reasons = list(reasons_by_point.get(ident, []))
         if point['skip']:
             reasons.append(point['skip'])
         rows[ident] = collected
@@ -874,66 +957,48 @@ def judge(cfg, data, records, package=None):
                         if calls.get(other['id']))
         if not calls.get(ident) and not collected:
             if point['skip'] and (copy_only or _inside(cfg, point['rel'], package)):
-                unverified.append(f'{point["name"]}: {point["skip"]}')
-                continue
-            if point['anchored'] and not copy_only and _inside(cfg, point['rel'], package):
-                unverified.append(f'{point["name"]}（{where}): not reached by any test')
+                skipped(subject, [point['skip']], function=ident, places=(where,))
+            elif point['anchored'] and not copy_only and _inside(cfg, point['rel'], package):
+                skipped(subject, ['not reached by any test'], function=ident, places=(where,))
             continue
-        if not collected:
-            unverified.extend(f'{point["name"]}：{reason}' for reason in dict.fromkeys(reasons))
-            continue
-        if not point['changed']:
+        if not collected or not point['changed']:
             if reasons:
-                unverified.extend(f'{point["name"]}: {reason}' for reason in dict.fromkeys(reasons))
+                skipped(subject, reasons, function=ident, places=(where,))
             continue
         actual_rows = [row for row in collected if row['actual']]
         compared = [row for row in actual_rows if not (isinstance(row['old'], dict) and '$missing' in row['old'])
                     and not (isinstance(row['old'], dict) and '$threw' in row['old'] and _same(row['old'], row['now']))]
         if any(isinstance(row['old'], dict) and '$threw' in row['old'] and _same(row['old'], row['now']) for row in actual_rows):
-            reasons.append('both versions raised the same exception; not compared')
+            reasons.append('both versions raised the same exception')
         changes = [row for row in compared if not _same(row['old'], row['now'])]
-        classes = {row['label'] for row in actual_rows}
-        if not changes and not reasons and {row['label'] for row in compared} == classes:
-            continue    # every replayed class compared and none changed: quiet, as on the pytest side
-        items.append(dict(
-            name=point['name'], file=point['rel'], line=point['target_line'], unanchored=not point['anchored'],
-            status='ok', complete=False, total=len(actual_rows), checked=len(compared),
-            changed=len(changes),
-            changes=[dict(inputs={name: value(item) for name, item in row['in']}, region=row['label'],
-                          before=C.show(value(row['old'])), after=C.show(value(row['now']))) for row in changes],
-            reasons=['TS classes come from comparison constants; this does not prove a complete partition'] + list(dict.fromkeys(reasons)),
-            rows=[(row['in'], row['now']) for row in collected]))
+        if changes:
+            lines.append(signals.changed_line(point['name'], ident, point['rel'], point['target_line'],
+                                              [({name: _plain(item) for name, item in row['in']}, _plain(row['old']), _plain(row['now']))
+                                               for row in changes], len(compared), unanchored=not point['anchored']))
+        elif reasons or {row['label'] for row in compared} != {row['label'] for row in actual_rows}:
+            # a replayed case class none of whose inputs could be compared is no evidence that it did not change
+            skipped(subject, reasons or ['a case class could not be compared at the baseline'], function=ident, places=(where,))
     # Same-name copies share replayed inputs. Each input is judged on its own against the copies at the
     # baseline: an old disagreement on one input cannot hide a pair newly broken on another (design 4.5).
-    same_name = dict(compared=set(), disagreed={})
-    from .signals import copy_cut, copy_partition, rule_steps
-    unverified.extend(line for name, left in cuts.items() if (line := copy_cut(name, LIMIT, left)))
-    def copy_report(name, lines, existing=False):
-        return (f'same-name anchor {name}: ' + '; '.join(
-            f'{where}, {text}' + ('' if existing else f' -> {step}') for where, text, step, _ in lines)
-            + (' -> leave it unless your task is about it' if existing
-               else '; if intentionally different, use different names'))
-    handled = set()
+    for name, left in cuts.items():
+        if cut := signals.copy_cut(name, LIMIT, left):
+            skipped(name, [cut.removeprefix(name + ': ')])
+    handled, agreed = set(), set()
+    missing = lambda answer: isinstance(answer, dict) and '$missing' in answer
+    threw = lambda answer: isinstance(answer, dict) and '$threw' in answer
     for ident, point in sorted(points.items(), key=lambda pair: not bool(calls.get(pair[0]))):
         if not point['copies'] or point['name'] in handled:
             continue
         handled.add(point['name'])
+        group = [ident, *(copy['id'] for copy in point['copies'])]
+        places = {target: f'{points[target]["rel"]}:{points[target]["fn"]}' for target in group}     # the 4.3 places
+        reference = next((places[target] for target in group if points[target].get('owner')), None)
         samples = [row for row in rows.get(ident, ()) if row['same']]
-        current_rows, complete = [], True
-        places = {target: f'{other["rel"]}:{other["target_line"]} {other["fn"]}'
-                  for target, other in points.items()}
-        owner = next((places[target] for target in [ident, *(copy['id'] for copy in point['copies'])]
-                      if points[target].get('owner')), None)
-        missing = lambda answer: isinstance(answer, dict) and '$missing' in answer
-        threw = lambda answer: isinstance(answer, dict) and '$threw' in answer
+        current_rows, whole = [], False
         for row in sorted(samples, key=_counterexample(point, [record for record in calls.get(ident, ()) if 'args' in record])):
-            inputs = ', '.join(f'{name}={C.show(value(item))}' for name, item in row['in'])
-            old = [(ident, row['old']), *row['old_copies'].items()]
-            old = [(target, answer) for target, answer in old
+            inputs = ', '.join(f'{key}={_shown(item)}' for key, item in row['in'])
+            old = [(target, answer) for target, answer in [(ident, row['old']), *row['old_copies'].items()]
                    if points[target]['old_skip'] != 'function absent at baseline']
-            known = [answer for _, answer in old if not missing(answer)]
-            complete = complete and len(known) == len(old) and not (
-                known and all(threw(answer) for answer in known) and all(_same(answer, known[0]) for answer in known))
             answers = [(places[ident], row['now'])]
             for copy in point['copies']:
                 theirs = row['copies'].get(copy['id'])
@@ -941,43 +1006,50 @@ def judge(cfg, data, records, package=None):
                     answers.append((places[copy['id']], theirs))
             if len(answers) < 2:
                 continue
-            if all(threw(answer) for _, answer in answers) and all(
-                    _same(answer, answers[0][1]) for _, answer in answers):
-                unverified.append(point['name'] + ': all copies raised the same exception; not compared')
+            if all(threw(answer) for _, answer in answers) and all(_same(answer, answers[0][1]) for _, answer in answers):
+                skipped(point['name'], ['all copies raised the same exception'])
                 continue
+            whole = whole or len(answers) == len(group)
             current_rows.append((inputs, answers, {places[target]: (answer, threw(answer)) for target, answer in old if not missing(answer)},
                                  {places[target] for target, answer in old if missing(answer)}))
-        new_lines, previous_lines, open_lines = copy_partition(current_rows, _same, lambda item: C.show(value(item)),
-                                                               owner=owner, total=len(point['copies']) + 1)
-        if complete and any(len(answers) == len(point['copies']) + 1 for _, answers, _, _ in current_rows):
-            same_name['compared'].add(point['name'])
-        if previous_lines:
-            before.append(copy_report(point['name'], previous_lines, existing=True))
-        if new_lines:
-            red.append(copy_report(point['name'], new_lines))
-        if open_lines:
-            unverified.append(copy_report(point['name'], open_lines) + ': baseline could not be compared')
-        if new_lines or previous_lines:
-            same_name['disagreed'][point['name']] = copy_report(point['name'], new_lines + previous_lines)
+        fresh, old, unknown = signals.copy_partition(current_rows, _same, _shown, owner=reference, total=len(group),
+                                                     words=signals.copy_says)
+        if fresh or old:
+            issues.append(signals.copies_issue(point['name'], fresh, old, places=list(places.values()),
+                                               files={points[target]['rel'] for target in group}))
+        if unknown:
+            skipped(point['name'], [f'the baseline of a copy could not run; now on {where}: {text}' for where, text, _, _ in unknown])
+        if whole and not (fresh or old or unknown):
+            agreed.add(point['name'])
     # rules on the observed calls and replayed classes, as the pytest side checks a reading
     model = load(cfg)
     engine = Engine(model)
     engine.baseline = data['baseline']      # a rule's source is judged with this run's comparison commit, as in pytest
-    from .sources import cited, source_state
-    unverified.extend(f'{error["file"]}:{error["line"]}: {error["msg"]}' for error in model.errors)
-    quoted = set()
+    for error in model.errors:
+        place = f'{error["file"]}:{error["line"]}'
+        issues.append(signals.finding('input', f'load:{place}', f'load {place}', [signals.ascii_text(error['msg'])],
+                                      'correct this declaration; until then none of its file is checked',
+                                      places=(place,), files=(error['file'],)))
     for rule in model.rules.values():
         homes = [home for home in rule.homes if getattr(home, 'anchor', None) is not None and home.anchor.target in points]
         if not homes:
             continue
+        declared = f'{model.file_of[rule.id]}:{rule.line}'
+        sites = [f'{points[home.anchor.target]["rel"]}:{points[home.anchor.target]["fn"]}' for home in homes]
+        whats, at = [], []
         # The source gate of `Engine.run_rules`: a source this change broke (rule.<id> missing or invalid, its words
         # gone, a request superseded in this task) is red, one already broken at task start before; the rule's
         # expectations are checked as pytest's intent items check them. An unconfirmed source (assumed:, a request
         # not stored) adds nothing here, as before.
         state, reason = source_state(engine, rule, rule.confirmed, rule.quote)
-        if state in ('red', 'before'):
-            (red if state == 'red' else before).append(f'{rule.id}: {reason}')
-        for home in homes:
+        if state == 'red':
+            whats.append(signals.ascii_text(reason))
+        elif state == 'before':
+            said = signals.ascii_text(reason)
+            issues.append(Issue(f'source:{rule.id}', LINES_ONLY, f'source {rule.id}', f'source {rule.id}: {said}', signals.BEFORE_STEP,
+                                files=frozenset({model.file_of[rule.id]}), family='source', subject=f'source {rule.id}',
+                                parts=(('', declared, said, signals.BEFORE_STEP),), detail=(said,)))
+        for home, site in zip(homes, sites):
             ident = home.anchor.target
             point = points[ident]
             observed = [({name: value(item) for name, item in row['in']}, value(row['now'])) for row in rows.get(ident, ())]
@@ -987,61 +1059,158 @@ def judge(cfg, data, records, package=None):
                       if all(name in inputs and C.kind_of(kind).accepts(inputs[name]) for name, kind in rule.fields.items())]
             if not usable:
                 if calls.get(ident):
-                    unverified.append(f'{rule.id}：{point["name"]} observation lacks the inputs required by this rule ({", ".join(rule.fields)}）')
+                    skipped(f'rule {rule.id}', [f'{point["name"]} ({site}) observation lacks the inputs this rule reads ({", ".join(rule.fields)})'])
                 continue
             for inputs, actual in usable:
                 cell = {name: inputs[name] for name in rule.fields}
                 try:
                     expected = engine.effective(rule, cell)
                 except PredicateError as error:
-                    red.append(str(error))      # a predicate failing on an observed cell is red with its text, as in pytest
+                    whats.append(str(error).removeprefix(rule.id + ': '))   # a predicate failing on an observed cell is red, as in pytest
+                    at.append(site)
                     break
                 if expected is CONFLICT or expected is None or outcome_eq(expected, actual):
                     continue
-                red.append(f'{rule.id}: {C.show_cell(cell)} -> rule {C.show(expected)}, code {C.show(actual)}'
-                           f'（{point["rel"]}:{point["target_line"]} {point["fn"]}）')
-                if rule.id not in quoted:
-                    source = cited(parse(rule.source), cfg)
-                    red.append(rule.id + ' source: ' + (source.quote or source.text))
-                    quoted.add(rule.id)
-                    steps.setdefault(rule.id, rule_steps(rule.id, f'{point["rel"]}:{point["target_line"]} {point["fn"]}',
-                                                         f'{model.file_of[rule.id]}:{rule.line}'))
+                whats.append(f'{C.show_cell(cell)} -> rule {C.show(expected)}, code {C.show(actual)} at {site}')
+                at.append(site)
                 break
+        if whats:
+            # One red line per rule (D30), its first step from `signals.rule_steps`, the others and the owner's words in
+            # its detail, as pytest says a rule's red.
+            steps = [step.rstrip('; ') for step in signals.rule_steps(rule.id, ', '.join(sites), declared, whats)]
+            source = cited(parse(rule.source), cfg)
+            issues.append(signals.finding('rule', f'rule:{rule.id}', f'rule {rule.id}', whats, steps[0] if steps else '',
+                                          places=tuple(dict.fromkeys((declared, *at, *sites))), files=(model.file_of[rule.id],),
+                                          detail=[*steps, f'{rule.id} source: {source.quote or source.text}']))
+    issues += [_issue(fields) for fields in data['inputs']]
+    lines += [signals.not_compared(subject, entry['reasons'], function=function, places=entry['places'])
+              for (subject, function), entry in unchecked.items()]
+    # What the change touches: the files it changed (read now: an intent file's or a document's change does not
+    # change the plan), the TS/JS declarations it added, edited or removed, the changed points, and the members of
+    # same-name copies one of whose files it changed (a before line needs that, 4.7).
+    touched_files = frozenset(_differs(cfg, data['baseline']))
+    touched = {*data['touched'], *(ident for ident, point in points.items() if point['changed'])}
+    touched |= {part[0] for issue in issues if issue.family == 'same' and issue.files & touched_files for part in issue.parts}
     # How far HEAD lies after a recorded task start is read now, by the one git call of pytest's title, and not
     # kept in the plan, whose key is the commit and its kind: the title says it as pytest's does.
-    kind = data.get('baseline_kind', 'task')
+    kind = data['baseline_kind']
     start = cache.task_start(cfg) if kind == 'task' else (None, None, None)
-    return dict(session=True, baseline=data['baseline'], baseline_kind=kind,
+    return dict(baseline=data['baseline'], baseline_kind=kind,
                 baseline_ahead=start[2] if start[:2] == (data['baseline'], 'task') else None,
-                source_changed=True, items=items, paths=[], leads=[], red=list(dict.fromkeys(red)), before=list(dict.fromkeys(before)), steps=steps,
-                unverified=unverified, same_name_pairs=same_name)
+                delivery=signals.delivery(issues, lines, touched_functions=touched, touched_files=touched_files,
+                                          ran={f'same:{name}' for name in agreed}),
+                known=[_known(fields) for fields in data['known']], agreed=agreed)
+
+
+def delivered(result):
+    """(lines, ignored, said) of a judged run (`judge`) through `signals.deliver`, with the plan's known entries: one
+    naming same-name copies this run compared on every copy and found to agree is `known fixed?` (the delivery's
+    `ran` names them; only a vitest run compares TypeScript copies). `said` are the known entries one of the lines
+    speaks for."""
+    from . import signals
+    part = result['delivery']
+    lines, ignored = signals.deliver(part['issues'], touched_functions=part['touched_functions'], touched_files=part['touched_files'],
+                                     known=result['known'], ran=part['ran'], extra=part['lines'])
+    red = {line.name for line in lines if line.kind == 'red'}
+    said = {line.name for line in lines if line.kind in ('known', 'known fixed?')}
+    said |= {f'known.{entry.id}' for entry in result['known'] if entry.finding in red}
+    return lines, ignored, said
 
 
 SESSION = 'report.json'           # in the observations folder: what the session test judged, for the teardown
+STATIC = 'static.json'            # in the observations folder: the map checks of flowguard.static.test.mjs (signals.last_run)
+STATIC_TEST = 'flowguard.static.test.mjs'       # the static test init writes next to a vitest package.json
+NOT_RUN = 'map checks did not run in this vitest run'
+
+
+def static_lines(observations):
+    """The saved map checks of this vitest run (the `signals.last_run` payload flowguard.static.test.mjs writes into the
+    observations folder), its lines as `signals.Line`; None when the static test did not run in it."""
+    from .signals import KINDS, Line
+    path = Path(observations) / STATIC
+    if not path.is_file():
+        return None
+    saved = json.loads(path.read_text(encoding='utf-8'))
+    lines = [Line(**dict(line, places=tuple(line['places']), detail=tuple(line['detail']))) for line in saved['lines']]
+    for line in lines:
+        if line.kind not in KINDS:
+            raise ValueError(f'{path}: {line.name}: kind {line.kind!r} is not one of signals.KINDS')
+    return dict(saved, lines=lines)
+
+
+def merged(own, static, said):
+    """The block's lines: this run's, then those of the map checks (`static_lines`), each (kind, name, function) once
+    and in KINDS order; a known entry this run already speaks for (`said`) keeps this run's line only."""
+    from .signals import KINDS
+    unique = {}
+    for line in [*own, *(line for line in static if not (line.kind in ('known', 'known fixed?') and line.name in said))]:
+        unique.setdefault((line.kind, line.name, line.function), line)
+    return sorted(unique.values(), key=lambda line: KINDS.index(line.kind))
+
+
+def _wired(cfg, package):
+    """Whether the package of this vitest run has the static test init writes (which, when it runs in this run,
+    saves its map checks into the observations folder)."""
+    path = (Path(package) if package else cfg.root) / STATIC_TEST
+    return path.is_file() and path.read_text(encoding='utf-8-sig').startswith(INIT_MARK)
+
+
+def _save_last(cfg, payload):
+    """Keep this run's lines for `show --last` (`cache.save_last`)."""
+    import sqlite3
+    from contextlib import closing
+    from .cache import save_last
+    from ..map.common import cache_dir
+    cache_dir(cfg.root)
+    with closing(sqlite3.connect(cfg.cache / 'map.sqlite', timeout=30)) as con:
+        con.execute('CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT)')
+        with con:
+            save_last(con, payload)
 
 
 def report(root, plan_path, observations, package=None, *, in_test=False):
-    """Judge this run's observations and print FlowGuard's lines; 1 on red. `in_test` is the session test
-    (session.test.mjs, run after the project's tests): it keeps the observations and saves the text and
-    status for the teardown, which then prints them after the summary instead of judging again."""
+    """Judge this run's observations, merge the map checks the static test saved in this run, print the 4.3 block
+    (`signals.render_block`) and keep its lines for `show --last`; 1 when a line is red. The first line's time is
+    FlowGuard's own: the preparation, the recording, this report and the static test's map checks. `in_test` is the
+    session test (session.test.mjs, run after the project's tests): it keeps the observations and saves the block,
+    its status and the number of its reds the static test did not already fail on, for the session test and the
+    teardown, which prints the block after vitest's summary instead of judging again."""
+    import os
+    from . import deprecation, signals
     from .config import load_config
     from .differences import display
-    from .signals import render
     started = time.perf_counter()
+    since = deprecation.mark()
     cfg = load_config(root)
     data = json.loads(Path(plan_path).read_text(encoding='utf-8'))
     records = _observations(observations)
     recorded = sum(record.get('record_seconds', 0) for record in records)
     result = judge(cfg, data, [record for record in records if 'id' in record], package)
-    import os
-    result['seconds'] = float(os.environ.get('FLOWGUARD_VITEST_PREPARE_SECONDS', 0)) + recorded + time.perf_counter() - started
-    text = render(result)
-    status = 1 if result['red'] else 0
+    own, ignored, said = delivered(result)
+    static = static_lines(observations)
+    if static is None and _wired(cfg, package):
+        # D19: the static test is wired but did not run here (a filtered run, or one written by an older init)
+        rel = cfg.rel((Path(package) if package else cfg.root) / STATIC_TEST)
+        own.append(signals.not_compared(rel, [NOT_RUN], places=(rel,)))
+    lines = merged(own, static['lines'] if static else [], said)
+    carried = {(line.kind, line.name, line.function) for line in static['lines']} if static else set()
+    red = sum(line.kind == 'red' for line in lines)
+    mine = sum(line.kind == 'red' and (line.kind, line.name, line.function) not in carried for line in lines)
+    seconds = (float(os.environ.get('FLOWGUARD_VITEST_PREPARE_SECONDS', 0)) + recorded + (static['seconds'] if static else 0)
+               + time.perf_counter() - started)
+    heading = signals.title(lines, baseline=result['baseline'], kind=result['baseline_kind'], ahead=result['baseline_ahead'],
+                            seconds=seconds)
+    text = signals.render_block(lines, title=heading)
+    _save_last(cfg, signals.last_run(lines, ignored + (static['ignored'] if static else 0), run='vitest', stamp=time.time(),
+                                     baseline=result['baseline'], kind=result['baseline_kind'], title=heading, seconds=seconds,
+                                     deprecated=list(dict.fromkeys([*deprecation.used(since), *(static['deprecated'] if static else ())])),
+                                     hidden=static['hidden'] if static else ()))
+    status = 1 if red else 0
     if in_test:
-        (Path(observations) / SESSION).write_text(json.dumps(dict(text=text, status=status), ensure_ascii=False), encoding='utf-8')
+        (Path(observations) / SESSION).write_text(json.dumps(dict(text=text, status=status, red=mine), ensure_ascii=False),
+                                                  encoding='utf-8')
     else:
         shutil.rmtree(observations)     # this run's records are read; the next run starts empty
-    if text:
         display(text)
     return status
 
