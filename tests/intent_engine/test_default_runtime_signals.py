@@ -308,6 +308,17 @@ def test_imports_bind_another_module_s_changed_constants_by_name_by_star_and_thr
                                           (1, 'b', ''))] == ['a.b', 'a.c.b', 'a.b', 'a', None, None]
 
 
+def test_a_module_s_binding_facts_have_one_owner(tmp_path):
+    """`runtime._binding_facts` reads a module's top-level bindings for every caller (the session's changed functions,
+    `_changed_constants`); the Runtime keeps no second, uncalled copy of it, nor that copy's cache."""
+    import ast
+    from flowguard.intent import runtime
+    assert '_binding_facts' not in vars(runtime.Runtime)
+    assert not hasattr(runtime.Runtime(tmp_path, previous={}), '_bindings')
+    assert runtime._binding_facts(ast.parse('LIMIT = 3\ndef f():\n    return LIMIT\n')) == {
+        'LIMIT': ('value', ast.dump(ast.Constant(3), include_attributes=False)), 'f': ('function', 'f')}
+
+
 def test_fixed_4_changed_function_needs_no_anchor_to_report_member_changes(tmp_path):
     policy = _project(tmp_path, '''
         def late_fee(days: int, member: bool) -> int:

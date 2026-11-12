@@ -1194,7 +1194,7 @@ class Runtime:
                 self.baseline, self._baseline_error = None, str(error)
         self.readings, self.issues, self.events = [], [], []
         self.patches, self.constants, self.unavailable, self.current_constants = {}, {}, {}, {}
-        self._sources, self._trees, self._imported, self._projects, self._bindings = {}, {}, {}, {}, {}
+        self._sources, self._trees, self._imported, self._projects = {}, {}, {}, {}
         self._texts, self._exported, self._loaded = {}, {}, {}     # project modules the sealed environment reads
         self._renames = None        # {path now: path at the baseline} of the files this change moved (`baseline_place`)
         self._seen, self._test, self.ran, self.seconds = {}, '', set(), 0.0
@@ -1577,12 +1577,6 @@ class Runtime:
         if key not in self._imported:
             self._imported[key] = self._constants(tree, module, seen, historical=historical)
         return copy.deepcopy(self._imported[key])
-
-    def _binding_facts(self, tree):
-            """_binding_facts of a tree, once per tree object (callers only read them)."""
-            if id(tree) not in self._bindings or self._bindings[id(tree)][0] is not tree:
-                self._bindings[id(tree)] = tree, _binding_facts(tree)
-            return self._bindings[id(tree)][1]
 
     def _project_file(self, file):
         """project_code, once per file for this runtime (its callers ask for every name a function reads)."""
