@@ -526,7 +526,7 @@ def test_a_pytest_run_whose_changed_function_takes_a_list_prints_and_keeps_its_c
     policy.write_text(policy.read_text().replace('sum(items)', 'sum(items) + 1'))
     result = _run(tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
-    changed = 'changed: TOTAL (policy.py:2): (items=[1, 2]) was 3, now 4; 2/2 inputs differ -> if you meant it, say so'
+    changed = 'changed: total (policy.py:2): (items=[1, 2]) was 3, now 4; 2/2 inputs differ -> if you meant it, say so'
     assert block(result)[1:] == [changed], result.stdout
     assert changed in last(tmp_path).splitlines()
 
@@ -782,7 +782,7 @@ def test_a_rule_whose_source_does_not_parse_is_a_red_input_line_of_the_session_n
         assert [line.partition(': source needs')[0] for line in reds if line.startswith('red: load ')] == [
             'red: load decisions.py:2: STANDING_RULE'], result.stdout
         assert load in last(tmp_path).splitlines(), last(tmp_path)
-        assert 'changed: STANDING (policy.py:2)' in '\n'.join(block(result)), result.stdout
+        assert 'changed: standing (policy.py:2)' in '\n'.join(block(result)), result.stdout
 
 
 def test_a_rule_red_spells_both_results_and_its_step_names_the_copy_that_disagrees_in_a_sentence(tmp_path):

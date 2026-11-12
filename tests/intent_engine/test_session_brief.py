@@ -327,7 +327,7 @@ def test_the_first_pytest_run_records_the_task_baseline_and_commits_during_the_t
     lines = text.splitlines()
     # not HEAD against HEAD; the commit since the start is named, with the next task's step
     _reported_title(text, f'since {start[:7]}, 1 commit before HEAD')
-    assert ('changed: LIMIT (app.py:2): (days=4) was False, now True; 1/2 inputs differ -> if you meant it, say so') in lines, text
+    assert ('changed: eligible (app.py:2): (days=4) was False, now True; 1/2 inputs differ -> if you meant it, say so') in lines, text
     assert cache.task_baseline(cfg) == (start, 'task')
     # The next task starts at HEAD: the committed change is no longer this task's.
     code, text = _run(root, 'new-task')
@@ -542,7 +542,7 @@ def test_a_recorded_task_start_this_repository_lacks_is_named_and_compares_nothi
     head = git(root, 'rev-parse', 'HEAD')
     assert cache.task_baseline(cfg) == (head, 'task')
     code, text = _run(root, pytest_run=True)
-    assert code == 0 and 'changed: LIMIT (app.py:2): (days=4) was False, now True; 1/2 inputs differ -> if you meant it, say so' in text, text
+    assert code == 0 and 'changed: eligible (app.py:2): (days=4) was False, now True; 1/2 inputs differ -> if you meant it, say so' in text, text
     _reported_title(text, f'since {head[:7]}')
 
 

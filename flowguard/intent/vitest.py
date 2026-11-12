@@ -972,7 +972,7 @@ def judge(cfg, data, records, package=None):
             reasons.append('both versions raised the same exception')
         changes = [row for row in compared if not _same(row['old'], row['now'])]
         if changes:
-            lines.append(signals.changed_line(point['name'], ident, point['rel'], point['target_line'],
+            lines.append(signals.changed_line(point['fn'], ident, point['rel'], point['target_line'],
                                               [({name: _plain(item) for name, item in row['in']}, _plain(row['old']), _plain(row['now']))
                                                for row in changes], len(compared), unanchored=not point['anchored']))
         elif reasons or {row['label'] for row in compared} != {row['label'] for row in actual_rows}:

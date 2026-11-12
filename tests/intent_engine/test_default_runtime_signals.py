@@ -149,7 +149,7 @@ def test_fixed_3_old_function_uses_old_module_constant_on_the_recorded_call(tmp_
     text = _text(result)
     assert result.returncode == 0, text
     # The baseline runs with its own GRACE_DAYS = 3, the current source with 7: only days=5 differs.
-    assert ('changed: STANDING (policy.py:3): (days=5, suspended=False, owed=0) was False, now True; 1/2 inputs differ '
+    assert ('changed: standing (policy.py:3): (days=5, suspended=False, owed=0) was False, now True; 1/2 inputs differ '
             '-> if you meant it, say so') in text.splitlines(), text
     item = next(item for item in _observations(tmp_path)['items'] if item.get('name') == 'STANDING')
     assert item['changed'] == [[{'days': 5, 'suspended': False, 'owed': 0}, False, True]], item
@@ -202,7 +202,7 @@ def test_fixed_5_passing_release_test_reports_the_changed_decision_and_records_i
     result = _run(tmp_path)
     text = _text(result)
     assert result.returncode == 0, text
-    assert ("changed: NEEDS_SAVE (policy.py:2): (payload='document') was True, now False; 1/1 inputs differ "
+    assert ("changed: needs_save (policy.py:2): (payload='document') was True, now False; 1/1 inputs differ "
             '-> if you meant it, say so') in text.splitlines(), text
     # The test is not run again with the old code (6.5): no old path, only the real current one.
     assert 'became' not in text, text
@@ -350,7 +350,7 @@ def test_late_imported_sensor_is_observed_without_eagerly_importing_its_module(t
     result = _run(tmp_path)
     text = _text(result)
     assert result.returncode == 0 and '1 passed' in result.stdout, text
-    assert ('changed: LATE_STANDING (policy.py:3): (days=5) was False, now True; 1/2 inputs differ '
+    assert ('changed: standing (policy.py:3): (days=5) was False, now True; 1/2 inputs differ '
             '-> if you meant it, say so') in text.splitlines(), text
 
 
@@ -436,7 +436,7 @@ def test_fixture_constant_override_never_enters_the_sealed_comparison(tmp_path):
     assert result.returncode == 0 and '1 passed' in result.stdout, text
     # Each version runs on its own source constant (3, then 7), never the fixture's live 100:
     # days=5 was allowed by the baseline and is refused now, though the real call (LIMIT 100) refused it.
-    assert ('changed: LIMIT_BOUNDARY (policy.py:3): (days=5) was True, now False; 1/2 inputs differ '
+    assert ('changed: allowed (policy.py:3): (days=5) was True, now False; 1/2 inputs differ '
             '-> if you meant it, say so') in text.splitlines(), text
     assert not re.search(r'days\s*[=:]\s*100', text), text
     item = next(item for item in _observations(tmp_path)['items'] if item.get('name') == 'LIMIT_BOUNDARY')

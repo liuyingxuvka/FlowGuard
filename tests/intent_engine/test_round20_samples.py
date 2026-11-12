@@ -117,7 +117,7 @@ def test_sample_1_a_database_decision_is_not_compared_and_names_itself(shop):
     assert block == ['not compared: 2 items: _tmp_x.py and AVAILABLE (cannot be parsed: SyntaxError: invalid syntax line 3, '
                      'or no comparable JSON result) -> not a failure'], block
     assert '    no comparable JSON result' in last(shop).splitlines()
-    assert not any(line.startswith('changed: AVAILABLE') for line in block), block
+    assert not any(line.startswith('changed: can_hire') for line in block), block
 
 
 def test_sample_2_a_database_write_is_not_compared_and_the_table_has_one_row(shop, tmp_path):
@@ -149,7 +149,7 @@ def test_sample_3_a_helper_constant_makes_the_copies_disagree_at_its_own_value(s
     items = {item.get('name'): item for item in _observations(shop)['items']}
     assert items['STANDING']['total'] == 2 and items['STANDING']['changed'] == [], items
     assert items['within_grace']['total'] == 2 and items['within_grace']['changed'] == [], items
-    assert not any(line.startswith('changed: STANDING') for line in block), block
+    assert not any(line.startswith('changed: standing_allows') for line in block), block
     # The copy in preview.py still says 3: the helper's constant 7 is in the compared union, where the
     # same-name anchors now disagree: red with its next step.
     assert result.returncode == 1, text

@@ -732,7 +732,7 @@ class Observations:
                               rows=rows, changed=changes, total=len(calls), reasons=list(dict.fromkeys(reasons))))
             from . import signals
             if changes:
-                self.changes.append(signals.changed_line(point['name'], target, point['file'], line, changes, len(rows),
+                self.changes.append(signals.changed_line(point['qual'], target, point['file'], line, changes, len(rows),
                                                          unanchored=point['anchor'] is None))
             elif reasons:
                 self._unchecked(f'{point["name"]} ({point["file"]}:{line})', reasons, function=target,

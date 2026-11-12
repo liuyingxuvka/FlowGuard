@@ -654,7 +654,8 @@ def last_run(lines, ignored, *, run, stamp, baseline, kind, title, seconds, depr
 
 
 def changed_line(name, target, file, line, changes, compared, *, cause=None, unanchored=False):
-    """The `changed` line of a function whose sealed run answers its recorded inputs differently than at the baseline:
+    """The `changed` line of a function whose sealed run answers its recorded inputs differently than at the baseline
+    (`changed: {function} ({file}:{line}): ...`, `name` the function's own name, also of a `same NAME` copy):
     `changes` [(inputs, old, new)], the first of the smallest inputs shown (all of them in the detail), `compared` the
     number of inputs compared."""
     rows = [dict(inputs=inputs, before=old, after=new) for inputs, old, new in changes]

@@ -1110,7 +1110,7 @@ def test_vitest_reports_copies_rules_and_the_changed_case_class(vitest_home):
     code, text = _vitest(root, vitest_home)
     block = _block(text)
     assert code == 1, text
-    assert 'changed: LATE_FEE (late-fee.ts:4): (days=3, member=False) was 0, now 5; 1/3 inputs differ -> if you meant it, say so' \
+    assert 'changed: lateFee (late-fee.ts:4): (days=3, member=False) was 0, now 5; 1/3 inputs differ -> if you meant it, say so' \
         in block, block
     # one line per rule: the changed copy's red first, the preview's still in its detail
     assert ('red: rule FEE_WINDOW: days=3 member=F -> rule 0, code 5 at late-fee.ts:lateFee (+1 more) -> change the code so '
