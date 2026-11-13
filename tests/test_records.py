@@ -191,3 +191,55 @@ def test_unreadable_receipt_is_reported_as_unreadable_not_as_an_edit(tmp_path):
         from flowguard.map.requests import owner_words
         owner_words(root)
     assert str(receipt) in str(error.value) and (not _damaged_request_paths(str(error.value)))
+
+
+def test_history_listings_begun_ahead_give_each_check_what_it_reads_alone(tmp_path, monkeypatch):
+    """Inside `FirstListings` each integrity check reads its own file's history listing, begun a few checks ahead:
+    the same answers as alone for intact, edited, removed and re-added, missing and unlisted files, in the listed
+    order and in another; every run begun is waited for when the block ends, read or not, and outside Git none
+    begins."""
+    from flowguard.map import records
+    from flowguard.map.common import git_common_directory
+    root = tmp_path / 'project'
+    _project(root)
+    for index in range(8):
+        store_request(root, f'words {index}\n'.encode(), identifier=f'R{index}')
+    _seed_git(root)
+    requests = root / '.flowguard/requests'
+    (requests / 'R1.md').write_bytes(b'edited words\n')
+    (requests / 'R2.md').unlink()
+    _git(root, 'commit', '-qam', 'remove R2')
+    (requests / 'R2.md').write_bytes(b'other words\n')
+    _git(root, 'add', '--', '.flowguard/requests')
+    _git(root, 'commit', '-qm', 'add R2 again')
+    (requests / 'R3.json').unlink()
+    names = [f'.flowguard/requests/R{index}.{suffix}' for index in range(8) for suffix in ('md', 'json')]
+
+    def answer(name):
+        try:
+            return records.integrity_problem(root, name)
+        except records.Unverifiable as error:
+            return f'unverifiable: {error}'
+    alone = {name: answer(name) for name in names + ['app.py']}
+    assert alone['.flowguard/requests/R0.md'] is None and 'bytes changed' in alone['.flowguard/requests/R1.md']
+    assert 'bytes changed' in alone['.flowguard/requests/R2.md'] and 'missing' in alone['.flowguard/requests/R3.json']
+    listed = []
+    original = records.git_run
+    def counted(root, *arguments, **options):
+        listed.extend([arguments[-1]] if arguments[0] == 'log' else [])
+        return original(root, *arguments, **options)
+    monkeypatch.setattr(records, 'git_run', counted)
+    common = git_common_directory(root)
+    for order in (names, names[::-1]):
+        listed.clear()
+        with records.FirstListings(root, names[2:] + ['../outside.md', 'absent.md'], common) as listings:
+            assert {name: answer(name) for name in order + ['app.py']} == alone
+        assert '.flowguard/requests/R3.json' not in listings.runs and not {'../outside.md', 'absent.md'} & set(listings.runs)
+        assert all(run.process.returncode is not None for run in listings.runs.values())
+        # a listed file's check read the run begun for it; the two files not listed were read alone
+        assert sorted(listed) == ['.flowguard/requests/R0.json', '.flowguard/requests/R0.md']
+    with records.FirstListings(root, names[:2], common) as unread:
+        pass
+    assert unread.runs and all(run.process.returncode is not None for run in unread.runs.values())
+    with records.FirstListings(root, names, None) as outside:
+        assert not outside.runs
