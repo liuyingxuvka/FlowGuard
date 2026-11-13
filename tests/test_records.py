@@ -216,10 +216,7 @@ def test_history_listings_begun_ahead_give_each_check_what_it_reads_alone(tmp_pa
     names = [f'.flowguard/requests/R{index}.{suffix}' for index in range(8) for suffix in ('md', 'json')]
 
     def answer(name):
-        try:
-            return records.integrity_problem(root, name)
-        except records.Unverifiable as error:
-            return f'unverifiable: {error}'
+        return records.integrity_problem(root, name)
     alone = {name: answer(name) for name in names + ['app.py']}
     assert alone['.flowguard/requests/R0.md'] is None and 'bytes changed' in alone['.flowguard/requests/R1.md']
     assert 'bytes changed' in alone['.flowguard/requests/R2.md'] and 'missing' in alone['.flowguard/requests/R3.json']
