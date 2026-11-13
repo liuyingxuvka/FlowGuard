@@ -623,17 +623,22 @@ class Observations:
         changed_modules, imported = {}, {}
         if self.files:
             graph = state.get_map()
+            # the map's Python files; whether one is project code is asked only where an importer of a module is
+            # looked for (`project`), not of every file
             modules = {path: module for path, module, error in graph.con.execute('SELECT path, module, parse_error FROM file')
-                       if path.endswith('.py') and not error and state.is_project(str(self.cfg.root / path))}
+                       if path.endswith('.py') and not error}
             importers = {}          # module: the files importing from it, or it as a submodule (`from P import M`)
             for row in graph.imports(declarations=True):
                 if row['file'] in modules and row.get('module'):
                     importers.setdefault(row['module'], set()).add(row['file'])
                     if row.get('name') and row['name'] != '*':
                         importers.setdefault(row['module'] + '.' + row['name'], set()).add(row['file'])
+            def project(file):
+                return state.is_project(str(self.cfg.root / file))
             # the baseline versions `parsed` reads below, in one batch
             self.runtime.read_ahead(sorted(self.renamed.get(file, file) for file in self.files))
-            pending = sorted((file for file in self.files if modules.get(file) in importers), reverse=True)
+            pending = sorted((file for file in self.files if any(map(project, importers.get(modules.get(file), ())))),
+                             reverse=True)
             while pending:
                 file = pending.pop()
                 tree, old_tree = parsed(file)
@@ -644,7 +649,7 @@ class Observations:
                 imported[file] = constants, names, aliases
                 if constants - changed_modules.get(module, set()):
                     changed_modules[module] = changed_modules.get(module, set()) | constants
-                    pending.extend(sorted(importers.get(module, set()) - {file}))
+                    pending.extend(sorted({other for other in importers.get(module, ()) if project(other)} - {file}))
         def function(file, qual):
             """The current node of `qual` in `file` and why the function changed since the baseline, '' when it did not:
             its code (a function new since then too), or a top-level binding it reads (a module constant), also
