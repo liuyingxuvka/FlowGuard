@@ -1225,6 +1225,7 @@ class Runtime:
         self.readings, self.issues, self.events = [], [], []
         self.patches, self.constants, self.unavailable, self.current_constants = {}, {}, {}, {}
         self._sources, self._trees, self._imported, self._projects = {}, {}, {}, {}
+        self._blobs = {}            # baseline bytes `read_ahead` read for `_source`, which decodes them on first use
         self._texts, self._exported, self._loaded = {}, {}, {}     # project modules the sealed environment reads
         self._renames = None        # {path now: path at the baseline} of the files this change moved (`baseline_place`)
         self._seen, self._test, self.ran, self.seconds = {}, '', set(), 0.0
@@ -1521,6 +1522,15 @@ class Runtime:
             _HISTORICAL.reset(token)
 
 
+    def read_ahead(self, files):
+        """Read the baseline bytes of the `files` that `_source` will read, in one batch (`git_blobs`) in place of
+        three Git runs each; `_source` decodes and fails on each as it does when it reads the file alone."""
+        if self._baseline_error or self.previous is not None:
+            return
+        from flowguard.map.common import git_blobs
+        self._blobs.update(git_blobs(self.root, self.baseline, [file for file in files
+                                                                  if file not in self._sources and file not in self._blobs]))
+
     def _source(self, file):
         if self._baseline_error:
             raise MapError(self._baseline_error)
@@ -1529,7 +1539,7 @@ class Runtime:
                 self._sources[file] = self.previous.get(file)
             else:
                 from flowguard.map.common import git_blob
-                raw = git_blob(self.root, self.baseline, file)
+                raw = self._blobs.pop(file) if file in self._blobs else git_blob(self.root, self.baseline, file)
                 self._sources[file] = raw.decode('utf-8-sig') if raw is not None else None
         return self._sources[file]
 

@@ -630,6 +630,8 @@ class Observations:
                     importers.setdefault(row['module'], set()).add(row['file'])
                     if row.get('name') and row['name'] != '*':
                         importers.setdefault(row['module'] + '.' + row['name'], set()).add(row['file'])
+            # the baseline versions `parsed` reads below, in one batch
+            self.runtime.read_ahead(sorted(self.renamed.get(file, file) for file in self.files))
             pending = sorted((file for file in self.files if modules.get(file) in importers), reverse=True)
             while pending:
                 file = pending.pop()
