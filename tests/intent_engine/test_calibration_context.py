@@ -37,6 +37,9 @@ def test_each_session_reads_its_own_items_through_its_file_lookup(request, tmp_p
             with pytest.raises(ValueError, match='^calibration must name exactly one collected test'):
                 calibration._context(root, alpha[0].nodeid)
             assert calibration._context(root, beta[0].nodeid)[1] is beta[0]
+        with calibration.session(runtime, alpha[:1] + beta + alpha[1:]):
+            for item in alpha + beta:           # one file's items need not be adjacent
+                assert calibration._context(root, item.nodeid)[1] is item
         with calibration.session(runtime, alpha + alpha):
             with pytest.raises(ValueError, match='^calibration must name exactly one collected test'):
                 calibration._context(root, alpha[0].nodeid)

@@ -85,15 +85,16 @@ def _context(root, selector):
         raise ValueError('calibration test does not belong to the indexed project source')
     if scope.files is None:
         # `items` is fixed for the session: resolve each collected file once, not every item per selector.
-        files, resolved = {}, {}
+        # The items of one module share its path object, so each run of them is resolved once.
+        files, path, entry = {}, None, None
         for item in scope.items:
             module = item.getparent(pytest.Module)
             if module is None:
                 continue
-            path = Path(item.path)
-            if path not in resolved:
-                resolved[path] = path.resolve()
-            files.setdefault(resolved[path], []).append((item, module))
+            if entry is None or item.path is not path:
+                path = item.path
+                entry = files.setdefault(Path(path).resolve(), [])
+            entry.append((item, module))
         scope.files = files
     matches = []
     for item, module in scope.files.get(expected, ()):
