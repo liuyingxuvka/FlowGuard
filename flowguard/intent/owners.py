@@ -226,12 +226,23 @@ class Change:
         return self.graph._baseline_part(self.baseline, file, module, kind, is_test_file(file)) \
             if self.baseline and module else None
 
+    def old_record(self, file, kinds):
+        """The `kinds` of `old_facts(file)` that it holds ({} as it), without decoding the file's whole record unless
+        it is decoded already."""
+        if file in self._facts:
+            return {kind: self._facts[file][kind] for kind in kinds if kind in self._facts[file]}
+        module = self.module(file)
+        return self.graph._baseline_record(self.baseline, file, module, kinds, is_test_file(file)) \
+            if self.baseline and module else {}
+
     def baseline_definitions(self):
         """The value sets, constants and schema models of the baseline (`graph.definitions`): those of each path of
         `baseline_paths` read from its baseline facts, the map's for every other file. Built once."""
         if self._definitions is None:
+            # the kinds `Definitions` reads
             self._definitions = self.graph.definitions(
-                [(path, self.module(path), self.old_facts(path)) for path in sorted(self.baseline_paths())])
+                [(path, self.module(path), self.old_record(path, ('value_sets', 'schema', 'language', 'nodes', 'facts')))
+                 for path in sorted(self.baseline_paths())])
         return self._definitions
 
     def baseline_writes(self, target=None, *, by_name=False):
@@ -245,7 +256,8 @@ class Change:
             paths = self.baseline_paths()
             if paths:
                 facts = [data for path, _, data in self.graph.write_records() if path not in paths]
-                facts += [record for record in map(self.old_facts, sorted(paths)) if record]
+                facts += [record for path in sorted(paths)       # the kinds `writes(facts=)` reads
+                          if (record := self.old_record(path, ('language', 'writes', 'assignments')))]
                 self._baseline_writes[key] = self.graph.writes(target, by_name=by_name, facts=facts,
                                                                definitions=self.baseline_definitions())
             else:
