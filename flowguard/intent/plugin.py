@@ -701,7 +701,14 @@ class Observations:
             self.by_file.setdefault(point['file'], []).append(point)
 
     def _module(self, module):
+        import types
         from .runtime import _PRIVATE, unguarded
+        # Each test offers every loaded project module again, and most hold no point: with no capture open and the
+        # module's file already placed, nothing below would act on it.
+        if self.capture is None and type(module) is types.ModuleType:
+            filename = vars(module).get('__file__')
+            if type(filename) is str and filename in self.rels and not self.by_file.get(self.rels[filename]):
+                return None
         token = _PRIVATE.set(True)
         try:
             # A module first imported inside a replayed call is bound by FlowGuard, not by that call.

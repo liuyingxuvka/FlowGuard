@@ -118,8 +118,10 @@ def _install():
 
 
 def _audit(event, args):
+    if not _CALLING:
+        return      # every audited event of the process comes here: a function's __code__ read, open, import
     scope = _LOCAL.guard
-    if _CALLING and scope is not None and (event == 'open' or event.startswith(
+    if scope is not None and (event == 'open' or event.startswith(
             ('os.', 'socket.', 'subprocess.', 'sqlite3.', 'urllib.', '_thread.')) or event == 'import'):
         scope.reason = 'uses ' + event
         raise Refused(scope.reason)
@@ -1061,6 +1063,14 @@ def _cells(function):
             continue  # An empty cell holds no function.
     return values
 
+# Exact built-in types whose values module_codes never walks: no isinstance test it makes can hold for them, and
+# none of these types has a __class__ of its own that such a test would read. Only a class whose metaclass is
+# `type` is looked up, so no metaclass hash runs.
+_INERT = frozenset({str, bytes, int, float, complex, bool, type(None), tuple, list, dict, set, frozenset, types.ModuleType,
+                    types.BuiltinFunctionType, types.WrapperDescriptorType, types.MethodDescriptorType,
+                    types.GetSetDescriptorType, types.MemberDescriptorType, types.ClassMethodDescriptorType,
+                    types.MethodWrapperType})
+
 def module_codes(module, wanted):
     """Code objects of `module` whose (co_filename, qualname without '<locals>') is in `wanted`.
 
@@ -1069,11 +1079,15 @@ def module_codes(module, wanted):
     are skipped for the original code they replaced.
     """
     found, seen = [], set()
+    files = {file for file, _ in wanted}
     def code_walk(code):
         if id(code) in seen:
             return
         seen.add(id(code))
-        if (code.co_filename, code.co_qualname.replace('.<locals>.', '.')) in wanted:
+        # Only code compiled from a wanted file can match; its nested code objects are walked all the same. Anything
+        # else (a double's __code__, say) is still asked for its qualname, as each object here always was.
+        if (type(code) is not types.CodeType or code.co_filename in files) \
+                and (code.co_filename, code.co_qualname.replace('.<locals>.', '.')) in wanted:
             found.append(code)
         for constant in code.co_consts:
             if isinstance(constant, types.CodeType):
@@ -1087,18 +1101,25 @@ def module_codes(module, wanted):
             return
         chain = 0
         while isinstance(value, types.FunctionType) and chain < 20:
-            for function in (value, *(cell for cell in _cells(value) if isinstance(cell, types.FunctionType))):
+            plain = type(value) is types.FunctionType
+            # A real function without a closure has no cells to look into.
+            for function in (value,) if plain and value.__closure__ is None else \
+                    (value, *(cell for cell in _cells(value) if isinstance(cell, types.FunctionType))):
                 # Both the running code (an installed mutant) and the original under a shim.
                 code_walk(function.__code__)
                 if (origin := sites.installed_origin(function)) is not None:
                     code_walk(origin)
-            value, chain = inspect.getattr_static(value, '__wrapped__', None), chain + 1
+            # getattr_static of a real function reads its own __dict__ (the function type has no such attribute).
+            value, chain = (dict.get(value.__dict__, '__wrapped__') if plain
+                            else inspect.getattr_static(value, '__wrapped__', None)), chain + 1
         if isinstance(value, type) and depth < 6 and id(value) not in seen:
             seen.add(id(value))
             for part in list(vars(value).values()):
-                value_walk(part, depth + 1)
+                if type(type(part)) is not type or type(part) not in _INERT:
+                    value_walk(part, depth + 1)
     for value in list(vars(module).values()):
-        value_walk(value, 0)
+        if type(type(value)) is not type or type(value) not in _INERT:
+            value_walk(value, 0)
     return found
 
 class _Record:

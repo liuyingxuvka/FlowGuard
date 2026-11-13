@@ -119,8 +119,44 @@ def code_key(code) -> tuple:
     return (code.co_filename, code.co_firstlineno)
 
 
+class _Read(list):
+    """Lines given to inspect.getblock, counting how many its tokenizer takes and whether it asked past the last."""
+    taken, ended = 0, False
+
+    def __iter__(self):
+        for line in list.__iter__(self):
+            self.taken += 1
+            yield line
+        self.ended = True
+
+
+_BLOCKS = {}
+
+
+def _source(fn):
+    """inspect.getsource(fn), the steps of inspect.getsourcelines for a function: findsource, then getblock. Every
+    test's call hooks tokenize the same few functions, so a block is reused while the lines its tokenizer took are
+    the same, and the file still ends there if it took them all; any other text is tokenized again. The tokenizer
+    reports no warnings; the parse after it, which does (an invalid escape, say), still runs on every call.
+    Anything but a plain function without __wrapped__ (which getsource would unwrap to itself) is getsource's alone,
+    so an object that only claims to be a function is read exactly as getsource reads it."""
+    if type(fn) is not types.FunctionType or hasattr(fn, '__wrapped__'):
+        return inspect.getsource(fn)
+    lines, lnum = inspect.findsource(fn)
+    rest, key = lines[lnum:], (fn.__code__.co_filename, lnum)
+    if key in _BLOCKS:
+        taken, ended, block = _BLOCKS[key]
+        if (len(rest) == len(taken) if ended else len(rest) >= len(taken)) and tuple(rest[:len(taken)]) == taken:
+            return ''.join(block)
+    read = _Read(rest)
+    block = inspect.getblock(read)
+    if read.taken >= len(block):    # a getblock that took its lines another way is not kept
+        _BLOCKS[key] = tuple(rest[:read.taken]), read.ended, block
+    return ''.join(block)
+
+
 def _parse(fn):
-    src = textwrap.dedent(inspect.getsource(fn))
+    src = textwrap.dedent(_source(fn))
     tree = ast.parse(src)
     fdef = tree.body[0]
     if not isinstance(fdef, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -432,6 +468,8 @@ def installed(fn, code):
 
 
 def installed_origin(fn):
+    if type(fn) is types.FunctionType and not hasattr(fn, '__wrapped__'):
+        return _INSTALLED.get().get(fn)     # unwrap(fn) is fn: every capture asks this of every function it walks
     return _INSTALLED.get().get(unwrap(fn))
 
 

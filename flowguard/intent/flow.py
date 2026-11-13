@@ -1151,9 +1151,12 @@ class Capture:
                 self._read_states = any(model.transitions for model in models)
         self.events, self.issues = [], []
         self._frames, self._counts, self._sites = {}, Counter(), {}
+        paths = {}      # one resolve per file: several anchors share one
         for anchor in index.entries:
             if anchor.kind not in {'event','sensor'}: continue
-            path = (self.root/anchor.file).resolve()
+            if anchor.file not in paths:
+                paths[anchor.file] = (self.root/anchor.file).resolve()
+            path = paths[anchor.file]
             if anchor.source_digest and _source_digest(path) != anchor.source_digest:
                 self.issues.append(f'{anchor.name}: anchor source changed; rebuild the map'); continue
             self._sites.setdefault((str(path),anchor.qual),[]).append(anchor)
@@ -1197,9 +1200,11 @@ class Capture:
             self._scope.__exit__(*error)
             self.issues.extend(self._scope.problems)
             self._active = False
+        digests = {}        # one status check per file
         for anchor in self.index.entries:
-            path=self.root/anchor.file
-            if anchor.source_digest and _source_digest(path)!=anchor.source_digest:
+            if anchor.source_digest and anchor.file not in digests:
+                digests[anchor.file] = _source_digest(self.root/anchor.file)
+            if anchor.source_digest and digests[anchor.file]!=anchor.source_digest:
                 self.issues.append(f'{anchor.name}: source changed during anchor observation')
         self._frames.clear()
 
