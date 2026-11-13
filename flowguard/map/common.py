@@ -39,42 +39,12 @@ def git_run(root, *arguments: str, allowed=(0,), input: bytes | None = None, env
     try:
         result = subprocess.run(["git", "-C", str(root), *arguments], capture_output=True, input=input, env=env)
     except FileNotFoundError as error:
-        raise _git_missing() from error
-    return _git_checked(root, arguments, result, allowed)
-
-
-def _git_missing():
-    return MapError("git executable not found: FlowGuard reads the project's Git state with it; "
-                    "install Git or put it on PATH")
-
-
-def _git_checked(root, arguments, result, allowed):
+        raise MapError("git executable not found: FlowGuard reads the project's Git state with it; "
+                       "install Git or put it on PATH") from error
     if result.returncode not in allowed:
         reason = os.fsdecode(result.stderr).strip() or f"exit status {result.returncode}"
         raise MapError(f"git {arguments[0]} failed in {root}: {reason}")
     return result
-
-
-class GitRun:
-    """git_run(root, *arguments) begun now, so that several Git runs go side by side: `result()` waits for it and
-    gives what git_run gives, or raises what git_run raises; `close()` waits for it and reads nothing."""
-
-    def __init__(self, root, *arguments: str):
-        self.root, self.arguments = root, arguments
-        try:
-            self.process = subprocess.Popen(["git", "-C", str(root), *arguments], stdout=subprocess.PIPE,
-                                            stderr=subprocess.PIPE)
-        except FileNotFoundError as error:
-            raise _git_missing() from error
-
-    def result(self, allowed=(0,)) -> subprocess.CompletedProcess:
-        stdout, stderr = self.process.communicate()
-        return _git_checked(self.root, self.arguments,
-                            subprocess.CompletedProcess(self.process.args, self.process.returncode, stdout, stderr), allowed)
-
-    def close(self):
-        if self.process.returncode is None:
-            self.process.communicate()
 
 
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from contextvars import ContextVar
 import json
 import os
 import re
@@ -10,7 +9,7 @@ import shlex
 from datetime import datetime
 from pathlib import Path
 
-from .common import (GitRun, atomic_write_text, git_blob, git_common_directory, git_head, git_run,
+from .common import (atomic_write_text, git_blob, git_common_directory, git_head, git_run,
                      normalize_newlines, sha256_bytes)
 from .common import MapError
 
@@ -202,13 +201,10 @@ def read_original_bytes(root: str | Path, relative_path: str | Path) -> bytes:
 
 def _first_blob(root: Path, relative: str, common):
     """The bytes of the commit that first added this path; None outside Git, before the first commit or when
-    no commit holds it. A failing Git raises with its own message. Inside `FirstListings` the listing of the
-    commits that added it may be one begun ahead."""
+    no commit holds it. A failing Git raises with its own message."""
     if common is None or git_head(root) is None:
         return None
-    listings = FirstListings.current.get()
-    started = listings.take(root, relative) if listings is not None else None
-    history = (started.result() if started is not None else git_run(root, *_added(relative))).stdout.split()
+    history = git_run(root, "log", "--format=%H", "--diff-filter=A", "--reverse", "--", relative).stdout.split()
     if not history:
         return None
     first = history[0].decode("ascii")
@@ -216,69 +212,6 @@ def _first_blob(root: Path, relative: str, common):
     if blob is None:
         raise MapError(f"git log names {first} as the commit that added {relative}, but that commit does not hold it")
     return blob
-
-
-def _added(relative):
-    """The arguments of the listing of the commits that added `relative`, oldest first (`_first_blob`)."""
-    return "log", "--format=%H", "--diff-filter=A", "--reverse", "--", relative
-
-
-class FirstListings:
-    """While the block runs, the listing `_first_blob` reads of each of `relative_paths` is begun ahead, for the
-    integrity checks of these files in this order (`integrity_problem`), the next few beside the one a check reads.
-    Only a file inside root that exists gets one, as only its check reads one, by its real path relative to root as
-    the check names it; a run no check reads is never read, and leaving the block waits for every run begun.
-    At most AHEAD begun runs wait unread (`waiting`): a check can end before it reads its listing (a transforming
-    attribute), so when they are that many, the ones of files before the next to begin are waited for unread; a
-    check that comes to such a file later runs Git itself, as for a file this block does not list."""
-    AHEAD = 4
-    current = ContextVar('flowguard_first_listings', default=None)      # the block that runs now
-
-    def __init__(self, root, relative_paths, common):
-        root = Path(root).resolve()
-        self.root, self.runs, self.waiting, self.taken, self.token = root, {}, {}, set(), None
-        found = []
-        if common is not None:
-            for relative_path in relative_paths:
-                path = (root / relative_path).resolve()
-                if path.is_relative_to(root) and path.is_file():
-                    found.append(path.relative_to(root).as_posix())
-        self.order = list(dict.fromkeys(found))
-        self.position = {relative: index for index, relative in enumerate(self.order)}
-
-    def _begin(self, first):
-        """Begin the listings of the AHEAD files from `first` on that have none, while fewer than AHEAD wait."""
-        for relative in self.order[first:first + self.AHEAD]:
-            if relative in self.runs:
-                continue
-            if len(self.waiting) >= self.AHEAD:
-                for passed in [other for other in self.waiting if self.position[other] < first]:
-                    self.waiting.pop(passed).close()
-                if len(self.waiting) >= self.AHEAD:
-                    return
-            self.runs[relative] = self.waiting[relative] = GitRun(self.root, *_added(relative))
-
-    def take(self, root, relative):
-        """The run of `relative`'s listing in `root`, once, begun now if it was not; None for any other, and for
-        one already waited for unread."""
-        if root != self.root or relative not in self.position or relative in self.taken:
-            return None
-        self.taken.add(relative)
-        run = self.waiting.pop(relative, None)
-        if run is None and relative not in self.runs:
-            run = self.runs[relative] = GitRun(self.root, *_added(relative))
-        self._begin(self.position[relative] + 1)
-        return run
-
-    def __enter__(self):
-        self._begin(0)
-        self.token = FirstListings.current.set(self)
-        return self
-
-    def __exit__(self, *exc):
-        FirstListings.current.reset(self.token)
-        for run in self.runs.values():
-            run.close()
 
 
 def integrity_problem(root, relative_path):
