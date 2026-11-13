@@ -1396,11 +1396,9 @@ class MapHandle:
         """
         self._mark_query('imports',language)
         if declarations:
-            # only the four kinds read here, from their parts (`store.save_facts`), not each file's whole record
-            found = store.parts(self.con, ('dependencies', 'lines_all', 'typing', 'language'))
             rows = []
-            for file, module in self.con.execute("SELECT path, module FROM file ORDER BY path"):
-                data = {kind: values[file] for kind, values in found.items() if file in values}
+            for file, module, blob in self.con.execute("SELECT path, module, data FROM file ORDER BY path"):
+                data = store.unpack(blob)
                 for declaration in data.get('dependencies', []):
                     rows.append(dict(declaration, src=module, dst=declaration.get('resolved') or declaration['module'],
                         node=module, file=file, prov='source', language=data.get('language')))
