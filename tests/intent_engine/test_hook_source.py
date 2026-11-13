@@ -3,8 +3,11 @@ import ast
 import importlib.util
 import inspect
 import linecache
-import marshal
 import os
+from pathlib import Path
+import subprocess
+import sys
+import textwrap
 import uuid
 
 import pytest
@@ -62,18 +65,60 @@ def test_reused_block_keeps_the_shim_of_the_current_source(tmp_path):
             pass
 
 
-def test_kept_parse_compiles_what_a_fresh_parse_compiles(tmp_path):
-    path = tmp_path / 'policy.py'
-    path.write_text('def grace(days: int = 3, *, unit="d") -> bool:\n    return days > 3\n')
-    grace = load(path).grace
+# A body the parser warns about three times: an invalid escape, and a decimal and a hexadecimal literal
+# directly followed by a keyword. The tokenizer that finds the block does not warn; the parse does, every time.
+WARNED = ('import re\n\n\ndef code(text, limit=0):\n'
+          '    return re.fullmatch("[A-Z]\\d+", text) is not None and (1if limit else 0x1for limit) > 0\n')
 
-    def body(fdef):
-        fdef.body = [ast.Return(ast.Call(ast.Name('hook', ast.Load()), [ast.Name('days', ast.Load())], []))]
-    for text in (None, 'def grace(value: int = 3, *, unit="d") -> bool:\n    return value > 3\n'):
-        if text is not None:
-            rewrite(path, text)
-        kept = sites._recompile(grace, None, lambda: True, body)
-        again = sites._recompile(grace, None, lambda: True, body)
-        fresh = sites._recompile(grace, ast.NodeTransformer(), lambda: True, body)
-        assert marshal.dumps(kept) == marshal.dumps(again) == marshal.dumps(fresh)
-    assert kept.co_varnames[:2] == ('value', 'unit')
+
+def test_every_hook_parses_again_and_warns_as_the_parser_does(tmp_path, recwarn):
+    path = tmp_path / 'policy.py'
+    path.write_text(WARNED)
+    code = load(path).code
+    recwarn.clear()
+    ast.parse(textwrap.dedent(inspect.getsource(code)))
+    parsed = [(warning.category, str(warning.message)) for warning in recwarn]
+    assert len(parsed) == 3 and any(message == "invalid escape sequence '\\d'" for _, message in parsed), parsed
+    for _ in range(3):
+        recwarn.clear()
+        with sites.intercepted(code, lambda original, bound: original(*bound.args, **bound.kwargs)):
+            assert code('A1') is True
+        assert [(warning.category, str(warning.message)) for warning in recwarn] == parsed
+
+
+def _git(root, *arguments):
+    subprocess.run(['git', '-C', str(root), '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',
+                    *arguments], check=True, capture_output=True, text=True, timeout=60)
+
+
+def _summary(stdout):
+    """pytest's warnings summary: each message with the places listed above it."""
+    section = stdout.split(' warnings summary ', 1)[1].split('\n-- Docs:', 1)[0]
+    places = {}
+    for entry in section.strip('= \n').split('\n\n'):
+        lines = entry.splitlines()
+        heads = [line for line in lines if not line.startswith(' ')]
+        places.setdefault(lines[len(heads)].strip(), []).extend(heads)
+    return places
+
+
+def test_a_changed_function_hooked_in_two_tests_warns_in_both(tmp_path):
+    root = tmp_path / 'shop'
+    root.mkdir()
+    (root / 'policy.py').write_text('def code(text, limit=0):\n    return text[:1].isupper()\n')
+    (root / 'test_policy.py').write_text('from policy import code\n\n\ndef test_one():\n    assert code("A1")\n\n\n'
+                                         'def test_two():\n    assert not code("a1")\n')
+    (root / '.gitignore').write_text('.flowguard/cache/\n__pycache__/\n')
+    (root / 'pyproject.toml').write_text('[tool.pytest.ini_options]\naddopts = "-p flowguard.intent.plugin"\n')
+    _git(root, 'init', '-q', '-b', 'main')
+    _git(root, 'add', '.')
+    _git(root, 'commit', '-qm', 'baseline')
+    (root / 'policy.py').write_text(WARNED)             # not committed: FlowGuard hooks the changed function
+    bootstrap = 'import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; raise SystemExit(pytest.main(sys.argv[1:]))'
+    result = subprocess.run([sys.executable, '-c', bootstrap, str(Path(__file__).resolve().parents[2]), '-q',
+                             '-p', 'no:cacheprovider'], cwd=root, capture_output=True, text=True, timeout=180)
+    assert '2 passed' in result.stdout, result.stdout + result.stderr
+    # Each test's hook parses the function's text again, so pytest records the parser's warnings in both.
+    hooked = [places for message, places in _summary(result.stdout).items()
+              if message.startswith('<unknown>:2: ') and message.endswith("invalid escape sequence '\\d'")]
+    assert hooked == [['test_policy.py::test_one', 'test_policy.py::test_two']], result.stdout
