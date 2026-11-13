@@ -66,6 +66,26 @@ def test_a_block_found_without_reading_the_lines_is_not_kept(tmp_path, monkeypat
     assert sites._source(grace) == inspect.getsource(grace) == 'def grace(days):\n    return days >= 30\n    LIMIT = 1\n'
 
 
+@pytest.mark.parametrize('name', ['getsource', 'getsourcelines', 'getblock'])
+def test_a_replaced_inspect_function_is_used_as_getsource_uses_it(tmp_path, monkeypatch, name):
+    path = tmp_path / 'policy.py'
+    path.write_text('def grace(days):\n    return days > 3\n')
+    grace = load(path).grace
+    assert sites._source(grace) == 'def grace(days):\n    return days > 3\n'       # the block is kept now
+    real = getattr(inspect, name)
+    if name == 'getsource':
+        replaced = lambda fn: 'def grace(days):\n    pass\n'
+    elif name == 'getsourcelines':
+        replaced = lambda fn: (['def grace(days):\n', '    pass\n'], 1)
+    else:
+        replaced = lambda lines: [lines[0], '    pass\n']
+    monkeypatch.setattr(inspect, name, replaced)
+    assert sites._source(grace) == inspect.getsource(grace) == 'def grace(days):\n    pass\n'
+    # A block read while the replacement stood is not the one read after it is gone.
+    monkeypatch.setattr(inspect, name, real)
+    assert sites._source(grace) == inspect.getsource(grace) == 'def grace(days):\n    return days > 3\n'
+
+
 def test_an_object_that_claims_to_be_a_function_is_read_as_getsource_reads_it(tmp_path):
     path = tmp_path / 'policy.py'
     path.write_text('def grace(days):\n    return days > 3\n')

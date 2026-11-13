@@ -131,6 +131,7 @@ class _Read(list):
 
 
 _BLOCKS = {}
+_INSPECT = inspect.getsource, inspect.getsourcelines, inspect.unwrap, inspect.findsource, inspect.getblock
 
 
 def _source(fn):
@@ -139,8 +140,10 @@ def _source(fn):
     the same, and the file still ends there if it took them all; any other text is tokenized again. The tokenizer
     reports no warnings; the parse after it, which does (an invalid escape, say), still runs on every call.
     Anything but a plain function without __wrapped__ (which getsource would unwrap to itself) is getsource's alone,
-    so an object that only claims to be a function is read exactly as getsource reads it."""
-    if type(fn) is not types.FunctionType or hasattr(fn, '__wrapped__'):
+    so an object that only claims to be a function is read exactly as getsource reads it, and so is every function
+    while a test has replaced one of the inspect functions this path stands for or skips."""
+    if type(fn) is not types.FunctionType or hasattr(fn, '__wrapped__') or \
+            (inspect.getsource, inspect.getsourcelines, inspect.unwrap, inspect.findsource, inspect.getblock) != _INSPECT:
         return inspect.getsource(fn)
     lines, lnum = inspect.findsource(fn)
     rest, key = lines[lnum:], (fn.__code__.co_filename, lnum)
