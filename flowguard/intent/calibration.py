@@ -37,6 +37,7 @@ class _Session:
     nextitem: object = None
     events: list = ()           # the anchor events the ordinary tests recorded
     sealed: dict = field(default_factory=dict)      # sealed answers of this session's recorded calls (_sealed_call)
+    files: dict = None          # resolved file -> its (item, Module) pairs of `items`, in order (_context)
 
 
 @contextmanager
@@ -82,11 +83,20 @@ def _context(root, selector):
     expected = (Path(root) / file).resolve()
     if not separator or not expected.is_relative_to(Path(root).resolve()):
         raise ValueError('calibration test does not belong to the indexed project source')
+    if scope.files is None:
+        # `items` is fixed for the session: resolve each collected file once, not every item per selector.
+        files, resolved = {}, {}
+        for item in scope.items:
+            module = item.getparent(pytest.Module)
+            if module is None:
+                continue
+            path = Path(item.path)
+            if path not in resolved:
+                resolved[path] = path.resolve()
+            files.setdefault(resolved[path], []).append((item, module))
+        scope.files = files
     matches = []
-    for item in scope.items:
-        module = item.getparent(pytest.Module)
-        if module is None or Path(item.path).resolve() != expected:
-            continue
+    for item, module in scope.files.get(expected, ()):
         prefix = module.nodeid + '::'
         if item.nodeid.startswith(prefix) and item.nodeid[len(prefix):] == selected:
             matches.append(item)
@@ -348,7 +358,8 @@ def _scenario(root, binding, values):
             return _unavailable('selected pytest function is not the declared scenario event')
         if _instrumented(set(binding.targets) | set(binding.actual_targets)):
             return _unavailable('the scenario was recorded before code instrumentation; its outcome is not the instrumented code\'s')
-        events = [event for event in scope.events if event.case == item.nodeid]
+        nodeid = item.nodeid            # read once: the comprehension runs over every recorded event
+        events = [event for event in scope.events if event.case == nodeid]
         entries = [event for event in events if event.site == binding.scenario.target and event.phase == 'call']
         if not entries and item.nodeid not in scope.runtime.ran:
             return _unavailable('not compared: the scenario test did not run in this session')
