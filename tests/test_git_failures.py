@@ -73,8 +73,9 @@ def test_the_path_probe_reads_names_literally_whatever_the_pathspec_setting(tmp_
 def test_the_batch_blob_reader_gives_each_path_what_the_single_reader_gives(tmp_path):
     """`git_blobs` reads many paths of one commit in one batch: the same bytes or None per path as `git_blob`, by
     the path as given, also for a name with glob characters, a link and a folder below the repository's top; after
-    a new commit it reads that commit's bytes; a missing tree, a missing blob and a folder fail with Git's message as
-    `git_blob` does."""
+    a new commit it reads that commit's bytes. A path it cannot read as `git_blob` does (a folder, also one another
+    path lies in, a missing blob, every path of a missing commit or tree) is left out, so that `git_blob` reads it
+    alone and fails with Git's message only where its caller reads it."""
     from flowguard.map.common import git_blobs
     root = _committed_shelf_project(tmp_path)
     write(root, 'shelf/a*b.py', 'star\n') if os.name != 'nt' else None
@@ -84,9 +85,10 @@ def test_the_batch_blob_reader_gives_each_path_what_the_single_reader_gives(tmp_
     _git(root, 'add', '-A')
     _git(root, 'commit', '-qm', 'more')
     paths = ['shelf/loans.py', 'shelf/catalog.py', 'shelf/twin.py', 'shelf/absent.py', 'shelf/a*b.py', 'shelf/a?b.py',
-             'shelf/link.py', 'shelf/loans.py', 'absent/deep.py']
+             'shelf/link.py', 'shelf/loans.py', 'absent/deep.py', 'shelf/../shelf/twin.py']
     for revision in ('HEAD', 'HEAD~1'):
-        assert git_blobs(root, revision, paths) == {path: git_blob(root, revision, path) for path in paths}, revision
+        read = git_blobs(root, revision, paths)
+        assert read == {path: git_blob(root, revision, path) for path in paths if '..' not in path}, revision
     assert git_blobs(root / 'shelf', 'HEAD', ['loans.py', 'catalog.py']) == {
         name: git_blob(root / 'shelf', 'HEAD', name) for name in ('loans.py', 'catalog.py')} == {
         'loans.py': b'def value(): return 1\n', 'catalog.py': b'VALUE = 1\n'}
@@ -94,25 +96,24 @@ def test_the_batch_blob_reader_gives_each_path_what_the_single_reader_gives(tmp_
     _git(root, 'commit', '-qam', 'edit')
     assert git_blobs(root, 'HEAD', ['shelf/loans.py']) == {'shelf/loans.py': b'def value(): return 2\n'}
     assert git_blobs(root, 'HEAD', []) == {}
-    with pytest.raises(MapError) as single:
+    assert git_blobs(root, 'HEAD', ['shelf/catalog.py', 'shelf']) == {'shelf/catalog.py': b'VALUE = 1\n'}
+    assert git_blobs(root, 'HEAD', ['shelf']) == {}
+    with pytest.raises(MapError, match='git cat-file failed'):
         git_blob(root, 'HEAD', 'shelf')
-    with pytest.raises(MapError) as batch:
-        git_blobs(root, 'HEAD', ['shelf/catalog.py', 'shelf'])
-    assert str(batch.value) == str(single.value)
+    assert git_blobs(root, 'f' * 40, ['shelf/loans.py']) == {}
     with pytest.raises(MapError, match='is not in the Git repository'):
-        git_blobs(root, 'f' * 40, ['shelf/loans.py'])
+        git_blob(root, 'f' * 40, 'shelf/loans.py')
     blob = _git(root, 'rev-parse', 'HEAD:shelf/catalog.py').decode().strip()
     blob_object = root / '.git/objects' / blob[:2] / blob[2:]
     blob_object.chmod(blob_object.stat().st_mode | stat.S_IWRITE)
     blob_object.unlink()
-    with pytest.raises(MapError) as single:
+    assert git_blobs(root, 'HEAD', ['shelf/loans.py', 'shelf/catalog.py']) == {'shelf/loans.py': b'def value(): return 2\n'}
+    with pytest.raises(MapError, match=blob):
         git_blob(root, 'HEAD', 'shelf/catalog.py')
-    with pytest.raises(MapError) as batch:
-        git_blobs(root, 'HEAD', ['shelf/loans.py', 'shelf/catalog.py'])
-    assert str(batch.value) == str(single.value) and blob in str(single.value)
     tree = _git(root, 'rev-parse', 'HEAD:shelf').decode().strip()
     tree_object = root / '.git/objects' / tree[:2] / tree[2:]
     tree_object.chmod(tree_object.stat().st_mode | stat.S_IWRITE)
     tree_object.unlink()
+    assert git_blobs(root, 'HEAD', ['shelf/loans.py', 'shelf/absent.py']) == {}
     with pytest.raises(MapError, match=tree):
-        git_blobs(root, 'HEAD', ['shelf/loans.py', 'shelf/absent.py'])
+        git_blob(root, 'HEAD', 'shelf/absent.py')

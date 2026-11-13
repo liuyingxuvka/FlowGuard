@@ -128,26 +128,28 @@ def git_blob(root, revision: str, relative: str) -> bytes | None:
 
 
 def git_blobs(root, revision: str, relatives) -> dict[str, bytes | None]:
-    """git_blob(root, revision, path) of each of `relatives` at one commit, by the path as given: one commit check,
-    one listing per batch of paths and one `cat-file --batch` in place of three Git runs per path. A listing of
-    several paths recurses into a folder that one path names and another lies in, and Git rewrites `..` and magic
-    names, so such a path is read by git_blob alone. An object the batch does not give as a blob is read with
-    `cat-file blob` alone, which fails with Git's message as git_blob does."""
+    """What git_blob(root, revision, path) gives of each of `relatives` at one commit, by the path as given, read
+    with one commit check, one listing per batch of paths and one `cat-file --batch` in place of three Git runs per
+    path. Only what this batch reads as git_blob does is given: a path a listing of several paths reads otherwise
+    (a folder another path lies in, `..` or a magic name Git rewrites), an object that is no blob, and every path of
+    a commit, listing or batch Git cannot read are left out, for git_blob to read alone, and fail on with Git's
+    message, when its caller reads it."""
     wanted = {relative: Path(relative).as_posix() for relative in dict.fromkeys(relatives)}
-    if not wanted:
+    if not wanted or git_run(root, "rev-parse", "-q", "--verify", revision + "^{commit}", allowed=(0, 1)).returncode:
         return {}
-    if git_run(root, "rev-parse", "-q", "--verify", revision + "^{commit}", allowed=(0, 1)).returncode:
-        raise MapError(f"commit {revision} is not in the Git repository at {root}")
     names = list(dict.fromkeys(wanted.values()))
     folders = {name[:index] for name in names for index, char in enumerate(name) if char == "/"}
-    alone = {name for name in names if name in folders or name.startswith((":", "/")) or ".." in name.split("/")}
-    listed, objects, batch, length = [name for name in names if name not in alone], {}, [], 0
+    listed = [name for name in names if name not in folders and not name.startswith((":", "/")) and ".." not in name.split("/")]
+    objects, batch, length = {}, [], 0
     for index, name in enumerate(listed):
         batch.append(name)
         length += len(name) + 1
         if length > 8000 or index == len(listed) - 1:     # a command line Windows accepts
-            listing, asked = git_run(root, "ls-tree", "-z", revision, "--", *batch).stdout, set(batch)
-            for row in listing.split(b"\0"):
+            listing = git_run(root, "ls-tree", "-z", revision, "--", *batch, allowed=(0, 1, 128))
+            if listing.returncode:
+                return {}
+            asked = set(batch)
+            for row in listing.stdout.split(b"\0"):
                 description, _, entry = row.partition(b"\t")
                 entry = os.fsdecode(entry)
                 if entry in asked and entry not in objects:     # git_path_object: the first entry of that name
@@ -155,20 +157,21 @@ def git_blobs(root, revision: str, relatives) -> dict[str, bytes | None]:
             batch, length = [], 0
     blobs, unique = {}, list(dict.fromkeys(objects.values()))
     if unique:
-        output = git_run(root, "cat-file", "--batch", input=("\n".join(unique) + "\n").encode()).stdout
-        position = 0
+        output = git_run(root, "cat-file", "--batch", input=("\n".join(unique) + "\n").encode(), allowed=(0, 1, 128))
+        if output.returncode:
+            return {}
+        output, position = output.stdout, 0
         for found in unique:
             end = output.index(b"\n", position)
             header, position = output[position:end].split(), end + 1
-            size = int(header[2]) if len(header) == 3 else 0
-            if len(header) == 3 and header[1] == b"blob":
-                blobs[found] = output[position:position + size]
-            else:   # missing, or not a blob: what git_blob's own read gives (its error)
-                blobs[found] = git_run(root, "cat-file", "blob", found).stdout
-            position += size + 1 if len(header) == 3 else 0
-    read = {name: git_blob(root, revision, name) for name in names if name in alone}
-    read.update((name, blobs[objects[name]] if name in objects else None) for name in listed)
-    return {relative: read[name] for relative, name in wanted.items()}
+            if len(header) == 3:
+                size = int(header[2])
+                if header[1] == b"blob":
+                    blobs[found] = output[position:position + size]
+                position += size + 1
+    read = {name: blobs[objects[name]] if name in objects else None for name in listed
+            if name not in objects or objects[name] in blobs}
+    return {relative: read[name] for relative, name in wanted.items() if name in read}
 
 
 def git_renames(root, revision: str) -> dict[str, str]:

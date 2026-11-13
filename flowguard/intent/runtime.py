@@ -1524,7 +1524,8 @@ class Runtime:
 
     def read_ahead(self, files):
         """Read the baseline bytes of the `files` that `_source` will read, in one batch (`git_blobs`) in place of
-        three Git runs each; `_source` decodes and fails on each as it does when it reads the file alone."""
+        three Git runs each; `_source` decodes each when it first reads it, and reads a file the batch left out
+        alone, failing there as before."""
         if self._baseline_error or self.previous is not None:
             return
         from flowguard.map.common import git_blobs
