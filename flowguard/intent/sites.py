@@ -149,7 +149,8 @@ def _source(fn):
             return ''.join(block)
     read = _Read(rest)
     block = inspect.getblock(read)
-    _BLOCKS[key] = tuple(rest[:read.taken]), read.ended, block
+    if read.taken >= len(block):    # a getblock that took its lines another way is not kept
+        _BLOCKS[key] = tuple(rest[:read.taken]), read.ended, block
     return ''.join(block)
 
 

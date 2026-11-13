@@ -52,6 +52,19 @@ def test_reused_block_follows_the_file_and_the_cached_lines(tmp_path):
     assert 'days < 0' in sites._source(grace)
 
 
+def test_a_block_found_without_reading_the_lines_is_not_kept(tmp_path, monkeypatch):
+    # A getblock that indexes its lines instead of tokenizing them: nothing shows which lines its answer read.
+    def indexed(lines):
+        return lines[:next((i for i in range(1, len(lines)) if not lines[i].startswith(' ')), len(lines))]
+    monkeypatch.setattr(inspect, 'getblock', indexed)
+    path = tmp_path / 'policy.py'
+    path.write_text('def grace(days):\n    return days > 3\nLIMIT = 1\n')
+    grace = load(path).grace
+    assert sites._source(grace) == inspect.getsource(grace) == 'def grace(days):\n    return days > 3\n'
+    rewrite(path, 'def grace(days):\n    return days >= 30\n    LIMIT = 1\n')
+    assert sites._source(grace) == inspect.getsource(grace) == 'def grace(days):\n    return days >= 30\n    LIMIT = 1\n'
+
+
 def test_reused_block_keeps_the_shim_of_the_current_source(tmp_path):
     path = tmp_path / 'policy.py'
     path.write_text('class Grace:\n    def days(self, value):\n        return value > 3\n')
