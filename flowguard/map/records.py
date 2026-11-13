@@ -206,7 +206,7 @@ def _first_blob(root: Path, relative: str, common):
     commits that added it may be one begun ahead."""
     if common is None or git_head(root) is None:
         return None
-    listings = _LISTINGS.get()
+    listings = FirstListings.current.get()
     started = listings.take(root, relative) if listings is not None else None
     history = (started.result() if started is not None else git_run(root, *_added(relative))).stdout.split()
     if not history:
@@ -223,15 +223,13 @@ def _added(relative):
     return "log", "--format=%H", "--diff-filter=A", "--reverse", "--", relative
 
 
-_LISTINGS = ContextVar('flowguard_first_listings', default=None)
-
-
 class FirstListings:
     """While the block runs, the listing `_first_blob` reads of each of `relative_paths` is begun ahead, for the
     integrity checks of these files in this order (`integrity_problem`), the next few beside the one a check reads.
     Only a file inside root that exists gets one, as only its check reads one, by its real path relative to root as
     the check names it; a run no check reads is never read, and leaving the block waits for every run begun."""
     AHEAD = 4
+    current = ContextVar('flowguard_first_listings', default=None)      # the block that runs now
 
     def __init__(self, root, relative_paths, common):
         root = Path(root).resolve()
@@ -259,11 +257,11 @@ class FirstListings:
 
     def __enter__(self):
         self._begin(0)
-        self.token = _LISTINGS.set(self)
+        self.token = FirstListings.current.set(self)
         return self
 
     def __exit__(self, *exc):
-        _LISTINGS.reset(self.token)
+        FirstListings.current.reset(self.token)
         for run in self.runs.values():
             run.close()
 

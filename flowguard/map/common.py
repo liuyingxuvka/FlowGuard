@@ -34,16 +34,18 @@ def sha256_bytes(data: bytes) -> str:
 
 
 
-NO_GIT = "git executable not found: FlowGuard reads the project's Git state with it; install Git or put it on PATH"
-
-
 def git_run(root, *arguments: str, allowed=(0,), input: bytes | None = None, env=None) -> subprocess.CompletedProcess:
     """Run git; a missing executable or an exit outside `allowed` is an error that carries Git's own message."""
     try:
         result = subprocess.run(["git", "-C", str(root), *arguments], capture_output=True, input=input, env=env)
     except FileNotFoundError as error:
-        raise MapError(NO_GIT) from error
+        raise _git_missing() from error
     return _git_checked(root, arguments, result, allowed)
+
+
+def _git_missing():
+    return MapError("git executable not found: FlowGuard reads the project's Git state with it; "
+                    "install Git or put it on PATH")
 
 
 def _git_checked(root, arguments, result, allowed):
@@ -63,7 +65,7 @@ class GitRun:
             self.process = subprocess.Popen(["git", "-C", str(root), *arguments], stdout=subprocess.PIPE,
                                             stderr=subprocess.PIPE)
         except FileNotFoundError as error:
-            raise MapError(NO_GIT) from error
+            raise _git_missing() from error
 
     def result(self, allowed=(0,)) -> subprocess.CompletedProcess:
         stdout, stderr = self.process.communicate()
