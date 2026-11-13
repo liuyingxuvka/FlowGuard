@@ -21,20 +21,6 @@ SOURCE_EXTS = {'.py', '.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.go', '.rs'
 DEFAULT_IGNORE = ['.flowguard/**', '.git/**', '**/__pycache__/**', 'node_modules/**',
                   'dist/**', 'build/**', '.venv/**', 'venv/**', '**/*.min.js']
 
-def read_git_paths(root, *arguments):
-    """Read Git with a disposable index so a source query cannot refresh the real index."""
-    root = Path(root)
-    where = git_run(root, 'rev-parse', '--git-path', 'index')
-    source = Path(os.fsdecode(where.stdout).strip())
-    if not source.is_absolute():
-        source = root / source
-    with tempfile.TemporaryDirectory(prefix='flowguard-read-index-') as folder:
-        index = Path(folder) / 'index'
-        if source.exists():
-            shutil.copy2(source, index)
-        env = dict(os.environ, GIT_OPTIONAL_LOCKS='0', GIT_INDEX_FILE=str(index))
-        result = git_run(root, *arguments, env=env)
-        return [os.fsdecode(item) for item in result.stdout.split(b'\0') if item]
 
 
 
@@ -139,6 +125,76 @@ def git_blob(root, revision: str, relative: str) -> bytes | None:
     if found is None:
         return None
     return git_run(root, "cat-file", "blob", found).stdout
+
+
+def git_blobs(root, revision: str, relatives) -> dict[str, bytes | None]:
+    """What git_blob(root, revision, path) gives of each of `relatives` at one commit, by the path as given, read
+    with one commit check, one listing per batch of paths and one `cat-file --batch` in place of three Git runs per
+    path. Only what this batch reads as git_blob does is given: a path a listing of several paths reads otherwise
+    (a folder another path lies in, `..` or a magic name Git rewrites), an object that is no blob, and every path of
+    a commit, listing or batch Git cannot read are left out, for git_blob to read alone, and fail on with Git's
+    message, when its caller reads it."""
+    wanted = {relative: Path(relative).as_posix() for relative in dict.fromkeys(relatives)}
+    if not wanted or git_run(root, "rev-parse", "-q", "--verify", revision + "^{commit}", allowed=(0, 1)).returncode:
+        return {}
+    names = list(dict.fromkeys(wanted.values()))
+    folders = {name[:index] for name in names for index, char in enumerate(name) if char == "/"}
+    listed = [name for name in names if name not in folders and not name.startswith((":", "/")) and ".." not in name.split("/")]
+    objects, batch, length = {}, [], 0
+    for index, name in enumerate(listed):
+        batch.append(name)
+        length += len(name) + 1
+        if length > 8000 or index == len(listed) - 1:     # a command line Windows accepts
+            listing = git_run(root, "ls-tree", "-z", revision, "--", *batch, allowed=(0, 1, 128))
+            if listing.returncode:
+                return {}
+            asked = set(batch)
+            for row in listing.stdout.split(b"\0"):
+                description, _, entry = row.partition(b"\t")
+                entry = os.fsdecode(entry)
+                if entry in asked and entry not in objects:     # git_path_object: the first entry of that name
+                    objects[entry] = os.fsdecode(description.split()[2])
+            batch, length = [], 0
+    blobs, unique = {}, list(dict.fromkeys(objects.values()))
+    if unique:
+        output = git_run(root, "cat-file", "--batch", input=("\n".join(unique) + "\n").encode(), allowed=(0, 1, 128))
+        if output.returncode:
+            return {}
+        output, position = output.stdout, 0
+        for found in unique:
+            end = output.index(b"\n", position)
+            header, position = output[position:end].split(), end + 1
+            if len(header) == 3:
+                size = int(header[2])
+                if header[1] == b"blob":
+                    blobs[found] = output[position:position + size]
+                position += size + 1
+    read = {name: blobs[objects[name]] if name in objects else None for name in listed
+            if name not in objects or objects[name] in blobs}
+    return {relative: read[name] for relative, name in wanted.items() if name in read}
+
+
+def git_renames(root, revision: str) -> dict[str, str]:
+    """{path now: path at `revision`} of each file Git's rename detection (`diff -M`) finds moved since that
+    commit, both paths relative to root (`--relative`: below the repository's top folder a move across root's edge
+    is none). Git compares only the files it tracks, so a file moved without `git add` (an untracked one) is no
+    rename. The one reader of renames: the map's `Change.renamed` and the comparisons read it."""
+    parts = git_run(root, "diff", "-M", "--name-status", "-z", "--relative", "--diff-filter=R", revision, "--").stdout.split(b"\0")
+    return {os.fsdecode(parts[index + 2]): os.fsdecode(parts[index + 1])
+            for index in range(0, len(parts) - 2, 3) if parts[index].startswith(b"R")}
+
+
+def git_files(root) -> frozenset[str]:
+    """The project's files under root, relative to root: in a Git work tree the files Git lists, tracked ones and
+    untracked ones it does not ignore; outside Git the files the map's own folder walk finds (`inventory.list_files`,
+    which skips .git, node_modules, __pycache__ and .venv). A run reads them once for its block, whose shortened
+    paths may name no other of these files (`signals.render_block`): `a/orders.py` beside `b/orders.py` is
+    `a/orders.py`, with Git or without."""
+    if git_common_directory(root) is None:
+        from .inventory import list_files
+        return frozenset(list_files(Path(root)))
+    listed = git_run(root, "ls-files", "-z").stdout + git_run(root, "ls-files", "--others", "--exclude-standard", "-z").stdout
+    return frozenset(os.fsdecode(name) for name in listed.split(b"\0") if name)
 
 
 
@@ -264,14 +320,6 @@ def quiet_broken_pipe(command):
 
 
 
-def project_root(given=None) -> Path:
-    """The project a command works on, decided the same way by every entry point: --root as given, or without
-    --root the nearest directory at or above the current directory that holds .flowguard/ (the current
-    directory itself when none does)."""
-    if given is not None:
-        return Path(given).resolve()
-    start = Path.cwd().resolve()
-    return next((directory for directory in (start, *start.parents) if (directory / ".flowguard").is_dir()), start)
 
 
 

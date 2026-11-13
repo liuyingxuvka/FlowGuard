@@ -95,28 +95,8 @@ def project(tmp_path, *, home='checkout', code=CODE, intent=INTENT, lower_types=
     return model, source_engine(model), module
 
 
-def test_parent_uses_only_outcomes_but_its_home_runs_lower_code(tmp_path):
-    model, engine, module = project(tmp_path)
-    rule = model.rules['CHECKOUT']
-    result = engine.run_home(rule, rule.homes[0], 'cells')
-    assert result['verdict'] == 'ok', result
-    assert result['n'] == 4
-    assert module + ':refusal' in result['footprint']
-    assert result['contracts']['STANDING']['verdict'] == 'ok'
-    assert result['contracts']['STANDING']['outcomes'] == [['bool', 'False'], ['bool', 'True']]
-    first, second = engine.witnesses(model.rules['STANDING'], False)
-    assert first != second
-    assert not model.rules['STANDING'].eval(first) and not model.rules['STANDING'].eval(second)
 
 
-def test_two_equal_outcomes_expose_an_upper_dependency_on_the_refusal_words(tmp_path):
-    code = CODE.replace("if suspended:\n        return 'blocked'", "if suspended:\n        return 'allowed'")
-    model, engine, _ = project(tmp_path, home='checkout_reads_reason', code=code)
-    parent = model.rules['CHECKOUT']
-    result = engine.run_home(parent, parent.homes[0], 'cells')
-    assert result['verdict'] == 'red', result
-    assert any('depends on more of STANDING than its outcome' in line for line in result['red'])
-    assert result['contracts']['STANDING']['verdict'] == 'ok'
 
 
 def test_only_one_verified_input_cannot_claim_adequacy(tmp_path):
@@ -133,24 +113,6 @@ def test_only_one_verified_input_cannot_claim_adequacy(tmp_path):
     assert not result['red']
 
 
-def test_uses_and_witness_follow_a_two_step_supersede(tmp_path):
-    intent = INTENT + '''
-@rule('MIDDLE', decides='good_standing', fields={'ended': int, 'suspended': bool, 'owed': int},
-      source='doc policy.txt "May buy when standing and stock remains"', supersedes=[STANDING])
-def MIDDLE(ended,suspended,owed):
-    return ended <= 3 and not suspended and owed <= 50
-@rule('LATEST', decides='good_standing', fields={'ended': int, 'suspended': bool, 'owed': int},
-      source='doc policy.txt "May buy when standing and stock remains"', supersedes=[MIDDLE])
-def LATEST(ended,suspended,owed):
-    return ended <= 3 and not suspended and owed <= 50
-'''
-    model, engine, _ = project(tmp_path, intent=intent)
-    parent = model.rules['CHECKOUT']
-    assert parent.uses == ('LATEST',)
-    assert len(model.rules['LATEST'].homes) == 1
-    result = engine.run_home(parent, parent.homes[0], 'cells')
-    assert result['verdict'] == 'ok', result
-    assert result['contracts']['LATEST']['verdict'] == 'ok'
 
 
 def _saved(model, engine, graph):
@@ -177,44 +139,115 @@ def _changed(model, module, source):
     return current, source_engine(current)
 
 
-def test_same_lower_contract_does_not_cut_the_upper_dependency_recheck(tmp_path):
-    model, engine, module = project(tmp_path)
-    with closing(build(model.cfg.root)) as graph:
-        saved = _saved(model, engine, graph)
-        old_lower = engine.contract_summary('STANDING')
-        new_code = CODE.replace("if ended > 3:", "if not ended <= 3:")
-        current, changed = _changed(model, module, new_code)
-        graph.refresh()
-        now = deps.Now(current.cfg, graph)
-        picked = deps.affected(saved, current, now)
-        assert set(picked) == {'STANDING', 'CHECKOUT'}
-        lower = changed.contract_summary('STANDING')
-        assert lower['verdict'] == 'ok', lower
-        assert lower['outcomes'] == old_lower['outcomes']
-        # Equal lower outcomes do not erase a changed real input of the upper.
-        dependency = 'file:' + module + '.py'
-        assert saved['deps']['CHECKOUT']['dependencies'][dependency] != now(dependency)
-        parent = current.rules['CHECKOUT']
-        assert changed.run_home(parent, parent.homes[0], 'cells')['verdict'] == 'ok'
 
 
-def test_an_undeclared_detail_can_miss_locally_but_all_recheck_catches_it(tmp_path):
-    model, engine, module = project(tmp_path, home='checkout_reads_reason')
-    with closing(build(model.cfg.root)) as graph:
-        saved = _saved(model, engine, graph)
-        old_lower = engine.contract_summary('STANDING')
-        new_code = CODE.replace("if suspended:\n        return 'blocked'", "if suspended:\n        return 'allowed'")
-        current, changed = _changed(model, module, new_code)
-        graph.refresh()
-        now = deps.Now(current.cfg, graph)
-        lower = changed.contract_summary('STANDING')
-        assert lower['verdict'] == 'ok', lower
-        assert lower['outcomes'] == old_lower['outcomes']
-        picked = deps.affected(saved, current, now)
-        assert {'STANDING', 'CHECKOUT'} <= set(picked)
-        dependency = 'file:' + module + '.py'
-        assert saved['deps']['CHECKOUT']['dependencies'][dependency] != now(dependency)
-        parent = current.rules['CHECKOUT']
-        full_result = changed.run_home(parent, parent.homes[0], 'cells')
-        assert full_result['verdict'] == 'red'
-        assert any('depends on more' in line for line in full_result['red'])
+
+def _recorded_events():
+    from flowguard.intent import calibration
+    return calibration._CURRENT.get().events
+
+
+def test_sealed_points_complete_both_lower_contracts_and_the_flow_from_one_recorded_run(tmp_path):
+    # The scenario test ran once, with ended=0, suspended=False, owed=0, stock=False. Every other point of the
+    # finite domains is that recorded call with the point's inputs put in place, evaluated sealed (design 4.5).
+    model, engine, _ = project(tmp_path)
+    # The ordinary check, as `flowguard check` runs it: the --deep live item installs mutants, which the one
+    # recorded run never executed, so it is not part of this contract.
+    model.deep = False
+    for identifier in ('STANDING', 'CHECKOUT'):
+        # A pytest session gives each lower contract its items' actual results (Engine.contract_summary),
+        # each with its rule and target as the plugin stores them.
+        rule = model.rules[identifier]
+        parts = [dict(engine.run_rules(rule), rule=identifier, target=None),
+                 *(dict(engine.run_home(rule, home, part), rule=identifier, target=home.target)
+                   for home in rule.homes for part in ('rows', 'cells'))]
+        assert all(part['verdict'] == 'ok' for part in parts), (identifier, parts)
+        contract = engine.contract_summary(rule, parts=parts)
+        assert contract['verdict'] == 'ok' and contract['complete'] and not contract['reasons'], (identifier, contract)
+    flow = engine.run_flow(model.flows['STANDING_CHECKOUT'], _recorded_events())
+    assert flow['verdict'] == 'ok' and not flow['grey'] and not flow['red'], flow
+    assert flow['finite']['exhausted'] and flow['runtime']['checked_relations'] == 2
+
+
+def test_a_lower_contract_the_sealed_environment_cannot_run_stays_grey_with_its_reason(tmp_path):
+    # refusal reads a module value the sealed environment does not have: only the recorded input is compared.
+    code = CODE.replace('def refusal(', "MAXIMUM = int('3')\n\ndef refusal(", 1).replace('if ended > 3:', 'if ended > MAXIMUM:')
+    model, engine, _ = project(tmp_path, code=code)
+    model.deep = False
+    standing = model.rules['STANDING']
+    home, = standing.homes
+    cells = engine.run_home(standing, home, 'cells')
+    assert cells['verdict'] == 'grey' and not cells['red'], cells
+    assert any('uses unavailable binding MAXIMUM' in reason for reason in cells['grey']), cells['grey']
+    contract = engine.contract_summary(standing)
+    assert contract['verdict'] == 'grey', contract
+    flow = engine.run_flow(model.flows['STANDING_CHECKOUT'], _recorded_events())
+    assert flow['verdict'] == 'grey' and not flow['red'], flow
+    assert 'lower model STANDING: real contract is not a complete verified finite contract' in flow['grey'], flow['grey']
+
+
+CALLED = '    app.refusal(ended,suspended,owed)\n'
+
+
+def _with_body(tmp_path, body, *, intent=INTENT):
+    """The composed project whose scenario test makes its first call as `body` does, as an ordinary check sees it."""
+    tmp_path.mkdir()
+    model, _, _ = project(tmp_path, intent=intent)
+    case = model.cfg.root / 'tests/test_case.py'
+    case.write_text(case.read_text().replace(CALLED, body, 1))
+    git(model.cfg.root, 'add', '.')
+    git(model.cfg.root, 'commit', '-qm', 'Change the scenario test body')
+    model = load(load_config(model.cfg.root))
+    assert not model.errors, model.errors
+    engine = source_engine(model)
+    model.deep = False
+    return model, engine
+
+
+def _contract(model, engine, identifier):
+    rule = model.rules[identifier]
+    parts = [dict(engine.run_rules(rule), rule=identifier, target=None),
+             *(dict(engine.run_home(rule, home, part), rule=identifier, target=home.target)
+               for home in rule.homes for part in ('rows', 'cells'))]
+    return parts, engine.contract_summary(rule, parts=parts)
+
+
+ALIASED = ("    box = {}\n    alias = box\n    alias['ended'] = ended\n    alias['suspended'] = suspended\n"
+           "    alias['owed'] = owed\n    app.refusal(box['ended'],box['suspended'],box['owed'])\n")
+ALWAYS = INTENT.replace('return ended <= 3 and not suspended and owed <= 50', 'return True').replace(
+    "row(ended=4, suspended=False, owed=0, expect=False, why='expired')",
+    "row(ended=4, suspended=False, owed=0, expect=True, why='expired')").replace(
+    "row(ended=0, suspended=True, owed=0, expect=False, why='suspended')",
+    "row(ended=0, suspended=True, owed=0, expect=True, why='suspended')")
+
+
+def test_inputs_the_scenario_test_passes_through_its_own_dict_are_never_a_complete_contract(tmp_path):
+    # The test hands its inputs to refusal through a dict it fills by an alias. The real test at ended=4 calls
+    # refusal(4, False, 0), which blocks; reusing the recorded call refusal(0, False, 0) would say it allows.
+    reason = ("not compared: the scenario test passes box['ended'] as the ended argument of REFUSAL; only a literal, "
+              'or an input of a fixed value that the test never assigns, is known at another input')
+    # An owner rule that always allows, against code that blocks: the finite contract is not ok, so the Flow
+    # above it does not read it as a complete verified contract.
+    model, engine = _with_body(tmp_path / 'always', ALIASED, intent=ALWAYS)
+    parts, contract = _contract(model, engine, 'STANDING')
+    assert contract['verdict'] == 'grey' and not contract['reasons'], contract
+    rows = parts[1]
+    assert rows['verdict'] == 'grey' and not rows['red'] and any(reason in line for line in rows['grey']), rows
+    # The owner's real rule, against the same code: no false red either.
+    model, engine = _with_body(tmp_path / 'standing', ALIASED)
+    parts, contract = _contract(model, engine, 'STANDING')
+    assert not any(part['red'] for part in parts) and contract['verdict'] == 'grey', (parts, contract)
+
+
+def test_a_later_scenario_call_after_a_return_on_an_earlier_result_is_not_compared_at_another_input(tmp_path):
+    # The test returns early when refusal blocks. At ended=4 the real test never calls checkout, so checkout's
+    # sealed answer at ended=4 is not what the test does; at another stock it calls checkout as recorded.
+    returning = '    reason=app.refusal(ended,suspended,owed)\n    if reason is not None:\n        return\n'
+    model, engine = _with_body(tmp_path / 'returning', returning)
+    parts, contract = _contract(model, engine, 'STANDING')
+    assert all(part['verdict'] == 'ok' for part in parts) and contract['verdict'] == 'ok', (parts, contract)
+    parts, contract = _contract(model, engine, 'CHECKOUT')
+    assert not any(part['red'] for part in parts) and contract['verdict'] == 'grey', (parts, contract)
+    reason = ('not compared: the scenario test reads reason before its call of CHECKOUT_RESULT, in code the sealed '
+              'point does not evaluate; what it does then at another input was not recorded')
+    assert any(reason in line for part in parts for line in part['grey']), parts

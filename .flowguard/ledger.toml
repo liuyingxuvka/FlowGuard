@@ -10,12 +10,7 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
-["flowguard/adapters/vitest/runtime.mjs:call:any"]
-count = 1
-reason = "回放调用自己抛出的错误就是这次回放的结果：记成 $threw（名字和消息）拿去和基准比较；拦下的写操作记成 $refused，整次回放作废"
-rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
-
-["flowguard/adapters/vitest/runtime.mjs:wrap.wrapped:any"]
+["flowguard/adapters/vitest/runtime.mjs:wrap.called:any"]
 count = 1
 reason = "测试自己的真实调用出错时先记下这次调用的结果，然后在同一个函数里原样重新抛出给测试，错误不会被吞掉"
 rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
@@ -130,12 +125,22 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
-["flowguard/intent/cache.py:scan:SyntaxError"]
+["flowguard/intent/anchors.py:source_facts:ValueError"]
 count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
+reason = "Report invalid agreement syntax as a red source issue with its original error text and line. Collection continues only to report other independent errors; an invalid agreement never becomes valid."
+rule = { file = "AGENTS.md", text = "when a step fails, the error reaches the caller or is reported with its text" }
 
-["flowguard/intent/calibration.py:_codes:(AttributeError, sites.NotMutable)"]
+["flowguard/intent/anchors.py:_data_owner:ValueError"]
+count = 1
+reason = "Report an invalid writer or exception position as a red syntax issue with the original error and source line. No invalid position authorizes a write or suppresses a paired-field violation."
+rule = { file = "AGENTS.md", text = "when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/intent/anchors.py:foreign_owners:ValueError"]
+count = 1
+reason = "Report invalid foreign-source agreement syntax as a red issue with its original message and source line. Parsing other comments cannot turn the rejected comment into a valid agreement."
+rule = { file = "AGENTS.md", text = "when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/intent/cache.py:scan:SyntaxError"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
@@ -155,12 +160,12 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
-["flowguard/intent/calibration.py:_scenario:Exception"]
+["flowguard/intent/calibration.py:_passed_arguments:TypeError"]
 count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
+reason = "When the scenario test's call expression does not bind to the anchor function's parameters, the sealed point says it is not compared with the binding error's own text; the contract stays unverified and nothing is evaluated from a guessed argument."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
-["flowguard/intent/calibration.py:_sensor.observe:Exception"]
+["flowguard/intent/calibration.py:_scenario:Exception"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
@@ -190,11 +195,6 @@ count = 2
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
-["flowguard/intent/cli.py:_brief_source:IntentError"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
 ["flowguard/intent/cli.py:_early_plugin:tomllib.TOMLDecodeError"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
@@ -221,16 +221,6 @@ reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；�
 rule = "旧账"
 
 ["flowguard/intent/debug.py:try_anchor:(OSError, ValueError, TypeError, ImportError, AttributeError)"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/debug.py:try_anchor:(ValueError, SyntaxError)"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/debug.py:try_anchor:Exception"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
@@ -585,22 +575,7 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
-["flowguard/intent/owners.py:_load:(ImportError, SyntaxError, OSError, ArithmeticError, LookupError, ValueError, TypeError, AttributeError, NameError, RuntimeError, AssertionError)"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
 ["flowguard/intent/owners.py:_owner_at_baseline:SyntaxError"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/owners.py:_replay:TypeError"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/owners.py:_replay:_Timeout"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
@@ -640,62 +615,12 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
-["flowguard/intent/plugin.py:Observations._cause:MapError"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/plugin.py:Observations._classes_at_call:(KeyError, ValueError)"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/plugin.py:Observations._classes_at_call:(ValueError, TypeError, OSError, SyntaxError, AttributeError)"]
-count = 2
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/plugin.py:Observations._classes_at_call:Exception"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/plugin.py:Observations._classes_at_call:TypeError"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/plugin.py:Observations._classes_at_call:ValueError"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
 ["flowguard/intent/plugin.py:Observations._flow_signals:Unverified"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
-["flowguard/intent/plugin.py:Observations._partition:ValueError"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
 ["flowguard/intent/plugin.py:Observations._rule_signals:PredicateError"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/plugin.py:Observations._widen:(OSError, TypeError, SyntaxError)"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/plugin.py:Observations.report.nearest.size:ValueError"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/plugin.py:Observations.report.projected:ValueError"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
@@ -710,17 +635,22 @@ count = 2
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
+["flowguard/intent/plugin.py:_display:(OSError, ValueError)"]
+count = 1
+reason = "When the console cannot take the block (a closed or unencodable output), the verdict and exit code are already committed; it records the error's type as display_unavailable in the session's observations instead of failing the run a second time."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/intent/plugin.py:_display:sqlite3.Error"]
+count = 1
+reason = "When recording display_unavailable fails after the block could not be shown, it prints that SQLite error's text to stderr; the committed verdict and exit code stay as they are."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/intent/plugin.py:_parse_baseline:(SyntaxError, ValueError)"]
+count = 1
+reason = "A changed file whose version at the baseline commit does not parse (a commit that held a syntax error) gives back no tree and the parser's own words; every comparison that needed that version is then a not compared line with those words, so the session neither stops with INTERNALERROR nor passes it in silence."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
 ["flowguard/intent/plugin.py:pytest_runtest_protocol:Exception"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/plugin.py:pytest_sessionfinish:(OSError, ValueError)"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/plugin.py:pytest_sessionfinish:sqlite3.Error"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
@@ -737,48 +667,8 @@ rule = "旧账"
 
 ["flowguard/intent/runtime.py:Runtime._constants:(ValueError, TypeError, SyntaxError, ArithmeticError)"]
 count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/runtime.py:Runtime.axes:(OSError, ValueError, TypeError, sites.NotMutable)"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/runtime.py:Runtime.register:(ValueError, TypeError, OSError, SyntaxError, ImportError, MapError)"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/runtime.py:Runtime.replay:BaseException"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/runtime.py:Runtime.safety:(OSError, TypeError, SyntaxError)"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/runtime.py:_Guard._copied:(TypeError, ValueError, AttributeError, RecursionError, copy.Error)"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/runtime.py:_Guard._protect:sqlite3.Error"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/runtime.py:_Guard._step:sqlite3.Error"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/runtime.py:_Guard.call:Refused"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
+reason = "Leaves an old module constant that does not fold out of the constants and keeps the error text in reasons, so a previous-code proof says why it is unknown and never invents new code."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
 ["flowguard/intent/runtime.py:_ObserverHub.add:Exception"]
 count = 1
@@ -797,16 +687,6 @@ rule = "旧账"
 
 ["flowguard/intent/runtime.py:_cells:ValueError"]
 count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/runtime.py:_forget:sqlite3.ProgrammingError"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/runtime.py:_neighbours:ArithmeticError"]
-count = 2
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
@@ -834,6 +714,11 @@ rule = "旧账"
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
+
+["flowguard/intent/sources.py:_load:(tomllib.TOMLDecodeError, UnicodeDecodeError)"]
+count = 1
+reason = "Reports a rules.toml or known.toml that is not UTF-8 TOML as a red input finding with the parser's own message; the file then counts no rule or known entry, so nothing it holds closes or checks anything."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
 ["flowguard/intent/vitest.py:judge:PredicateError"]
 count = 1
@@ -1030,11 +915,6 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
-["flowguard/structure/store.py:project_config:(OSError, tomllib.TOMLDecodeError)"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
 ["scripts/install_skill.py:differences:OSError"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
@@ -1044,6 +924,11 @@ rule = "旧账"
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
+
+["tests/intent_engine/_source_fixture.py:ordinary_run:sites.NotMutable"]
+count = 1
+reason = "The test fixture records the calls of every production sensor as the pytest plugin does; a function the plugin cannot hook (a closure) gets no recorded calls here either, and a sealed scenario point then says it has no recorded JSON reading."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
 ["tests/intent_engine/test_flow_request_bytes.py:run_cases:(AssertionError, OSError)"]
 count = 1
@@ -1083,4 +968,64 @@ rule = "旧账"
 ["flowguard/intent/flow_paths.py:_Projection.file_source:(OSError, SyntaxError)"]
 count = 1
 reason = "读不了或解析不了的源文件，把它记进 unknown 并写明错误类型；这个文件的路径因此报成未验证，不会当成没有绕过"
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/adapters/vitest/sealed.mjs:run:any"]
+count = 1
+reason = "Reports a copy whose source does not parse with the host compiler's own message, and a failed or timed out isolated VM call as unavailable; it never inspects an exception object of the copy in the host or asserts an answer."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/intent/runtime.py:_scope:(ValueError, TypeError, SyntaxError)"]
+count = 1
+reason = "Excludes nonliteral assignments from the sealed namespace; later use must report an unavailable name instead of borrowing project state."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/intent/runtime.py:sealed:Refused"]
+count = 1
+reason = "Reports the exact closed namespace or JSON refusal as unavailable; no refused execution is counted as an unchanged result."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/intent/runtime.py:sealed:(ValueError, SyntaxError, TypeError, RecursionError)"]
+count = 1
+reason = "Reports the error type and text when source compilation or JSON conversion cannot produce an isolated comparison; it never claims agreement."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/intent/runtime.py:Runtime.safety:(Refused, ValueError, TypeError, OSError)"]
+count = 1
+reason = "Returns the source qualification error text to explicit callers so they report unavailable rather than executing unsupported native context."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/intent/runtime.py:Runtime.field_values:(OSError, ValueError, TypeError)"]
+count = 1
+reason = "Keeps the field reading error in field_reasons, preventing unavailable fields from licensing a rule or becoming invented default values."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/intent/runtime.py:Runtime.observe:(Refused, ValueError, TypeError, RecursionError)"]
+count = 1
+reason = "Keeps the JSON input error reason and declines comparison while preserving the one real native call and its actual observation."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/intent/runtime.py:Runtime._record:(Refused, ValueError, TypeError, RecursionError)"]
+count = 1
+reason = "Keeps the JSON output error reason and declines comparison while retaining the real return value or exception unchanged."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/intent/runtime.py:Runtime.register:(Refused, ValueError, TypeError, OSError)"]
+count = 1
+reason = "Keeps the historical qualification error in unavailable, so callers cannot treat missing baseline code as verified previous behavior."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/intent/debug.py:try_in_test:(OSError, ValueError, TypeError, AttributeError, sites.NotMutable)"]
+count = 1
+reason = "Reports the exact source, binding or input error as not compared; an unavailable reading never supplies a guessed answer."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/intent/debug.py:_evaluate:(ValueError, SyntaxError)"]
+count = 1
+reason = "Uses the existing parameter-kind parser when the source annotation cannot be directly parsed; an unrecognised type still rejects the input."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/intent/runtime.py:Runtime.guarded:(Refused, ValueError, TypeError, OSError)"]
+count = 1
+reason = "Reports the precise qualification, source, binding or bounded-call refusal to explicit observation callers without inventing a verified result."
 rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }

@@ -2,6 +2,7 @@
 from __future__ import annotations
 import ast
 import builtins
+import math
 import re
 from fractions import Fraction
 from functools import lru_cache
@@ -113,6 +114,115 @@ def fold(node, env: dict, lex: dict, depth: int = 0):
         items = [fold(e, env, lex, depth) for e in node.elts]
         return ("set", tuple(i[1] for i in items)) if all(items) else None
     return None
+
+
+
+# The sealed environments' constant folding (design 4.5): one operation at a time, bounded and fail-closed.
+FOLD_EXPONENT, FOLD_NUMBER, FOLD_TEXT = 64, 2 ** 256, 10_000
+FOLD_OPERATORS = ('+', '-', '*', '/', '//', '%', '**')
+
+
+
+def fold_step(operator, operands, *, javascript=False):
+    """One operation of a sealed constant's right side, computed without running code: `operator` is one of
+    FOLD_OPERATORS with two operands, or `+`/`-` with one (a sign). An operand is an int, float or str; with
+    `javascript` a float or str, as JavaScript numbers are doubles, and `//` is no operator. Returns (value, '')
+    or (None, why it is not folded). Not folded: an exponent outside -64..64, a number above 2**256, a text over
+    10,000 characters, a result that is not finite, and what the language refuses or computes differently (a
+    division by zero, a string with a number, `%` of a text; in JavaScript a sign, `-`, `*`, `/`, `%` or `**` of a
+    text, a fractional exponent, or a power whose double is not exact, as V8 does not round those correctly)."""
+    numbers = (float,) if javascript else (int, float)
+    if operator not in FOLD_OPERATORS or javascript and operator == '//' or len(operands) not in (1, 2) \
+            or len(operands) == 1 and operator not in ('+', '-'):
+        raise ValueError(f'fold_step has no operation {operator} of {len(operands)} operands')
+    def kind(item):
+        return ('number' if type(item) is float else 'string' if type(item) is str else type(item).__name__) \
+            if javascript else type(item).__name__
+    refused = (None, 'cannot fold ' + (f'{operator}{kind(operands[0])}' if len(operands) == 1
+                                      else f'{kind(operands[0])} {operator} {kind(operands[1])}'))
+    if any(type(item) not in (*numbers, str) for item in operands):
+        return refused
+    for item in operands:
+        if type(item) is int and abs(item) > FOLD_NUMBER:
+            return None, 'a number above 2**256'
+        if type(item) is float and not math.isfinite(item):
+            return None, 'a number that is not finite'
+    texts = [type(item) is str for item in operands]
+    if len(operands) == 1:
+        if texts[0]:
+            return refused
+        value = operands[0] if operator == '+' else -operands[0]
+    elif any(texts):
+        left, right = operands
+        if operator == '+' and all(texts):
+            if len(left) + len(right) > FOLD_TEXT:
+                return None, f'text is longer than {FOLD_TEXT} characters'
+            return left + right, ''
+        if operator == '*' and not javascript and texts.count(True) == 1 and int in (type(left), type(right)):
+            text, times = (left, right) if texts[0] else (right, left)
+            if len(text) * max(times, 0) > FOLD_TEXT:
+                return None, f'text is longer than {FOLD_TEXT} characters'
+            return text * times, ''
+        return refused
+    else:
+        left, right = operands
+        if operator in ('/', '//', '%') and right == 0:
+            return None, 'divides by zero'
+        if operator == '**':
+            value, why = _power(left, right, javascript)
+            if why:
+                return None, why
+        elif operator == '%' and javascript:
+            value = math.fmod(left, right)      # JavaScript's remainder keeps the dividend's sign
+        elif operator == '+':
+            value = left + right
+        elif operator == '-':
+            value = left - right
+        elif operator == '*':
+            value = left * right
+        elif operator == '/':
+            value = left / right
+        elif operator == '//':
+            value = left // right
+        else:
+            value = left % right
+    if type(value) is float and not math.isfinite(value):
+        return None, 'result is not finite'
+    if type(value) not in numbers:
+        return None, 'result is not a real number'
+    if abs(value) > FOLD_NUMBER:
+        return None, 'result is above 2**256'
+    return value, ''
+
+
+
+def _shown(number):
+    """A number of a folding reason: a whole one as written (300, not 300.0), a long one with six digits."""
+    return str(int(number)) if float(number).is_integer() and abs(number) < 1e16 else f'{number:.6g}'
+
+
+
+def _power(left, right, javascript):
+    """(left ** right, '') for fold_step, or (None, why). The magnitude is bounded before anything is computed."""
+    if right > FOLD_EXPONENT:
+        return None, f'exponent {_shown(right)} is above {FOLD_EXPONENT}'
+    if right < -FOLD_EXPONENT:
+        return None, f'exponent {_shown(right)} is below -{FOLD_EXPONENT}'
+    if javascript and not right.is_integer():
+        return None, f'exponent {_shown(right)} is not a whole number'
+    if left == 0:
+        return (None, 'divides by zero') if right < 0 else (left ** right, '')
+    if left < 0 and type(right) is float and not right.is_integer():
+        return None, 'result is not a real number'
+    if math.log2(abs(left)) * right > math.log2(FOLD_NUMBER) + 1:
+        return None, 'result is above 2**256'
+    if not javascript:
+        return left ** right, ''
+    exact = Fraction(left) ** int(right)
+    value = float(exact)
+    if Fraction(value) != exact:
+        return None, f'{_shown(left)} ** {_shown(right)} is not exact in floating point'
+    return value, ''
 
 
 

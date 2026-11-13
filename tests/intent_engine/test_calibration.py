@@ -61,23 +61,21 @@ def test_native(filename):
     scope, item = bind_anchor(tmp_path, anchor)
     module = importlib.import_module('policy')
     alias, original = module.limit, module.limit.__code__
+    # The ordinary run made the one real call, its fixture teardown passed, and the alias is the real function.
+    [reading] = scope.runtime.readings
+    assert reading.actual[1] is True and not reading.rows
+    assert reading.sample is not None and not reading.reasons
+    assert scope.runtime.outcomes == {}
     calls = []
     with scope.runtime.record(predicate=lambda code: code is original,
                               callback=lambda frame,event,arg: calls.append(event), private=True, entry_only=True):
-        with scope.runtime.hook(module.limit, name='limit', axes={'x': [2,5]}, private=True):
-            result = scope.runtime.replay(item, nextitem=scope.nextitem)
-    assert result['status'] == 'ok' and all(report.passed for report in result['reports']), result
-    # The real call, and one replayed call that the guard stops at its first write: the fixture still
-    # finds only the real call's file, and the reading stays grey.
-    assert calls == ['call', 'call']
-    reading = scope.runtime.readings[-1]
-    assert reading.status == 'grey' and not reading.rows
-    assert reading.reasons[0].startswith("回放被拦住：policy.py:7 Path(filename + '.closed').write_text('finished')：写文件 ")
-    assert reading.reasons[0].endswith('limit.txt.closed'), reading.reasons
+        result = calibration.execute(tmp_path, anchor, {'x': 5})
+    # Calibration performs no call of its own; explicit sealed qualification refuses this source.
+    assert calls == [] and result.status == 'grey' and result.value is None, result
     assert module.limit is alias and module.limit.__code__ is original
 
 
-def test_driver_actual_exception_is_raised_not_generic_grey(tmp_path):
+def test_unavailable_custom_exception_is_not_masqueraded_as_a_builtin_refusal(tmp_path):
     anchor = project(tmp_path, '''class Denied(ValueError): pass
 # flowguard: sensor limit(x: count, threshold: count) -> allowed: bool calibrated_by=test_policy.py::test_native
 def limit(x: int, threshold: int) -> bool:
@@ -90,14 +88,8 @@ def test_native(tmp_path):
 ''')
     bind_anchor(tmp_path, anchor)
     result = calibration.execute(tmp_path, anchor, {'x': -1})
-    assert result.status == 'ok', result.reasons
-    assert isinstance(result.value, Raised)
-    assert type(result.value.error).__module__ == 'policy'
-    assert type(result.value.error).__qualname__ == 'Denied'
-    assert str(result.value.error) == 'negative input'
-    from flowguard.intent.api import Refused
-    assert Refused(ValueError).matches(result.value.error)
-    assert Refused('Denied', contains='negative').matches(result.value.error)
+    assert result.status == 'grey' and result.value is None, result
+    assert 'Denied' in ' '.join(result.reasons)
 
 
 def test_native_probe_does_not_import_unselected_intent(tmp_path):
@@ -140,12 +132,11 @@ def stamp(x: int) -> float:
     bind_anchor(tmp_path, anchor)
     result = calibration.execute(tmp_path, anchor, {'x': 1})
     assert result.status == 'grey' and result.value is None
-    assert 'original-value recheck changed' in ' '.join(result.reasons)
+    assert 'time' in ' '.join(result.reasons)
 
 
 def test_a_coarse_clock_still_cannot_calibrate_a_clock_reading_sensor(tmp_path, monkeypatch):
-    # Windows' time.time ticks every 1/64 second: the original-value recheck waits for the next tick,
-    # so the two calls of the sensor read different times, whatever the machine's speed.
+    # A coarse clock does not make time available in the sealed environment.
     import time
     real = time.time
     monkeypatch.setattr(time, 'time', lambda: (real() * 64 // 1) / 64)
@@ -158,7 +149,7 @@ def stamp(x: int) -> float:
     for _ in range(3):
         result = calibration.execute(tmp_path, anchor, {'x': 1})
         assert result.status == 'grey' and result.value is None
-        assert 'original-value recheck changed' in ' '.join(result.reasons)
+        assert 'time' in ' '.join(result.reasons)
 
 
 def test_baseline_assert_and_teardown_failures_are_not_hidden(tmp_path):
@@ -243,8 +234,10 @@ def limit(x: int) -> bool:
     original = module.limit.__code__
     with sites.installed(module.limit, code):
         result = calibration.execute(tmp_path, anchor, {'x': 2})
-        assert result.status == 'ok' and result.value is False, result.reasons
+        assert result.status == 'grey' and result.value is None, result
+        assert 'instrumentation' in ' '.join(result.reasons)
         assert module.limit.__code__ is code
+        assert module.limit(2) is False
     assert module.limit.__code__ is original and module.limit(2) is True
 
 

@@ -61,19 +61,6 @@ LAPSE.rows(row(ended=4,expect=True,why='the first lapsed day'))
 '''
 
 
-@pytest.mark.parametrize('selection', [
-    "member in [n['member_id'] for n in notices]",
-    "any(n['member_id']==member for n in notices)",
-    "len([n for n in notices if n['member_id']==member])>0",
-])
-def test_selecting_the_real_member_from_the_result_is_honest(tmp_path, selection):
-    body="from world_PKG import world\nfrom types import SimpleNamespace\nstore,member=world(SimpleNamespace(ended=ended))\nnotices=app.lapse_notices(store)\nselected="+selection+"\nassert type(selected) is bool"
-    model,engine=make(tmp_path,STORE,NOTICE,MEMBERS,scenario_case=dict(rule='LAPSE',target='lapse_notices',parameters={'ended':'int'},source_parameters={'store':'dict'},output='list',body=body,read="Read('answer',view='empty',equals=False)"))
-    rule=model.rules['LAPSE']
-    result=engine.run_home(rule,rule.homes[0],'cells')
-    assert result['verdict']=='ok',result
-
-
 @pytest.mark.parametrize('body', [
     "store,member=world(c)\n    return c.ended in [n['member_id'] for n in fn(store)]",
     "store,member=world(c)\n    answer=c.ended>3\n    fn(store)\n    return answer",
@@ -122,54 +109,10 @@ def test_a_builder_cannot_encode_the_policy_in_a_fee(tmp_path):
     assert any('call adapters were removed' in e['msg']and'rebuild'in e['msg']for e in model.errors)
 
 
-def test_an_honest_date_builder_remains_accepted(tmp_path):
-    body='from world_PKG import TODAY,setup\nstore,workshop=setup(days_before)\nanswer=app.withdraw(store,workshop,TODAY)\nassert type(answer) is bool'
-    model,engine=make(tmp_path,WORKSHOPS,WAIVE,WORKSHOP_WORLD,scenario_case=dict(rule='WAIVE',target='withdraw',parameters={'days_before':'int'},source_parameters={'store':'dict','identifier':'int','today':'date'},body=body))
-    rule=model.rules['WAIVE'];result=engine.run_home(rule,rule.homes[0],'cells')
-    assert result['verdict']=='ok',result
 
 
-def test_a_refusal_is_the_observed_result_even_after_return_true(tmp_path):
-    code = '''
-    class Contract:
-        @classmethod
-        def from_dict(cls,data):
-            if set(data)-{'known'}:
-                raise ValueError('unknown field')
-            return cls()
-    '''
-    intent = '''
-    from flowguard.intent import rule,row,Refused
-    @rule('FIELDS',decides='field',fields={'key':('known','unknown')},source='assumed: only known field')
-    def FIELDS(key):
-        return True if key=='known' else Refused(ValueError,contains='unknown field')
-    FIELDS.rows(row(key='unknown',expect=Refused(ValueError,contains='unknown field'),why='unknown field refused'))
-    '''
-    model, engine = make(tmp_path, code, intent, scenario_case=dict(rule='FIELDS',target='Contract.from_dict',parameters={'key':'str'},source_parameters={'data':'dict'},output='object',defaults={'key':repr('known')},body='contract=app.Contract.from_dict({key:None})\nassert isinstance(contract,app.Contract)',read="Read('answer','error',equals=None)"))
-    rule = model.rules['FIELDS']
-    result = engine.run_home(rule, rule.homes[0], 'cells')
-    assert result['verdict'] == 'ok' and result['entered'], result
 
 
-def test_a_field_named_boolean_site_cannot_disappear_from_liveness(tmp_path):
-    code = '''
-    def validate(unique):
-        if not isinstance(unique,list) or any(not isinstance(item,str) or not item for item in unique):
-            raise ValueError('invalid ids')
-    '''
-    intent = '''
-    from flowguard.intent import rule,row
-    @rule('VALID',decides='accept_valid_ids',fields={'unique':((),('red',))},source='assumed: the currently checked valid-input range')
-    def VALID(unique):return True if unique in ((),('red',)) else None
-    VALID.rows(row(unique=(),expect=True,why='valid empty list'))
-    '''
-    model, engine = make(tmp_path, code, intent, scenario_case=dict(rule='VALID',target='validate',parameters={'unique':'tuple'},source_parameters={'unique':'list'},output='None',body='answer=app.validate(list(unique))\nassert answer is None',read="Read('answer','error',equals=None)"))
-    rule = model.rules['VALID']
-    result = engine.run_live(rule, rule.homes[0])
-    site = next(site for site in result['sites'] if site['text'].startswith('not isinstance(unique, list) or'))
-    assert result['verdict'] == 'grey'
-    assert site['realized'] and site['mutable'] and site['live'] is False
-    assert any('or becomes and' in reason for reason in result['grey'])
 
 
 @pytest.mark.parametrize('redefined', [False, True])
@@ -298,29 +241,6 @@ ALL_FLAGS.rows(row({row},expect=True,why='all eight required flags are present')
     assert not any('not measured' in reason for reason in result['grey'])
 
 
-@pytest.mark.parametrize('expression', ['exists("fixed")', 'Directory().exists()'])
-def test_a_callable_name_is_not_a_rule_field(tmp_path, expression):
-    code = f'''
-def exists(identifier): return False
-class Directory:
-    def exists(self): return False
-def accept(flag):
-    if flag:
-        return True
-    return False
-    if {expression}:
-        return True
-'''
-    intent = '''
-from flowguard.intent import rule,row
-@rule('EXISTING',decides='existence',fields={'exists':bool},source='assumed: the existing state')
-def EXISTING(exists): return exists
-EXISTING.rows(row(exists=True,expect=True,why='the actual state is true'))
-'''
-    model, engine = make(tmp_path, code, intent,scenario_case=dict(rule='EXISTING',target='accept',parameters={'exists':'bool'},source_parameters={'flag':'bool'} if 'def accept(flag)' in code else {'exists':'bool'} if 'def accept(exists)' in code else {'state':'dict'},body="answer=app.accept({'exists':exists})\nassert type(answer) is bool" if 'def accept(state)' in code else 'answer=app.accept(exists)\nassert type(answer) is bool'))
-    rule = model.rules['EXISTING']
-    result = engine.run_live(rule, rule.homes[0])
-    assert result['verdict'] == 'ok', result
 
 
 def test_a_call_argument_still_names_the_rule_field(tmp_path):

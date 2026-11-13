@@ -271,15 +271,16 @@ def test_nested_recorders_keep_the_outer_owner_live_and_do_not_mix_cases(tmp_pat
     assert all(event.case == 'inner' for event in inner.events)
 
 
-def test_private_runtime_replay_cannot_create_ordinary_anchor_events(tmp_path):
+def test_recording_a_call_creates_only_its_one_ordinary_anchor_event_pair(tmp_path):
     source = '# flowguard: sensor VALUE\ndef value(x: int) -> bool: return x <= 3\n'
     index, module = program(tmp_path, source)
     runtime = Runtime(tmp_path, previous={})
     with Capture(tmp_path, index, 'ordinary', _ordinary=True) as capture:
-        with runtime.hook(module.value, axes={'x': [0, 3, 4]}):
+        with runtime.hook(module.value):
             assert module.value(2) is True
     assert [(event.phase, event.values['x']) for event in capture.events] == [('call', 2), ('return', 2)]
-    assert {0, 2, 3, 4} <= {inputs['x'] for inputs, _ in runtime.readings[0].rows}
+    reading, = runtime.readings
+    assert reading.sample['inputs'] == {'x': 2} and reading.json_result is True and reading.rows == []
     assert not _PRIVATE.get() and not capture.issues
 
 

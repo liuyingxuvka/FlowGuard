@@ -34,30 +34,34 @@ import tomllib
 
 from flowguard.map.common import MapError, git_blob, glob_match
 from flowguard.structure.readers.registry import ECMA, language_for
+from .deprecation import warn
 
 LEDGER = '.flowguard/ledger.toml'
 INIT_RECORD = 'ledger-init.json'
 LEGACY_RULE = '旧账'
-LEGACY_REASON = '旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩'
-PLACEHOLDER_REASON = '换成真实的理由：这处做了什么、为什么可以留（不少于 8 个词）'
-PLACEHOLDER_RULE = dict(file='成文规矩所在的文件', text='该文件里必须出现的一句话')
+LEGACY_REASON = 'Legacy, unreviewed: this fallback existed when ledger init recorded it; when editing it, explain what it does, why it may remain, and the written rule it serves'
+PLACEHOLDER_REASON = 'Replace with the real reason: what this handler does and why it may remain (at least 8 words)'
+PLACEHOLDER_RULE = dict(file='file containing the written rule', text='an exact sentence that must occur in that file')
+_OLD_PLACEHOLDER_REASON = '换成真实的理由：这处做了什么、为什么可以留（不少于 8 个词）'
+_OLD_PLACEHOLDER_RULE = ('成文规矩所在的文件', '该文件里必须出现的一句话')
 MIN_WORDS = 8
 FIELDS = {'count', 'reason', 'rule'}
 UNVERIFIED = 'unverified'
 STRUCTURE = 'structure'         # [structure."name"]: the owner's decision on one structure problem
 SECTIONS = frozenset({UNVERIFIED, STRUCTURE})  # Named sections beside the handler entries.
-PLACEHOLDER_UNVERIFIED = '换成真实的理由：为什么这个判断不再回放、由什么守住它（不少于 8 个词）'
+PLACEHOLDER_UNVERIFIED = 'Replace with the real reason: why this judgment is not replayed and what checks it instead (at least 8 words)'
+_OLD_PLACEHOLDER_UNVERIFIED = '换成真实的理由：为什么这个判断不再回放、由什么守住它（不少于 8 个词）'
 WARNING_FILTERS = {'warnings.simplefilter', 'warnings.filterwarnings', 'warnings.catch_warnings',
                    'pytest.mark.filterwarnings'}
 BROAD = {'Exception', 'BaseException', 'builtins.Exception', 'builtins.BaseException'}
 CJK = re.compile(r'[぀-ヿ㐀-䶿一-鿿豈-﫿가-힯]')
-HEADER = f'''# FlowGuard 兜底账本：每条记一个函数里能不抛出就结束的异常处理，键是"文件:函数:捕获的类型"。
-# count 是这个函数里这种处理的处数；reason 写它做了什么、为什么可以留（不少于 {MIN_WORDS} 个词）；
-# rule 指向成文规矩：{{ file = "文件", text = "该文件里必须出现的一句话" }}，每次测试都核对这句话还在。
-# 新增、数量变化、代码消失、那句话找不到，都会让 pytest 失败。rule = "{LEGACY_RULE}" 的条目由 ledger init 记下，只能减少。
-# 裸 except、except Exception/BaseException、contextlib.suppress、警告过滤、finally 里的 return/break/continue
-# 和可能返回真值的 __exit__ 不能新增登记：改代码。
-'''
+HEADER = f"""# FlowGuard fallback ledger: each entry records a function's handler that can end without raising; keys are "file:function:caught type".
+# count is this function's number of handlers of this kind; reason states what they do and why they may remain (at least {MIN_WORDS} words);
+# rule points to a written rule: {{ file = "file", text = "an exact sentence that must occur in that file" }}; every test session checks that the sentence remains.
+# New handlers, changed counts, missing code or a missing rule sentence fail pytest. Entries with rule = "{LEGACY_RULE}" are recorded by ledger init and can only decrease.
+# Bare except, except Exception/BaseException, contextlib.suppress, warning filters, return/break/continue in finally,
+# and __exit__ methods that may return a truthy value cannot be newly registered: fix the code.
+"""
 # A handler list a project already keeps as a test: string keys "path.py:function:caught" next to an AST
 # handler scan. Recognised by content, never by file name.
 OWN_LIST_KEY = re.compile(r'''["'][\w./-]*\.py:[A-Za-z_<][\w.<>]*:[^"'\n]+["']''')
@@ -82,7 +86,7 @@ class Fallback:
 FORM_ENDS = {'suppress': 'empty', 'warning_filter': 'empty', 'exit_method': 'empty', 'finally': 'substitute'}
 # The legacy entries `--all` lists, the most worrying first: production code that carries on with a substitute
 # value, only logs, or says nothing.
-OPEN_ENDS = {'substitute': '返回或改成替代值', 'log': '只记日志', 'empty': '空块'}
+OPEN_ENDS = {'substitute': 'returns or substitutes another value', 'log': 'only logs', 'empty': 'empty body'}
 
 
 @dataclass(frozen=True)
@@ -124,23 +128,23 @@ def _scope(cfg):
 def _python_refusal(kind, caught):
     if kind == 'except':
         if caught == 'BARE':
-            return '裸 except 吞掉所有错误，连 KeyboardInterrupt 也吞掉'
+            return 'bare except swallows every error, including KeyboardInterrupt'
         types = ast.parse(caught, mode='eval').body
         names = {ast.unparse(item) for item in (types.elts if isinstance(types, ast.Tuple) else [types])}
         if names & BROAD:
-            return '捕获 ' + '、'.join(sorted(names & BROAD)) + ' 会把各种程序错误一起藏起来'
+            return 'catching ' + ', '.join(sorted(names & BROAD)) + ' hides unrelated programming errors together'
         return ''
-    return {'suppress': 'contextlib.suppress 不留痕迹地吞掉错误',
-            'warning_filter': '警告过滤让警告看不见',
-            'finally': 'finally 里的 return/break/continue 会丢掉正在抛出的错误',
-            'exit_method': '__exit__ 可能返回真值，会吞掉 with 块里的错误'}[kind]
+    return {'suppress': 'contextlib.suppress silently swallows errors',
+            'warning_filter': 'a warning filter hides warnings',
+            'finally': 'return/break/continue in finally discards an active error',
+            'exit_method': '__exit__ may return a truthy value and swallow errors from the with block'}[kind]
 
 
-FIXES = {'except': '只捕获具体的错误类型，或者让每条路径都重新抛出',
-         'suppress': '改成 try/except 具体的错误类型并登记理由，或者让错误抛出',
-         'warning_filter': '去掉过滤；测试要确认警告时用 pytest.warns',
-         'finally': '把 return/break/continue 移出 finally',
-         'exit_method': '让 __exit__ 返回 None 或 False'}
+FIXES = {'except': 'catch specific error types, or re-raise on every path',
+         'suppress': 'use try/except with specific error types and record the reason, or let the error propagate',
+         'warning_filter': 'remove the filter; use pytest.warns to assert warnings in tests',
+         'finally': 'move return/break/continue outside finally',
+         'exit_method': 'make __exit__ return None or False'}
 
 
 def fallbacks(cfg, graph):
@@ -148,7 +152,7 @@ def fallbacks(cfg, graph):
     covered = _scope(cfg)
     graph.reset_query_coverage()
     rows = [row for row in graph.handlers() if covered(row['file']) and row['non_raising']]
-    rows += [dict(row, kind='warning_filter', type=row['resolved']) for row in graph.calls()
+    rows += [dict(row, kind='warning_filter', type=row['resolved']) for row in graph.python_calls()
              if row['resolved'] in WARNING_FILTERS and language_for(row['file']) == 'python' and covered(row['file'])]
     unread = {file: issue['reason'] for issue in graph.query_coverage()['issues']
               for file in issue['files'] if covered(file)}
@@ -190,13 +194,12 @@ def open_legacy(cfg, graph):
     if not groups:
         return []
     total = sum(len(group) for group in groups.values())
-    lines = [f'旧账兜底 {total} 条在生产代码里没有把错误交出去（{LEDGER} 里 rule = "{LEGACY_RULE}"、未审；按 catch 体分）：']
+    lines = [f"""{total} legacy production handlers do not propagate errors ({LEDGER}, rule = "{LEGACY_RULE}", unreviewed; grouped by handler body):"""]
     for ends in order:
         if ends in groups:
-            lines.append(f'   {OPEN_ENDS[ends]} {len(groups[ends])} 条：'
-                         + '、'.join(f'{_where(items)} {items[0].function}' for items in groups[ends]))
-    lines.append('   下一步：逐条看：错误该让调用方知道就改代码让它抛出或交出去；可以留就把这一条的 reason 写成它做了什么、'
-                 '为什么可以留，rule 指向成文规矩')
+            lines.append(f"""   {OPEN_ENDS[ends]}: {len(groups[ends])} handlers:"""
+                         + ', '.join(f'{_where(items)} {items[0].function}' for items in groups[ends]))
+    lines.append('   Next: review each handler. If callers need the error, let it raise or propagate; otherwise make reason explain what it does, why it may remain, and point rule to a written rule')
     return lines
 
 
@@ -224,7 +227,7 @@ def parse(text):
     try:
         data = tomllib.loads(text)
     except tomllib.TOMLDecodeError as error:
-        return {}, [Finding(f'兜底账本读不了：{LEDGER}：{error}', ('改正这个文件的 TOML 写法',))], None
+        return {}, [Finding(f"""Cannot read fallback ledger {LEDGER}: {error}""", ("correct this file's TOML syntax",))], None
     entries, red, malformed = {}, [], set()
     for key, value in data.items():
         if key == UNVERIFIED:
@@ -233,32 +236,32 @@ def parse(text):
         if key in SECTIONS:
             continue            # [structure] decisions are read and checked by structure_decisions
         if key.count(':') < 2 or not isinstance(value, dict):
-            red.append(Finding(f'兜底账本里的 {_quote(key)} 不是条目：键要写成 "文件:函数:捕获的类型"，值是一张表',
-                               ('删掉它，或者改成 ["文件:函数:捕获的类型"] 下面写 count、reason、rule',)))
+            red.append(Finding(f"""Fallback ledger item {_quote(key)} is not an entry: the key must be "file:function:caught type" and the value a table""",
+                               ('remove it, or write count, reason and rule below ["file:function:caught type"]',)))
             continue
-        problems = [f'未知字段 {name}' for name in sorted(set(value) - FIELDS)]
-        problems += [f'缺少 {name}' for name in sorted(FIELDS - set(value))]
+        problems = [f"""unknown field {name}""" for name in sorted(set(value) - FIELDS)]
+        problems += [f"""missing {name}""" for name in sorted(FIELDS - set(value))]
         count, reason, rule = value.get('count'), value.get('reason'), value.get('rule')
         if 'count' in value and (type(count) is not int or count < 1):
-            problems.append('count 要写正整数')
+            problems.append('count must be a positive integer')
         if 'reason' in value:
             if not isinstance(reason, str):
-                problems.append('reason 要写一段文字')
-            elif reason.strip() == PLACEHOLDER_REASON:
-                problems.append('reason 还是占位文字：写明这处做了什么、为什么可以留')
+                problems.append('reason must be a string')
+            elif reason.strip() in (PLACEHOLDER_REASON, _OLD_PLACEHOLDER_REASON):
+                problems.append('reason is still a placeholder: explain what this handler does and why it may remain')
             elif words(reason) < MIN_WORDS:
-                problems.append(f'reason 只有 {words(reason)} 个词，至少 {MIN_WORDS} 个：写明这处做了什么、为什么可以留')
+                problems.append(f"""reason has {words(reason)} words; at least {MIN_WORDS} are required: explain what this handler does and why it may remain""")
         if 'rule' in value:
             if rule == LEGACY_RULE:
                 pass
             elif (not isinstance(rule, dict) or set(rule) != {'file', 'text'}
                   or not all(isinstance(rule[name], str) and rule[name].strip() for name in ('file', 'text'))):
-                problems.append('rule 要写成 { file = "文件", text = "该文件里必须出现的一句话" }')
+                problems.append('rule must be { file = "file", text = "an exact sentence that must occur in that file" }')
             else:
                 rule = (rule['file'], rule['text'])
         if problems:
-            red.append(Finding(f'兜底账本条目 {_quote(key)}：' + '；'.join(problems),
-                               ('按 ledger.toml 开头的说明改正这个条目',)))
+            red.append(Finding(f"""Fallback ledger entry {_quote(key)}: """ + '; '.join(problems),
+                               ('correct this entry following the instructions at the start of ledger.toml',)))
             malformed.add(key)
             continue
         entries[key] = Entry(key, count, reason, rule)
@@ -268,21 +271,22 @@ def parse(text):
 def _unverified_section(value):
     """({anchor or rule name: reason}, [Finding]) of the [unverified] section: observations that the baseline
     code makes and the current code cannot, kept unverified on purpose. Each reason has at least eight words."""
+    warn('ledger [unverified]')
     if not isinstance(value, dict):
-        return {}, [Finding(f'兜底账本的 [{UNVERIFIED}] 要写成一段：每行 名字 = "理由"',
-                            (f'改成 [{UNVERIFIED}] 下面一行一条：锚点或规则的名字 = "理由"',))]
+        return {}, [Finding(f"""Fallback ledger [{UNVERIFIED}] must be a table with one name = "reason" per line""",
+                            (f"""write one anchor or rule name = "reason" per line below [{UNVERIFIED}]""",))]
     entries, red = {}, []
     for name, reason in value.items():
         if not isinstance(reason, str):
-            problem = 'reason 要写一段文字'
-        elif reason.strip() == PLACEHOLDER_UNVERIFIED:
-            problem = '理由还是占位文字：写明为什么不再回放、由什么守住它'
+            problem = 'reason must be a string'
+        elif reason.strip() in (PLACEHOLDER_UNVERIFIED, _OLD_PLACEHOLDER_UNVERIFIED):
+            problem = 'reason is still a placeholder: explain why replay is unavailable and what checks it instead'
         elif words(reason) < MIN_WORDS:
-            problem = f'理由只有 {words(reason)} 个词，至少 {MIN_WORDS} 个：写明为什么不再回放、由什么守住它'
+            problem = f"""reason has {words(reason)} words; at least {MIN_WORDS} are required: explain why replay is unavailable and what checks it instead"""
         else:
             entries[name] = reason
             continue
-        red.append(Finding(f'兜底账本 [{UNVERIFIED}] 里的 {_quote(name)}：{problem}', ('改正这一行',)))
+        red.append(Finding(f"""Fallback ledger [{UNVERIFIED}] item {_quote(name)}: {problem}""", ('correct this line',)))
     return entries, red
 
 
@@ -300,19 +304,19 @@ def unverified(cfg):
 
 def _sentence_problem(cfg, rule, texts):
     relative, sentence = rule
-    if (relative, sentence) == (PLACEHOLDER_RULE['file'], PLACEHOLDER_RULE['text']):
-        return 'rule 还是占位文字：写出成文规矩所在的文件和其中的一句话'
+    if (relative, sentence) in ((PLACEHOLDER_RULE['file'], PLACEHOLDER_RULE['text']), _OLD_PLACEHOLDER_RULE):
+        return 'rule is still a placeholder: name the file containing the written rule and quote an exact sentence'
     target = (cfg.root / relative).resolve()
     if Path(relative).is_absolute() or not target.is_relative_to(cfg.root):
-        return f'rule 的文件 {relative} 不在项目里'
+        return f"""rule file {relative} is outside the project"""
     if target == path(cfg).resolve():
-        return 'rule 不能指向账本自己'
+        return 'rule cannot refer to the ledger itself'
     if not target.is_file():
-        return f'rule 的文件 {relative} 不存在'
+        return f"""rule file {relative} does not exist"""
     if relative not in texts:
         texts[relative] = ' '.join(target.read_text(encoding='utf-8-sig').split())
     if ' '.join(sentence.split()) not in texts[relative]:
-        return f'{relative} 里找不到 rule 那句话 {_quote(sentence)}'
+        return f"""rule sentence {_quote(sentence)} is missing from {relative}"""
     return ''
 
 
@@ -329,7 +333,7 @@ def _where(items):
 
 def _what(item):
     return {'except': f'except {item.caught}', 'suppress': item.caught, 'warning_filter': item.caught + '()',
-            'finally': 'finally 里的 return/break/continue', 'exit_method': '__exit__ 返回真值'}.get(item.kind, f'{item.kind} {item.caught}')
+            'finally': 'return/break/continue in finally', 'exit_method': '__exit__ returns a truthy value'}.get(item.kind, f'{item.kind} {item.caught}')
 
 
 def _baseline_ledger(cfg, baseline):
@@ -351,9 +355,8 @@ def absent(cfg, baseline) -> Result:
 
 def removed(baseline) -> Result:
     return Result(present=False, red=[Finding(
-        f'兜底账本 {LEDGER} 在基准提交里还在，现在没有了：删掉账本不能让兜底变绿',
-        (f'恢复它：git checkout {baseline[:12]} -- {LEDGER}，再按红行改代码或条目；'
-         '确实不再用账本时，提交删除后运行 python -m flowguard new-task 从这里开始新任务',))])
+        f"""Fallback ledger {LEDGER} existed at the baseline but is now missing: deleting the ledger cannot clear a fallback failure""",
+        (f"""restore it with git checkout {baseline[:12]} -- {LEDGER}, then correct the code or entries identified by red lines; if the ledger is intentionally retired, commit its removal and start a new task with python -m flowguard new-task""",))])
 
 
 def _legacy_reference(cfg, baseline, notes):
@@ -370,7 +373,7 @@ def _legacy_reference(cfg, baseline, notes):
     if baseline:
         raw, why = _baseline_ledger(cfg, baseline)
         if why:
-            notes.append(f'基准提交 {baseline[:12]} 读不了：{why}')
+            notes.append(f"""Cannot read baseline commit {baseline[:12]}: {why}""")
         entries, _, malformed = parse(raw.decode('utf-8-sig')) if raw is not None else ({}, [], None)
         if malformed is not None:           # A baseline ledger that does not parse vouches for nothing.
             for key, entry in entries.items():
@@ -398,58 +401,58 @@ def evaluate(cfg, graph, *, baseline=None) -> Result:
     notes = []
     reference = _legacy_reference(cfg, baseline, notes) if legacy else {}
     if reference is None:
-        result.grey.append(f'{len(legacy)} 条旧账没有核对：基准提交里没有账本，也没有 ledger init 的记录'
-                           + ''.join('；' + note for note in notes))
+        result.grey.append(f"""{len(legacy)} legacy entries are unverified: the baseline contains neither a ledger nor a ledger init record"""
+                           + ''.join('; ' + note for note in notes))
     for key in sorted((set(found) | set(entries)) - malformed):
         items, entry = found.get(key, []), entries.get(key)
         file = key.partition(':')[0]
         listed = entry.count if entry else 0
         if entry and entry.legacy and reference is not None and entry.count > reference.get(key, 0):
             result.red.append(Finding(
-                f'旧账只能由 ledger init 记下：{_quote(key)} 写着旧账 {entry.count} 处，ledger init 和基准提交只记下 {reference.get(key, 0)} 处',
-                ('旧账不能加：写出真实的 reason 和 rule' + ('' if not items or not items[0].refused else '；这种写法不能登记，要改代码'),)))
+                f"""Only ledger init may record legacy entries: {_quote(key)} claims {entry.count} legacy handlers, but ledger init and the baseline record only {reference.get(key, 0)}""",
+                ('legacy entries cannot increase: supply the real reason and rule' + ('' if not items or not items[0].refused else '; this form cannot be registered; fix the code'),)))
             continue
         if not items:
             if file in unread:
-                result.grey.append(f'{key} 没有核对：{unread[file]}')
+                result.grey.append(f"""{key} is unverified: {unread[file]}""")
             elif not covered(file):
-                result.red.append(Finding(f'兜底账本条目 {_quote(key)} 所在的文件不在账本的扫描范围里',
-                                          ('删掉这个条目，或者调整 [tool.flowguard.ledger] 的 paths/exclude',)))
+                result.red.append(Finding(f"""File for fallback ledger entry {_quote(key)} is outside the ledger scan scope""",
+                                          ('remove this entry or correct [tool.flowguard.ledger] paths/exclude',)))
             else:
-                result.red.append(Finding(f'代码已消失：账本条目 {_quote(key)} 记着 {listed} 处，代码里一处也没有',
-                                          ('从 .flowguard/ledger.toml 删掉这个条目',)))
+                result.red.append(Finding(f"""Code disappeared: ledger entry {_quote(key)} records {listed} handlers, but none remain in the code""",
+                                          ('remove this entry from .flowguard/ledger.toml',)))
             continue
         first = items[0]
         if first.refused and not (entry and entry.legacy and len(items) <= listed):
-            red = f'不能登记的写法：{_where(items)} {_what(first)}（{key}）：{first.refused}'
+            red = f"""Form cannot be registered: {_where(items)} {_what(first)} ({key}): {first.refused}"""
             if entry and not entry.legacy:
-                red += '；账本条目也不能让它变绿'
-            result.red.append(Finding(red, (FIXES[first.kind] + ('；然后删掉账本里这个条目' if entry else ''),)))
+                red += '; a ledger entry cannot clear this failure'
+            result.red.append(Finding(red, (FIXES[first.kind] + ('; then remove this ledger entry' if entry else ''),)))
             continue
         if entry and not entry.legacy:
             problem = _sentence_problem(cfg, entry.rule, texts)
             if problem:
-                result.red.append(Finding(f'兜底账本条目 {_quote(key)}：{problem}',
-                                          ('改成该文件里真实存在的一句成文规矩',)))
+                result.red.append(Finding(f"""Fallback ledger entry {_quote(key)}: {problem}""",
+                                          ('quote an exact written rule that occurs in that file',)))
         if len(items) > listed:
             if not entry:
-                text = f'新增兜底未登记：{_where(items)} {_what(first)} 之后能不抛出就结束'
+                text = f"""New unregistered fallback: {_where(items)} {_what(first)} can end without raising"""
             elif entry.legacy:
-                text = f'新增兜底：{_where(items)} {_what(first)} 现有 {len(items)} 处，旧账只记了 {listed} 处'
+                text = f"""New fallback: {_where(items)} {_what(first)} now has {len(items)} handlers; the legacy entry records only {listed}"""
             else:
-                text = f'兜底多了：{_where(items)} {_what(first)} 现有 {len(items)} 处，账本记着 {listed} 处'
-            fix = ['要保留就在 .flowguard/ledger.toml ' + ('写入这一条（替换原条目）：' if entry else '加：'),
+                text = f"""More fallbacks: {_where(items)} {_what(first)} now has {len(items)} handlers; the ledger records {listed}"""
+            fix = ['to retain this handler, in .flowguard/ledger.toml ' + ('write this entry (replace the old entry):' if entry else 'add:'),
                    *_entry_lines(key, len(items),
                                  rule=None if not entry or entry.legacy else dict(file=entry.rule[0], text=entry.rule[1]),
                                  reason=PLACEHOLDER_REASON if not entry or entry.legacy else entry.reason),
-                   '不该留就改代码，让错误抛出']
+                   'otherwise change the code to let the error propagate']
             result.red.append(Finding(text, tuple(fix)))
         elif len(items) < listed:
-            result.red.append(Finding(f'兜底少了：{_quote(key)} 账本记着 {listed} 处，代码里只有 {len(items)} 处（{_where(items)}）',
-                                      (f'把这个条目改成 count = {len(items)}',)))
+            result.red.append(Finding(f"""Fewer fallbacks: {_quote(key)} records {listed} handlers, but only {len(items)} remain ({_where(items)})""",
+                                      (f"""change this entry to count = {len(items)}""",)))
     for file, reason in sorted(unread.items()):
         if not any(key.partition(':')[0] == file for key in entries):
-            result.grey.append(f'{file} 没有核对：{reason}')
+            result.grey.append(f"""{file} is unverified: {reason}""")
     return result
 
 
@@ -464,7 +467,7 @@ class Decision:
 STRUCTURE_FIELDS = {'decision', 'source'}
 
 
-def structure_entry(name, decision='换成主人的决定：谁负责、为什么这样（不少于 8 个词）', source='R<n>'):
+def structure_entry(name, decision="Replace with the owner's decision: who owns this and why (at least 8 words)", source='R<n>'):
     """The `[structure]` lines to copy for one problem."""
     shown = _quote(source) if isinstance(source, str) else '{ file = ' + _quote(source[0]) + ', text = ' + _quote(source[1]) + ' }'
     return [f'[{STRUCTURE}.' + _quote(name) + ']', 'decision = ' + _quote(decision), 'source = ' + shown]
@@ -496,47 +499,49 @@ def structure_decisions(cfg):
         data = tomllib.loads(ledger.read_text(encoding='utf-8-sig'))
     except tomllib.TOMLDecodeError:
         return {}, [], []      # parse() already reports the unreadable ledger as red with its error
+    if STRUCTURE in data:
+        # A decision closes a structure problem; from 4.3 a known.toml entry does (act "ignore" or "leave").
+        warn('ledger [structure]', '[known.<id>] in .flowguard/known.toml with act = "ignore" or "leave"')
     section = data.get(STRUCTURE, {})
     if not isinstance(section, dict):
-        return {}, [Finding(f'{LEDGER} 的 [{STRUCTURE}] 要写成一张表：[{STRUCTURE}."问题名"] 下面写 decision、source',
-                            ('改正这一段',))], []
+        return {}, [Finding(f"""{LEDGER} [{STRUCTURE}] must be a table: write decision and source below [{STRUCTURE}."issue-name"]""",
+                            ('correct this section',))], []
     from flowguard.map.requests import owner_word
     decisions, red, later, texts = {}, [], [], {}
     for name, value in section.items():
         if not isinstance(value, dict):
-            red.append(Finding(f'[{STRUCTURE}] 里的 {_quote(name)} 不是条目：值要是一张表', ('按 structure_entry 的写法改正',)))
+            red.append(Finding(f"""[{STRUCTURE}] item {_quote(name)} is not an entry: its value must be a table""", ('correct it using the structure_entry format',)))
             continue
         unknown = sorted(set(value) - STRUCTURE_FIELDS)
         # A field one or two letters from decision or source, while that field is missing, is misspelt: the entry is
         # judged as written. Beside the field it is near (`sources` beside `source`) it is another field.
         misspelt = {key: known for key in unknown for known in sorted(STRUCTURE_FIELDS - set(value)) if _near(key, known)}
         newer = [key for key in unknown if key not in misspelt and not misspelt]
-        problems = [f'未知字段 {key}（是 {known} 拼错了？）' for key, known in misspelt.items()]
-        problems += [f'未知字段 {key}' for key in unknown if key not in misspelt and misspelt]
-        problems += [f'缺少 {key}' for key in sorted(STRUCTURE_FIELDS - set(value)) if not newer]
+        problems = [f"""unknown field {key} (did you mean {known}?)""" for key, known in misspelt.items()]
+        problems += [f"""unknown field {key}""" for key in unknown if key not in misspelt and misspelt]
+        problems += [f"""missing {key}""" for key in sorted(STRUCTURE_FIELDS - set(value)) if not newer]
         decision, source = value.get('decision'), value.get('source')
         if 'decision' in value and (not isinstance(decision, str) or words(decision) < MIN_WORDS):
-            problems.append(f'decision 至少 {MIN_WORDS} 个词：写明主人定了什么、为什么')
+            problems.append(f"""decision needs at least {MIN_WORDS} words: explain what the owner decided and why""")
         if isinstance(source, str):
             entry = owner_word(cfg.root, source) if re.fullmatch(r'R\d+', source) else None
             if entry is None:
-                problems.append(f'source {_quote(source)} 不是已存的主人原话：先用 python -m flowguard req add 存下原话，再写它的 R 编号')
+                problems.append(f"""source {_quote(source)} is not stored owner wording: first store the original words with python -m flowguard req add, then use their R identifier""")
             elif entry.get('edited') or entry.get('invalid') or entry.get('retired'):
-                problems.append(f'source {source} 的原话已改动或已撤回，不能作出处')
+                problems.append(f"""source {source} has changed or been retired and cannot be used as a source""")
         elif isinstance(source, dict) and set(source) == {'file', 'text'} and all(isinstance(source[k], str) and source[k].strip() for k in source):
             if problem := _sentence_problem(cfg, (source['file'], source['text']), texts):
                 problems.append(problem.replace('rule', 'source'))
         elif 'source' in value:
-            problems.append('source 要写 "R<n>"，或 { file = "文件", text = "该文件里必须出现的一句话" }')
+            problems.append('source must be "R<n>" or { file = "file", text = "an exact sentence that must occur in that file" }')
         if newer:
             # Fields of a later FlowGuard: the entry is not judged and closes nothing; what is wrong with the fields
             # this version knows is said on its unverified line.
-            later.append(f'结构条目 [{STRUCTURE}.{_quote(name)}] 有这个版本不认识的字段 {"、".join(newer)}：'
-                         '这个字段需要更新版本的 FlowGuard，升级后再看；这一条现在不关闭任何问题'
-                         + ''.join('；' + problem for problem in problems))
+            later.append(f"""Structure entry [{STRUCTURE}.{_quote(name)}] has fields this version does not recognize: {", ".join(newer)}; these fields require a newer FlowGuard; upgrade before reviewing them. This entry closes no issue in the current version"""
+                         + ''.join('; ' + problem for problem in problems))
             continue
         if problems:
-            red.append(Finding(f'结构决定 [{STRUCTURE}.{_quote(name)}]：' + '；'.join(problems), ('按 ledger.toml 里的写法改正这一条',)))
+            red.append(Finding(f"""Structure decision [{STRUCTURE}.{_quote(name)}]: """ + '; '.join(problems), ('correct this entry following the ledger.toml format',)))
             continue
         decisions[name] = Decision(name, decision, source if isinstance(source, str) else (source['file'], source['text']))
     return decisions, red, later
@@ -546,14 +551,13 @@ def lines(result) -> list[str]:
     """The red findings in full, each followed by its next step, which can be copied as written."""
     out = []
     for finding in result.red:
-        out.append('红：' + finding.text)
+        out.append('red: ' + finding.text)
         out.extend('    ' + line for line in finding.fix)
     return out
 
 
 def summary(result) -> str:
-    return (f'FlowGuard 兜底账本：{result.entries} 条（旧账 {result.legacy} 条），代码里 {result.fallbacks} 处兜底；'
-            f'红 {len(result.red)}，未核对 {len(result.grey)}')
+    return (f"""FlowGuard fallback ledger: {result.entries} entries ({result.legacy} legacy), {result.fallbacks} code handlers; {len(result.red)} red, {len(result.grey)} unverified""")
 
 
 def own_list_tests(cfg, graph):
@@ -589,7 +593,6 @@ def init(cfg, graph):
     (cfg.cache / INIT_RECORD).write_text(json.dumps(dict(legacy={key: len(items) for key, items in found.items()}),
                                                     ensure_ascii=False, sort_keys=True), encoding='utf-8')
     refused = sum(1 for items in found.values() if items[0].refused)
-    report = [f'FlowGuard 兜底账本已建立：{LEDGER}，{len(found)} 条旧账，共 {sum(map(len, found.values()))} 处兜底'
-              f'（其中 {refused} 条是不能新增的写法）。以后新增、数量变化、代码消失都会让 pytest 失败；提交这个文件。']
-    report += [f'没有核对：{file}：{reason}' for file, reason in sorted(unread.items())]
+    report = [f"""FlowGuard fallback ledger created: {LEDGER}, {len(found)} legacy entries, {sum(map(len, found.values()))} handlers ({refused} forms cannot be newly registered). New handlers, changed counts and missing code will fail pytest; commit this file."""]
+    report += [f"""Unverified: {file}: {reason}""" for file, reason in sorted(unread.items())]
     return report

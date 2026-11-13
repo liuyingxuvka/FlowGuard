@@ -13,8 +13,8 @@ from .loader import api_aliases, api_call_name, distinct_identifier, literal_pro
 from flowguard.map.common import MapError, content_digest, git_common_directory, git_head, literal_value as _literal
 
 
-# flowguard: owner meta.k writers=flowguard.intent.cache:put_meta
-# flowguard: owner meta.v writers=flowguard.intent.cache:put_meta
+# flowguard: writers meta.k put_meta
+# flowguard: writers meta.v put_meta
 def put_meta(con, name, text):
     """The one writer of the test cache's keys in the map's SQLite meta table (the map writes its own keys)."""
     con.execute('INSERT OR REPLACE INTO meta(k,v) VALUES(?,?)', (name, text))
@@ -534,27 +534,27 @@ def structure_summary(cfg):
     return json.loads(row[0]) if row else None
 
 
-COMPARISONS = 'CREATE TABLE IF NOT EXISTS comparison(key TEXT PRIMARY KEY, baseline TEXT, payload TEXT)'
+LAST = 'last_lines'
 
 
-def comparisons(cfg, baseline):
-    """The anchor comparisons an earlier session stored against this baseline, by fingerprint key."""
+def save_last(con, payload):
+    """The last run's lines for `show --last` (a disposable key: the next run replaces it): a JSON object with the
+    run's stamp, kind ('pytest', 'check', 'check --static', 'vitest'), baseline, title, seconds, every line as a
+    dict of `signals.Line`, the number of ignored members and the deprecated features it used."""
+    put_meta(con, LAST, json.dumps(payload, ensure_ascii=False, sort_keys=True))
+
+
+def read_last(cfg):
+    """The last run's lines as `save_last` stored them, read without building the map; None when no run stored
+    any."""
     path = cfg.cache / 'map.sqlite'
     if not path.is_file():
-        return {}
+        return None
     with closing(sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)) as con:
-        if not con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='comparison'").fetchone():
-            return {}
-        return dict(con.execute('SELECT key,payload FROM comparison WHERE baseline=?', (baseline,)))
-
-
-def save_comparisons(con, baseline, entries):
-    """Keep the comparisons of the current baseline only; an older baseline's keys can never match again."""
-    _write_transaction(con)
-    con.execute(COMPARISONS)
-    con.execute('DELETE FROM comparison WHERE baseline!=?', (baseline,))
-    con.executemany('INSERT OR REPLACE INTO comparison VALUES(?,?,?)',
-                    [(key, baseline, payload) for key, payload in entries.items()])
+        if not con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta'").fetchone():
+            return None
+        row = con.execute('SELECT v FROM meta WHERE k = ?', (LAST,)).fetchone()
+    return json.loads(row[0]) if row else None
 
 
 def save_dependencies(con, records):

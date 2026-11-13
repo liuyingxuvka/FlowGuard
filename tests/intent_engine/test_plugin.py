@@ -124,7 +124,7 @@ def test_an_empty_flowguard_base_is_refused_like_an_empty_check_base(sample):
         result = run(sample, *option)
         assert result.returncode == 4 and '--flowguard-base' in result.stderr and 'needs a commit' in result.stderr, \
             result.stdout + result.stderr
-        assert '相对任务开始' not in result.stdout, result.stdout
+        assert 'since task start' not in result.stdout, result.stdout
 
 
 def test_unmarked_ordinary_test_keeps_its_result_but_has_no_function_ledger(sample):

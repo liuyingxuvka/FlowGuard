@@ -5,6 +5,14 @@ from pathlib import Path
 from .sites import source_caller
 
 _IMPLICIT = frozenset({'<genexpr>', '<listcomp>', '<dictcomp>', '<setcomp>'})
+_ACTIVE = []        # the footprints open now
+
+
+def recorded_entry(code):
+    """A call the ordinary test run recorded entered `code`; every open footprint keeps that entry. A
+    calibrated point is read from such a call and evaluated sealed, never by running the code again."""
+    for footprint in _ACTIVE:
+        footprint.entered.add((code.co_filename, code.co_firstlineno, code.co_qualname))
 
 
 def _within(frame, key):
@@ -44,9 +52,11 @@ class Footprint:
         if not scope.active:
             raise RuntimeError('; '.join(scope.issues))
         self._scopes.append(scope)
+        _ACTIVE.append(self)
         return self
 
     def __exit__(self, *error):
+        _ACTIVE.remove(self)
         self._scopes.pop().__exit__(*error)
         return False
 

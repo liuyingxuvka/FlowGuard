@@ -13,7 +13,7 @@ import sys
 import tomllib
 
 from flowguard.map.common import content_digest, read_source
-from .sources import parse
+from .sources import RULES, cited, parse
 
 
 def _digest(text):
@@ -123,8 +123,9 @@ def static_only(cfg):
     return bool(npm_packages(cfg.root)) and not own_python_tests(cfg)
 
 
-def test_files(cfg, graph):
+def test_files(cfg, graph, *, now=None):
     """Potential default Python test files; imports and fixtures never execute."""
+    now = now or Now(cfg, graph)
     options, contains = _pytest_options(cfg), test_scope(cfg)
     functions = _patterns(options, 'python_functions', ['test'])
     classes = _patterns(options, 'python_classes', ['Test'])
@@ -141,7 +142,7 @@ def test_files(cfg, graph):
             result.add(file)
             continue
         try:
-            body = ast.parse(read_source(cfg.root / file)).body
+            body = now.source(file, file_digest(cfg.root / file))[0].body
         except (OSError, SyntaxError):
             result.add(file)
             continue
@@ -258,8 +259,31 @@ def digest(value):
 
 
 class Now:
-    def __init__(self, cfg, graph):
+    def __init__(self, cfg, graph, *, baseline=None):
         self.cfg, self.graph, self.memo = cfg, graph, {}
+        self.sources = {}
+        self._baseline = baseline
+
+    def catalog(self):
+        """The working tree's .flowguard/rules.toml and known.toml (`sources.catalog`), read once for the session."""
+        if not hasattr(self, '_catalog'):
+            from .sources import catalog
+            self._catalog = catalog(self.cfg)
+        return self._catalog
+
+    def baseline(self):
+        """The commit this run compares with: the one it was given, else the task baseline (`cache.session_baseline`)."""
+        if self._baseline is None:
+            from . import cache
+            self._baseline = cache.session_baseline(self.cfg)
+        return self._baseline
+
+    def source(self, relative, identity):
+        """Rebuildable syntax facts for the current source bytes, never a comparison result."""
+        if relative not in self.sources or self.sources[relative][0] != identity:
+            tree = ast.parse(read_source(self.cfg.root / relative))
+            self.sources[relative] = identity, tree, tuple(ast.walk(tree)), {}
+        return self.sources[relative][1:]
 
     def __call__(self, key):
         if key not in self.memo:
@@ -285,21 +309,23 @@ class Now:
             elif kind == 'listing':
                 digest = _digest('\n'.join(row[0] for row in self.graph.con.execute('SELECT path FROM file ORDER BY path')))
             elif kind == 'authority':
-                from .sources import Archive
+                from .sources import shared_archive
                 if not hasattr(self, 'archive'):
-                    self.archive = Archive(self.cfg.root)
+                    self.archive = shared_archive(self.cfg.root)
                 digest = _digest(repr(self.archive.status(value)))
+            elif kind == 'baseline':        # the commit a source was judged with: still the one this run compares with?
+                digest = 'compared' if value == self.baseline() else 'other'
             else:
                 digest = file_digest(self.cfg.root / value)
             self.memo[key] = digest
         return self.memo[key]
 
 
-def _literal_reads(tree, relative, cfg, modules):
-    """Use the Map's literal path resolver, with actual stdlib import bindings."""
+def _literal_paths(tree, relative, modules, nodes):
+    """Source-only path expressions; filesystem qualification stays in `_literal_reads`."""
     from flowguard.structure.roots import _path_value
     constructors, namespace, assigned = set(), set(), {}
-    for node in ast.walk(tree):
+    for node in nodes:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 if alias.name == 'pathlib':
@@ -320,7 +346,7 @@ def _literal_reads(tree, relative, cfg, modules):
         if isinstance(node, ast.arg):
             assigned.setdefault(node.arg, []).append(None)
     if 'pathlib' in modules or namespace & assigned.keys():
-        return set(), set(), False
+        return [], False
     env = {name: values[0] if len(values) == 1 else None for name, values in assigned.items()}
     def expanded(node, seen=frozenset()):
         return expanded(env[node.id], seen | {node.id}) if isinstance(node, ast.Name) and node.id in env and node.id not in seen else node
@@ -364,8 +390,8 @@ def _literal_reads(tree, relative, cfg, modules):
             if isinstance(call, ast.Call) and ast.unparse(call.func) in constructors:
                 call.func = ast.Name(id='Path', ctx=ast.Load())
         return result
-    allowed, files = set(), set()
-    for call in (node for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+    candidates = []
+    for call in (node for node in nodes if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
         if not all(literal(value) for value in [*call.args, *(keyword.value for keyword in call.keywords if keyword.arg is not None)]) or any(keyword.arg is None for keyword in call.keywords):
             continue
         expression, extra = None, set()
@@ -387,12 +413,21 @@ def _literal_reads(tree, relative, cfg, modules):
         value = _path_value(canonical(expression), relative, {name: canonical(env[name]) for name in names})
         if value is None:
             continue
+        candidates.append((calls | extra | {id(call)}, value))
+    return candidates, bool(constructors)
+
+
+def _literal_reads(tree, relative, cfg, modules, *, paths=None):
+    """Use the Map's literal path resolver, with actual stdlib import bindings."""
+    candidates, trusted = _literal_paths(tree, relative, modules, tuple(ast.walk(tree))) if paths is None else paths
+    allowed, files = set(), set()
+    for calls, value in candidates:
         path = (cfg.root / value).resolve()
         if not path.is_relative_to(cfg.root) or path.exists() and not path.is_file():
             continue
-        allowed.update(calls | extra | {id(call)})
+        allowed.update(calls)
         files.add(cfg.rel(path))
-    return allowed, files, bool(constructors)
+    return allowed, files, trusted
 
 
 def _dependency_index(graph):
@@ -453,6 +488,7 @@ def _file_dependencies(cfg, graph, seeds, now, *, index=None):
     No project/external initializer is imported to discover an origin.
     """
     facts, nodes, imports, unknown, modules, declarations = _dependency_index(graph) if index is None else index
+    source_scope = frozenset(modules)
     seeds = {cfg.rel(cfg.root / seed) for seed in seeds}
     pending = list(seeds) + ['pyproject.toml', 'pytest.ini', 'setup.cfg', 'tox.ini']
     for seed in seeds:
@@ -508,22 +544,24 @@ def _file_dependencies(cfg, graph, seeds, now, *, index=None):
         except ValueError as error:
             reasons.append(str(error))
         try:
-            tree = ast.parse(read_source(path))
+            tree, syntax, paths = now.source(relative, result[relative])
         except (OSError, SyntaxError) as error:
             reasons.append(str(error))
             continue
-        literal_calls, literal_files, trusted_pathlib = _literal_reads(tree, relative, cfg, modules)
+        if source_scope not in paths:
+            paths[source_scope] = _literal_paths(tree, relative, modules, syntax)
+        literal_calls, literal_files, trusted_pathlib = _literal_reads(tree, relative, cfg, modules, paths=paths[source_scope])
         pending.extend(literal_files)
         if not trusted_pathlib and any(row.get('module') == 'pathlib' for row in declarations if row['file'] == relative):
             reasons.append('unverified pathlib binding in ' + relative)
-        definitions = {node.name for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}
+        definitions = {node.name for node in syntax if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}
         from .loader import api_aliases, api_call_name
         aliases = api_aliases(tree)
         rules = {node.name for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
                  and any(isinstance(decorator, ast.Call) and api_call_name(decorator, aliases) == 'rule'
                          for decorator in node.decorator_list)}
         project_names, bindings = set(), {}
-        for node in ast.walk(tree):
+        for node in syntax:
             targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, (ast.AugAssign, ast.AnnAssign)) else []
             if isinstance(node, (ast.Global, ast.Nonlocal)) or any(isinstance(target, (ast.Attribute, ast.Subscript)) for target in targets):
                 reasons.append('unverified shared-state writes in ' + relative)
@@ -549,7 +587,7 @@ def _file_dependencies(cfg, graph, seeds, now, *, index=None):
         # pytest calls and aliases escaping that declaration remain opaque.
         framework_nodes, framework_calls = set(), set()
         if 'pytest' not in modules:
-            for function in (node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))):
+            for function in (node for node in syntax if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))):
                 for decorator in function.decorator_list:
                     target = decorator.func if isinstance(decorator, ast.Call) else decorator
                     name = ast.unparse(target)
@@ -569,9 +607,9 @@ def _file_dependencies(cfg, graph, seeds, now, *, index=None):
                     framework_nodes.update(id(part) for part in ast.walk(decorator))
         pytest_names = {name for name, value in bindings.items() if value == 'pytest' or value.startswith('pytest.')}
         if any(isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id in pytest_names
-               and id(node) not in framework_nodes for node in ast.walk(tree)):
+               and id(node) not in framework_nodes for node in syntax):
             reasons.append('unverified pytest runtime use in ' + relative)
-        for call in (node for node in ast.walk(tree) if isinstance(node, ast.Call)):
+        for call in (node for node in syntax if isinstance(node, ast.Call)):
             if id(call) in literal_calls or id(call) in framework_calls:
                 continue
             name = ast.unparse(call.func)
@@ -607,6 +645,7 @@ def record(cfg, model, rule, results, graph, now=None, found=None):
     the same seeds, every declaration's files."""
     seeds = {model.file_of[rule.id], 'pyproject.toml'}
     nodes, authorities = set(), set()
+    now = Now(cfg, graph) if now is None else now
     entries = list(results.values()) if isinstance(results, dict) else list(results)
     # All declarations are cheap inputs; this avoids a second lower-model resolver.
     seeds.update(model.file_of.values())
@@ -624,6 +663,9 @@ def record(cfg, model, rule, results, graph, now=None, found=None):
                 seeds.add(anchor.file)
                 nodes.add(anchor.target)
         source = parse(declaration.source)
+        if source.kind == 'rule':           # rule.<id>: the rules.toml entry, and the words its own source cites
+            seeds.add(RULES)
+            source = cited(source, cfg, now.catalog())
         if source.kind == 'doc':
             seeds.add(source.path)
         for rid in source.rids + ((declaration.confirmed,) if getattr(declaration, 'confirmed', None) else ()):
@@ -635,7 +677,6 @@ def record(cfg, model, rule, results, graph, now=None, found=None):
             node = graph.node(identifier)
             if node and node['file']:
                 seeds.add(node['file'])
-    now = Now(cfg, graph) if now is None else now
     found = {} if found is None else found
     if frozenset(seeds) not in found:
         found[frozenset(seeds)] = _file_dependencies(cfg, graph, seeds, now)
@@ -643,6 +684,10 @@ def record(cfg, model, rule, results, graph, now=None, found=None):
     keys = standard_keys(dependencies)
     keys['listing:'] = now('listing:')
     keys.update(('authority:' + rid, now('authority:' + rid)) for rid in authorities)
+    # A source judged against the session's baseline (red or before) holds for that baseline only: a run that
+    # compares with another commit (after new-task, or with another --base) judges it again.
+    keys.update(('baseline:' + commit, 'compared')
+                for commit in sorted({entry['source_baseline'] for entry in entries if 'source_baseline' in entry}))
     return dict(dependencies=keys, reasons=list(dependencies.get('<unresolved>', [])), own_nodes=sorted(nodes),
                 contracts={child: value for result in entries for child, value in result.get('contracts', {}).items()})
 
@@ -670,7 +715,7 @@ def affected(data, model, now):
 
 def test_dependencies(cfg, graph, now=None):
     now = now or Now(cfg, graph)
-    files = sorted(test_files(cfg, graph))
+    files = sorted(test_files(cfg, graph, now=now))
     if not files:
         return {}
     index = _dependency_index(graph)

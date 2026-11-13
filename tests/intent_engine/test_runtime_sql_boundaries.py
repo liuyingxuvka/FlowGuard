@@ -1,4 +1,4 @@
-"""SQLite connections holding Python callbacks are not replayed; plain reads are."""
+"""A call with an SQLite connection is never replayed: its callbacks see only the business call."""
 import inspect
 import sqlite3
 
@@ -32,8 +32,9 @@ def test_native_python_callbacks_have_only_the_one_business_calls_effects(tmp_pa
             if observe:
                 assert runtime.safety(fn, {'db': db, 'x': 9})
                 assert hits == []  # Even the gate's PRAGMAs must not run.
-                assert runtime.observe(fn, inspect.signature(fn).bind(db, 9), axes={'x': [0, 9]})
-                assert runtime.readings[0].status == 'grey' and runtime.readings[0].rows == []
+                assert runtime.observe(fn, inspect.signature(fn).bind(db, 9))
+                reading = runtime.readings[-1]
+                assert reading.sample is None and reading.reasons == ['not JSON data'] and reading.rows == []
             else:
                 assert fn(db, 9)
             counts.append(len(hits))
@@ -46,9 +47,10 @@ def test_overridden_typeof_is_not_called_to_prove_the_condition(tmp_path):
         db.executescript('CREATE TABLE debt(n INTEGER); INSERT INTO debt VALUES (7)')
         hits = []
         db.create_function('typeof', 1, lambda value: (hits.append(value), 'integer')[1])
-        assert runtime.observe(fn, inspect.signature(fn).bind(db, 7), axes={'x': [7, 8]}) is True
-        assert hits == []          # nothing calls typeof to prove the condition; the replay reads the table
-    assert runtime.readings[0].status == 'ok' and runtime.readings[0].rows
+        assert runtime.observe(fn, inspect.signature(fn).bind(db, 7)) is True
+        assert hits == []          # nothing calls typeof to prove the condition, and nothing replays the read
+    reading, = runtime.readings
+    assert reading.sample is None and reading.reasons == ['not JSON data'] and reading.rows == []
 
 
 @pytest.mark.parametrize('kind', ['authorizer', 'progress'])
@@ -65,18 +67,10 @@ def test_literal_integer_read_rejects_callbacks_before_any_extra_sql(tmp_path, k
             if observe:
                 assert runtime.safety(fn, {'db': db, 'x': 9})
                 assert hits == []
-                assert runtime.observe(fn, inspect.signature(fn).bind(db, 9), axes={'x': [0, 9]})
-                assert runtime.readings[0].status == 'grey' and runtime.readings[0].rows == []
+                assert runtime.observe(fn, inspect.signature(fn).bind(db, 9))
+                reading = runtime.readings[-1]
+                assert reading.sample is None and reading.reasons == ['not JSON data'] and reading.rows == []
             else:
                 assert fn(db, 9)
             counts.append(len(hits))
     assert counts[0] > 0 and counts[1] == counts[0]
-
-
-@pytest.mark.parametrize('query', ['SELECT 6', 'SELECT -6', 'SELECT +6', 'SELECT 0;'])
-def test_plain_integer_literal_is_a_real_read_without_table_callbacks(tmp_path, query):
-    fn, runtime = _runtime(tmp_path, query, statement='return db.execute(QUERY).fetchone()[0] <= x')
-    with sqlite3.connect(':memory:') as db:
-        assert runtime.observe(fn, inspect.signature(fn).bind(db, 9), axes={'x': [0, 9]})
-    assert runtime.readings[0].status == 'ok'
-    assert {row['x'] for row, value in runtime.readings[0].rows} == {0, 8, 9, 10}

@@ -21,7 +21,7 @@ import pytest
 
 from flowguard.intent import anchors
 from flowguard.intent.runtime import Reading, Runtime
-from tests.intent_engine._cli_fixture import display_text
+from tests.intent_engine._cli_fixture import block, display_text, last
 
 SOURCE = str(Path(__file__).resolve().parents[2])
 FIXTURE = Path(__file__).resolve().parents[1] / 'fixtures/round20_fields'
@@ -47,17 +47,15 @@ def _pytest(root, *options):
     return result, text
 
 
-def _block(text):
-    lines = text.splitlines()
-    start = next((index for index, line in enumerate(lines) if line.startswith('FlowGuard（')), None)
-    if start is None:
-        return []
-    block = []
-    for line in lines[start + 1:]:
-        if not line.strip() or line.startswith(('====', '____')) or re.match(r'\d+ (passed|failed)', line):
-            break
-        block.append(line)
-    return block
+def _block(result):
+    """The lines after the first line of the FlowGuard block, last on the run's stdout."""
+    return block(result)[1:]
+
+
+def _leads(root):
+    """The 5.0-deprecated leads of the last run, which only `show --last` prints."""
+    shown = last(root).splitlines()
+    return shown[shown.index('deprecated leads (5.0):') + 1:] if 'deprecated leads (5.0):' in shown else []
 
 
 def _results(root):
@@ -103,29 +101,35 @@ BORROW_ITEMS = ('tests/intent/borrow.py::BORROW[shop.hires.may_borrow:cells]',
                 'tests/intent/borrow.py::BORROW[shop.hires.may_borrow:rows]')
 
 
-def test_sample_13_fields_read_from_a_connection_and_a_record_verify_the_rule_without_a_scenario(shop):
+FIELD_REASON = 'shop.hires.may_borrow: field days: uses attribute due'
+
+
+def test_sample_13_fields_read_from_a_connection_and_a_record_are_unverified_not_passed(shop):
     result, text = _pytest(shop, '-rA')
-    assert result.returncode == 0, text
+    assert result.returncode == 0, text           # the project's own test: its customers table keeps two rows
+    # The fields are read in the sealed environment (4.5): it has no connection and reads no attribute of a
+    # record, so the rule items on the anchor are unverified with the field named, never passed.
     results = _results(shop)
     for item in BORROW_ITEMS:
-        assert results[item]['verdict'] == 'ok', results[item]   # the guarded sqlite reads are not grey
-        assert results[item]['tests'] == ['tests/test_hires.py::test_may_borrow'], results[item]
-    assert int(results[BORROW_ITEMS[0]]['label'].split()[0]) >= 3, results[BORROW_ITEMS[0]]
-    assert 'PASSED tests/intent/borrow.py::BORROW[shop.hires.may_borrow:cells]' in text, text
-    # The project's own test asserts that its customers table still has its two rows.
+        assert results[item]['verdict'] == 'grey' and not results[item]['red'], results[item]
+        assert FIELD_REASON in results[item]['grey'], results[item]
+    assert not any(f'PASSED {item}' in text for item in BORROW_ITEMS), text
 
 
-def test_sample_13_a_broken_judgment_is_red_with_the_owner_sentence(shop):
+def test_sample_13_a_broken_judgment_is_never_green_and_its_rule_lead_names_the_change(shop):
     _edit(shop, 'shop/hires.py', '<= 10:', '<= 9:')
     result, text = _pytest(shop)
-    assert result.returncode == 1, text
-    block = _block(text)
-    red = next(line for line in block if line.startswith('红：BORROW'))
-    assert 'days=10 member=F -> rule T, code False' in red, red
-    assert 'shop.hires.may_borrow:' in red and 'calls disagree' in red, red
-    assert red.endswith('BORROW 出处：owner R1: 逾期超过 10 天就不能再借，会员除外。'), red
-    assert 'FAILED tests/intent/borrow.py::BORROW[shop.hires.may_borrow:cells]' in text and '1 failed' in text, text
-    assert not any(line.startswith('未验证：BORROW') for line in block), block
+    # The rule cannot read its fields sealed, so it claims no verdict on the calls; the static leads
+    # still point at the changed judgment and its unchanged rule.
+    assert result.returncode == 0, text
+    block = _block(result)
+    # Both leads are 5.0-deprecated heuristics: no line of the block, each in show --last.
+    leads = _leads(shop)
+    assert '    old-value leads: rule BORROW still uses old value 10(tests/intent/borrow.py decision line 7): if requirements changed, update the rule first' in leads, leads
+    assert any(line.startswith('    MAY_BORROW copies at shop/hires.py:may_borrow changed; rule BORROW is unchanged') for line in leads), leads
+    results = _results(shop)
+    assert all(results[item]['verdict'] == 'grey' and FIELD_REASON in results[item]['grey'] for item in BORROW_ITEMS), results
+    assert not any(f'PASSED {item}' in text for item in BORROW_ITEMS) and not any(line.startswith('red: ') for line in block), text
 
 
 def test_sample_13_a_field_that_cannot_be_read_is_grey_and_names_the_field(shop):
@@ -133,24 +137,27 @@ def test_sample_13_a_field_that_cannot_be_read_is_grey_and_names_the_field(shop)
     result, text = _pytest(shop, '-vv')       # -q is already on: -vv is one -v
     assert result.returncode == 0, text
     assert all(f'{item} UNVERIFIED' in text for item in BORROW_ITEMS), text
-    assert not any(line.startswith('红：BORROW') for line in _block(text)), text
-    reason = "字段 member 求不出值：AttributeError: 'Hire' object has no attribute 'customer_id'"
+    assert not any(line.startswith('red: rule BORROW') for line in _block(result)), text
+    # The first field the sealed environment cannot read names itself, before the broken one is reached.
     cells = _results(shop)[BORROW_ITEMS[0]]
     assert cells['verdict'] == 'grey' and not cells['red'], cells
-    assert any(reason in grey for grey in cells['grey']), cells
+    assert FIELD_REASON in cells['grey'], cells
     shown = display_text(_flowguard(shop, 'show', 'BORROW'))     # where the block's last line points
-    assert 'shop.hires.may_borrow: ' + reason in shown, shown
+    assert FIELD_REASON in shown, shown
 
 
-def test_sample_13_a_partial_run_without_the_rule_items_still_checks_the_calls(shop):
+def test_sample_13_a_partial_run_without_the_rule_items_names_the_unread_field(shop):
     _edit(shop, 'shop/hires.py', '<= 10:', '<= 9:')
     result, text = _pytest(shop, 'tests/test_hires.py')
-    assert result.returncode == 1, text
-    red = next(line for line in _block(text) if line.startswith('红：BORROW'))
-    assert 'days=10 member=F' in red and '-> rule T, code False' in red and '出处：owner R1' in red, red
+    assert result.returncode == 0 and '1 passed' in result.stdout, text
+    block = _block(result)
+    assert block == ['not compared: 2 items: BORROW and MAY_BORROW (field days: uses attribute due, no verified current reading '
+                     'in this test context, or 1 other reason) -> not a failure'], block
+    shown = last(shop).splitlines()
+    assert shown[shown.index('not compared: BORROW -> not a failure') + 1] == '    field days: uses attribute due', shown
 
 
-def test_a_field_that_writes_the_database_is_refused_and_grey_with_its_field(shop):
+def test_a_field_that_writes_the_database_never_runs_and_is_grey_with_its_field(shop):
     _edit(shop, 'shop/hires.py', 'member=is_member(db, hire.customer)', 'member=remember(db, hire.customer)')
     path = shop / 'shop/hires.py'
     path.write_text(path.read_text() + '\n\ndef remember(db, customer):\n'
@@ -158,26 +165,25 @@ def test_a_field_that_writes_the_database_is_refused_and_grey_with_its_field(sho
     result, text = _pytest(shop, '-rA')
     assert result.returncode == 0, text            # the project test's own row count is still 2
     cells = _results(shop)[BORROW_ITEMS[0]]
-    assert cells['verdict'] == 'grey', cells
-    assert any(reason.endswith('字段 member：回放被拦住：shop/hires.py:32 db.execute("insert into customers values (99, 1)")'
-                               '：写数据库 INSERT customers') for reason in cells['grey']), cells
+    assert cells['verdict'] == 'grey' and not cells['red'], cells
+    assert FIELD_REASON in cells['grey'], cells
 
 
 def test_sample_14_the_changed_grace_constant_leaves_both_rule_leads(shop):
     _edit(shop, 'shop/policy.py', 'GRACE_DAYS = 14', 'GRACE_DAYS = 21')
     result, text = _pytest(shop)
-    leads = [line for line in _block(text) if line.startswith('线索：')]
-    assert '线索：规则 GRACE 里还写着旧值 14（tests/intent/grace.py 判断第 7 行、回归行第 12 行）：需求变了就先改规则' in leads, leads
-    copy = next(line for line in leads if '的副本' in line)
-    assert copy == ('线索：STANDING 的副本 shop/policy.py:standing 改了，规则 GRACE 没改 → 需求变了：先用 python -m flowguard '
-                    'req add 存下新的原话，再改规则 tests/intent/grace.py:4；需求没变：确认这次代码改动是对的'), copy
+    assert not any(' old value ' in line or ' copies at ' in line for line in _block(result)), text
+    leads = _leads(shop)
+    assert '    old-value leads: rule GRACE still uses old value 14(tests/intent/grace.py decision line 7, regression row line 12): if requirements changed, update the rule first' in leads, leads
+    copy = next(line for line in leads if ' copies at ' in line)
+    assert copy == ('    STANDING copies at shop/policy.py:standing changed; rule GRACE is unchanged -> if requirements changed, first use python -m flowguard req add to store the new owner words, then update rule tests/intent/grace.py:4; otherwise confirm that this code change is correct'), copy
 
 
 def test_sample_14_a_change_that_also_edits_the_rule_has_no_copy_lead(shop):
     _edit(shop, 'shop/policy.py', 'GRACE_DAYS = 14', 'GRACE_DAYS = 21')
     _edit(shop, 'tests/intent/grace.py', 'return days <= 14', 'return days <= 21')
     result, text = _pytest(shop)
-    assert not any('的副本' in line for line in _block(text)), text
+    assert not any(' copies at ' in line for line in [*_block(result), *_leads(shop)]), text
 
 
 def test_the_scenario_route_with_a_calibrated_event_anchor_still_checks_its_rule(shop):
@@ -189,8 +195,9 @@ def test_the_scenario_route_with_a_calibrated_event_anchor_still_checks_its_rule
     result, text = _pytest(shop)
     assert result.returncode == 1, text
     assert 'FAILED tests/intent/notices.py::NOTICE[shop.notices.send_notice:rows]' in text, text
-    red = next(line for line in _block(text) if line.startswith('红：NOTICE'))
-    assert 'days=4 -> rule T, code False (row L10)' in red, red
+    assert ('red: rule NOTICE: days=4: rule True, code False at shop/notices.py:send_notice (1 of 6 cells disagree) (+1 more) '
+            '-> change the code so shop/notices.py:send_notice follows rule NOTICE') in _block(result), text
+    assert '    days=4: rule True, code False at shop/notices.py:send_notice (1 of 1 rows disagree, row L10)' in last(shop).splitlines()
 
 
 # ---- the comment syntax ------------------------------------------------------------------------------
@@ -225,11 +232,11 @@ def test_fields_combine_with_the_context_separator_and_calibrated_by_in_either_o
 
 
 @pytest.mark.parametrize('comment,reason', [
-    ('fields days=(today - ', '锚点写错了：括号或引号没有配对'),
-    ('fields days', "fields 写错了：fields 后面要写 名=表达式，'days' 不是"),
-    ('fields days= member=x', 'fields 写错了：字段 days 没有表达式'),
-    ('fields days=today -', 'fields 写错了：字段 days 的 today - 不是一个 Python 表达式'),
-    ('fields days=1 days=2', 'fields 写错了：字段名重复：days'),
+    ('fields days=(today - ', 'invalid anchor: unmatched parentheses or quotes'),
+    ('fields days', "invalid fields: fields must be followed by name=expression, 'days' is not"),
+    ('fields days= member=x', 'invalid fields: field days has no expression'),
+    ('fields days=today -', 'invalid fields: field days expression today - is not a Python expression'),
+    ('fields days=1 days=2', 'invalid fields: duplicate field names: days'),
 ])
 def test_a_wrong_fields_comment_is_red_and_says_how_to_write_it(comment, reason):
     facts = _facts(f'''
@@ -239,7 +246,7 @@ def test_a_wrong_fields_comment_is_red_and_says_how_to_write_it(comment, reason)
     ''')
     message, = [row['message'] for row in facts['anchor_issues']]
     assert message.startswith('policy.py:1 ' + reason), message
-    if not reason.startswith('锚点写错了'):
+    if not reason.startswith('invalid anchor'):
         assert message.endswith(anchors.FIELDS_HELP), message
 
 
@@ -256,10 +263,10 @@ def test_fields_belong_to_a_judgment_and_never_repeat_a_parameter():
         # flowguard: owner hires.reserved writers=shop:reserve fields days=1
     ''')
     problems = [row['message'] for row in facts['anchor_issues']]
-    assert problems[0].startswith('policy.py:1 fields 只用于 sensor 和函数的 owner 锚点'), problems
-    assert problems[1].startswith('policy.py:9 数据负责人不带 fields'), problems
+    assert problems[0].startswith('policy.py:1 fields apply only to same-name and function owner anchors'), problems
+    assert problems[1].startswith('policy.py:9 data owners cannot have fields'), problems
     issue, = facts['anchors'][0]['issues']
-    assert issue['level'] == 'red' and issue['message'].startswith('policy.py:5 字段 today 和参数同名'), issue
+    assert issue['level'] == 'red' and issue['message'].startswith('policy.py:5 field today matches a parameter'), issue
 
 
 def test_an_explicit_write_in_a_field_is_refused_statically_at_the_comment_line(tmp_path):
@@ -282,7 +289,7 @@ def test_an_explicit_write_in_a_field_is_refused_statically_at_the_comment_line(
     reading = Reading('JUDGE', 'fieldwrite:judge')
     runtime.field_values(module.judge, bound, (('days', 'note(today)'),), 7, reading)
     assert reading.fields is None and module.SEEN == []
-    assert reading.field_reasons == ['字段 days：明确的写操作：第 4 行改了模块里的 SEEN（SEEN.append）'], reading.field_reasons
+    assert reading.field_reasons == ['field days: uses attribute append'], reading.field_reasons      # refused before it runs
     reading = Reading('JUDGE', 'fieldwrite:judge')
     runtime.field_values(module.judge, bound, (('days', '[today + n for n in range(2)][1]'),), 7, reading)
     assert reading.fields == {'days': 6} and not reading.field_reasons, reading
@@ -306,7 +313,8 @@ def test_calibrated_by_with_fields_keeps_only_the_named_tests_calls(shop):
     result, text = _pytest(shop, '-rA')
     assert result.returncode == 0, text
     cells = _results(shop)[BORROW_ITEMS[0]]
-    assert cells['verdict'] == 'ok' and cells['tests'] == ['tests/test_hires.py::test_member'], cells
+    # The named test's calls are the only ones kept, and their fields are read sealed: unverified, never ok.
+    assert cells['verdict'] == 'grey' and FIELD_REASON in cells['grey'] and not cells['red'], cells
     assert 'calibrat' not in ' '.join(cells['grey'] + cells['red']), cells
 
 
@@ -316,20 +324,20 @@ def test_show_lists_the_classes_a_rule_gives_no_result_for_and_total_makes_them_
     shown = _flowguard(shop, 'show', 'BORROW', env={'PYTHONIOENCODING': 'cp1252'})
     text = display_text(shown)
     assert shown.returncode == 0, text
-    line = next(line for line in text.splitlines() if line.startswith('没表态：'))
-    assert line.startswith('没表态：规则 BORROW 对 4 类情况没有给出结果'), line
+    line = next(line for line in text.splitlines() if line.startswith('undecided: '))
+    assert line.startswith('undecided: rule BORROW has no result for 4 classes'), line
     assert 'days=-1 member=F' in line and 'days=-1 member=T' in line and 'days=0' not in line, line
-    assert not any(line.startswith('红：') for line in text.splitlines()), text
+    assert not any(line.startswith('red: ') for line in text.splitlines()), text
     _edit(shop, 'tests/intent/borrow.py', 'anchor="MAY_BORROW")', 'anchor="MAY_BORROW", total=True)')
     text = display_text(_flowguard(shop, 'show', 'BORROW'))
-    red = next(line for line in text.splitlines() if line.startswith('红：'))
-    assert red.startswith('红：BORROW 写了 total=True，4 类情况没有任何规则表态：') and 'days=-1 member=T' in red, red
-    assert red.endswith('-> 在规则里给出这些情况的结果，或去掉 total=True'), red
+    red = next(line for line in text.splitlines() if line.startswith('red: '))
+    assert red.startswith('red: BORROW declares total=True, but 4 classes have no rule result: ') and 'days=-1 member=T' in red, red
+    assert red.endswith('-> give these cases a result in the rules, or remove total=True'), red
 
 
 def test_show_prints_nothing_extra_for_a_rule_that_always_answers(shop):
     text = display_text(_flowguard(shop, 'show', 'BORROW'))
-    assert '没表态' not in text, text
+    assert 'undecided' not in text, text
 
 
 def test_req_add_says_how_a_lasting_rule_cites_the_stored_words(shop, tmp_path):
@@ -341,8 +349,9 @@ def test_req_add_says_how_a_lasting_rule_cites_the_stored_words(shop, tmp_path):
         assert stored.returncode == 0, stored.stdout + stored.stderr
         lines = display_text(stored).splitlines()
         assert lines[0].startswith(f'stored {identifier} (request, sha ')
-        assert lines[1] == (f'这句话如果定下了一直成立的规矩，就写成 tests/intent/ 里的规则，并以 {identifier} 为出处：'
-                            f'source="owner {identifier}: <原话里的那一句>"'), lines
+        # The hint names the one place a continuing rule lives (design 4.4) and the one source form it cites.
+        assert lines[1] == ('if these words set a continuing rule, add it to .flowguard/rules.toml: [rule.<id>] '
+                            f'text = "..." source = \'{identifier} "<exact words>"\''), lines
 
 
 def test_check_reruns_the_tests_that_reached_a_fields_rule_when_only_the_rule_changed(tmp_path):

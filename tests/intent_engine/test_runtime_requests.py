@@ -19,8 +19,8 @@ def _embedded(root, script, *options):
                           capture_output=True, text=True, timeout=30)
 
 
-@pytest.mark.parametrize('values,expected,reason', [({'x': 4}, False, ''), ({'label': 'wrong'}, None, 'context')])
-def test_requested_points_do_not_replace_the_real_test_context(tmp_path, values, expected, reason):
+@pytest.mark.parametrize('values', [{'x': 4}, {'label': 'wrong'}])
+def test_requested_points_do_not_replace_the_real_test_context(tmp_path, values):
     _project(tmp_path, '''
         # flowguard: sensor PERMIT(x: count; label) -> answer: bool
         def permit(x: int, label: str) -> bool:
@@ -34,17 +34,16 @@ def test_requested_points_do_not_replace_the_real_test_context(tmp_path, values,
 from flowguard.intent.plugin import try_reading
 with try_reading('policy:permit','PERMIT',VALUES) as request:
     result=pytest.main(sys.argv[1:])
-print('REQUEST='+json.dumps(dict(reasons=request['reasons'],rows=[row for reading in request['readings'] for row in reading.rows])))
+print('REQUEST='+json.dumps(dict(reasons=request['reasons'],rows=[row for reading in request['readings'] for row in reading.rows],
+                                 actual=[reading.actual for reading in request['readings']])))
 raise SystemExit(result)
 '''.replace('VALUES', repr(values)))
     assert result.returncode == 0, _text(result)
     assert '1 passed' in result.stdout, _text(result)
     request = json.loads(result.stdout.split('REQUEST=', 1)[1])
-    if reason:
-        assert any(reason in message for message in request['reasons']), request
-    else:
-        assert not request['reasons'], request
-        assert any(inputs.get('x') == 4 and actual is expected for inputs, actual in request['rows']), request
+    # The session only records the real call; the requested values are evaluated sealed after it
+    # (debug.try_in_test), never replayed inside the test.
+    assert request == dict(reasons=[], rows=[], actual=[[{'x': 0, 'label': 'ok'}, True]]), request
 
 
 def test_explicit_bad_base_is_rejected_before_any_business_test(tmp_path):
@@ -76,15 +75,16 @@ from flowguard.intent import differences
 def broken(*args,**kwargs): raise ERROR('closed output')
 differences.display=broken
 raise SystemExit(pytest.main(sys.argv[1:]))
-'''.replace('ERROR', error), 'tests/test_case.py')
+'''.replace('ERROR', error))
     assert result.returncode == 1, _text(result)
     assert 'INTERNALERROR' not in result.stdout, _text(result)
     with sqlite3.connect(tmp_path / '.flowguard/cache/map.sqlite') as con:
         payload = json.loads(con.execute("SELECT v FROM meta WHERE k='runtime_observations'").fetchone()[0])
         attempt = json.loads(con.execute("SELECT v FROM meta WHERE k='intent_attempt'").fetchone()[0])
     assert attempt['exit'] == 1 and payload['display_unavailable'] == error
-    assert any('STANDING_RULE' in message and 'days=4' in message and 'code True' in message
-               for message in payload['items']['red']), payload
+    from tests.intent_engine._cli_fixture import last      # the committed red, as show --last keeps it
+    assert any(line.startswith('red: rule STANDING_RULE: ') and 'days=4' in line and 'code True' in line
+               for line in last(tmp_path).splitlines()), last(tmp_path)
 
 
 def test_unknown_payload_types_do_not_invoke_their_string_or_class_hooks():

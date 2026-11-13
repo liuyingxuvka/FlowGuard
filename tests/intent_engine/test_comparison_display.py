@@ -64,7 +64,7 @@ def test_real_comparison_displays_survive_cp1252_and_keep_unicode_data(tmp_path)
     report=D.compare(root, 'app:accept', 'app:other')
     assert report['status']=='red'and report['changed']==1
     rendered=D.render(report)
-    assert 'GRACE'in rendered and '↔'in rendered and '→'in rendered and '共 3 类'in rendered
+    assert 'GRACE'in rendered and '<->'in rendered and '->'in rendered and 'total 3 classes'in rendered
     original_json=json.dumps(report,ensure_ascii=False,sort_keys=True).encode('utf-8')
     for name in ('pytest','check','compare'):
         result=run_public_entry(root,name)
@@ -73,11 +73,16 @@ def test_real_comparison_displays_survive_cp1252_and_keep_unicode_data(tmp_path)
         assert result.returncode==1,(name,result.returncode,shown,result.stderr)
         assert 'GRACE'in shown and 'AFTER_GRACE_DISPLAY'in shown,(name,shown)
         if name=='compare':
-            assert r'\u2194'in shown and r'\u2192'in shown,(name,shown)
-            assert r'\u5171 3 \u7c7b'in shown,(name,shown)
+            # FlowGuard's own words are ASCII (D18): the comparison prints without an escape
+            assert '<->'in shown and '->'in shown and '\\u'not in shown,(name,shown)
+            assert 'total 3 classes'in shown,(name,shown)
         else:
-            # The three-signal view reports the actual same-name contradiction: what each copy answered (`2 份：1 份得 …`).
-            assert r'\u540c\u540d\u951a\u70b9'in shown and r'\u4efd\u5f97'in shown,(name,shown)
+            # The 4.3 block of pytest and check reports the actual same-name contradiction: what each copy answered on
+            # the input; check's red is pytest's own.
+            assert 'red: same GRACE: on ' in shown and ' returns ' in shown,(name,shown)
+            assert [line for line in shown.splitlines() if line.startswith('red: ')] == [
+                'red: same GRACE: on days=7: app.py:accept returns False, app.py:other returns True '
+                '-> decide which copy is right, then make the other agree'],(name,shown)
         assert 'UnicodeEncodeError'not in shown,(name,shown)
     # Retain literals and a final LF, including a backslash that looks like an
     # escape and non-LF separators. The fallback must be reversible display.

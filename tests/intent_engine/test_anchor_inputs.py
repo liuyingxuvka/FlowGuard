@@ -91,7 +91,7 @@ def test_short_draft_has_real_inputs_context_and_relational_cells(tmp_path):
 ''')
     with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
         draft = A.draft(graph, 'app:can_hire')
-    assert draft.text == '# flowguard: sensor can_hire'
+    assert draft.text == '# flowguard: same can_hire'
     assert draft.status == 'ok'
     assert draft.ranges['inputs'] == ['stock', 'reserved']
     assert draft.ranges['context'] == ['db']

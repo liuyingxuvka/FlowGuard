@@ -27,7 +27,7 @@ from . import decide, roots as rootmod
 from .extract import extract, syntax_tree
 from .roots import syspath_entries
 from .paths import project_files
-from .readers.registry import language_for, module_name, OTHER_SOURCE
+from .readers.registry import ECMA, language_for, module_name, OTHER_SOURCE
 
 FORMAT = "flowguard-map-1"
 SCHEMA = """
@@ -87,16 +87,30 @@ def save_facts(con, path: str, facts: dict) -> None:
     """A file's stored facts: the whole record in `file.data`, and each kind once more in `part`.
 
     A query that needs one or two kinds of every file (languages, anchors, writes) reads those parts
-    instead of unpacking every file's whole record. Two derived parts index the record: `facts.imports`
-    is the `imports` of the `facts` kind, `assignments.fields` the fields its assignments write."""
+    instead of unpacking every file's whole record. Four derived parts index the record: `facts.imports`
+    is the `imports` of the `facts` kind, `assignments.fields` the fields its assignments write,
+    `assignments.writes` the assignment rows `MapHandle.writes` reads (every row of a Python record, the
+    member assignments with a field of a JS/TS one) and `syntax_calls.unresolved` [node, file, text] of each
+    JS/TS syntax call the linker left unresolved, a JSX element aside (what `MapHandle.call_index` resolves
+    by name). A derived part with nothing in it is not stored; a reader reads its absence as empty."""
     con.execute("UPDATE file SET data=? WHERE path=?", (pack(facts), path))
     con.execute("DELETE FROM part WHERE path=?", (path,))
     rows = [(kind, path, pack(value)) for kind, value in facts.items()]
     if isinstance(facts.get("facts"), dict) and "imports" in facts["facts"]:
         rows.append(("facts.imports", path, pack(facts["facts"]["imports"])))
+    language = facts.get("language", "python")
     if facts.get("assignments"):
         fields = {row.get("field") for row in facts["assignments"]}
         rows.append(("assignments.fields", path, pack(sorted(fields - {None}) + ([None] if None in fields else []))))
+        written = facts["assignments"] if language == "python" else \
+            [row for row in facts["assignments"] if row.get("form") == "member" and row.get("field")] if language in ECMA else []
+        if written:
+            rows.append(("assignments.writes", path, pack(written)))
+    if language in ECMA:
+        unresolved = [[call["node"], call["file"], call["text"]] for call in facts.get("syntax_calls", ())
+                      if not (call.get("resolved") or call.get("kind") == "jsx-element")]
+        if unresolved:
+            rows.append(("syntax_calls.unresolved", path, pack(unresolved)))
     con.executemany("INSERT INTO part VALUES(?,?,?)", rows)
 
 
@@ -147,12 +161,13 @@ def connect(path: Path) -> sqlite3.Connection:
     return con
 
 
-def project_config(root: Path) -> dict:
+def project_config(root: Path, *, section='flowguard') -> dict:
+    """Read a tool section from the project's existing TOML; damaged inputs are errors."""
     import tomllib
-    try:
-        return tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8-sig")).get("tool", {}).get("flowguard", {})
-    except (OSError, tomllib.TOMLDecodeError):
+    path = Path(root) / 'pyproject.toml'
+    if not path.exists() and not path.is_symlink():
         return {}
+    return tomllib.loads(path.read_text(encoding='utf-8-sig')).get('tool', {}).get(section, {})
 
 
 def reader_digest():
@@ -414,11 +429,15 @@ def build(root, db_path=None, *, roots=None, force=False, workers=None) -> dict:
     return stats
 
 
-def _build(con, root, roots, force, workers, t0):
-    cfg = project_config(root)
+def ignored(root):
+    """The patterns of the paths a map of `root` never reads: FlowGuard's defaults and `[tool.flowguard] exclude`."""
     # A real package may be named venv (CPython has one). Environment ownership
     # is decided by project_code, including pyvenv.cfg, rather than that name.
-    ignore = [pattern for pattern in DEFAULT_IGNORE if pattern != 'venv/**'] + [str(p) for p in cfg.get("exclude", [])]
+    return [pattern for pattern in DEFAULT_IGNORE if pattern != 'venv/**'] + [str(p) for p in project_config(root).get("exclude", [])]
+
+
+def _build(con, root, roots, force, workers, t0):
+    ignore = ignored(root)
     files = [f for f in list_files(root) if not matches_any(f, ignore)]
     sources = [f for f in files if language_for(f)]
     py = [f for f, owned in zip(sources, project_files([str(root / f) for f in sources], root)) if owned]

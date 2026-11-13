@@ -26,3 +26,30 @@ def project(tmp_path: Path, _project_template: Path) -> Path:
     return Path(shutil.copytree(_project_template, tmp_path / 'shop'))
 
 pytest_plugins = ["flowguard.intent.plugin"]
+
+
+@pytest.fixture(autouse=True)
+def _deprecation_notices_of_one_run():
+    """A deprecated feature's notice prints once per process (`deprecation.SAID`); each test is a run of its own,
+    so a notice it expects is not withheld because an earlier test in this process already printed it."""
+    from flowguard.intent import deprecation
+    said = set(deprecation.SAID)
+    deprecation.SAID.clear()
+    yield
+    deprecation.SAID.clear()
+    deprecation.SAID.update(said)       # the session's own notices stay printed once
+
+
+@pytest.fixture(scope='session')
+def vitest_home(tmp_path_factory):
+    """A folder with vitest installed (`test_vitest_adapter.VITEST`); the test projects live in its subfolders and
+    resolve it from there. One install for every test module that runs vitest in a session."""
+    import subprocess
+    from tests.intent_engine.test_vitest_adapter import VITEST, _tool
+    home = tmp_path_factory.mktemp('vitest-home')
+    (home / 'package.json').write_text('{"name": "flowguard-vitest-tests", "private": true, "type": "module"}\n', encoding='utf-8')
+    run = subprocess.run([_tool('npm'), 'install', '--no-audit', '--no-fund', '--legacy-peer-deps', f'vitest@{VITEST}'],
+                         cwd=home, capture_output=True, encoding='utf-8', timeout=600)
+    assert run.returncode == 0 and (home / 'node_modules/vitest/vitest.mjs').is_file(), \
+        f'npm could not install vitest@{VITEST} for the adapter tests:\n{run.stdout}\n{run.stderr}'
+    return home

@@ -216,10 +216,12 @@ def _source_index(root, graph=None):
     return anchors.Index(index.entries, index.issues + tuple(issue for issue in unreadable if issue.file not in known))
 
 
-def _compare_pairs(root, pairs, *, answers=False):
+def _compare_pairs(root, pairs, *, answers=False, witnesses=False):
     """Compare current source anchors; historical replay is Runtime's job. With `answers` (same-name copies, the
     reference first in every pair) the result also holds what every compared copy answers on the first input
-    where each pair differs, run once more: `answers` [(input shown, [(anchor, value)])]."""
+    where each pair differs, run once more: `answers` [(input shown, [(anchor, value)])]. With `witnesses` it holds
+    the inputs ({declared name: value}) of every class where a pair differs, for a comparison elsewhere (`check`
+    compares the copies sealed, now and at the baseline, on them)."""
     from .anchors import decision_reading
     from .calibration import execute_many
     prepared_at = time.perf_counter()
@@ -261,6 +263,9 @@ def _compare_pairs(root, pairs, *, answers=False):
         reasons.extend(item['reasons'])
         offset += size * 2
     extra = {}
+    if witnesses:
+        extra['witnesses'] = [dict(region.inputs) for (_, _, partition), item in zip(selected, items)
+                              for region in partition.regions if region.label in {change['region'] for change in item['changes']}]
     if answers:
         # Each pair's smallest input that differs, once per input, smallest first; every copy runs on each.
         regions = {}
@@ -400,7 +405,7 @@ def anchor_distinct(root, declaration, *, graph=None, index=None, cfg=None, arch
     if broken:
         result.update(status='red', reasons=list(dict.fromkeys(result['reasons'] + [
             f'distinct broken: {declaration.a} and {declaration.b} agree on every class; {declaration.why} -> '
-            f'照这条 distinct 让两份分开；它们本来就该一样，先问主人，再删掉这条 distinct'])))
+            f'keep the copies separate as this distinct requires; if they should agree, ask the owner before removing this distinct'])))
     elif unresolved or not source_ready or not report['items']:
         result.update(status='grey', complete=False,
                       reasons=list(dict.fromkeys(result['reasons'] + ([reason] if not source_ready else []))))

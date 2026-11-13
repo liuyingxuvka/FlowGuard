@@ -70,7 +70,7 @@ def test_broken_file_is_grey_by_itself_in_ordinary_pytest(tmp_path, rule):
     assert result.returncode == 0, text
     assert 'passed' in text and 'failed' not in text, text
     assert '_tmp_x.py' in text and 'cannot be parsed' in text, 'the unreadable file is reported, not hidden'
-    assert not any(line.startswith('红') and '_tmp_x.py' in line for line in text.splitlines()), text
+    assert not any(line.startswith('red') and '_tmp_x.py' in line for line in text.splitlines()), text
 
 
 def test_broken_file_does_not_crash_check(tmp_path, capsys):

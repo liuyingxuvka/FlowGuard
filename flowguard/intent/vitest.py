@@ -1,18 +1,7 @@
-"""The execution side for TS/JS projects tested with vitest (minimal: vitest and ESM only; jest stays static).
+"""Vitest records real primitive calls; after tests, Python judges source-only sealed comparisons.
 
-`prepare` runs when vitest loads its config (`flowguard.vitest.mjs`, written by `init`). With no TS/JS change
-against the task baseline it answers `off` after one `git diff` and nothing is wrapped, unless same-name sensors
-disagreed in the last report (`DISAGREED`): those are compared again. Otherwise it plans,
-as the pytest side does, the anchored functions (`// flowguard: sensor NAME`) and the functions this change
-edited: their positional parameters, representative values from cells (the compared constants of the map's
-ecma facts, folded names and table keys included), same-name copies and the baseline sources. The plan is
-cached by a fingerprint of the baseline commit (and whether it is a recorded task start or HEAD standing in),
-the changed files and the reader.
-
-`report` runs after the tests. It reads what the Node adapter recorded and makes every judgment the way the
-pytest side does: what changed against the baseline per case class, which same-name sensors disagree, which
-rules the observed calls violate, and what stayed unverified. signals.render prints the usual lines.
-Usage: python -m flowguard.intent.vitest prepare --root ROOT | report --root ROOT --plan PLAN --observations DIR
+The Vite transform never imports baseline or copy modules. Python reads their source with the existing
+reader, passes extracted functions to a separate Node vm, and reports through the shared signals owner.
 """
 from __future__ import annotations
 
@@ -23,21 +12,15 @@ import math
 import re
 import shutil
 import sys
+import time
 from pathlib import Path
 
 from .config import INIT_MARK, RECORDED_PYTHON
 
 ADAPTER = Path(__file__).resolve().parents[1] / 'adapters' / 'vitest'
-LIMIT = 512                                      # representative combinations one replayed call may run
+LIMIT = 64                                       # same-name inputs, after the real tests
 STRING_CONTEXTS = frozenset({'compare', 'case', 'member', 'set'})
-# A function whose code or callees name a database client is never replayed: a connection opened before the
-# replay cannot be refused by the Node guard.
-DATABASE = re.compile(r'\b(?:prisma|PrismaClient|centralPrisma|knex|sequelize|mongoose|typeorm|drizzle|mssql|tedious|'
-                      r'pg|mysql2?|sqlite3?|redis|ioredis)\b|\$transaction|\$queryRaw')
 WRAPPABLE = ('function_declaration', 'generator_function_declaration')
-# The map's meta key holding {sensor name: red line} of the same-name sensors whose last comparison disagreed:
-# `prepare` compares them again in a run without a TS/JS change, `report` keeps it current.
-DISAGREED = 'vitest_same_name_disagreed'
 
 
 # ---- prepare ----------------------------------------------------------------------------------------
@@ -47,14 +30,19 @@ def _ecma(rel):
     return language_for(rel) in ECMA
 
 
-def _changed(cfg, commit):
-    """The TS/JS files the working tree changed against the baseline commit, untracked ones included."""
+def _differs(cfg, commit):
+    """The files the working tree changed against the baseline commit, untracked ones included (none in
+    node_modules)."""
     import os
     from ..map.common import git_run
-    changed = git_run(cfg.root, 'diff', '--name-only', '-z', commit).stdout
+    changed = git_run(cfg.root, 'diff', '--name-only', '-z', '--relative', commit).stdout
     added = git_run(cfg.root, 'ls-files', '--others', '--exclude-standard', '-z').stdout
-    return sorted({os.fsdecode(value) for value in (changed + added).split(b'\0')
-                   if value and _ecma(os.fsdecode(value)) and b'node_modules/' not in value})
+    return sorted({os.fsdecode(value) for value in (changed + added).split(b'\0') if value and b'node_modules/' not in value})
+
+
+def _changed(cfg, commit):
+    """The TS/JS files the working tree changed against the baseline commit, untracked ones included."""
+    return [rel for rel in _differs(cfg, commit) if _ecma(rel)]
 
 
 def _digest(data):
@@ -63,11 +51,15 @@ def _digest(data):
 
 def _key(cfg, commit, changed, kind):
     """The plan's fingerprint; `kind` is part of it, as the plan's title says whether its commit is a recorded
-    task start or HEAD."""
+    task start or HEAD, and so are rules.toml and known.toml, whose entries the plan keeps with their sites
+    resolved. The modules of the records the plan keeps by their fields (`health.Issue`, `sources.Known`) are part of
+    it too: a plan cached before one of them changed would rebuild records of fields that are no longer theirs."""
     from ..structure.store import reader_digest
-    own = [Path(__file__), *sorted(ADAPTER.glob('*.mjs'))]
+    from . import health, sources
+    from .sources import CATALOG_FILES
+    own = [Path(__file__), Path(health.__file__), Path(sources.__file__), *sorted(ADAPTER.glob('*.mjs'))]
     parts = [commit, kind, reader_digest(), *(_digest(path.read_bytes()) for path in own)]
-    for rel in changed:
+    for rel in [*changed, *CATALOG_FILES]:
         path = cfg.root / rel
         parts.append(rel + ':' + (_digest(path.read_bytes()) if path.is_file() else 'deleted'))
     return _digest('\n'.join(parts).encode())[:20]
@@ -113,92 +105,412 @@ def declarations(data, rel):
     return found
 
 
-def _number_values(consts, copies):
-    """cells.points over the compared constants: c-1, c, c+1 and c-0.01, c, c+0.01 (a TS number is both an int
-    and a float), far below and above, 0; same-name copies also run the fixed representatives."""
-    from . import cells as C
-    numbers = [value for value in consts if isinstance(value, (int, float)) and not isinstance(value, bool)]
-    out = []
-    if numbers and all(isinstance(value, int) for value in numbers):
-        out += C.points(C.Kind('int'), numbers)
-    if numbers:
-        out += C.points(C.Kind('float'), [float(value) for value in numbers])
-    if copies:
-        out += C.representatives(C.Kind('float'))
-    seen, values = set(), []
-    for value in out:
-        value = int(value) if isinstance(value, float) and value.is_integer() else value
-        encoded = _encode(value)
-        if json.dumps(encoded) not in seen:
-            seen.add(json.dumps(encoded))
-            values.append(encoded)
-    return values
+_VITE_EXTENSIONS = ('.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json')     # Vite's default resolve.extensions
 
 
-def _encode(value):
-    if isinstance(value, float) and not math.isfinite(value):
-        return {'$num': 'NaN' if math.isnan(value) else 'Infinity' if value > 0 else '-Infinity'}
-    return value
-
-
-def _database(graph, ident, text):
-    """Why a function is not replayed: its own code or a function it calls (three levels, by name) names a
-    database client; '' otherwise."""
-    if DATABASE.search(text):
-        return '看不清：函数里用到数据库客户端，不回放'
-    for callee in graph.call_tree(ident, depth=3):
-        found = graph.node(callee)
-        if callee == ident or not found or not found.get('file') or found['kind'] not in ('function', 'method'):
+def _literal_table(read, rel, specifier, tables):
+    """{name: text} of each `const NAME = literal` (a string, number, boolean or null) at the top level of the
+    project file a relative import names, read with `read(path)` and never run; {} for anything else. The file
+    is the first that exists in the order Vite tries: the exact path, each default extension, then an index
+    file; one Vite would load that is not a script gives {}. `tables` keeps each file's table, so one plan
+    reads and parses each imported file once."""
+    import posixpath
+    from ..structure.readers.common import parse, text
+    from ..structure.readers.registry import language_for
+    if read is None or not specifier.startswith('.'):
+        return {}
+    base = posixpath.normpath(posixpath.join(posixpath.dirname(rel), specifier))
+    if base in tables:
+        return tables[base]
+    stem = base.rpartition('.')[0] if base.endswith(('.js', '.mjs', '.cjs')) else base   # TS: ./x.js names x.ts
+    found = {}
+    for path in (base, *(stem + suffix for suffix in (*_VITE_EXTENSIONS, '.cts', '.cjs')),
+                 *(base + '/index' + suffix for suffix in _VITE_EXTENSIONS)):
+        if path.startswith('../') or path == '..':
             continue
-        lines = (graph.root / found['file']).read_text(encoding='utf-8').splitlines()
-        if DATABASE.search('\n'.join(lines[found['line'] - 1:found['end_line']])):
-            return f'看不清：调用的 {found["qual"]}（{found["file"]}）用到数据库客户端，不回放'
-    return ''
+        data = read(path)
+        if data is None:
+            continue
+        if language_for(path) is None:
+            break
+        source, tree = parse(data, language_for(path))
+        for statement in tree.root_node.named_children:
+            inner = statement.child_by_field_name('declaration') if statement.type == 'export_statement' else statement
+            if inner is None or inner.type != 'lexical_declaration' or not text(inner, source).startswith('const'):
+                continue
+            for item in inner.named_children:
+                key, value = item.child_by_field_name('name'), item.child_by_field_name('value')
+                while value is not None and value.type in ('as_expression', 'satisfies_expression', 'parenthesized_expression'):
+                    value = value.named_children[0]
+                if key is None or value is None or key.type != 'identifier':
+                    continue
+                negative = value.type == 'unary_expression' and text(value, source)[:1] == '-' \
+                    and [child.type for child in value.named_children] == ['number']
+                found.setdefault(text(key, source), text(value, source) if value.type in ('string', 'number', 'true', 'false', 'null')
+                                 or negative else None)
+        break
+    tables[base] = {name: value for name, value in found.items() if value is not None}
+    return tables[base]
+
+
+def sealed_source(data, rel, name, read=None, tables=None):
+    """Only the selected function, same-file helpers, and literal constants; never module imports. A name
+    imported from a relative project file whose top level declares it `const NAME = literal` is that literal
+    (`read(path)` gives a file's bytes, or None), read only when the closed source reads the name; any other
+    import stays unavailable. `tables` keeps the imported files' literals across calls (`_literal_table`)."""
+    tables = {} if tables is None else tables
+    from ..structure.readers.common import parse, text, walk
+    from ..structure.readers.registry import language_for
+    source, tree = parse(data, language_for(rel))
+    found = declarations(data, rel)
+    constants, blocked, imported = {}, set(), {}
+    for statement in tree.root_node.named_children:
+        inner = statement.child_by_field_name('declaration') if statement.type == 'export_statement' else statement
+        if inner is None:
+            continue
+        if inner.type == 'import_statement':
+            clause = next((child for child in inner.named_children if child.type == 'import_clause'), None)
+            origin = inner.child_by_field_name('source')
+            specifier = text(origin, source)[1:-1] if origin is not None else ''
+            for item in clause.named_children if clause is not None else ():
+                if item.type == 'identifier':
+                    blocked.add(text(item, source))
+                elif item.type == 'namespace_import':
+                    blocked.add(text(item.named_children[-1], source))
+                else:
+                    for spec in item.named_children:
+                        alias = spec.child_by_field_name('alias') or spec.child_by_field_name('name')
+                        if alias is None:
+                            continue
+                        if text(inner, source).startswith('import type') or text(spec, source).startswith('type ') \
+                                or read is None or not specifier.startswith('.'):
+                            blocked.add(text(alias, source))
+                            imported.pop(text(alias, source), None)
+                        else:       # a relative project file: read when the closed source reads the name
+                            imported[text(alias, source)] = specifier, text(spec.child_by_field_name('name'), source)
+        if inner.type in ('class_declaration', 'abstract_class_declaration', 'enum_declaration', 'internal_module'):
+            name_node = inner.child_by_field_name('name')
+            if name_node is not None:
+                blocked.add(text(name_node, source))
+        if inner.type not in ('lexical_declaration', 'variable_declaration'):
+            continue
+        immutable = text(inner, source).startswith('const')
+        for item in inner.named_children:
+            key, value = item.child_by_field_name('name'), item.child_by_field_name('value')
+            if key is not None and immutable and key.type == 'identifier' and value is not None:
+                constants[text(key, source)] = value
+            elif key is not None:
+                blocked.update(text(child, source) for child in walk(key)
+                               if child.type in ('identifier', 'shorthand_property_identifier_pattern'))
+    pending_bindings = list(tree.root_node.named_children)
+    while pending_bindings:
+        node = pending_bindings.pop()
+        if node.type in ('function_declaration', 'generator_function_declaration', 'arrow_function', 'function_expression',
+                         'function', 'class_declaration', 'abstract_class_declaration'):
+            continue
+        if node.type == 'variable_declarator' and node.parent.type == 'variable_declaration':
+            key = node.child_by_field_name('name')
+            if key is not None:
+                blocked.update(text(child, source) for child in walk(key) if child.type == 'identifier')
+        if node.type in ('assignment_expression', 'augmented_assignment_expression', 'update_expression'):
+            target = node.child_by_field_name('left') or node.child_by_field_name('argument')
+            while target is not None and target.type in ('member_expression', 'subscript_expression'):
+                target = target.child_by_field_name('object')
+            if target is not None and target.type == 'identifier':
+                blocked.add(text(target, source))
+        pending_bindings.extend(node.named_children)
+    module_names = found.keys() | constants.keys() | blocked | imported.keys()
+    for node in walk(tree.root_node):
+        if node.type in ('assignment_expression', 'augmented_assignment_expression', 'update_expression'):
+            target = node.child_by_field_name('left') or node.child_by_field_name('argument')
+            while target is not None and target.type in ('member_expression', 'subscript_expression'):
+                target = target.child_by_field_name('object')
+            if target is not None and target.type == 'identifier' and text(target, source) in module_names:
+                blocked.add(text(target, source))
+    if name not in found:
+        return '', 'only module-level functions can be compared'
+    # TypeScript's own syntax, which JavaScript does not parse: a parameter's or result's type, a type guard's
+    # `x is T` and an assertion's `asserts x`, and type parameters and arguments
+    omitted = {'type_annotation', 'type_predicate_annotation', 'asserts_annotation', 'type_parameters', 'type_arguments'}
+    wrappers = {'as_expression', 'satisfies_expression', 'non_null_expression'}
+    forbidden = {'enum_declaration', 'internal_module', 'decorator', 'jsx_element', 'jsx_self_closing_element', 'meta_property',
+                 'accessibility_modifier', 'readonly', 'this', 'await_expression', 'yield_expression'}
+    def stripped(node):
+        if node.type in omitted or (node.type == '?' and node.parent.type == 'optional_parameter'):
+            return ''
+        if node.type in wrappers:
+            return stripped(node.named_children[0])
+        parts, at = [], node.start_byte
+        for child in node.children:
+            parts.extend((source[at:child.start_byte].decode(), stripped(child)))
+            at = child.end_byte
+        parts.append(source[at:node.end_byte].decode())
+        return ''.join(parts)
+    def literal(node):
+        if node.type in wrappers:
+            return literal(node.named_children[0])
+        if node.type in ('string', 'number', 'true', 'false', 'null'):
+            return True
+        if node.type in ('array', 'object', 'pair'):
+            return all(literal(child) or child.type == 'property_identifier' for child in node.named_children)
+        return node.type == 'unary_expression' and text(node, source)[:1] in '+-' and all(literal(child) for child in node.named_children)
+    # Design 4.5: a constant built from number and string literals, signs, + - * / % ** and constants of this file
+    # above it is folded in source order (a cycle never folds); one that is no arithmetic is left to `literal`.
+    folded, reasons = {}, {}
+    def lookup(constant):
+        if constant in folded:
+            return folded[constant], ''
+        if constant in reasons:
+            return None, f'uses {constant}: {reasons[constant]}'
+        return None, f'{constant} is not a number or text constant before it'
+    for constant, node in constants.items():
+        if constant not in blocked:
+            value, why = _ecma_fold(node, source, lookup)
+            if why:
+                reasons[constant] = why
+            elif why is not None:
+                folded[constant] = value
+    pending, used, pieces = [name], set(), []
+    while pending:
+        current = pending.pop()
+        if current in used:
+            continue
+        used.add(current)
+        if current in blocked:
+            return '', 'uses imported or mutable binding ' + current
+        if current in imported:
+            pieces.append(f'const {current} = {imported[current]};')
+            continue
+        if current in found:
+            function = found[current]
+            node = function['node']
+            bad = next((child.type for child in walk(node) if child.type in forbidden), None)
+            spelled = {text(child, source) for child in walk(node) if child.type in ('identifier', 'shorthand_property_identifier')}
+            for alias in spelled & {alias for alias, value in imported.items() if type(value) is tuple}:
+                value = _literal_table(read, rel, imported[alias][0], tables).get(imported[alias][1])
+                if value is None:       # not a literal: unavailable, as any other import
+                    blocked.add(alias)
+                    del imported[alias]
+                else:
+                    imported[alias] = value
+            shadowed = sorted(spelled & blocked)
+            if shadowed:
+                return '', 'uses imported or mutable binding ' + shadowed[0]
+            if function['is_async'] or 'generator' in node.type or bad:
+                return '', 'unsupported ' + (bad or 'async or generator')
+            code = stripped(node)
+            pieces.append(code if function['form'] == 'function' else f'const {current} = {code};')
+            pending.extend(text(child, source) for child in walk(node)
+                           if child.type == 'identifier' and text(child, source) in found.keys() | constants.keys() | imported.keys())
+        else:
+            node = constants[current]
+            if current in folded:
+                pieces.append(f'const {current} = {_ecma_literal(folded[current])};')
+            elif literal(node):
+                pieces.append(f'const {current} = {stripped(node)};')
+            elif current in reasons:
+                return '', f'uses {current}: {reasons[current]}'
+            else:
+                return '', 'uses nonliteral constant ' + current
+    return '\n'.join(reversed(pieces)), ''
+
+
+_ECMA_WRAPPERS = ('parenthesized_expression', 'as_expression', 'satisfies_expression', 'non_null_expression')
+_ECMA_ESCAPES = {'n': '\n', 'r': '\r', 't': '\t', 'b': '\b', 'f': '\f', 'v': '\v', '0': '\0', "'": "'", '"': '"',
+                 '\\': '\\', '\n': '', '\u2028': '', '\u2029': ''}
+
+
+def _ecma_fold(node, source, lookup):
+    """The value of a constant's right side built from number and string literals, signs, + - * / % ** and names
+    (`lookup(name)` gives (value, why)), with JavaScript's doubles (`features.fold_step`), walking the syntax
+    tree without recursion: (value, '') or (None, why it does not fold), and (None, None) when the right side is no
+    such arithmetic (a call, an object, a template)."""
+    from ..structure.features import FOLD_NUMBER, fold_step
+    from ..structure.readers.common import text
+    from ..structure.readers.ecma import COMMENTS, literal, operator
+    stack, done = [(node, False)], []
+    while stack:
+        item, ready = stack.pop()
+        while item is not None and item.type in _ECMA_WRAPPERS:
+            item = next((child for child in item.named_children if child.type not in COMMENTS), None)
+        if item is None:
+            return None, None
+        if item.type == 'number':
+            valid, number = literal(item, source)
+            if not valid or type(number) not in (int, float) or type(number) is int and abs(number) > FOLD_NUMBER \
+                    or not math.isfinite(number):
+                return None, 'cannot fold ' + text(item, source)
+            done.append(float(number))
+            continue
+        if item.type in ('string', 'identifier'):
+            value, why = _ecma_text(item, source) if item.type == 'string' else lookup(text(item, source))
+            if why:
+                return None, why
+            done.append(value)
+            continue
+        sign = item.type == 'unary_expression' and operator(item) in ('+', '-')
+        if not sign and not (item.type == 'binary_expression' and operator(item) in ('+', '-', '*', '/', '%', '**')):
+            return None, None
+        children = [item.child_by_field_name('argument')] if sign else [item.child_by_field_name('left'), item.child_by_field_name('right')]
+        if not ready:
+            stack.append((item, True))
+            stack.extend((child, False) for child in reversed(children))
+            continue
+        value, why = fold_step(operator(item), done[-len(children):], javascript=True)
+        if why:
+            return None, why
+        del done[-len(children):]
+        done.append(value)
+    return done[0], ''
+
+
+def _ecma_text(node, source):
+    """(the text of a JS string literal, '') or (None, why): its fragments, and the escapes that mean one character
+    (\\n, \\xHH, \\uHHHH, \\u{H}, a line continuation...). A lone surrogate or any other escape is not read."""
+    from ..structure.readers.common import text
+    units = []
+    for child in node.named_children:
+        spelled = text(child, source)
+        if child.type == 'string_fragment':
+            units.extend(map(ord, spelled))
+        elif child.type == 'escape_sequence' and spelled[1:] in _ECMA_ESCAPES:
+            units.extend(map(ord, _ECMA_ESCAPES[spelled[1:]]))
+        elif child.type == 'escape_sequence' and re.fullmatch(r'\\(x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|u\{[0-9a-fA-F]{1,6}\})', spelled):
+            units.append(int(spelled[2:].strip('{}'), 16))
+        else:
+            return None, 'cannot fold ' + text(node, source)
+    joined, at = [], 0
+    while at < len(units):
+        unit = units[at]
+        if 0xD800 <= unit < 0xDC00 and at + 1 < len(units) and 0xDC00 <= units[at + 1] < 0xE000:
+            joined.append(chr(0x10000 + (unit - 0xD800) * 0x400 + units[at + 1] - 0xDC00))
+            at += 2
+            continue
+        if 0xD800 <= unit < 0xE000 or unit > 0x10FFFF:
+            return None, 'cannot fold ' + text(node, source)
+        joined.append(chr(unit))
+        at += 1
+    return ''.join(joined), ''
+
+
+def _ecma_literal(value):
+    """A folded value as JavaScript source: a whole number below 2**53 without its fraction, -0 kept."""
+    if type(value) is float and value.is_integer() and abs(value) < 2 ** 53 and not (value == 0 and math.copysign(1, value) < 0):
+        value = int(value)
+    return json.dumps(value, ensure_ascii=False)
 
 
 def _top_level(qual):
     return '.' not in qual and not qual.startswith('<')
 
 
-def _constants_changed(before, now):
-    """Names of module constants (`const NAME = literal`, `const TABLE = {...}`) whose value this change altered."""
+def _const_reads(data, rel):
+    """{name: (tokens, reads)} of each top-level `const NAME = value` (exported too) whose value is no function: the
+    tokens of its right side without comments, and the identifiers that right side reads."""
+    from ..structure.readers.common import parse, text, walk
+    from ..structure.readers.registry import language_for
+    source, tree = parse(data, language_for(rel))
+    found = {}
+    for statement in tree.root_node.named_children:
+        inner = statement.child_by_field_name('declaration') if statement.type == 'export_statement' else statement
+        if inner is None or inner.type != 'lexical_declaration' or not text(inner, source).startswith('const'):
+            continue
+        for item in inner.named_children:
+            key, value = item.child_by_field_name('name'), item.child_by_field_name('value')
+            if item.type != 'variable_declarator' or key is None or key.type != 'identifier' or value is None \
+                    or value.type in ('arrow_function', 'function_expression', 'function'):
+                continue
+            tokens, stack = [], [value]
+            while stack:
+                node = stack.pop()
+                if node.type == 'comment':
+                    continue
+                if node.child_count:
+                    stack.extend(reversed(node.children))
+                else:
+                    tokens.append(text(node, source))
+            found[text(key, source)] = (tuple(tokens), frozenset(
+                text(node, source) for node in walk(value) if node.type in ('identifier', 'shorthand_property_identifier')))
+    return found
+
+
+def _derived(names, constants):
+    """`names` and every constant of `constants` (`_const_reads`) whose right side reads one of them, at any depth."""
+    readers = {}
+    for name, (_, reads) in constants.items():
+        for read in reads:
+            readers.setdefault(read, set()).add(name)
+    found, todo = set(names), list(names)
+    while todo:
+        for name in readers.get(todo.pop(), ()):
+            if name not in found:
+                found.add(name)
+                todo.append(name)
+    return found
+
+
+def _constants_changed(before, now, old_constants, new_constants):
+    """Names of module constants whose value this change altered: a literal constant or table (`const NAME =
+    literal`, `const TABLE = {...}`) whose value changed, another constant whose right side changed, and every
+    constant whose right side reads one of these (`_derived`: LIMIT = BASE * 2 changes with BASE, as the pytest
+    side reads a module constant through `runtime._read_through`). `old_constants` and `new_constants` are the
+    `_const_reads` of the two versions."""
     def values(facts):
         found = {row['qual']: row['sig'] for row in facts['nodes'] if row['kind'] == 'const' and '.' not in row['qual']}
         found.update({row['name']: json.dumps(row['values'], sort_keys=True) for row in facts.get('const_tables', ())})
         return found
     old, new = values(before), values(now)
-    return {name for name in old.keys() | new.keys() if old.get(name) != new.get(name)}
+    names = {name for name in old.keys() | new.keys() if old.get(name) != new.get(name)}
+    names.update(name for name in (old_constants.keys() | new_constants.keys()) - old.keys() - new.keys()
+                 if old_constants.get(name, (None,))[0] != new_constants.get(name, (None,))[0])
+    return _derived(names, new_constants)
+
+
+ABSENT = 'function absent at baseline'
+NO_BASELINE = 'no baseline'     # a copy's version at the baseline when the run has none to compare with
 
 
 def plan(cfg, commit, changed, key):
-    """The points to observe and everything the Node adapter needs, as one JSON-ready dict."""
+    """The points to observe and everything the Node adapter needs, as one JSON-ready dict. Without a baseline commit
+    (`commit` None: outside Git, before the first commit, a recorded task start this repository lacks) nothing has
+    changed and only the same-name copies are planned, each with no version at the baseline (`NO_BASELINE`): as in
+    pytest, copies that disagree are then red (design 4.7, D13: the title says nothing was compared)."""
     from contextlib import closing
-    from ..map.common import git_blob
+    from ..map.common import git_blob, git_renames
     from ..structure import build
     from ..structure.extract import extract
     from .anchors import collect
     from .config import is_test_rel
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
         index = collect(graph)
+        owners = {anchor.target for anchor in index.entries if anchor.owner}
         modules = {row['file']: row['module'] for row in graph.nodes(kind='module')}
-        wanted = {}                     # id -> (name, anchored, rel, qual)
+        wanted = {}                     # id -> (name, anchored, rel, qual, why an unanchored function is planned)
         for anchor in index.entries:
             if anchor.kind == 'sensor' and _ecma(anchor.file) and anchor.source_role != 'test':
-                wanted[anchor.target] = (anchor.name, True, anchor.file, anchor.qual)
-        old_sources, readers = {}, {}
+                wanted[anchor.target] = (anchor.name, True, anchor.file, anchor.qual, '')
+        old_sources, readers, touched, constants = {}, {}, set(), {}
+        renamed = git_renames(cfg.root, commit) if commit else {}    # a moved file's baseline version is at its old path
         for rel in changed:
             if rel not in modules or is_test_rel(rel) or not (cfg.root / rel).is_file():
                 continue
-            old = git_blob(cfg.root, commit, rel)
+            if (cfg.root / rel).read_text(encoding='utf-8-sig').startswith(INIT_MARK):
+                continue  # FlowGuard's generated wiring is not an application probe.
+            old = git_blob(cfg.root, commit, renamed.get(rel, rel))
             old_sources[rel] = old
             before = extract(cfg.root, rel, old, modules[rel], False) if old is not None else dict(nodes=[], const_tables=[])
-            now = extract(cfg.root, rel, (cfg.root / rel).read_bytes(), modules[rel], False)
+            data = (cfg.root / rel).read_bytes()
+            now = extract(cfg.root, rel, data, modules[rel], False)
+            constants[rel] = _const_reads(data, rel)
             prior = {row['qual']: row['fp'] for row in before['nodes']}
+            # what this change touches (a known entry's site, D31): a declaration it adds, edits or removes
+            touched.update(modules[rel] + ':' + row['qual'] for row in now['nodes'] if prior.get(row['qual']) != row['fp'])
+            touched.update(modules[rel] + ':' + qual for qual in prior.keys() - {row['qual'] for row in now['nodes']})
             for row in now['nodes']:
                 ident = modules[rel] + ':' + row['qual']
                 if row['kind'] == 'function' and _top_level(row['qual']) and prior.get(row['qual']) != row['fp'] and ident not in wanted:
-                    wanted[ident] = (row['qual'], False, rel, row['qual'])
-            names = _constants_changed(before, now)
+                    wanted[ident] = (row['qual'], False, rel, row['qual'], 'its code changed')
+            names = _constants_changed(before, now, _const_reads(old, renamed.get(rel, rel)) if old is not None else {}, constants[rel])
             if names:               # like the pytest side: a function reading a changed constant changed too
                 readers.setdefault(rel, set()).update(names)
                 for row in graph.imports(declarations=True):
@@ -207,12 +519,16 @@ def plan(cfg, commit, changed, key):
         for rel, names in readers.items():
             if rel not in modules or is_test_rel(rel):
                 continue
+            # an importing file's own constants that read an imported changed one changed too (CAP = LIMIT + 1)
+            names = _derived(names, constants[rel] if rel in constants else _const_reads((cfg.root / rel).read_bytes(), rel))
             lines = (cfg.root / rel).read_text(encoding='utf-8').splitlines()
             spelled = re.compile(r'\b(?:' + '|'.join(map(re.escape, sorted(names))) + r')\b')
             for row in graph.nodes(file=rel):
-                if row['kind'] == 'function' and _top_level(row['qual']) and row['id'] not in wanted \
-                        and spelled.search('\n'.join(lines[row['line'] - 1:row['end_line']])):
-                    wanted[row['id']] = (row['qual'], False, rel, row['qual'])
+                if row['kind'] != 'function' or not _top_level(row['qual']) or row['id'] in wanted:
+                    continue
+                read = sorted(set(spelled.findall('\n'.join(lines[row['line'] - 1:row['end_line']]))))
+                if read:
+                    wanted[row['id']] = (row['qual'], False, rel, row['qual'], 'a constant it reads changed: ' + ', '.join(read))
         numbers, strings = {}, {}
         for row in graph.numbers():
             numbers.setdefault((row['file'], row['function']), []).append(row['value'])
@@ -222,120 +538,136 @@ def plan(cfg, commit, changed, key):
         for row in graph.lookup_keys():
             strings.setdefault((row['file'], row['function']), []).extend(row['keys'])
         parsed, points, unplanned = {}, [], []
-        for ident, (name, anchored, rel, qual) in sorted(wanted.items()):
+        tables, old_tables = {}, {}         # each imported file's literals, read once per version
+        baseline_files = {renamed.get(rel, rel): data for rel, data in old_sources.items()}    # by baseline path
+        for ident, (name, anchored, rel, qual, why) in sorted(wanted.items()):
             if rel not in parsed:
                 parsed[rel] = declarations((cfg.root / rel).read_bytes(), rel)
             found = parsed[rel].get(qual)
             line = graph.node(ident)['line'] if graph.node(ident) else 0
             if found is None:
                 unplanned.append(dict(id=ident, name=name, rel=rel, line=line,
-                                      reason='只观察模块顶层的 function f 和 const f = (...) =>，这个函数不包'))
+                                      reason='only module-level function f and const f = (...) => are observed; this function is not wrapped'))
                 continue
-            if not anchored and not found['params']:
-                continue                # like the pytest side: a changed function without inputs is not observed
-            lines = (cfg.root / rel).read_text(encoding='utf-8').splitlines()
-            node = found['node']
-            body = '\n'.join(lines[node.start_point.row:node.end_point.row + 1])
-            skip = '看不清：async 函数返回 Promise，不回放' if found['is_async'] else _database(graph, ident, body)
-            points.append(dict(id=ident, name=name, anchored=anchored, rel=rel, file=(cfg.root / rel).as_posix(), fn=qual,
+            closed, skip = sealed_source((cfg.root / rel).read_bytes(), rel, qual,
+                                         lambda path: (cfg.root / path).read_bytes() if (cfg.root / path).is_file() else None, tables)
+            from ..structure.readers.common import parse, walk, text
+            from ..structure.readers.ecma import literal
+            code, closed_tree = parse(closed.encode(), 'javascript')
+            extra_numbers = []
+            for token in walk(closed_tree.root_node):
+                valid, number = literal(token, code) if token.type == 'number' else (False, None)
+                if valid and type(number) in (int, float) and math.isfinite(number):
+                    if token.parent.type == 'unary_expression' and text(token.parent, code).startswith('-'):
+                        number = -number
+                    extra_numbers.append(number)
+            old_rel = renamed.get(rel, rel)     # a moved file's baseline imports name files next to its old path
+            old = old_sources.get(rel) if rel in old_sources else git_blob(cfg.root, commit, old_rel) if commit else None
+            prior, old_skip = (sealed_source(old, old_rel, qual, lambda path: baseline_files.get(path) if path in baseline_files
+                                             else git_blob(cfg.root, commit, path), old_tables) if old is not None and qual in declarations(old, old_rel)
+                               else ('', ABSENT if commit else NO_BASELINE))
+            points.append(dict(id=ident, name=name, anchored=anchored, why=why, owner=ident in owners, rel=rel, file=(cfg.root / rel).as_posix(), fn=qual,
                                line=found['line'], target_line=line, form=found['form'], params=found['params'], skip=skip,
-                               consts=numbers.get((rel, qual), []), labels=sorted(set(strings.get((rel, qual), [])))))
+                               recordable=(not found['is_async'] and 'generator' not in found['node'].type
+                                           and skip != 'uses imported or mutable binding ' + qual),
+                               source=closed, old_source=prior, old_skip=old_skip,
+                               changed=((rel in changed or rel in readers) and (old is None or closed != prior)),
+                               consts=numbers.get((rel, qual), []) + extra_numbers, labels=sorted(set(strings.get((rel, qual), [])))))
+        known, inputs = _catalog(cfg, graph)
     groups = {}
     for point in points:
         if point['anchored']:
             groups.setdefault(point['name'], []).append(point)
-    copy_files = sorted({point['file'] for group in groups.values() if len(group) > 1 for point in group})
     files = {}
-    baselines = []
     from .cells import OTHER
     shared = {point['id']: (list(point['consts']), list(point['labels'])) for point in points}
     for point in points:
         peers = [other for other in groups.get(point['name'], ()) if other is not point] if point['anchored'] else []
         consts = point.pop('consts') + [value for other in peers for value in shared[other['id']][0]]
         labels = sorted(set(point.pop('labels')).union(*(shared[other['id']][1] for other in peers)))
-        point.update(numbers=_number_values(consts, bool(peers)), strings=labels + [OTHER] if labels else [],
+        point.update(numbers=sorted({value for value in consts if type(value) in (int, float) and math.isfinite(value)}), strings=labels + [OTHER] if labels else [],
                      bounds=sorted({value for value in consts if isinstance(value, (int, float)) and not isinstance(value, bool)}),
-                     copies=[dict(id=other['id'], fn=other['fn'], params=other['params'], index=copy_files.index(other['file']))
+                     copies=[dict(id=other['id'], fn=other['fn'], params=other['params'])
                              for other in peers])
     for point in points:
-        entry = files.get(point['file'])
-        if entry is None:
-            old = old_sources[point['rel']] if point['rel'] in old_sources else git_blob(cfg.root, commit, point['rel'])
-            if old is not None:
-                baselines.append(dict(file=point['file'], text=old.decode('utf-8'),
-                                      functions=sorted(declarations(old, point['rel']))))
-            entry = files[point['file']] = dict(baseline=len(baselines) - 1 if old is not None else None, points=[])
-        entry['points'].append(point)
-    return dict(key=key, root=cfg.root.as_posix(), baseline=commit, limit=LIMIT, files=files, baselines=baselines,
-                copy_files=copy_files, unplanned=unplanned)
+        files.setdefault(point['file'], dict(points=[]))['points'].append(point)
+    return dict(key=key, root=cfg.root.as_posix(), baseline=commit, limit=LIMIT, files=files, unplanned=unplanned,
+                touched=sorted(touched), known=known, inputs=inputs)
 
 
-def disagreed(cfg):
-    """{sensor name: red line} of the same-name sensors whose last vitest comparison disagreed."""
-    from contextlib import closing
-    import sqlite3
-    path = cfg.cache / 'map.sqlite'
-    if not path.is_file():
-        return {}
-    with closing(sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)) as con:
-        if not con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta'").fetchone():
-            return {}
-        row = con.execute('SELECT v FROM meta WHERE k=?', (DISAGREED,)).fetchone()
-    return json.loads(row[0]) if row else {}
+def _catalog(cfg, graph):
+    """(known entries, input findings) of .flowguard/known.toml and rules.toml for the plan: the valid entries with
+    their sites resolved on the map (`sources.known_sites`) and the findings of an invalid file, entry or site, both
+    as JSON (`_known`, `_issue` read them back)."""
+    from dataclasses import asdict
+    from . import sources
+    if not sources.catalog_files(cfg):
+        return [], []
+    found = sources.catalog(cfg)
+    entries, unresolved = sources.known_sites(graph, found.known.values())
+    known = [dict(asdict(entry), sites=list(entry.sites), nodes=sorted(entry.nodes), files=sorted(entry.files)) for entry in entries]
+    inputs = [dict(asdict(issue), nodes=sorted(issue.nodes), files=sorted(issue.files), fresh=sorted(issue.fresh))
+              for issue in [*found.issues, *unresolved]]
+    return known, inputs
 
 
-def _remember_disagreed(cfg, data, same_name):
-    """Keep the record of disagreeing same-name sensors: this run's disagreements, and the earlier ones
-    this run did not compare while they are still planned (anchored)."""
-    from contextlib import closing
-    from .cache import put_meta
-    from ..structure.store import connect
-    before = disagreed(cfg)
-    planned = {point['name'] for entry in data['files'].values() for point in entry['points'] if point['anchored']}
-    now = {name: line for name, line in before.items() if name in planned and name not in same_name['compared']}
-    now.update(same_name['disagreed'])
-    if now != before:
-        with closing(connect(cfg.cache / 'map.sqlite')) as con, con:
-            put_meta(con, DISAGREED, json.dumps(now, ensure_ascii=False, sort_keys=True))
+def _known(fields):
+    """A known entry of the plan (`_catalog`) as `sources.Known`."""
+    from .sources import Known
+    return Known(**dict(fields, sites=tuple(fields['sites']), nodes=frozenset(fields['nodes']), files=frozenset(fields['files'])))
 
 
-def prepare(root):
-    """{'status': 'off', 'reason'} without a TS/JS change, else {'status': 'on', 'plan', 'adapter'}."""
-    from . import cache
+def _issue(fields):
+    """An input finding of the plan (`_catalog`) as `health.Issue`: a place that names several places is a tuple."""
+    from .health import Issue
+    parts = tuple((function, tuple(place) if isinstance(place, list) else place, what, step) for function, place, what, step in fields['parts'])
+    return Issue(**dict(fields, nodes=frozenset(fields['nodes']), files=frozenset(fields['files']), fresh=frozenset(fields['fresh']),
+                        entry=tuple(fields['entry']), detail=tuple(fields['detail']), parts=parts))
+
+
+def prepare(root, package=None):
+    """{'status': 'on', 'plan', 'adapter', 'seconds'} with the plan of this vitest run, or {'status': 'off', 'reason',
+    'seconds'} for a run that has nothing to observe (no same-name copy, no changed module-level function), a baseline
+    commit, and no static test wired in its package (`package`, the folder of its vitest config; the root when not
+    given). The first line is always printed (D12): a run whose package has the static test wired prints that test's
+    map checks in its block (design 4.7), and a run without a baseline commit (outside Git, before the first commit, a
+    recorded task start this repository lacks) compares its same-name copies as pytest does and says in its title
+    that nothing was compared with a baseline (D13)."""
+    from . import cache, deprecation
     from .config import load_config
-    from ..map.common import git_common_directory, git_run
+    from ..map.common import atomic_write_text, git_common_directory, git_run
+    started = time.perf_counter()
     cfg = load_config(root)
-    if git_common_directory(cfg.root) is None:
-        return dict(status='off', reason='不是 git 仓库：没有基准提交，执行侧不比较')
-    # vitest records no baseline: before the first `check --static` (or pytest, or the brief) of a task, HEAD
-    # stands in, and the title says so.
-    baseline, kind = cache.task_baseline(cfg)
-    if kind == 'missing':
-        return dict(status='off', reason=f'记下的任务开始 {baseline[:7]} 不在这个仓库里：执行侧不比较；先运行 python -m flowguard new-task')
-    found = git_run(cfg.root, 'rev-parse', '-q', '--verify', (baseline or 'HEAD') + '^{commit}', allowed=(0, 1))
-    if found.returncode:
-        return dict(status='off', reason='还没有提交：没有基准，执行侧不比较')
-    commit = found.stdout.decode().strip()
-    changed = _changed(cfg, commit)
-    again = sorted(disagreed(cfg)) if not changed else []
-    if not changed and not again:
-        return dict(status='off', reason='相对基准没有 TS/JS 改动：执行侧不准备')
-    # Without a change, the same-name sensors that disagreed last time are compared again (every sensor is
-    # planned, as in a run with a change); the record clears once they agree or are no longer anchored.
-    key = _key(cfg, commit, changed or ['same-name:' + name for name in again], kind)
+    commit = label = kind = None        # the commit compared with, the commit the title names, and its kind
+    if git_common_directory(cfg.root) is not None:
+        # vitest records no baseline: before the first `check --static` (or pytest, or the brief) of a task, HEAD
+        # stands in, and the title says so.
+        label, kind = cache.task_baseline(cfg)
+        if kind != 'missing':
+            found = git_run(cfg.root, 'rev-parse', '-q', '--verify', (label or 'HEAD') + '^{commit}', allowed=(0, 1))
+            commit = label = None if found.returncode else found.stdout.decode().strip()
+    changed = _changed(cfg, commit) if commit else []
+    # Same-name functions are always planned, including runs without a source change.
+    key = _key(cfg, commit or label or '', changed, kind or 'none')
     path = cfg.cache / 'vitest' / f'plan-{key}.json'
-    if not path.is_file():
-        data = plan(cfg, commit, changed, key)
-        data['baseline_kind'] = kind
+    # Without a baseline commit no diff names the files a plan has read, so such a plan is made again on every run.
+    if commit is None or not path.is_file():
+        # what the plan read with a deprecated spelling: the report says it after the block, on every run of this plan
+        since = deprecation.mark()
+        with deprecation.held() as notices:
+            data = plan(cfg, commit, changed, key)
+        data.update(baseline=label, baseline_kind=kind, deprecated=deprecation.used(since), notices=notices)
         path.parent.mkdir(parents=True, exist_ok=True)
         for old in path.parent.glob('plan-*.json'):
             old.unlink()                # one current plan; an older one belongs to another change
-        path.write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')
     else:
         data = json.loads(path.read_text(encoding='utf-8'))
-    if not data['files'] and not data['unplanned']:
-        return dict(status='off', reason='这次改动里没有要观察的函数（锚点或改过的模块顶层函数）')
-    return dict(status='on', plan=path.as_posix(), adapter=(ADAPTER / 'index.mjs').as_posix())
+    data['prepare_seconds'] = time.perf_counter() - started
+    atomic_write_text(path, json.dumps(data, ensure_ascii=False))
+    if not data['files'] and not data['unplanned'] and commit is not None and not _wired(cfg, package):
+        return dict(status='off', reason='no functions to observe in this change (anchors or changed module-level functions)',
+                    seconds=data['prepare_seconds'])
+    return dict(status='on', plan=path.as_posix(), adapter=(ADAPTER / 'index.mjs').as_posix(), seconds=data['prepare_seconds'])
 
 
 # ---- init: wire the plugin into the vitest config ---------------------------------------------------
@@ -343,9 +675,13 @@ def prepare(root):
 GENERATED = INIT_MARK + ': FlowGuard\'s execution side for vitest (minimal: vitest, ESM).'
 MODULE = GENERATED + '''
 // The vitest config imports this file and lists flowguard() in its plugins: two lines marked `flowguard: vitest`.
-// Delete those two lines to undo. With no TS/JS change against the task baseline it adds nothing; otherwise it
-// wraps the functions anchored with a `flowguard: sensor NAME` comment and the changed ones, and FlowGuard's lines follow
-// the test summary. Python is found as flowguard.static.test.mjs finds it: FLOWGUARD_PYTHON, then the
+// Delete those two lines to undo. Only a vitest run loads FlowGuard (vitest sets VITEST before it reads the
+// config): `vite build`, `vite` and `vite preview` get no plugin and start no Python, nor does a build or server
+// that a test starts (in a vitest worker, VITEST_WORKER_ID is set, also for its child processes), and the plugin
+// applies only to the servers vitest itself starts, so the software itself is never changed. In a vitest run it
+// records functions marked `flowguard: same NAME` and changed functions; without either it adds nothing, unless
+// flowguard.static.test.mjs is next to this file or there is no baseline commit: then it adds the block only.
+// Comparison runs after the tests, and FlowGuard's lines follow the test summary. Python is found as flowguard.static.test.mjs finds it: FLOWGUARD_PYTHON, then the
 // interpreter that ran `flowguard init` on this machine, recorded in @RECORDED@ (git-ignored), then `python3`,
 // `python` and, on Windows, `py -3`.
 import { spawnSync } from 'node:child_process';
@@ -353,7 +689,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), @ROOT@);
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(HERE, @ROOT@);
 const RECORDED = path.join(ROOT, ...@RECORDED@.split('/'));
 
 function interpreters() {
@@ -365,9 +702,10 @@ function interpreters() {
 }
 
 export default async function flowguard() {
+  if (!process.env.VITEST || process.env.VITEST_WORKER_ID) return null;
   const tried = [];
   for (const [command, ...prefix] of interpreters()) {
-    const run = spawnSync(command, [...prefix, '-m', 'flowguard.intent.vitest', 'prepare', '--root', ROOT], {
+    const run = spawnSync(command, [...prefix, '-m', 'flowguard.intent.vitest', 'prepare', '--root', ROOT, '--package', HERE], {
       cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
     });
     const output = ((run.stdout || '') + (run.stderr || '')).trimEnd();
@@ -379,7 +717,7 @@ export default async function flowguard() {
     const answer = JSON.parse(run.stdout.trim().split('\\n').pop());
     if (answer.status !== 'on') return null;
     const { flowguardPlugin } = await import(pathToFileURL(answer.adapter).href);
-    return flowguardPlugin({ plan: answer.plan, python: [command, ...prefix], root: ROOT });
+    return flowguardPlugin({ plan: answer.plan, python: [command, ...prefix], root: ROOT, prepareSeconds: answer.seconds });
   }
   throw new Error('FlowGuard: no Python that can import flowguard was found for the vitest execution side; set '
     + 'FLOWGUARD_PYTHON to the interpreter FlowGuard is installed in. Tried:\\n' + tried.join('\\n'));
@@ -388,6 +726,129 @@ export default async function flowguard() {
 CONFIGS = [f'{stem}.config.{ext}' for stem in ('vitest', 'vite') for ext in ('ts', 'mts', 'js', 'mjs', 'cts', 'cjs')]
 MARK = 'flowguard: vitest'
 IMPORT = "import flowguard from './flowguard.vitest.mjs'; // " + MARK + " (python -m flowguard init; delete this line and flowguard() to undo)"
+
+
+DEFAULT_INCLUDE = ('**/*.{test,spec}.?(c|m)[jt]s?(x)',)      # vitest's test.include and test.exclude when a config names none
+DEFAULT_EXCLUDE = ('**/node_modules/**', '**/.git/**')
+_DEFAULT_LISTS = {'configDefaults.include': DEFAULT_INCLUDE, 'defaultInclude': DEFAULT_INCLUDE,
+                  'configDefaults.exclude': DEFAULT_EXCLUDE, 'defaultExclude': DEFAULT_EXCLUDE}
+_UNREAD_TEST_KEYS = {'root', 'dir', 'projects', 'workspace'}       # the files of such a config are another folder's
+
+
+def _glob(pattern):
+    """A regex for a vitest (picomatch) glob of the syntax read here: `**`, `*`, `?`, `[...]`, `{a,b}` and the extglobs
+    `?(a|b)`, `*(..)`, `+(..)`, `@(..)`; None for any other (a negation, `!(..)`, an escape)."""
+    out, groups, at = [], [], 0
+    closers = {'?': ')?', '*': ')*', '+': ')+', '@': ')'}
+    while at < len(pattern):
+        char = pattern[at]
+        if char in '!\\':
+            return None
+        if char in closers and pattern[at + 1:at + 2] == '(':
+            out.append('(?:')
+            groups.append(closers[char])
+            at += 2
+            continue
+        if pattern.startswith('**/', at) and (at == 0 or pattern[at - 1] == '/'):
+            out.append('(?:[^/]*/)*')
+            at += 3
+        elif pattern.startswith('**', at):
+            out.append('.*')
+            at += 2
+        elif char == '*':
+            out.append('[^/]*')
+            at += 1
+        elif char == '?':
+            out.append('[^/]')
+            at += 1
+        elif char == '[':
+            end = pattern.find(']', at + 1)
+            if end < 0:
+                return None
+            out.append('[' + re.escape(pattern[at + 1:end]) + ']')
+            at = end + 1
+        elif char == '{':
+            out.append('(?:')
+            groups.append(')')
+            at += 1
+        elif char in ',|' and groups:
+            out.append('|')
+            at += 1
+        elif char in '})' and groups:
+            out.append(groups.pop())
+            at += 1
+        else:
+            out.append(re.escape(char))
+            at += 1
+    return None if groups else re.compile(''.join(out))
+
+
+def _literal_list(node, source):
+    """The strings of a config's array of string literals and of vitest's default lists spread into it
+    (`...configDefaults.include`); None for anything else."""
+    from ..structure.readers.common import text
+    while node is not None and node.type in ('as_expression', 'satisfies_expression', 'parenthesized_expression'):
+        node = node.named_children[0]
+    if node is None or node.type != 'array':
+        return None
+    found = []
+    for item in node.named_children:
+        if item.type == 'string' and all(child.type == 'string_fragment' for child in item.named_children):
+            found.append(text(item, source)[1:-1])
+        elif item.type == 'spread_element' and text(item.named_children[0], source) in _DEFAULT_LISTS:
+            found.extend(_DEFAULT_LISTS[text(item.named_children[0], source)])
+        elif item.type != 'comment':
+            return None
+    return found
+
+
+def static_test_runs(folder, name):
+    """Whether vitest started in `folder` runs the test file `name` there, by the test.include and test.exclude of
+    the config it reads there (vitest.config.*, then vite.config.*; vitest's defaults for a list the config does not
+    name, and with no config, where init writes one with the defaults): (True, config, include) or (False, config,
+    include), `config` the file's name or None; (None, config, ()) when init cannot read that from the config: its
+    default export is no object literal (or defineConfig of one), a list is no literal of strings or vitest's
+    default lists, a glob has syntax not read here (`_glob`), or the config names its own root, dir, projects or
+    workspace."""
+    from ..structure.readers.common import parse, text
+    from ..structure.readers.registry import language_for
+    config = next((file for file in CONFIGS if (folder / file).is_file()), None)
+    if config is None:
+        return True, None, DEFAULT_INCLUDE
+    unread = None, config, ()
+    source, tree = parse((folder / config).read_bytes(), language_for(config))
+    value = next((statement.child_by_field_name('value') for statement in tree.root_node.named_children
+                  if statement.type == 'export_statement' and any(child.type == 'default' for child in statement.children)), None)
+    if value is not None and value.type == 'call_expression' and text(value.child_by_field_name('function'), source) == 'defineConfig':
+        arguments = value.child_by_field_name('arguments').named_children
+        value = arguments[0] if len(arguments) == 1 else None
+    if value is None or value.type != 'object':
+        return unread
+    def pairs(node):
+        found = {}
+        for item in node.named_children:
+            key = item.child_by_field_name('key') if item.type == 'pair' else None
+            if key is not None and key.type in ('property_identifier', 'string'):
+                found[text(key, source).strip('\'"')] = item.child_by_field_name('value')
+            elif item.type not in ('comment', 'method_definition'):
+                return None             # a spread, a shorthand or a computed key: what it holds is not read here
+        return found
+    top = pairs(value)
+    if top is None or 'root' in top:
+        return unread
+    test = top.get('test')
+    lists = {} if test is None else pairs(test) if test.type == 'object' else None
+    if lists is None or _UNREAD_TEST_KEYS & lists.keys():
+        return unread
+    include = _literal_list(lists['include'], source) if 'include' in lists else list(DEFAULT_INCLUDE)
+    exclude = _literal_list(lists['exclude'], source) if 'exclude' in lists else list(DEFAULT_EXCLUDE)
+    if include is None or exclude is None:
+        return unread
+    taken, left = ([_glob(glob.removeprefix('./')) for glob in globs] for globs in (include, exclude))
+    if None in taken or None in left:
+        return unread
+    runs = any(pattern.fullmatch(name) for pattern in taken) and not any(pattern.fullmatch(name) for pattern in left)
+    return runs, config, tuple(include)
 
 
 def wire(cfg, package):
@@ -425,7 +886,13 @@ def wire(cfg, package):
     if plugins:
         patched = patched[:plugins.end()] + 'flowguard() /* ' + MARK + ' */, ' + patched[plugins.end():]
     elif define:
-        patched = patched[:define.end()] + '\n  plugins: [flowguard()], // ' + MARK + patched[define.end():]
+        # The entry gets a line of its own: what followed `defineConfig({` on its line moves to the next line, so the
+        # line comment never swallows it (a one-line config) and deleting the marked line undoes the edit.
+        rest = patched[define.end():]
+        if not re.match(r'[ \t]*(?:\r?\n|$)', rest):
+            rest = rest.lstrip(' \t')
+            rest = ('\n' if rest.startswith('}') else '\n  ') + rest
+        patched = patched[:define.end()] + '\n  plugins: [flowguard()], // ' + MARK + rest
     else:
         return f'Generated {cfg.rel(target)}; no plugins list or defineConfig({{ in {cfg.rel(config)}: {manual}'
     config.write_text(patched, encoding='utf-8', newline='')
@@ -467,7 +934,7 @@ def _same(left, right):
 
 def case_class(point, inputs):
     """The case class of one replayed input: each varied input against the constants its function compares
-    (`days<3`, `days=3`, `3<days<10`, `days>10`), a compared string or `其他`, a boolean or date as it is."""
+    (`days<3`, `days=3`, `3<days<10`, `days>10`), a compared string or `other`, a boolean or date as it is."""
     from . import cells as C
     parts, bounds, labels = [], point['bounds'], set(point['strings'])
     for name, encoded in inputs:
@@ -485,10 +952,10 @@ def case_class(point, inputs):
                 low, high = max(b for b in bounds if b < item), min(b for b in bounds if b > item)
                 parts.append(f'{C.show(low)}<{name}<{C.show(high)}')
         elif isinstance(item, str):
-            parts.append(f'{name}={C.show(item)}' if item in labels else f'{name}=其他')
+            parts.append(f'{name}={C.show(item)}' if item in labels else f'{name}=other')
         else:
             parts.append(f'{name}={C.show(item)}')
-    return '，'.join(parts)
+    return ', '.join(parts)
 
 
 def _observations(directory):
@@ -531,154 +998,441 @@ def _inside(cfg, rel, package):
     return package is None or (cfg.root / rel).resolve().is_relative_to(Path(package).resolve())
 
 
-def judge(cfg, data, records, package=None):
-    """The session report signals.render prints: changes per case class, same-name and rule reds, grey.
-    `package` is the folder of the vitest run: a point in another package cannot be reached by its tests
-    and is not listed as unreached. Each unverified point is one item, named with its place."""
-    from . import cache, cells as C
-    from .engine import CONFLICT, Engine, PredicateError, outcome_eq
-    from .loader import load
-    from .sources import parse
+def closed_rows(data, records):
+    """Compare source-only functions after the session, using real JSON inputs and copy neighbours. Returns the
+    rows, the reasons by point and, by same name, what the input limit left out (`signals.copy_inputs`)."""
+    import subprocess
+    from .signals import copy_inputs
     points = {point['id']: point for entry in data['files'].values() for point in entry['points']}
-    calls, rows = {}, {}
+    actual, groups, reasons = {}, {}, {}
+    for record in records:
+        if record.get('reason'):
+            reasons.setdefault(record['id'], []).append(record['reason'])
+        elif 'args' in record:
+            actual.setdefault(record['id'], []).append(record['args'])
+    for point in points.values():
+        if point['anchored']:
+            groups.setdefault(point['name'], []).append(point)
+    def unique(values, limit):
+        result, seen = [], set()
+        for args in values:
+            key = json.dumps(args, sort_keys=True)
+            if key not in seen:
+                seen.add(key)
+                result.append(args)
+            if len(result) == limit:
+                break
+        return result
+    shared, cuts = {}, {}
+    for name, peers in groups.items():
+        if len(peers) < 2:
+            continue
+        # The same union as the pytest side, on the positions of the arguments.
+        inputs, cuts[name] = copy_inputs([dict(enumerate(args)) for peer in peers for args in actual.get(peer['id'], ())],
+                                         [number for peer in peers for number in peer['numbers']], LIMIT)
+        shared[name] = [[row[index] for index in sorted(row)] for row in inputs]
+    wanted, jobs, keys = {}, [], {}
+    for ident, point in points.items():
+        wanted[ident] = unique([*actual.get(ident, ()), *shared.get(point['name'], ())], None)
+        for prior in (False, True):
+            source, why = (point['old_source'], point['old_skip']) if prior else (point['source'], point['skip'])
+            if why:
+                # without a baseline nothing is compared with one, which the title says (D13)
+                if not prior or why not in (point['skip'], NO_BASELINE):
+                    reasons.setdefault(ident, []).append(('baseline: ' if prior else '') + why)
+                continue
+            for args in wanted[ident]:
+                key = (ident, prior, json.dumps(args, sort_keys=True))
+                keys[key] = len(jobs)
+                jobs.append(dict(source=source, fn=point['fn'], args=args))
+    outcomes = []
+    if jobs:
+        run = subprocess.run(['node', str(ADAPTER / 'sealed.mjs')], input=json.dumps(jobs), capture_output=True,
+                             text=True, check=True, timeout=max(30, len(jobs) * 0.4))
+        outcomes = json.loads(run.stdout)
+        if len(outcomes) != len(jobs):
+            raise ValueError('sealed comparison returned the wrong number of results')
+    def outcome(ident, prior, args):
+        index = keys.get((ident, prior, json.dumps(args, sort_keys=True)))
+        if index is None:
+            return {'$missing': 1}
+        result = outcomes[index]
+        why = result.get('reason')
+        if 'error' in result:
+            error = result['error']
+            missing = re.fullmatch(r'(\S+) is not defined', error['message'])
+            if error['name'] == 'ReferenceError' and (missing or error['message'].startswith('uses ')):
+                why = 'uses ' + missing[1] if missing else error['message']
+            elif error['name'] == 'EvalError':
+                why = error['message']
+            else:
+                return {'$threw': error}
+        if why:
+            reasons.setdefault(ident, []).append(('baseline: ' if prior else '') + why)
+            return {'$missing': 1}
+        return result['value']
+    rows = {}
+    for ident, point in points.items():
+        real = {json.dumps(args, sort_keys=True) for args in actual.get(ident, ())}
+        rows[ident] = []
+        for args in wanted[ident]:
+            now = outcome(ident, False, args)
+            if isinstance(now, dict) and '$missing' in now:
+                continue
+            old = outcome(ident, True, args)
+            rows[ident].append(dict(
+                **{'in': list(zip(point['params'], args))}, now=now, old=old,
+                actual=json.dumps(args, sort_keys=True) in real,
+                same=any(_same(args, sample) for sample in shared.get(point['name'], ())),
+                copies={copy['id']: outcome(copy['id'], False, args) for copy in point['copies']},
+                old_copies={copy['id']: outcome(copy['id'], True, args) for copy in point['copies']}))
+    return rows, reasons, cuts
+
+
+def _plain(encoded):
+    """A recorded value (read by `value`) as the 4.3 lines spell it with `signals.value_text`: numbers, strings,
+    booleans and None as they are; a thrown error {'raises': 'Name: message'}; a date its ISO text; a set or a map
+    its JSON items as a list."""
+    from datetime import datetime
+    from . import cells as C
+    def spelled(item):
+        if isinstance(item, C.Raised):
+            return {'raises': str(item.error)}
+        if isinstance(item, datetime):
+            return item.isoformat()
+        if isinstance(item, frozenset):
+            return [json.loads(member) for member in sorted(item)]
+        if isinstance(item, tuple):
+            return [[json.loads(key), json.loads(member)] for key, member in item]
+        if isinstance(item, list):
+            return [spelled(member) for member in item]
+        if isinstance(item, dict):
+            return {key: spelled(member) for key, member in item.items()}
+        return item
+    return spelled(value(encoded))
+
+
+def _shown(encoded):
+    from .signals import value_text
+    return value_text(_plain(encoded))
+
+
+def judge(cfg, data, records, package=None):
+    """What this run found, as the 4.3 block reads it (`delivered`): `delivery` holds same-name copies as family
+    'same' (one member per input: red where this change broke a pair that agreed at the baseline, before where the
+    copies already differed on that input, `signals.copy_partition`), the changed line of each changed function whose
+    sealed run answers a recorded input differently than its baseline does, the rules bound to observed points (red
+    where the code disagrees; their source through the gate of `Engine.run_rules`: red where this change broke it,
+    before where it already failed at task start), an intent file that does not load and an invalid known.toml or
+    rules.toml (red), one not compared item per point, copy group or rule that could not be compared, with its
+    reasons, and what the change touches. `known` are the plan's known entries; `agreed` the same names whose copies
+    this run compared on every copy and found to agree. `package` is the folder of the vitest run: a point in another
+    package cannot be reached by its tests and is not listed as unreached."""
+    from . import cache, cells as C, signals
+    from .engine import CONFLICT, Engine, PredicateError, outcome_eq
+    from .health import LINES_ONLY, Issue
+    from .loader import load
+    from .sources import cited, parse, source_state
+    points = {point['id']: point for entry in data['files'].values() for point in entry['points']}
+    rows, reasons_by_point, cuts = closed_rows(data, records)
+    calls = {}
     for record in records:
         calls.setdefault(record['id'], []).append(record)
-    items, red, steps, unverified = [], [], {}, []
+    issues, lines, unchecked = [], [], {}
+    def skipped(subject, reasons, *, function='', places=()):
+        entry = unchecked.setdefault((subject, function), dict(places=tuple(places), reasons=[]))
+        entry['reasons'].extend(reason for reason in reasons if reason not in entry['reasons'])
     for item in data['unplanned']:
         if _inside(cfg, item['rel'], package):
-            unverified.append(f'{item["name"]}（{item["rel"]}:{item["line"]}）：{item["reason"]}')
+            where = f'{item["rel"]}:{item["line"]}'
+            skipped(f'{item["name"]} ({where})', [item['reason']], function=item['id'], places=(where,))
     for ident, point in points.items():
         where = f'{point["rel"]}:{point["target_line"]}'
-        seen, collected, reasons = set(), [], []
-        for record in calls.get(ident, ()):
-            replay = record.get('replay')
-            if replay is None:
-                continue
-            if replay['status'] != 'ok':
-                reasons.append(replay['reason'])
-                continue
-            for row in replay['rows']:
-                signature = json.dumps(row['in'], sort_keys=True)
-                if signature not in seen:
-                    seen.add(signature)
-                    collected.append(dict(row, label=case_class(point, row['in'])))
+        subject = f'{point["name"]} ({where})'
+        collected = [dict(row, label=case_class(point, row['in'])) for row in rows.get(ident, ())]
+        reasons = list(reasons_by_point.get(ident, []))
+        if point['skip']:
+            reasons.append(point['skip'])
         rows[ident] = collected
         copy_only = any(copy['id'] == ident for other in points.values() for copy in other['copies']
                         if calls.get(other['id']))
-        if not calls.get(ident):
-            if point['anchored'] and not copy_only and _inside(cfg, point['rel'], package):
-                unverified.append(f'{point["name"]}（{where}）：没有测试走到')
+        if not calls.get(ident) and not collected:
+            if point['skip'] and (copy_only or _inside(cfg, point['rel'], package)):
+                skipped(subject, [point['skip']], function=ident, places=(where,))
+            elif point['anchored'] and not copy_only and _inside(cfg, point['rel'], package):
+                skipped(subject, ['not reached by any test'], function=ident, places=(where,))
             continue
-        if not collected:
-            unverified.extend(f'{point["name"]}：{reason}' for reason in dict.fromkeys(reasons))
+        if not collected or not point['changed']:
+            if reasons:
+                skipped(subject, reasons, function=ident, places=(where,))
             continue
-        compared = [row for row in collected if 'old' in row and not (isinstance(row['old'], dict) and '$missing' in row['old'])]
+        actual_rows = [row for row in collected if row['actual']]
+        compared = [row for row in actual_rows if not (isinstance(row['old'], dict) and '$missing' in row['old'])
+                    and not (isinstance(row['old'], dict) and '$threw' in row['old'] and _same(row['old'], row['now']))]
+        if any(isinstance(row['old'], dict) and '$threw' in row['old'] and _same(row['old'], row['now']) for row in actual_rows):
+            reasons.append('both versions raised the same exception')
         changes = [row for row in compared if not _same(row['old'], row['now'])]
-        classes = {row['label'] for row in collected}
-        if not changes and not reasons and {row['label'] for row in compared} == classes:
-            continue    # every replayed class compared and none changed: quiet, as on the pytest side
-        items.append(dict(
-            name=point['name'], file=point['rel'], line=point['target_line'], unanchored=not point['anchored'],
-            status='ok', complete=False, total=len(classes), checked=len({row['label'] for row in compared}),
-            changed=len({row['label'] for row in changes}),
-            changes=[dict(inputs={name: value(item) for name, item in row['in']}, region=row['label'],
-                          before=C.show(value(row['old'])), after=C.show(value(row['now']))) for row in changes],
-            reasons=['TS 的情况类来自比较里的常量，不证明划分完整'] + list(dict.fromkeys(reasons)),
-            rows=[(row['in'], row['now']) for row in collected]))
-    # same-name sensors: the copies ran on the same replayed inputs. One red per name: what every copy answered
-    # on the first input where they differ, never which one to follow (TS has no `distinct`: a different name).
-    same_name = dict(compared=set(), disagreed={})
-    from .signals import copy_answers, rule_steps
-    for ident, point in points.items():
-        if not point['copies'] or point['name'] in same_name['disagreed']:
+        if changes:
+            lines.append(signals.changed_line(point['fn'], ident, point['rel'], point['target_line'],
+                                              [({name: _plain(item) for name, item in row['in']}, _plain(row['old']), _plain(row['now']))
+                                               for row in changes], len(compared), why=point['why']))
+        elif reasons or {row['label'] for row in compared} != {row['label'] for row in actual_rows}:
+            # a replayed case class none of whose inputs could be compared is no evidence that it did not change
+            skipped(subject, reasons or ['a case class could not be compared at the baseline'], function=ident, places=(where,))
+    # Same-name copies share replayed inputs. Each input is judged on its own against the copies at the
+    # baseline: an old disagreement on one input cannot hide a pair newly broken on another (design 4.5).
+    for name, left in cuts.items():
+        if cut := signals.copy_cut(name, LIMIT, left):
+            skipped(name, [cut.removeprefix(name + ': ')])
+    handled, agreed = set(), set()
+    missing = lambda answer: isinstance(answer, dict) and '$missing' in answer
+    threw = lambda answer: isinstance(answer, dict) and '$threw' in answer
+    for ident, point in sorted(points.items(), key=lambda pair: not bool(calls.get(pair[0]))):
+        if not point['copies'] or point['name'] in handled:
             continue
-        for row in sorted(rows.get(ident, ()), key=_counterexample(point, calls.get(ident, ()))):
-            answers = [(f'{point["rel"]}:{point["target_line"]} {point["fn"]}', row['now'])]
+        handled.add(point['name'])
+        group = [ident, *(copy['id'] for copy in point['copies'])]
+        places = {target: f'{points[target]["rel"]}:{points[target]["fn"]}' for target in group}     # the 4.3 places
+        reference = next((places[target] for target in group if points[target].get('owner')), None)
+        samples = [row for row in rows.get(ident, ()) if row['same']]
+        current_rows, whole = [], False
+        for row in sorted(samples, key=_counterexample(point, [record for record in calls.get(ident, ()) if 'args' in record])):
+            inputs = ', '.join(f'{key}={_shown(item)}' for key, item in row['in'])
+            old = [(target, answer) for target, answer in [(ident, row['old']), *row['old_copies'].items()]
+                   if points[target]['old_skip'] not in (ABSENT, NO_BASELINE)]
+            answers = [(places[ident], row['now'])]
             for copy in point['copies']:
-                theirs = row.get('copies', {}).get(copy['id'])
-                if theirs is not None and '$unmatched' not in json.dumps(theirs):
-                    other = points[copy['id']]
-                    answers.append((f'{other["rel"]}:{other["target_line"]} {other["fn"]}', theirs))
+                theirs = row['copies'].get(copy['id'])
+                if theirs is not None and not missing(theirs):
+                    answers.append((places[copy['id']], theirs))
             if len(answers) < 2:
                 continue
-            same_name['compared'].add(point['name'])
-            if all(_same(theirs, row['now']) for _, theirs in answers[1:]):
+            if all(threw(answer) for _, answer in answers) and all(_same(answer, answers[0][1]) for _, answer in answers):
+                skipped(point['name'], ['all copies raised the same exception'])
                 continue
-            inputs = ', '.join(f'{name}={C.show(value(item))}' for name, item in row['in'])
-            text, step = copy_answers(answers, _same, lambda item: C.show(value(item)), total=len(point['copies']) + 1)
-            red.append(f'同名锚点 {point["name"]}：{inputs}，{text} -> {step}；有意不同，就给它们起不同的名字')
-            same_name['disagreed'][point['name']] = red[-1]
-            break
+            whole = whole or len(answers) == len(group)
+            current_rows.append((inputs, answers, {places[target]: (answer, threw(answer)) for target, answer in old if not missing(answer)},
+                                 {places[target] for target, answer in old if missing(answer)}))
+        fresh, old, unknown = signals.copy_partition(current_rows, _same, _shown, owner=reference, total=len(group),
+                                                     words=signals.copy_says)
+        if fresh or old:
+            issues.append(signals.copies_issue(point['name'], fresh, old, places=list(places.values()),
+                                               files={points[target]['rel'] for target in group}))
+        if unknown:
+            skipped(point['name'], [f'the baseline of a copy could not run; now on {where}: {text}' for where, text, _, _ in unknown])
+        if whole and not (fresh or old or unknown):
+            agreed.add(point['name'])
     # rules on the observed calls and replayed classes, as the pytest side checks a reading
     model = load(cfg)
     engine = Engine(model)
-    unverified.extend(f'{error["file"]}:{error["line"]}: {error["msg"]}' for error in model.errors)
-    quoted = set()
+    # a rule's source is judged with this run's comparison commit, as in pytest: none outside Git, before the first
+    # commit or for a recorded task start this repository lacks (whose commit the title still names)
+    commit = None if data['baseline_kind'] == 'missing' else data['baseline']
+    engine.baseline = commit
+    for error in model.errors:
+        place = f'{error["file"]}:{error["line"]}'
+        issues.append(signals.finding('input', f'load:{place}', f'load {place}', [signals.ascii_text(error['msg'])],
+                                      'correct this declaration; until then none of its file is checked',
+                                      places=(place,), files=(error['file'],)))
     for rule in model.rules.values():
-        for home in rule.homes:
-            if getattr(home, 'anchor', None) is None or home.anchor.target not in points:
-                continue
+        homes = [home for home in rule.homes if getattr(home, 'anchor', None) is not None and home.anchor.target in points]
+        if not homes:
+            continue
+        declared = f'{model.file_of[rule.id]}:{rule.line}'
+        sites = [f'{points[home.anchor.target]["rel"]}:{points[home.anchor.target]["fn"]}' for home in homes]
+        whats, at = [], []
+        # The source gate of `Engine.run_rules`: a source this change broke (rule.<id> missing or invalid, its words
+        # gone, a request superseded in this task) is red, one already broken at task start before; the rule's
+        # expectations are checked as pytest's intent items check them. An unconfirmed source (assumed:, a request
+        # not stored) adds nothing here, as before.
+        state, reason = source_state(engine, rule, rule.confirmed, rule.quote)
+        if state == 'red':
+            whats.append(signals.ascii_text(reason))
+        elif state == 'before':
+            said = signals.ascii_text(reason)
+            issues.append(Issue(f'source:{rule.id}', LINES_ONLY, f'source {rule.id}', f'source {rule.id}: {said}', signals.BEFORE_STEP,
+                                files=frozenset({model.file_of[rule.id]}), family='source', subject=f'source {rule.id}',
+                                parts=(('', declared, said, signals.BEFORE_STEP),), detail=(said,)))
+        for home, site in zip(homes, sites):
             ident = home.anchor.target
             point = points[ident]
             observed = [({name: value(item) for name, item in row['in']}, value(row['now'])) for row in rows.get(ident, ())]
             observed += [({name: value(item) for name, item in zip(point['params'], record['args'])}, value(record['result']))
-                         for record in calls.get(ident, ())]
+                         for record in calls.get(ident, ()) if 'args' in record and 'result' in record]
             usable = [(inputs, actual) for inputs, actual in observed
                       if all(name in inputs and C.kind_of(kind).accepts(inputs[name]) for name, kind in rule.fields.items())]
             if not usable:
                 if calls.get(ident):
-                    unverified.append(f'{rule.id}：{point["name"]} 的观察里没有规则要的输入（{", ".join(rule.fields)}）')
+                    skipped(f'rule {rule.id}', [f'{point["name"]} ({site}) observation lacks the inputs this rule reads ({", ".join(rule.fields)})'])
                 continue
             for inputs, actual in usable:
                 cell = {name: inputs[name] for name in rule.fields}
                 try:
                     expected = engine.effective(rule, cell)
                 except PredicateError as error:
-                    red.append(str(error))      # a predicate failing on an observed cell is red with its text, as in pytest
+                    whats.append(str(error).removeprefix(rule.id + ': '))   # a predicate failing on an observed cell is red, as in pytest
+                    at.append(site)
                     break
                 if expected is CONFLICT or expected is None or outcome_eq(expected, actual):
                     continue
-                red.append(f'{rule.id}: {C.show_cell(cell)} -> rule {C.show(expected)}, code {C.show(actual)}'
-                           f'（{point["rel"]}:{point["target_line"]} {point["fn"]}）')
-                if rule.id not in quoted:
-                    source = parse(rule.source)
-                    red.append(rule.id + ' 出处：' + (source.quote or source.text))
-                    quoted.add(rule.id)
-                    steps.setdefault(rule.id, rule_steps(rule.id, f'{point["rel"]}:{point["target_line"]} {point["fn"]}',
-                                                         f'{model.file_of[rule.id]}:{rule.line}'))
+                whats.append(f'{C.show_cell(cell)} -> rule {C.show_value(expected)}, code {C.show_value(actual)} at {site}')
+                at.append(site)
                 break
+        if whats:
+            # One red line per rule (D30), its first step from `signals.rule_steps`, the others and the owner's words in
+            # its detail, as pytest says a rule's red.
+            steps = [step.rstrip('; ') for step in signals.rule_steps(rule.id, at or sites or [rule.id + ' binding'], declared, whats)]
+            source = cited(parse(rule.source), cfg)
+            issues.append(signals.finding('rule', f'rule:{rule.id}', f'rule {rule.id}', whats, steps[0] if steps else '',
+                                          places=tuple(dict.fromkeys((declared, *at, *sites))), files=(model.file_of[rule.id],),
+                                          detail=[*steps, f'{rule.id} source: {source.quote or source.text}']))
+    issues += [_issue(fields) for fields in data['inputs']]
+    lines += [signals.not_compared(subject, entry['reasons'], function=function, places=entry['places'])
+              for (subject, function), entry in unchecked.items()]
+    # What the change touches: the files it changed (read now: an intent file's or a document's change does not
+    # change the plan), the TS/JS declarations whose code it added, changed or removed (not a change of what a function
+    # reads alone, which changes its sealed text), and the members of same-name copies one of whose files it changed
+    # (a before line needs that, 4.7). A known entry's own sites are read by the catalog as in pytest (D31: an edit of
+    # a site's text, a comment or its spacing too, touches it; `owners.Change.edited`).
+    touched_files = frozenset(_differs(cfg, commit)) if commit else frozenset()
+    touched = set(data['touched'])
+    touched |= {part[0] for issue in issues if issue.family == 'same' and issue.files & touched_files for part in issue.parts}
     # How far HEAD lies after a recorded task start is read now, by the one git call of pytest's title, and not
     # kept in the plan, whose key is the commit and its kind: the title says it as pytest's does.
-    kind = data.get('baseline_kind', 'task')
+    kind = data['baseline_kind']
     start = cache.task_start(cfg) if kind == 'task' else (None, None, None)
-    return dict(session=True, baseline=data['baseline'], baseline_kind=kind,
+    return dict(baseline=data['baseline'], baseline_kind=kind,
                 baseline_ahead=start[2] if start[:2] == (data['baseline'], 'task') else None,
-                source_changed=True, items=items, paths=[], leads=[], red=list(dict.fromkeys(red)), steps=steps,
-                unverified=unverified, same_name_pairs=same_name)
+                delivery=signals.delivery(issues, lines, touched_functions=touched, touched_files=touched_files,
+                                          ran={f'same:{name}' for name in agreed}),
+                known=[_known(fields) for fields in data['known']], agreed=agreed)
+
+
+def delivered(result):
+    """(lines, ignored, said) of a judged run (`judge`) through `signals.deliver`, with the plan's known entries: one
+    naming same-name copies this run compared on every copy and found to agree is `known fixed?` (the delivery's
+    `ran` names them; only a vitest run compares TypeScript copies). `said` are the known entries one of the lines
+    speaks for."""
+    from . import signals
+    part = result['delivery']
+    lines, ignored = signals.deliver(part['issues'], touched_functions=part['touched_functions'], touched_files=part['touched_files'],
+                                     known=result['known'], ran=part['ran'], extra=part['lines'])
+    red = {line.name for line in lines if line.kind == 'red'}
+    said = {line.name for line in lines if line.kind in ('known', 'known fixed?')}
+    said |= {f'known.{entry.id}' for entry in result['known'] if entry.finding in red}
+    return lines, ignored, said
 
 
 SESSION = 'report.json'           # in the observations folder: what the session test judged, for the teardown
+STATIC = 'static.json'            # in the observations folder: the map checks of flowguard.static.test.mjs (signals.last_run)
+STATIC_TEST = 'flowguard.static.test.mjs'       # the static test init writes next to a vitest package.json
+NOT_RUN = 'map checks did not report to this vitest run'
 
 
-def report(root, plan_path, observations, package=None, *, in_test=False):
-    """Judge this run's observations and print FlowGuard's lines; 1 on red. `in_test` is the session test
-    (session.test.mjs, run after the project's tests): it keeps the observations and saves the text and
-    status for the teardown, which then prints them after the summary instead of judging again."""
+def static_lines(observations):
+    """The saved map checks of this vitest run (the `signals.last_run` payload with its `title_parts` that
+    `check --static` writes for flowguard.static.test.mjs into the observations folder), its lines as `signals.Line`;
+    None when the static test did not run in it. The report reads its lines, seconds, ignored count, deprecated
+    features, deprecation notices (`notices`, which the static test held for the end of the block) and hidden leads."""
+    from .signals import KINDS, Line
+    path = Path(observations) / STATIC
+    if not path.is_file():
+        return None
+    saved = json.loads(path.read_text(encoding='utf-8'))
+    lines = [Line(**dict(line, places=tuple(line['places']), detail=tuple(line['detail']))) for line in saved['lines']]
+    for line in lines:
+        if line.kind not in KINDS:
+            raise ValueError(f'{path}: {line.name}: kind {line.kind!r} is not one of signals.KINDS')
+    return dict(saved, lines=lines)
+
+
+def merged(own, static, said):
+    """The block's lines: this run's, then those of the map checks (`static_lines`), each (kind, name, function) once
+    and in KINDS order; a known entry this run already speaks for (`said`) keeps this run's line only, except that a
+    `known fixed?` of the map checks is always listed (D8) and replaces this run's `known` line of its entry: the map
+    checks judged that entry's finding in the whole project and found it gone, while this run's line only says that
+    the change touches the entry's sites (no check of this run judges a family the map checks run)."""
+    from .signals import KINDS
+    fixed = {line.name for line in static if line.kind == 'known fixed?'}
+    unique = {}
+    for line in [*(line for line in own if not (line.kind == 'known' and line.name in fixed)),
+                 *(line for line in static if not (line.kind == 'known' and line.name in said))]:
+        unique.setdefault((line.kind, line.name, line.function), line)
+    return sorted(unique.values(), key=lambda line: KINDS.index(line.kind))
+
+
+def _wired(cfg, package):
+    """Whether the package of this vitest run has the static test init writes (which, when it runs in this run,
+    saves its map checks into the observations folder)."""
+    path = (Path(package) if package else cfg.root) / STATIC_TEST
+    return path.is_file() and path.read_text(encoding='utf-8-sig').startswith(INIT_MARK)
+
+
+def _save_last(cfg, payload):
+    """Keep this run's lines for `show --last` (`cache.save_last`)."""
+    import sqlite3
+    from contextlib import closing
+    from .cache import save_last
+    from ..map.common import cache_dir
+    cache_dir(cfg.root)
+    with closing(sqlite3.connect(cfg.cache / 'map.sqlite', timeout=30)) as con:
+        con.execute('CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT)')
+        with con:
+            save_last(con, payload)
+
+
+def report(root, plan_path, observations, package=None, *, in_test=False, notices=()):
+    """Judge this run's observations, merge the map checks the static test saved in this run, print the 4.3 block
+    (`signals.render_block`, a place named by the shortest end of its path no other file of the repository has) and
+    keep its lines for `show --last`; 1 when a line is red. The first line's time is FlowGuard's own: the preparation,
+    the recording, this report and the static test's map checks. `in_test` is the session test (session.test.mjs,
+    run after the project's tests): it keeps the observations and saves the block, its status and the number of its
+    reds the static test did not already fail on, for the session test and the teardown, which prints the block after
+    vitest's summary instead of judging again. The deprecation notices of the plan, of this report (`notices`, those
+    `main` holds) and of the static test print once, on stderr, after the block (design 4.7): the teardown prints those
+    the session test's report saved."""
+    import os
+    from . import deprecation, signals
     from .config import load_config
     from .differences import display
-    from .signals import render
+    from ..map.common import git_files
+    started = time.perf_counter()
+    since = deprecation.mark()
     cfg = load_config(root)
     data = json.loads(Path(plan_path).read_text(encoding='utf-8'))
-    result = judge(cfg, data, _observations(observations), package)
-    _remember_disagreed(cfg, data, result['same_name_pairs'])
-    text = render(result)
-    status = 1 if result['red'] else 0
+    records = _observations(observations)
+    recorded = sum(record.get('record_seconds', 0) for record in records)
+    result = judge(cfg, data, [record for record in records if 'id' in record], package)
+    own, ignored, said = delivered(result)
+    static = static_lines(observations)
+    if static is None and _wired(cfg, package):
+        # D19: the static test is wired but did not report here (a filtered run, or one written by an init before 4.3)
+        rel = cfg.rel((Path(package) if package else cfg.root) / STATIC_TEST)
+        own.append(signals.not_compared(rel, [NOT_RUN], places=(rel,)))
+    lines = merged(own, static['lines'] if static else [], said)
+    carried = {(line.kind, line.name, line.function) for line in static['lines']} if static else set()
+    red = sum(line.kind == 'red' for line in lines)
+    mine = sum(line.kind == 'red' and (line.kind, line.name, line.function) not in carried for line in lines)
+    files = git_files(cfg.root)         # the repository's files, which no shortened path of the block may name
+    seconds = (float(os.environ.get('FLOWGUARD_VITEST_PREPARE_SECONDS', 0)) + recorded + (static['seconds'] if static else 0)
+               + time.perf_counter() - started)
+    heading = signals.title(lines, baseline=result['baseline'], kind=result['baseline_kind'], ahead=result['baseline_ahead'],
+                            seconds=seconds)
+    text = signals.render_block(lines, title=heading, files=files)
+    _save_last(cfg, signals.last_run(lines, ignored + (static['ignored'] if static else 0), run='vitest', stamp=time.time(),
+                                     baseline=result['baseline'], kind=result['baseline_kind'], title=heading, seconds=seconds,
+                                     deprecated=list(dict.fromkeys([*data['deprecated'], *deprecation.used(since),
+                                                                    *(static['deprecated'] if static else ())])),
+                                     hidden=static['hidden'] if static else ()))
+    status = 1 if red else 0
+    deprecated = list(dict.fromkeys([*data['notices'], *notices, *(static['notices'] if static else ())]))
     if in_test:
-        (Path(observations) / SESSION).write_text(json.dumps(dict(text=text, status=status), ensure_ascii=False), encoding='utf-8')
+        (Path(observations) / SESSION).write_text(json.dumps(dict(text=text, status=status, red=mine, deprecated=deprecated),
+                                                             ensure_ascii=False), encoding='utf-8')
     else:
         shutil.rmtree(observations)     # this run's records are read; the next run starts empty
-    if text:
         display(text)
+        deprecation.say(deprecated)
     return status
 
 
@@ -688,15 +1442,18 @@ def main(argv=None):
     parser.add_argument('--root', required=True)
     parser.add_argument('--plan')
     parser.add_argument('--observations')
-    parser.add_argument('--package', help='The folder of the vitest run (its vite root)')
+    parser.add_argument('--package', help='The folder of the vitest run (its vite root); for prepare, of its vitest config')
     parser.add_argument('--in-test', action='store_true', help='Run by the session test: keep the observations')
     options = parser.parse_args(argv)
     if options.step == 'prepare':
-        print(json.dumps(prepare(options.root), ensure_ascii=False))
+        print(json.dumps(prepare(options.root, options.package), ensure_ascii=False))
         return 0
     if not options.plan or not options.observations:
         parser.error('report needs --plan and --observations')
-    return report(options.root, options.plan, options.observations, options.package, in_test=options.in_test)
+    from . import deprecation
+    with deprecation.held() as notices:     # said after the block, never inside the session test's output
+        return report(options.root, options.plan, options.observations, options.package, in_test=options.in_test,
+                      notices=notices)
 
 
 if __name__ == '__main__':

@@ -19,7 +19,7 @@ from pathlib import Path
 
 from . import probe as P
 from . import sites as S
-from .cells import (Kind, Raised, base_value, build_space, coerce, read_predicate, same, show, show_cell,
+from .cells import (Kind, Raised, base_value, build_space, coerce, read_predicate, same, show, show_cell, show_value,
                     smallest)
 from .config import project_code
 from .api import Refused, _AnchorBinding
@@ -180,8 +180,8 @@ class Engine:
     def __init__(self, model):
         self.m = model
         self.is_project = project_code(model.cfg)
-        from .sources import Archive
-        self.archive = Archive(model.cfg.root)
+        from .sources import shared_archive
+        self.archive = shared_archive(model.cfg.root)
         self._rr_space: dict = {}
         self._rr_info: dict = {}
         self._readings: dict = {}
@@ -205,6 +205,8 @@ class Engine:
         self._proven_rows = {}
         # The calls a `fields` anchor's tests reached: set by the pytest plugin for its session.
         self.call_sites = None
+        # The session's comparison commit, which a source judged at the baseline reads; set by the pytest plugin.
+        self.baseline = None
 
     def child_nodes(self, rule):
         nodes = set()
@@ -388,9 +390,10 @@ class Engine:
     def run_states(self, declaration):
         from flowguard.structure import build
         from contextlib import closing
-        from .sources import authority
-        valid, why = authority(parse_source(declaration.source), None, self.m.cfg, self.archive)
-        red, grey = [], [] if valid else [why]
+        from .sources import source_state
+        source, why = source_state(self, declaration, gone_red=False)
+        valid = source == 'ok'
+        red, grey = ([why] if source == 'red' else []), ([why] if source == 'grey' else [])
         from .anchors import value_gate
         with closing(build(self.m.cfg.root, roots=self.m.cfg.roots)) as graph:
             writes = [row for row in graph.assignments(include_unknown=True) if row['field'] == declaration.target
@@ -401,14 +404,16 @@ class Engine:
         if not writes:
             grey.append(f'no literal writes found for {declaration.target} -> check the field binding')
         return dict(kind='states', verdict='red' if red else 'grey' if grey else 'ok', red=red, grey=grey,
-                    info=[], n=len(writes), files=sorted({write['file'] for write in writes}), provisional=valid and self.provisional(declaration))
+                    info=[], n=len(writes), files=sorted({write['file'] for write in writes}), provisional=valid and self.provisional(declaration),
+                    **self._judged(source, why))
 
     def run_structure(self, declaration):
         from flowguard.structure import build
         from contextlib import closing
-        from .sources import authority
-        valid, why = authority(parse_source(declaration.source), None, self.m.cfg, self.archive)
-        red, grey = [], [] if valid else [why]
+        from .sources import source_state
+        source, why = source_state(self, declaration, gone_red=False)
+        valid = source == 'ok'
+        red, grey = ([why] if source == 'red' else []), ([why] if source == 'grey' else [])
         files = set()
         coverage = None
         with closing(build(self.m.cfg.root, roots=self.m.cfg.roots)) as graph:
@@ -438,7 +443,7 @@ class Engine:
                             f'{issue["reason"]} ({location}) -> use a supported explicit scope or reader')
         return dict(kind='structure', verdict='red' if red else 'grey' if grey else 'ok', red=red, grey=grey,
                     info=[], n=len(violations), files=sorted(files), listing=True, query_coverage=coverage,
-                    provisional=valid and self.provisional(declaration))
+                    provisional=valid and self.provisional(declaration), **self._judged(source, why))
 
     # ------------------------------------------------------------ cells
 
@@ -633,10 +638,12 @@ class Engine:
                 out["overrides"].append(dict(winner=win.id, loser=lose.id, n=len(bad)))
                 continue
             i = cells.index(smallest([cells[i] for i in bad], pts))
-            sa, sb = parse_source(a.source), parse_source(b.source)
+            # rule.<id> cites its rules.toml entry's words: two rules backed by the owner's words ask the owner.
+            from .sources import cited
+            sa, sb = (cited(parse_source(side.source), self.m.cfg) for side in (a, b))
             out["conflicts"].append(dict(a=a.id, b=b.id, n=len(bad), of=len(both), cell=show_cell(cells[i]),
                                          va=show(va[i]), vb=show(vb[i]),
-                                         ask_owner=sa.kind == "owner" and sb.kind == "owner",
+                                         ask_owner=sa.kind in ("owner", "request") and sb.kind in ("owner", "request"),
                                          rids=list(sa.rids + sb.rids)))
         if live:
             gap = [i for i in range(len(cells)) if all(vals[r.id][i] is None for r in live)]
@@ -883,10 +890,11 @@ class Engine:
             red.append(f"gap in {rule.decides} (total=True): no rule decides {g['n']} cells, smallest {g['cell']}")
         grey += self.independence(rule)
         grey += getattr(self.m, 'scenario_issues', {}).get(rule.id, [])
-        from .sources import authority
-        valid, source_reason = authority(parse_source(rule.source), rule.confirmed, self.m.cfg, self.archive, rule.quote)
-        if not valid:
-            (red if 'quote gone' in source_reason else grey).append(source_reason)
+        from .sources import source_state
+        source, source_reason = source_state(self, rule, rule.confirmed, rule.quote)
+        if source in ('red', 'grey'):
+            (red if source == 'red' else grey).append(source_reason)
+        valid = source == 'ok'
         in_model = any(getattr(relation.rule, 'id', relation.rule) == rule.id
                        for model in self.m.flows.values() for relation in model.relations)
         if not rule.homes and not in_model:
@@ -906,11 +914,20 @@ class Engine:
         return dict(kind="rules", verdict="red" if red else "grey" if grey else "ok", red=red, grey=grey, info=info,
                     cells=k["cells"], label=k["label"], seconds=k["seconds"],
                     sampled_by=[x for x in rr["space_reasons"] if x.startswith(rule.id + ": ")], provisional=pending,
-                    proven_rows=self._proven_rows.get(rule.id, []))
+                    proven_rows=self._proven_rows.get(rule.id, []), **self._judged(source, source_reason))
+
+    def _judged(self, source, reason):
+        """The result keys of a source judged against the session's baseline (`sources.source_state`): `before`, the
+        reason of a citation that already failed there (it makes no verdict red), and `source_baseline`, the commit
+        a red or before source was judged with, which `deps.record` keeps so a result is not reused against another."""
+        keys = dict(before=[reason]) if source == 'before' else {}
+        if source in ('red', 'before') and self.baseline is not None:
+            keys['source_baseline'] = self.baseline
+        return keys
 
     def run_flow(self, model, events=(), issues=(), *, _context=None, _scopes=None):
         from .flow import check_flow
-        from .sources import authority
+        from .sources import source_state
         _context = _context if _context is not None else dict(stack=[], proofs={}, children={})
         contracts = {}
         for node in model.nodes:
@@ -922,9 +939,10 @@ class Engine:
                             _context=_context, _scopes=_scopes)
         result['info'].append('scope: observed anchor paths and declared finite model; '
                               'unexecuted source routes remain unverified (static path proof is frozen)')
-        valid, reason = authority(parse_source(model.source), None, self.m.cfg, self.archive, None)
-        if not valid:
-            result['red' if 'quote gone' in reason else 'grey'].append(reason)
+        source, reason = source_state(self, model)
+        if source in ('red', 'grey'):
+            result[source].append(reason)
+        result.update(self._judged(source, reason))
         result['grey'].extend(issues)
         result['verdict'] = 'red' if result['red'] else 'grey' if result['grey'] else 'ok'
         children = list(_context['children'].values())
@@ -1138,7 +1156,7 @@ class Engine:
             first = smallest([b[0] for b in bad], pts) if part == "cells" else bad[0][0]
             cell, exp, got, label = next(b for b in bad if b[0] is first)
             red.append(f"{home.short}: {len(bad)} of {len(cases)} {part} disagree; smallest {show_cell(cell)} -> "
-                       f"rule {show(exp)}, code {got!r}" + (f" ({label})" if label != "cell" else ""))
+                       f"rule {show_value(exp)}, code {got!r}" + (f" ({label})" if label != "cell" else ""))
         if not entered and cases and not witness_errors:
             errors = [got.error for _, _, got, _ in bad if isinstance(got, Raised)]
             first_error = f'; {len(errors)} raised, first {type(errors[0]).__name__}: {errors[0]}' if errors else ''
@@ -1178,7 +1196,7 @@ class Engine:
         names = ', '.join(name for name, _ in home.anchor.fields)
         if self.call_sites is None:
             return dict(kind=part, verdict='grey', red=[], info=[], n=0, bad=0, entered=False,
-                        grey=[f'{home.short}: fields（{names}）在测试走到的调用上求值，需要普通 pytest 会话 -> 运行项目的测试'])
+                        grey=[f'{home.short}: fields ({names}) are evaluated at calls reached by tests; an ordinary pytest session is required -> run the project tests'])
         calls, reasons = self.call_sites(rule, home)
         tests = sorted({test for _, _, test in calls})
         red, grey, bad, checked = [], [f'{home.short}: {reason}' for reason in reasons], [], 0
@@ -1198,8 +1216,8 @@ class Engine:
                     reached = [outcome for inputs, outcome, _ in calls
                                if all(name in inputs and outcome_eq(inputs[name], value) for name, value in cell.items())]
                     if not reached:
-                        grey.append(f'{home.short}: {label}（{show_cell(cell)}）没有被测试走到的调用核对；'
-                                    f'fields 只在调用上求值，回归行和规则的核对见 [rules]')
+                        grey.append(f'{home.short}: {label} ({show_cell(cell)}) was not checked by a call reached in tests; '
+                                    f'fields are evaluated only at calls; see [rules] for regression-row and rule checks')
                         continue
                     cases += 1
                     checked += len(reached)
@@ -1210,9 +1228,9 @@ class Engine:
             first = smallest([b[0] for b in bad], self.rr_space(rule.decides)[2])
             cell, expected, got, label = next(b for b in bad if b[0] is first)
             red.append(f'{home.short}: {len(bad)} of {checked} calls disagree; smallest {show_cell(cell)} -> '
-                       f'rule {show(expected)}, code {got!r}' + (f' ({label})' if label != 'cell' else ''))
+                       f'rule {show_value(expected)}, code {got!r}' + (f' ({label})' if label != 'cell' else ''))
         if not checked and not grey:
-            grey.append(f'{home.short}: 没有被测试走到、读得出 fields（{names}）且规则表了态的调用')
+            grey.append(f'{home.short}: no test-reached call with readable fields ({names}) and a rule result')
         info = [f'checked on {checked} calls the tests reached ({len(tests)} tests); fields {names} are read from each '
                 'call\'s own arguments, and classes the tests did not reach are not checked']
         files = sorted({test.partition('::')[0] for test in tests} | {home.anchor.file})
@@ -1386,7 +1404,7 @@ class Engine:
             return dict(kind='live', verdict='red', red=errors, grey=[], info=[], k=0, n=0)
         if isinstance(home, _AnchorBinding) and home.anchor is not None and home.anchor.fields:
             return dict(kind='live', verdict='grey', red=[], info=[], k=0, n=0, sites=[], mutants=0,
-                        grey=[f'{home.short}: fields 锚点的规则在测试走到的调用上核对，变异存活检查需要能直接调用的锚点'])
+                        grey=[f'{home.short}: fields-anchor rules are checked at test-reached calls; surviving-mutation checks require directly callable anchors'])
         fn, sites, gone = self.home_sites(home.target)
         if gone:
             return dict(kind="live", verdict="red", red=[f"home gone: {home.target}"], grey=[], info=[], k=0, n=0)

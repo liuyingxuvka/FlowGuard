@@ -3,15 +3,16 @@ the objects it is given (round 20 review of the call-site replay guard).
 
 Each changed function would, if replayed on the test's own objects, leave the test something other than
 its one real call left: a consumed generator, extra callback events or log records, a random state moved
-on, extra rows, a module counter raised, a closed connection. The guard does not replay what it cannot
-copy or see into, restores the random state, drops log records and refuses or voids the rest.
+on, extra rows, a module counter raised, a closed connection. Recording makes no extra live calls;
+post-session source-only comparisons refuse unsupported names and non-JSON context.
 """
+import re
 import subprocess
 import sys
 import textwrap
 from pathlib import Path
 
-from tests.intent_engine._cli_fixture import display_text
+from tests.intent_engine._cli_fixture import block, display_text
 
 SOURCE = Path(__file__).resolve().parents[2]
 
@@ -117,12 +118,16 @@ def test_changed_code_leaves_ordinary_tests_as_their_real_calls_leave_them(tmp_p
     _git(root, 'commit', '-qm', 'baseline')
     _write(root, CHANGED)
     bootstrap = 'import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; raise SystemExit(pytest.main(sys.argv[1:]))'
-    outputs = {}
+    outputs, runs = {}, {}
     for label, options in (('plugin', []), ('plain', ['-o', 'addopts='])):
         result = subprocess.run([sys.executable, '-c', bootstrap, str(SOURCE), '-q', '-p', 'no:cacheprovider', *options],
                                 cwd=root, capture_output=True, text=True, encoding='utf-8', timeout=300)
         outputs[label] = text = display_text(result)
+        runs[label] = result
         assert result.returncode == 0, text
         assert '7 passed' in text and 'failed' not in text, text
     # With the plugin the changed points are reported as unverified, never as agreement.
-    assert 'FlowGuard（相对任务开始' in outputs['plugin'] and '未验证' in outputs['plugin'], outputs['plugin']
+    first, *rest = block(runs['plugin'])
+    assert re.fullmatch(r'FlowGuard \d+\.\d+ \(since [0-9a-f]{7}\): 0 red, 7 not compared; \d+\.\d s', first), outputs['plugin']
+    assert [line for line in rest if line.startswith('not compared: ')] == [
+        'not compared: 7 items (no comparable JSON result, uses attribute randint, or 2 other reasons) -> not a failure'], rest

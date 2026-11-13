@@ -1,14 +1,18 @@
 ---
 name: flowguard
-description: Keep a project consistent while an AI changes it. Ordinary tests (and npm test) print FlowGuard's red lines, changes, leads and unverified items - inconsistent same-name copies, violated owner rules, new fallbacks, writes outside an owner, changed behavior - each with the next step.
+description: Keep recorded agreements consistent while an AI changes code. Ordinary tests check necessary copies, field agreements, independent intent rules and fallback reasons.
 ---
 
 # FlowGuard
 
-1. Start each task with `python -m flowguard new-task`: it records the task's baseline commit, and commits made during the task keep it (a task's first test run records one too when none is). Run the project's ordinary tests (`python -m pytest`, or `npm test` in a TS project) and read the FlowGuard block: red, then changes, leads and unverified. Every red and lead ends with the next step; do it. When it says to tell the owner, tell the owner before changing the structure. Grey is unverified, not success. No source change stays quiet unless a constraint fails.
-2. A judgment or a field that must agree everywhere has one owner: `# flowguard: owner NAME` above the owner, `# flowguard: sensor NAME` above each same-name copy, and `writers=` (with `with=` for a field that must change with it) on a data owner. Before adding a judgment, run `python -m flowguard show "what it decides"` and reuse its existing owner.
-3. A rule the owner set that must keep holding goes into `tests/intent/` as an independent rule. Its source is the owner's words, stored once and byte for byte with `python -m flowguard req add <file|-> --id R1`; never store an AI plan. Fields the parameters lack come from the anchor's `fields name=expression`; other context stays in the real tests.
+1. Start with `python -m flowguard new-task` and read its brief: the owner's current rules and the open items. It records the task's baseline; commits during the task keep it.
+2. Run the project's ordinary tests and read the FlowGuard block at the end; its first line counts each kind. `red` means your change broke a recorded agreement: fix the code. `before` and `known` were there before your task: do what the line says after `->`, and tell the owner only when it says `ask owner`. `changed` means a function returns something else for the input shown: say so if you meant it. `impact` and `not compared` are not failures; `not compared` is unverified, not success. `python -m flowguard show --last` prints every line with its details.
+3. Use `python -m flowguard show "what it decides"` before changing another copy. Reuse an existing agreement rather than writing a second policy.
 
-FlowGuard keeps registered things from regressing; finding a problem is still careful review. When review finds one or the owner sets a rule, register it in the same change (an owner, a pair, a value set, a rule, a ledger entry), so the model grows with the software. `python -m flowguard check --all` lists the open structure problems worth reviewing first.
+Mark necessary same-name copies with `flowguard: same NAME`; `same NAME ref` marks a chosen reference. Use `together A B,C` for fields written together and `writers A f,g` for allowed writers. Bare writers refer to the comment's file; other files use repository-relative `path:function`. An `except=`, a removed comment or an edit of `.flowguard/known.toml` that clears a finding needs the owner's yes. Use `#` in Python and `//` in TS/JS.
 
-Do not model the development task. A new fallback needs an entry in `.flowguard/ledger.toml` with what it does, why it may stay and the written rule it serves; the forms the red line names cannot be listed. See [rules, anchors and the ledger](references/rules.md).
+An independent rule belongs in `tests/intent/` and cites the owner's actual words or an exact document sentence. Store actual words once with `python -m flowguard req add <file|-> --id R1`; never archive an AI plan. Keep `.flowguard/rules.toml` current, each rule's source quoting those words; put a problem only the owner can decide into `.flowguard/known.toml` with `act = "ask"`. Keep other context in real tests.
+
+Register a useful agreement in the same change that discovers it. A new fallback needs a `.flowguard/ledger.toml` entry with its behavior, reason and written rule; forms the finding rejects cannot be listed. `check --all` lists open structure findings for deliberate review.
+
+Do not model the development task. No source change stays quiet unless a constraint fails. See the [local reference](reference.md) for executable examples, the two files and supported annotations.

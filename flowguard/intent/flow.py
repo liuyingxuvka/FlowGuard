@@ -43,6 +43,10 @@ class Transition:
     on: str
     initial: bool = False
 
+    def __post_init__(self):
+        from .deprecation import warn
+        warn('Transition')
+
 
 _UNSET = object()
 
@@ -867,10 +871,10 @@ def _reading_source(observed, index, read, cache=None):
     anchor = sites[0]
     path = Path(observed.file)
     if cache is None:
-        digest = content_digest(path) if path.is_file() else None
+        digest = _source_digest(path)
     else:
         if str(path) not in cache:
-            cache[str(path)] = content_digest(path) if path.is_file() else None
+            cache[str(path)] = _source_digest(path)      # hashed again only when the file's status changed
         digest = cache[str(path)]
     if observed.source_digest != anchor.source_digest or digest != observed.source_digest:
         raise Unverified(f'{observed.anchor}: reading source identity changed; verify current source')
@@ -999,6 +1003,25 @@ def _snapshot(value, depth=0):
     return _Opaque(type(value).__name__)
 
 
+def _inert_key(value):
+    """A hashable identity of a `_snapshot` value that runs no project code: its type and value, an enum by its
+    class and member name; any other object (a Path) only by its identity."""
+    if type(value) is dict:
+        return 'dict', tuple((type(key).__name__, key, _inert_key(item)) for key, item in value.items())
+    if type(value) in (list, tuple):
+        return type(value).__name__, tuple(_inert_key(item) for item in value)
+    if isinstance(value, Enum):
+        return 'enum', type(value).__module__, type(value).__qualname__, object.__getattribute__(value, '_name_')
+    if type(value) is _Opaque:
+        return 'opaque', value.reason
+    if type(value) in (type(None), bool, int, float, str, bytes):
+        return type(value).__name__, value
+    return 'object', id(value)
+
+
+_SAMPLE = 20        # distinct calls kept of an anchor no Flow reads, when no Flow scopes the capture
+
+
 _MISSING = object()
 
 
@@ -1068,6 +1091,17 @@ def _resolved(filename):
     return str(Path(filename).resolve())
 
 
+def _call_span(frame):
+    """(line, end line, column, end column) of the expression `frame` is executing now: during a call, the
+    call expression. Python 3.11+ keeps one source position per code unit; a frame between instructions or
+    without a position has ()."""
+    from itertools import islice
+    if frame.f_lasti < 0:
+        return ()
+    position = next(islice(frame.f_code.co_positions(), frame.f_lasti // 2, None), None)
+    return tuple(position) if position is not None and None not in position else ()
+
+
 _DIGESTS = {}
 
 
@@ -1100,24 +1134,29 @@ class Capture:
         self._discover = discover
         self.on_event, self.diagnostic_issues = on_event, []
         self._ordinary = _ordinary
-        self._model_scopes = None
+        self._model_scopes = self._read = None
+        self._read_states, self._sampled = False, {}      # anchor target -> the inert keys of the calls kept
         if models is not None:
-            entries = set()
-            for model in models:
-                test_start = _test_entry_references(model, index)
-                if test_start:
-                    entries.update(test_start)
-                else:
-                    # _scenario_scopes keeps the whole case for production
-                    # entries, including a downstream call without its start.
-                    break
+            models = list(models)
+            entries = [_test_entry_references(model, index) for model in models]
+            if models and all(entries):
+                self._model_scopes = frozenset().union(*entries)
             else:
-                self._model_scopes = frozenset(entries)
+                # No test entry scopes every Flow. _scenario_scopes keeps the whole case for a production entry,
+                # including a downstream call without its start, so every event of an anchor a Flow names is kept,
+                # and with transitions every event that read a declared state. Of any other anchor (all of them
+                # in a project without Flows) the first _SAMPLE distinct calls are kept for `show NAME`: the
+                # capture does not grow with the number of calls.
+                self._read = frozenset(node.reference for model in models for node in model.nodes)
+                self._read_states = any(model.transitions for model in models)
         self.events, self.issues = [], []
         self._frames, self._counts, self._sites = {}, Counter(), {}
+        paths = {}      # one resolve per file: several anchors share one
         for anchor in index.entries:
             if anchor.kind not in {'event','sensor'}: continue
-            path = (self.root/anchor.file).resolve()
+            if anchor.file not in paths:
+                paths[anchor.file] = (self.root/anchor.file).resolve()
+            path = paths[anchor.file]
             if anchor.source_digest and _source_digest(path) != anchor.source_digest:
                 self.issues.append(f'{anchor.name}: anchor source changed; rebuild the map'); continue
             self._sites.setdefault((str(path),anchor.qual),[]).append(anchor)
@@ -1161,9 +1200,11 @@ class Capture:
             self._scope.__exit__(*error)
             self.issues.extend(self._scope.problems)
             self._active = False
+        digests = {}        # one status check per file
         for anchor in self.index.entries:
-            path=self.root/anchor.file
-            if anchor.source_digest and _source_digest(path)!=anchor.source_digest:
+            if anchor.source_digest and anchor.file not in digests:
+                digests[anchor.file] = _source_digest(self.root/anchor.file)
+            if anchor.source_digest and digests[anchor.file]!=anchor.source_digest:
                 self.issues.append(f'{anchor.name}: source changed during anchor observation')
         self._frames.clear()
 
@@ -1246,10 +1287,21 @@ class Capture:
             # test-entry model. Only its unused value/state/event work is pruned.
             if not self._in_model_scope(anchor, frame):
                 return None
+            sampled = self._read is not None and anchor.name not in self._read
+            if sampled and not self._read_states and len(self._sampled.get(anchor.target, ())) >= _SAMPLE:
+                return None
             args={p.name:_snapshot(frame.f_locals.get(p.name,_Opaque('missing parameter')))for p in anchor.parameters}
             before=self._states(frame,anchor)
+            if sampled and not (self._read_states and before):
+                kept, identity = self._sampled.setdefault(anchor.target, set()), _inert_key(args)
+                if identity in kept or len(kept) >= _SAMPLE:
+                    return None
+                kept.add(identity)
             parents=[];parent=source_caller(frame)
-            caller=(parent.f_code.co_filename,parent.f_code.co_qualname.replace('.<locals>.','.'),parent.f_lineno)if parent else ()
+            # The caller's file, function and line, and the source span of the call expression it is making:
+            # a sealed point reads the test's own arguments from that expression (calibration._sealed_point).
+            caller=(parent.f_code.co_filename,parent.f_code.co_qualname.replace('.<locals>.','.'),parent.f_lineno,
+                    _call_span(parent))if parent else ()
             while parent is not None:
                 found=self._frames.get(id(parent))
                 if found: parents.append((found[0].name,found[0].target,found[2]))

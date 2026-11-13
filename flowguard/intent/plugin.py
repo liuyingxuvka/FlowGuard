@@ -5,13 +5,17 @@ with `-p`; the plugin is no test module, so pytest skips rewriting it instead of
 """
 from __future__ import annotations
 
+from collections import Counter
 import fnmatch
 from functools import cache
+import gc
 from contextlib import closing, ExitStack, contextmanager
 from contextvars import ContextVar
 import json
+import math
 import os
 from pathlib import Path
+import re
 import sqlite3
 import sys
 import threading
@@ -26,10 +30,13 @@ from .readings import classify, classify_collection
 from .tracer import Footprint
 
 SENTINEL = 'test_flowguard_intent'
+FLOW_STEP = 'make the observed path follow flow {id}'
 NO_SKIP = 'this suite allows no skip, expected failure or early exit: a check that did not run is never reported as fine'
 _CURRENT = None
 _SIGNALS = ContextVar('flowguard_signals', default=None)
 _TRY = ContextVar('flowguard_try', default=None)
+# the finding family of a declaration's intent items by their kind (a rule's are `rule:`)
+ITEM_KINDS = {'flow': 'flow', 'states': 'states', 'structure': 'structure', 'anchor_distinct': 'distinct'}
 SCHEMA = '''
 CREATE TABLE IF NOT EXISTS reading(test TEXT PRIMARY KEY, outcome TEXT, kind TEXT, reason TEXT,
   phase TEXT, seconds REAL, stamp REAL);
@@ -37,10 +44,20 @@ CREATE TABLE IF NOT EXISTS result(item TEXT PRIMARY KEY, rule TEXT, verdict TEXT
 '''
 
 
+class SignalReports(list):
+    """One check's reports (JSON data), its already computed static findings and, for the 4.3 block, each batch's
+    `signals.delivery` (`signals.collect` merges them with the static findings); the last two are never serialized."""
+    def __init__(self, everything=False):
+        super().__init__()
+        self.everything = everything
+        self.static = {}
+        self.deliveries = []
+
+
 @contextmanager
-def collect_signals():
+def collect_signals(*, everything=False):
     """Let a multi-batch check render its runtime facts exactly once."""
-    reports = []
+    reports = SignalReports(everything)
     token = _SIGNALS.set(reports)
     try:
         yield reports
@@ -60,21 +77,23 @@ def try_reading(target, name, values, grid=False):
 
 
 def observation_payload(value, seen=frozenset()):
-    import math
+    # Types are compared by identity only, so no class hook of an observed value runs.
     kind = type(value)
-    if any(kind is native for native in (type(None), bool, int, str)) or kind is float and math.isfinite(value):
+    if kind is str or kind is int or kind is bool or kind is _NONE or kind is float and math.isfinite(value):
         return value
-    namespace = type.__dict__['__dict__'].__get__(kind)
-    module = namespace.get('__module__', 'builtins')
-    label = (module if type(module) is str else '?') + '.' + type.__dict__['__qualname__'].__get__(kind)
-    if any(kind is native for native in (dict, list, tuple)) and id(value) not in seen:
+    if (kind is dict or kind is list or kind is tuple) and id(value) not in seen:
         seen = seen | {id(value)}
         if kind is dict:
             if all(type(key) is str for key in value):
                 return {key: observation_payload(part, seen) for key, part in value.items()}
         else:
             return [observation_payload(part, seen) for part in value]
-    return {'unverified_type': label}
+    namespace = type.__dict__['__dict__'].__get__(kind)
+    module = namespace.get('__module__', 'builtins')
+    return {'unverified_type': (module if type(module) is str else '?') + '.' + type.__dict__['__qualname__'].__get__(kind)}
+
+
+_NONE = type(None)
 
 def _json(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True, default=repr)
@@ -83,6 +102,9 @@ def _json(value):
 # flowguard: states Session.sentinel = None | 'failed' | 'ok'
 class Session:
     def __init__(self, config):
+        timing = time.perf_counter()
+        from . import deprecation
+        self.notices = []               # the session's own deprecation notices, said after its block (`say_notices`)
         self.config = config
         self.owns_host = False
         self.owns_root = False
@@ -107,8 +129,13 @@ class Session:
         self.source_items = ()
         self.complete_collection = None
         self.ledger_result = None
+        self.ledger_judged = False      # the ledger was compared with the map in full (a known entry's `known fixed?`)
         self.sentinel_ledger = False
         self.session_red = []            # reds only the session decides: a failed JUnit testcase
+        self.deprecations = deprecation.mark()      # the deprecated features this session uses (`show --last`)
+        self.finishing = None            # when the session's own judgement began (`pytest_sessionfinish`)
+        self._timing = False             # inside `timed`
+        self.tool_seconds = time.perf_counter() - timing
 
     @property
     def runtime(self):
@@ -131,8 +158,17 @@ class Session:
                 _execution_session(self.cfg.root, facts=self.anchor_facts):
             yield
 
+    def say_notices(self):
+        """Print the deprecation notices this session held, on stderr, once, after its block (design 4.7): its
+        collection captures stderr, where they would be lost (only -s showed them). A session that ends before its
+        block says them when it closes."""
+        from . import deprecation
+        deprecation.unhold(self.notices)
+        deprecation.say(self.notices)
+
     def close(self):
         global _CURRENT
+        self.say_notices()
         _CURRENT = self.previous_session
         self.closed = True
         for module, name, real, refused in reversed(self.process_calls):
@@ -170,9 +206,23 @@ class Session:
             pytest.fail(reason + '; ' + guidance, pytrace=False)
         return refused
 
+    @contextmanager
+    def timed(self):
+        """FlowGuard's own work in the session (`tool_seconds`, the first line's time): counted once where timed parts
+        nest (the model's load inside the collection's finish)."""
+        if self._timing:
+            yield
+            return
+        self._timing, started = True, time.perf_counter()
+        try:
+            yield
+        finally:
+            self._timing = False
+            self.tool_seconds += time.perf_counter() - started
+
     def get_model(self):
         if self.model is None:
-            with self.verification():
+            with self.timed(), self.verification():
                 self.model = load(self.cfg)
                 self.model.deep = self.config.getoption('--flowguard-deep', default=False)
                 self.engine = Engine(self.model)
@@ -249,9 +299,10 @@ class Session:
             try:
                 baseline = self.config.getoption('--flowguard-base', default=None) or cache.session_baseline(self.cfg)
                 self.ledger_result = ledger.evaluate(self.cfg, self.get_map(), baseline=baseline)
+                self.ledger_judged = True
             except (MapError, OSError, UnicodeError) as error:
                 self.ledger_result = ledger.Result(present=True, red=[ledger.Finding(
-                    f'兜底账本没有核对完：{type(error).__name__}: {error}', ('改正这个错误后重新运行测试',))])
+                    f'fallback ledger check did not complete: {type(error).__name__}: {error}', ('correct this error and rerun the tests',))])
         return self.ledger_result
 
 
@@ -299,24 +350,169 @@ def _declared(point, inputs):
     return {_canonical(point, name): value for name, value in inputs.items()}
 
 
-def _partition_copy(axes, part):
-    from .differences import Partition, Region
-    return ({name: list(pool) for name, pool in axes.items()},
-            Partition([Region(dict(region.inputs), region.label) for region in part.regions],
-                      part.complete, list(part.reasons), part.representative_points), [])
+def _sealed_numbers(tree, qual):
+    """The numbers a same-name copy works with in the sealed environment: the int and float literals of the
+    function and of the same-file functions it calls, and of the literal module constants they read (each
+    number of a tuple, list, set or dict constant too), in that order. `-5` is -5, and 1 and 1.0 stay apart.
+    None when the module has no such function."""
+    import ast
+    functions = {node.name: node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    if qual not in functions:
+        return None
+    constants = {}
+    for node in tree.body:
+        if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None:
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            literal = _literal_numbers(node.value)
+            for target in targets:
+                if isinstance(target, ast.Name):
+                    if literal is not None:
+                        constants[target.id] = literal
+                    else:
+                        constants.pop(target.id, None)
+    numbers, todo, seen, read = [], [qual], set(), []
+    while todo:
+        name = todo.pop(0)
+        if name in seen:
+            continue
+        seen.add(name)
+        negated = set()
+        for part in ast.walk(functions[name]):
+            if isinstance(part, ast.UnaryOp) and isinstance(part.op, ast.USub) and _numeric(part.operand):
+                numbers.append(-part.operand.value)
+                negated.add(id(part.operand))
+            elif _numeric(part) and id(part) not in negated:
+                numbers.append(part.value)
+            elif isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load):
+                if part.id in functions:
+                    todo.append(part.id)
+                elif part.id in constants:
+                    read.extend(constants[part.id])
+    return list({(type(number), number): number for number in [*numbers, *read]}.values())
 
 
-_UNHOOKABLE = '函数：调用处的结果不能比较'      # the end of a lost reading's reason when the call became a generator or coroutine
-_OPAQUE = '回放结果不是可以比较的简单数据'
+def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no recorded JSON inputs'):
+    """The sealed comparison of the copies of one same name (design 4.5), in pytest and in check alike: the copies
+    (`points`: anchor, target, file, module, qual of each) run in the closed environment, never imported, on the
+    inputs `signals.copy_inputs` makes of the `recorded` ones ({declared name: value}) and the numbers the copies use,
+    now and at the baseline. `source(point, old)` is a copy's source text (None: no baseline source), `run(point,
+    sample, old)` one sealed run of it, `place(target)` a copy's `path:line`, which the reason of a pair whose
+    baseline could not run names it by (`signals.copy_answers`). Returns what the run reports: `grey` reasons (not
+    compared), the `same:NAME` finding (`signals.copies_issue`: a pair red where this change broke it, old where it
+    already differed at the baseline) or None, and `ran` when every copy answered every compared input. `no_inputs`
+    says why nothing was compared when no input could be made."""
+    import ast
+    from types import SimpleNamespace
+    from . import cells as C, runtime as R, signals
+    out = SimpleNamespace(grey=[], issue=None, ran=False)
+    def value(result):
+        return result.get('value') if result['status'] == 'ok' else {'raises': result.get('error')}
+    def equal(left, right):
+        return json.dumps(left, sort_keys=True, allow_nan=False) == json.dumps(right, sort_keys=True, allow_nan=False)
+    numbers = [number for point in points for number in _sealed_numbers(ast.parse(source(point)), point['qual']) or ()]
+    inputs, left = signals.copy_inputs(recorded, numbers)
+    if not inputs:
+        out.grey.append(name + ': ' + no_inputs)
+    if cut := signals.copy_cut(name, 64, left):
+        out.grey.append(cut)
+    places = {point['target']: place(point['target']) + ' ' + point['qual'] for point in points}
+    owner = next((places[point['target']] for point in points if point['anchor'].owner), None)
+    named = {point['target']: f'{point["file"]}:{point["qual"]}' for point in points}     # the 4.3 places
+    rows = []       # (input, current answers, baseline answers, places whose baseline could not run)
+    unavailable = False     # a copy that could not run sealed on an input: the copies were not all compared
+    unrun = {}      # {place: why its baseline could not run}, said where a pair it is in is not compared
+    for row in inputs:
+        answered = []       # (point, current outcome, baseline outcome or None) of each copy that ran sealed
+        for point in points:
+            spelled = {_spelled(point, key): v for key, v in row.items()}
+            node = dict(R._functions(ast.parse(source(point)))).get(point['qual'])
+            positional = [spelled.pop(p.arg) for p in node.args.posonlyargs if p.arg in spelled] if node else []
+            sample = dict(args=positional, kwargs=spelled)
+            now = run(point, sample)
+            if now['status'] == 'unavailable':
+                # This copy is not compared; the copies that ran still are (design 4.5, 6.4).
+                out.grey.append(name + ': ' + places[point['target']] + ' ' + now.get('reason', ''))
+                unavailable = True
+                continue
+            past_text = source(point, True)
+            # a baseline that does not parse may have had the copy: it runs there, which says why it is not compared
+            existed = past_text is not None and _baseline_defines(past_text, point['qual']) is not False
+            answered.append((point, now, run(point, sample, True) if existed else None))
+        outcomes = [result for _, result, _ in answered]
+        for point, _, past in answered:
+            if past is not None and past['status'] == 'unavailable':
+                unrun.setdefault(places[point['target']], past.get('reason', ''))
+        if len(outcomes) < 2:
+            continue
+        if all(result['status'] == 'raised' for result in outcomes) and all(equal(result, outcomes[0]) for result in outcomes[1:]):
+            out.grey.append(name + ': copies raise exceptions')
+            continue
+        rows.append((row,
+                     [(point['target'], value(result)) for point, result, _ in answered],
+                     {point['target']: (value(past), past['status'] == 'raised') for point, _, past in answered
+                      if past is not None and past['status'] != 'unavailable'},
+                     {point['target'] for point, _, past in answered
+                      if past is not None and past['status'] == 'unavailable'}))
+    def spelled(labels, show):
+        """The rows with each input and copy's target spelled as `show` and `labels` write them."""
+        return [(', '.join(f'{key}={show(value)}' for key, value in row.items()), [(labels[target], value) for target, value in now],
+                 {labels[target]: past for target, past in old.items()}, {labels[target] for target in unknown})
+                for row, now, old, unknown in rows]
+    open_lines = signals.copy_partition(spelled(places, C.show), equal, C.show, owner, len(points))[2]
+    if open_lines:
+        why = '; '.join(f'{place}: {reason}' for place, reason in unrun.items() if reason)
+        out.grey.append(name + ': baseline comparison unavailable' + (f' ({why})' if why else '') + '; current copies disagree ('
+                        + '; '.join(f'{where}, {text}' for where, text, _, _ in open_lines) + ')')
+    reference = next((named[point['target']] for point in points if point['anchor'].owner), None)
+    fresh, old, _ = signals.copy_partition(spelled(named, signals.value_text), equal, signals.value_text, reference, len(points),
+                                          words=signals.copy_says)
+    if fresh or old:
+        out.issue = signals.copies_issue(name, fresh, old, places=list(named.values()), files={point['file'] for point in points})
+    out.ran = bool(rows) and not unavailable and not open_lines
+    return out
 
 
-def _restore_step(lost):
-    """The first way out of a lost observation, for what made it grey."""
-    if lost.startswith(_OPAQUE):
-        return '恢复可观察：让这次调用像基准代码那样返回可以比较的简单数据（数字、字符串、布尔、None，或由它们组成的列表、元组、字典）；'
-    if lost.endswith(_UNHOOKABLE):
-        return '恢复可观察：让它像基准代码那样直接返回结果，不改成生成器或协程函数；'
-    return '恢复可观察：改掉上面那一处，让这次调用不再写文件、数据库、进程或网络；'
+def _parse_baseline(text):
+    """(tree, '') of a file's source at the baseline; (None, the parser's words) when it does not parse there, as in a
+    commit that held a syntax error. A comparison at the baseline is then not compared, with these words, never a
+    crash and never a pass."""
+    import ast
+    try:
+        return ast.parse(text), ''
+    except (SyntaxError, ValueError) as error:      # ValueError: a null byte on Python 3.11
+        words = f'{error.msg} (line {error.lineno})' if isinstance(error, SyntaxError) else str(error)
+        return None, 'does not parse at the baseline: ' + words
+
+
+def _baseline_defines(text, qual):
+    """Whether the baseline source `text` defines the module-level function `qual`; None when it does not parse
+    (`_parse_baseline`): what it defined then is unknown."""
+    from .runtime import _functions
+    tree, _ = _parse_baseline(text)
+    return None if tree is None else qual in dict(_functions(tree))
+
+
+def _numeric(node):
+    import ast
+    return isinstance(node, ast.Constant) and type(node.value) in (int, float)
+
+
+def _literal_numbers(node):
+    """The numbers of a literal expression (a number, `-5`, or a tuple, list, set or dict of literals), in source
+    order; None when the expression is not such a literal. A string, bytes, bool or None literal has none."""
+    import ast
+    if isinstance(node, ast.Constant):
+        return [node.value] if _numeric(node) else []
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)) and _numeric(node.operand):
+        return [-node.operand.value if isinstance(node.op, ast.USub) else node.operand.value]
+    if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
+        parts = node.elts
+    elif isinstance(node, ast.Dict) and all(key is not None for key in node.keys):
+        parts = [part for pair in zip(node.keys, node.values) for part in pair]
+    else:
+        return None
+    found = [_literal_numbers(part) for part in parts]
+    return None if any(numbers is None for numbers in found) else [number for numbers in found for number in numbers]
 
 
 class Observations:
@@ -324,8 +520,9 @@ class Observations:
     def __init__(self, state):
         import ast
         from . import anchors, cache, differences
-        from .runtime import Runtime, _functions, _binding_facts
-        from ..map.common import MapError, git_run, read_source
+        from .runtime import (Runtime, _binding_facts, _binding_reads, _changed_constants, _dumped, _functions,
+                              _imported_changes, _read_through, _same_binding, changed_reads)
+        from ..map.common import MapError, git_files, git_renames, git_run, read_source
         from ..structure.readers.registry import language_for
         self.state, self.cfg = state, state.cfg
         self.requested_base = state.config.getoption('--flowguard-base', default=None)
@@ -346,8 +543,13 @@ class Observations:
             raise pytest.UsageError(self.runtime._baseline_error)
         self.index = state.model.anchor_index or differences._source_index(self.cfg.root)
         state.model.anchor_index = self.index
+        self.renamed = {}       # a moved file's baseline version is at its old path
+        self.unparsed = {}      # {changed file: why its baseline version does not parse}, each comparison's reason there
+        # the project's files, which no shortened path of the block may name: Git's list, else the map's walk
+        self.repository = git_files(self.cfg.root)
         try:
-            changed = git_run(self.cfg.root, 'diff', '--name-only', '-z', baseline).stdout
+            # paths relative to the project's root, also below the repository's top folder, as every other reader's
+            changed = git_run(self.cfg.root, 'diff', '--name-only', '-z', '--relative', baseline, '--').stdout
             added = git_run(self.cfg.root, 'ls-files', '--others', '--exclude-standard', '-z').stdout
             self.files = {os.fsdecode(value) for value in (changed + added).split(b'\0')
                           if value and value.endswith(b'.py') and state.is_project(str(self.cfg.root / os.fsdecode(value)))}
@@ -355,69 +557,173 @@ class Observations:
             # A changed TS/JS, Prisma, SQL or other mapped file is a change too: the map checks read it.
             self.mapped = {os.fsdecode(value) for value in (changed + added).split(b'\0')
                            if value and language_for(os.fsdecode(value)) not in (None, 'python')}
+            self.renamed = git_renames(self.cfg.root, baseline)
+            # every file the change edits, adds or deletes: a finding's member there is touched (`signals.deliver`)
+            self.touched = {os.fsdecode(value) for value in (changed + added).split(b'\0') if value}
         except MapError:
             self.files = set()
             self.differs = set()
             self.mapped = set()
+            self.touched = set()
         self.points = {a.target: dict(anchor=a, target=a.target, file=a.file, module=a.module, qual=a.qual,
                                      name=a.name, kind=a.kind, node=None)
-                       for a in self.index.entries if a.kind in ('sensor', 'event') and a.source_role != 'test'}
-        self.changed, self.records, self.pairs, self.red, self.grey, self.paths = bool(self.files), [], [], [], [], []
-        self.steps = {}         # the next steps to copy under a red line, by its subject
+                       for a in self.index.entries if a.kind in ('sensor', 'event') and a.source_role != 'test'
+                       and a.file.endswith('.py')}
+        self.changed, self.records, self.grey = bool(self.files), [], []
         self.metadata, self.bound, self.event_codes, self.payload = {}, {}, {}, None
-        # Comparisons by fingerprint (_reuse): the key of each reading index, the stored results this
-        # session kept, the new results to store, and the engine identity and stored entries, read once.
-        self.keys, self.reused, self.fresh, self.engine_digest, self.stored = {}, {}, {}, None, None
         self.structure = None
         self.event_record = self.capture = None
         self.request, self.text = _TRY.get(), ''
+        self.final = None           # FlowGuard's own seconds in the session, taken once after all its work (`_final`)
         self.session_red = []       # set by report(): the reds no failed test carries
+        # The 4.3 lines (`signals.collect`): findings by (name, member), what was not compared and why, the changed
+        # lines, and for `show --last` the unchanged points an explicit comparison compared.
+        self.findings, self.unchecked, self.changes, self.compared = {}, {}, [], []
+        self.lines, self.ignored, self.hidden, self.carried = [], 0, [], set()
+        self.copies = []            # the same-name findings of `_compare` (`signals.copies_issue`)
+        self.issues = []            # other findings made whole: a source that failed at the baseline, catalog problems
+        # what this session's own checks judged in full, for a known entry's `known fixed?` (`signals.deliver`): the
+        # ledger family, and by name the same-name copies compared sealed, the declarations whose items all ran
+        self.ran = set()
         self.rules = {}
         for rule in state.model.rules.values():
             for home in rule.homes:
                 if not hasattr(home, 'scenario'):
                     self.rules.setdefault(home.target, []).append(rule)
         self.by_file, self.rels = {}, {}
+        views, trees, facts, dumps = {}, {}, {}, {}
+        def parsed(file):
+            """(tree now, tree at the baseline) of a changed file; of another file, which reads a changed constant
+            through an import, its one tree twice. A baseline version that does not parse reads as an empty module:
+            every function and constant of the file counts as changed, and each comparison at the baseline is not
+            compared, in the parser's words (`self.unparsed`, `_compare`; an importer's sealed run says them too)."""
+            if file not in trees:
+                tree = ast.parse(read_source(self.cfg.root / file))
+                if file in self.files:
+                    path = self.renamed.get(file, file)
+                    old = self.runtime._source(path)
+                    old_tree, why = _parse_baseline(old) if old else (None, '')
+                    if why:
+                        self.unparsed[file] = f'{path} {why}'
+                    trees[file] = tree, old_tree or ast.Module(body=[], type_ignores=[])
+                else:
+                    trees[file] = tree, tree
+            return trees[file]
+        def bindings(file):
+            """(baseline, current) `_binding_facts(nodes=True)` of a parsed file, read once. `dumps` keeps the ast.dump
+            of each node compared (`_same_binding`, `_dumped`) while `trees` keeps the trees."""
+            if file not in facts:
+                tree, old_tree = parsed(file)
+                facts[file] = _binding_facts(old_tree, nodes=True), _binding_facts(tree, nodes=True)
+            return facts[file]
+        # Another module's constant this change alters reaches a file through its imports (`from m import LIMIT`,
+        # `m.LIMIT`), also a file whose own text is the same: {module: its changed constants}, and {file: (the
+        # file's constants that change with them, the names its imports bind to them, its module names)} of each
+        # file importing one, as the vitest plan follows imports (`runtime._imported_changes`).
+        changed_modules, imported = {}, {}
+        if self.files:
+            graph = state.get_map()
+            # the map's Python files; whether one is project code is asked only where an importer of a module is
+            # looked for (`project`), not of every file
+            modules = {path: module for path, module, error in graph.con.execute('SELECT path, module, parse_error FROM file')
+                       if path.endswith('.py') and not error}
+            importers = {}          # module: the files importing from it, or it as a submodule (`from P import M`)
+            for row in graph.imports(declarations=True):
+                if row['file'] in modules and row.get('module'):
+                    importers.setdefault(row['module'], set()).add(row['file'])
+                    if row.get('name') and row['name'] != '*':
+                        importers.setdefault(row['module'] + '.' + row['name'], set()).add(row['file'])
+            def project(file):
+                return state.is_project(str(self.cfg.root / file))
+            # the baseline versions `parsed` reads below, in one batch
+            self.runtime.read_ahead(sorted(self.renamed.get(file, file) for file in self.files))
+            pending = sorted((file for file in self.files if any(map(project, importers.get(modules.get(file), ())))),
+                             reverse=True)
+            while pending:
+                file = pending.pop()
+                tree, old_tree = parsed(file)
+                module = modules[file]
+                names, aliases, extra = _imported_changes(tree, module if file.endswith('__init__.py') else module.rpartition('.')[0],
+                                                          changed_modules)
+                constants = _changed_constants(old_tree, tree, extra, facts=bindings(file), dumps=dumps)
+                imported[file] = constants, names, aliases
+                if constants - changed_modules.get(module, set()):
+                    changed_modules[module] = changed_modules.get(module, set()) | constants
+                    pending.extend(sorted({other for other in importers.get(module, ()) if project(other)} - {file}))
+        def function(file, qual):
+            """The current node of `qual` in `file` and why the function changed since the baseline, '' when it did not:
+            its code (a function new since then too), or a top-level binding it reads (a module constant), also
+            through the constants that binding reads (LIMIT = BASE * 2 changes with BASE, as
+            `vitest._constants_changed` reads it), or another module's changed constant it reads through an import
+            (`imported`): `a constant it reads changed: BASE, m.LIMIT`."""
+            if file not in views:
+                tree, old_tree = parsed(file)
+                views[file] = (dict(_functions(tree)), dict(_functions(old_tree)), *bindings(file), _binding_reads(tree))
+            current_functions, prior_functions, old_facts, now_facts, reads = views[file]
+            node, prior = current_functions.get(qual), prior_functions.get(qual)
+            if node is None or prior is None or prior is not node and _dumped(prior, dumps) != _dumped(node, dumps):
+                return node, 'its code changed'
+            loaded = {part.id for part in ast.walk(node) if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load)}
+            through = _read_through(loaded, reads)
+            constants, names, aliases = imported.get(file, (set(), set(), {}))
+            read = sorted(name for name in through
+                          if not _same_binding(old_facts.get(name), now_facts.get(name), dumps) or name in constants)
+            read += [name for name in changed_reads(node, names, aliases, changed_modules) if name not in read]
+            return node, 'a constant it reads changed: ' + ', '.join(read) if read else ''
+        def reaches(file, qual):
+            """Whether `qual` or a same-file function it calls, at any depth, changed: its sealed run executes them
+            all (design 4.5), as the vitest plan compares the closed source with its helpers."""
+            todo, seen = [qual], set()
+            while todo:
+                name = todo.pop()
+                if name in seen:
+                    continue
+                seen.add(name)
+                node, changed = function(file, name)
+                if changed:
+                    return True
+                todo.extend(part.id for part in ast.walk(node) if isinstance(part, ast.Name)
+                            and isinstance(part.ctx, ast.Load) and part.id in views[file][0])
+            return False
+        # A before/after comparison is due for a function whose sealed run changed, not for its unchanged neighbours.
+        for point in self.points.values():
+            point['changed'] = (point['file'] in self.files or point['file'] in imported) and reaches(point['file'], point['qual'])
         if self.changed:
             # The existing map supplies module ownership for unanchored changed functions.
             graph = state.get_map()
-            views = {}
             # The running FlowGuard never observes its own observation code: hooking the
             # changed Runtime.observe (or a replay helper) re-enters itself without end.
-            tool = Path(__file__).resolve().parents[1]
+            tool, own = Path(__file__).resolve().parents[1], {}
             for row in graph.nodes():
-                if row['file'] not in self.files or row['kind'] not in ('function', 'method') or not state.is_project(str(self.cfg.root / row['file'])):
+                if (row['file'] not in self.files and row['file'] not in imported) or row['kind'] not in ('function', 'method') \
+                        or not state.is_project(str(self.cfg.root / row['file'])):
                     continue
-                if (self.cfg.root / row['file']).resolve().is_relative_to(tool):
+                if row['file'] not in own:
+                    own[row['file']] = (self.cfg.root / row['file']).resolve().is_relative_to(tool)     # once per file
+                if own[row['file']]:
                     continue
-                if row['file'] not in views:
-                    tree = ast.parse(read_source(self.cfg.root / row['file']))
-                    old = self.runtime._source(row['file'])
-                    old_tree = ast.parse(old) if old else ast.Module(body=[], type_ignores=[])
-                    views[row['file']] = (dict(_functions(tree)), dict(_functions(old_tree)),
-                                          _binding_facts(old_tree), _binding_facts(tree))
-                current_functions, prior_functions, old_facts, facts = views[row['file']]
-                node = current_functions.get(row['qual'])
-                if node is None:
+                node, why = function(row['file'], row['qual'])
+                if node is None or not why:
                     continue
                 params = tuple(anchors.Parameter(arg.arg, '', anchors._annotation(arg.annotation),
                                                 anchors._parameter_role(anchors._annotation(arg.annotation)), True)
                                for arg in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
                                if arg.arg not in ('self', 'cls'))
-                if not any(p.role == 'input' for p in params):
-                    continue
-                prior = prior_functions.get(row['qual'])
-                if prior is not None and ast.dump(prior, include_attributes=False) == ast.dump(node, include_attributes=False):
-                    loaded = {part.id for part in ast.walk(node) if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load)}
-                    if not any(old_facts.get(name) != facts.get(name) for name in loaded):
-                        continue
                 self.points.setdefault(row['id'], dict(anchor=None, parameters=params, target=row['id'], file=row['file'],
-                                                       module=row['module'], qual=row['qual'], name=row['qual'], kind='sensor', node=node))
+                                                       module=row['module'], qual=row['qual'], name=row['qual'], kind='sensor',
+                                                       node=node, changed=True, why=why))
         for point in self.points.values():
             self.by_file.setdefault(point['file'], []).append(point)
 
     def _module(self, module):
+        import types
         from .runtime import _PRIVATE, unguarded
+        # Each test offers every loaded project module again, and most hold no point: with no capture open and the
+        # module's file already placed, nothing below would act on it.
+        if self.capture is None and type(module) is types.ModuleType:
+            filename = vars(module).get('__file__')
+            if type(filename) is str and filename in self.rels and not self.by_file.get(self.rels[filename]):
+                return None
         token = _PRIVATE.set(True)
         try:
             # A module first imported inside a replayed call is bound by FlowGuard, not by that call.
@@ -429,7 +735,6 @@ class Observations:
             _PRIVATE.reset(token)
 
     def _bind_module(self, module):
-        import inspect
         import types
         filename = getattr(module, '__file__', None)
         if not filename:
@@ -449,11 +754,6 @@ class Observations:
             from . import sites
             fn = sites.unwrap(value)
             point['fn'], point['receiver'] = fn, receiver
-            groups = self.index.named(point['name'], 'sensor') if point['anchor'] else ()
-            if not self.changed and (point['kind'] == 'event' or not self.comparison_requested and len(groups) < 2 and not self.rules.get(point['target'])
-                                     and not (self.request and self.request['target'] == point['target'])):
-                continue
-            self.runtime.register(fn)
             self.bound[point['target']] = point
             if point['kind'] == 'event':
                 self.event_codes[id(fn.__code__)] = (fn.__code__, point['name'])
@@ -463,315 +763,92 @@ class Observations:
             try:
                 anchor = point['anchor']
                 original = self.scopes.enter_context(self.runtime.hook(fn, name=point['name'],
-                    axes=lambda original, bound, point=point: self._at_call(point, original, bound),
-                    fields=anchor.fields if anchor else (), line=anchor.line if anchor else 0))
+                    recorded=lambda reading, point=point: self._recorded(point, reading),
+                    fields=anchor.fields if anchor else (), line=anchor.line if anchor else 0,
+                    named=bool(anchor and anchor.calibrated_by and self._named_test(self.runtime.test, anchor.calibrated_by))))
                 point['original'] = original
             except (ValueError, TypeError, sites.NotMutable) as error:
-                if not self._watch_unhookable(point, fn, str(error)):
-                    self.grey.append(point['name'] + ': ' + str(error))
+                self.grey.append(point['name'] + ': ' + str(error))
 
-    def _watch_unhookable(self, point, fn, reason):
-        """A generator or coroutine function cannot be hooked, so its result is never compared. When the
-        baseline code of an anchored or ruled point is a plain function, the first entry of a test's call
-        replays that baseline with the same arguments; a clean replay makes the grey a lost observation.
-        A test that never enters it lists the hook's reason as before."""
-        import inspect
-        kind = ('协程' if inspect.iscoroutinefunction(fn) else '异步生成器' if inspect.isasyncgenfunction(fn)
-                else '生成器' if inspect.isgeneratorfunction(fn) else '')
-        if not kind or not self.changed or not self._losable(point):
-            return False
-        import dis
-        entered = []
+    def _recorded(self, point, reading):
+        self.records.append((reading.index, point, None, [], None))
 
-        def entry(frame, event, arg):
-            # Python 3.11's trace also reports the call that only creates the generator (RETURN_GENERATOR):
-            # its body has not started, so that is not an entry.
-            created = frame.f_lasti >= 0 and dis.opname[frame.f_code.co_code[frame.f_lasti]] == 'RETURN_GENERATOR'
-            if event == 'call' and not created and not entered:
-                entered.append(True)
-                self._unhookable_call(point, fn, kind, frame.f_locals)
-
-        record = self.runtime.record(codes=[(fn.__code__, point['name'])], callback=entry, entry_only=True)
-        self.scopes.enter_context(record)
-
-        def closed():
-            if not entered:
-                self.grey.append(point['name'] + ': ' + reason)
-            # The recorder keeps a failed callback's error as an issue; it is this point's grey, with its text.
-            self.grey.extend(point['name'] + ': ' + issue for issue in record.issues)
-
-        self.scopes.callback(closed)
-        return True
-
-    def _unhookable_call(self, point, fn, kind, values):
-        import inspect
-        from .runtime import Reading
-        signature = inspect.signature(fn)
-        args, kwargs = [], {}
-        for parameter in signature.parameters.values():
-            value = values[parameter.name]
-            if parameter.kind is parameter.POSITIONAL_ONLY:
-                args.append(value)
-            elif parameter.kind is parameter.VAR_POSITIONAL:
-                args.extend(value)
-            elif parameter.kind is parameter.VAR_KEYWORD:
-                kwargs.update(value)
-            else:
-                kwargs[parameter.name] = value
-        reading = Reading(point['name'], fn.__module__ + ':' + fn.__qualname__, test=self.runtime.test,
-                          baseline=self.runtime.baseline, status='grey',
-                          reasons=[f'{fn.__qualname__} 现在是{kind}' + _UNHOOKABLE])
-        self.records.append((len(self.runtime.readings), point, None, [], None))
-        self.runtime.readings.append(reading)
-        self.runtime._lost(reading, fn, signature.bind(*args, **kwargs))
-
-    def _partition(self, point, original, bound):
+    def _compare(self):
+        """Only after the session: sources and JSON samples enter the sealed owner."""
         import ast
-        from types import SimpleNamespace
-        from . import anchors, cells as C, differences as D
-        from .runtime import _definition
-        parameters = point.get('parameters', getattr(point['anchor'], 'parameters', ()))
-        kinds, unknown = {}, []
-        for parameter in parameters:
-            try:
-                kind = anchors.parameter_kind(parameter, bound.arguments.get(parameter.name, ...))
-            except ValueError as error:
-                unknown.append(str(error))
-            else:
-                if kind is not None:
-                    kinds[parameter.name] = kind
-        path = self.cfg.root / point['file']
-        source = path.read_bytes()
-        code = original.__code__
-        patch = self.runtime.patches.get(point['fn'])
-        old_code = patch.code if patch else None
-        old_source = self.runtime._source(point['file']) if patch else None
-        baseline, old_identity = _metadata_value(self.runtime.baseline), _metadata_value(old_source)
-        identity = (id(code), source, old_identity, baseline, id(old_code))
-        key = point['file'], original.__qualname__
-        cacheable = baseline is not None and old_identity is not None and Path(code.co_filename).resolve() == path.resolve()
-        data = self.metadata.setdefault(key, {}) if cacheable else {}
-        if (data.get('identity') != identity or data.get('code') is not code
-                or data.get('old_code') is not old_code):
-            file_data = self.metadata.setdefault((point['file'],), {}) if cacheable else {}
-            source_identity = source, old_identity, baseline
-            if file_data.get('identity') != source_identity:
-                tree = ast.parse(source.decode('utf-8-sig'))
-                file_data.update(identity=source_identity, tree=tree,
-                                 old_tree=ast.parse(old_source) if patch else tree)
-            current = _definition(original)
-            if any(getattr(parameter, 'alias', '') for parameter in parameters):
-                current = anchors._declared_names(current, parameters)[0]      # read under the declared names
-            previous = patch.node if patch else current
-            data.clear()
-            data.update(identity=identity, code=code, old_code=old_code,
-                        tree=file_data['tree'], current=current, previous=previous, old_tree=file_data['old_tree'],
-                        names=sorted({node.id for body in (previous, current) for node in ast.walk(body)
-                                      if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)}))
-        tree, current, previous, old_tree = (data[name] for name in ('tree', 'current', 'previous', 'old_tree'))
-        env = anchors._literal_globals(tree)
-        old_env = anchors._literal_globals(old_tree)
-        old_env.update(self.runtime._constants(old_tree, original.__module__))
-        from .runtime import _simple
-        for (_, name), (namespace, before) in self.runtime.constants.items():
-            if namespace is original.__globals__ and name in namespace and _simple(namespace[name]):
-                env[name] = namespace[name]
-                old_env[name] = self.runtime._old_value(namespace, name, before)
-        roles = tuple((p.name, p.unit, p.source_type, p.role, p.inferred) for p in parameters)
-        domains = tuple((name, kind.name, kind.optional, kind.literals) for name, kind in kinds.items())
-        facts = [roles, domains]
-        for namespace in (env, old_env, original.__globals__):
-            facts.append(tuple((name, namespace[name]) for name in data['names'] if name in namespace))
-        tokens = [_metadata_value(value) for value in facts]
-        reusable = (not unknown and all(kind.enum_type is None for kind in kinds.values())
-                    and all(value is not None for value in tokens))
-        domain_key = tuple(tokens) if reusable else None
-        if reusable and data.get('domain_key') == domain_key and 'partition' in data:
-            return _partition_copy(*data['partition'])
-        count = len(kinds)
-        now_read = C.read_predicate(SimpleNamespace(__globals__=env), kinds, node=current)
-        old_read = C.read_predicate(SimpleNamespace(__globals__=old_env), kinds, node=previous)
-        # An unclosed numeric range keeps candidate examples, never a proof.
-        candidates = {}
-        for name in list(kinds):
-            evidence = kinds[name].name in ('bool', 'enum') or any(
-                reading.consts.get(name) or any(name in plane.coefs for plane in reading.planes)
-                or any(name in link for link in reading.links) for reading in (now_read, old_read))
-            if not evidence:
-                unknown.append(name + ': no closed range; these are candidate examples')
-                kind = kinds.pop(name)
-                literals = [C.coerce(node.value, kind) for tree in (previous, current) for node in ast.walk(tree)
-                            if isinstance(node, ast.Constant) and kind.accepts(C.coerce(node.value, kind))]
-                candidates[name] = C.points(kind, literals)
-                if name in bound.arguments:
-                    env[name] = old_env[name] = bound.arguments[name]
-        readings = (old_read, now_read) if len(kinds) == count else tuple(
-            C.read_predicate(SimpleNamespace(__globals__=values), kinds, node=node)
-            for node, values in ((previous, old_env), (current, env)))
-        views = [SimpleNamespace(kinds=kinds, reading=reading, issues=(), node=node, literal_globals=values)
-                 for node, values, reading in zip((previous, current), (old_env, env), readings)]
-        part = D.joint_partition(*views)
-        # joint_partition already built the joint space and retained every
-        # logical class. Rebuilding that space here duplicated both work and
-        # grid points; the runtime needs these proved representatives only.
-        axes = {name: [] for name in kinds}
-        from .runtime import outcome_equal
-        for region in part.regions:
-            for name, value in region.inputs.items():
-                if not any(outcome_equal(value, prior) for prior in axes[name]):
-                    axes[name].append(value)
-        axes.update(candidates)
-        if reusable and not unknown and part.complete and all(
-                _metadata_value(tuple(region.inputs.values())) is not None for region in part.regions):
-            saved_axes, saved_part, _ = _partition_copy(axes, part)
-            data.update(domain_key=domain_key, partition=(saved_axes, saved_part))
-        return axes, part if not unknown else None, unknown
-
-    def _at_call(self, point, original, bound):
         from . import runtime as R
-        token = R._PRIVATE.set(True)
-        try:
-            return self._classes_at_call(point, original, bound)
-        finally:
-            R._PRIVATE.reset(token)
-
-    def _reuse(self, point, original, bound):
-        """The comparison an earlier session computed under this call's fingerprint, as the reading the
-        runtime keeps in place of a replay; None when there is none or no key can be taken. The key covers
-        FlowGuard's own code, the baseline, the anchor's file and the project configuration, the bodies of the
-        target and of the project functions it calls, the current values of the constants they read and the
-        call's arguments. Only a session with a change has a key (its map is built already); a point with rules,
-        `fields`, same-name copies or a try request has none, and nor has one whose inputs the map cannot
-        read completely (deps.comparison_inputs)."""
-        from . import cache, deps, runtime as R
-        anchor = point['anchor']
-        if (not self.changed or self.rules.get(point['target']) or not self.runtime.baseline
-                or anchor is not None and (anchor.fields or len(self.index.named(point['name'], 'sensor')) > 1)
-                or self.request and self.request['target'] == point['target']):
-            return None
-        graph = self.state.get_map()
-        fingerprints, constants, reasons = deps.comparison_inputs(graph, point['target'])
-        values = [(module, name, _metadata_value(vars(sys.modules[module]).get(name, ...)))
-                  for module, name in constants if module in sys.modules]
-        arguments = [(name, _metadata_value(value)) for name, value in bound.arguments.items()]
-        if reasons or len(values) != len(constants) or any(item[-1] is None for item in [*values, *arguments]):
-            return None
-        if self.engine_digest is None:
-            self.engine_digest = deps.Now(self.cfg, graph)('engine:')
-        key = deps.digest((self.engine_digest, self.runtime.baseline, point['target'], point['name'],
-                           deps.file_digest(self.cfg.root / point['file']), deps.file_digest(self.cfg.root / 'pyproject.toml'),
-                           sorted(fingerprints.items()), values, arguments))
-        index = len(self.runtime.readings)
-        self.keys[index] = key
-        if self.stored is None:
-            self.stored = cache.comparisons(self.cfg, self.runtime.baseline)
-        if key not in self.stored:
-            return None
-        self.reused[index] = json.loads(self.stored[key])
-        self.records.append((index, point, None, [], self._cause(point, original)))
-        self.pairs.append((index, point, []))
-        return R.Reading(point['name'], self.reused[index]['target'], test=self.runtime.test, baseline=self.runtime.baseline)
-
-    def _classes_at_call(self, point, original, bound):
-        from . import runtime as R
-        if problem := self.runtime.safety(original, bound.arguments):
-            self.records.append((len(self.runtime.readings), point, None, [problem], None))
-            return {}  # Runtime still records its refusal and makes the one real call.
-        if (reading := self._reuse(point, original, bound)) is not None:
-            return reading
-        try:
-            axes, part, unknown = self._partition(point, original, bound)
-        except (ValueError, TypeError, OSError, SyntaxError, AttributeError) as error:
-            axes, part, unknown = {}, None, [str(error)]
-        part, unknown = self._widen(point, original, axes, part, unknown)
-        if self.request and self.request['target'] == point['target']:
-            from . import anchors
-            parameters = {parameter.name: parameter for parameter in
-                          point.get('parameters', getattr(point['anchor'], 'parameters', ()))}
-            for parameter in parameters.values():
-                actual = bound.arguments.get(parameter.name, ...)
-                try:
-                    if anchors.parameter_kind(parameter, actual) is not None and R._simple(actual):
-                        self.request['actual_inputs'][parameter.name] = actual
-                except ValueError:
-                    pass  # Unknown inputs never become an invented default.
-            for name, value in self.request['values'].items():
-                try:
-                    kind = anchors.parameter_kind(parameters[name], bound.arguments.get(name, ...))
-                    if kind is None:
-                        raise ValueError(name + ': context inputs cannot be replaced')
-                    if not kind.accepts(value):
-                        raise ValueError(name + ': requested value has the wrong input type')
-                except (KeyError, ValueError) as error:
-                    self.request['reasons'].append(str(error))
-                    continue
-                pool = axes.setdefault(name, [])
-                if not any(R.outcome_equal(value, prior) for prior in pool):
-                    pool.append(value)
-            self.request['partition_reasons'].extend(unknown + (part.reasons if part is not None else []))
-        fields = {name for name, _ in point['anchor'].fields} if point['anchor'] else set()
-        for rule in self.rules.get(point['target'], ()):
-            if not set(rule.fields) <= axes.keys() | fields:
-                self.grey.append(rule.id + ': this real context does not expose all rule inputs'
-                                 + (f'（参数和 fields 里没有 {", ".join(sorted(set(rule.fields) - axes.keys() - fields))}）' if fields else ''))
+        from ..map.common import read_source
+        sources, samples, items = {}, {}, []
+        def source(point, old=False):
+            key = point['file'], old
+            if key not in sources:
+                sources[key] = (None if self.runtime._baseline_error else self.runtime._source(self.renamed.get(key[0], key[0]))) \
+                    if old else read_source(self.cfg.root / key[0])
+            return sources[key]
+        def run(point, sample, old=False):
+            if old and point['file'] in self.unparsed:      # its baseline does not parse: not compared, in its words
+                return dict(status='unavailable', reason=self.unparsed[point['file']])
+            text = source(point, old)
+            file, module = point['file'], point['module']
+            if old and file in self.renamed:        # at the baseline a moved file imported from its old place
+                file, module = self.renamed[file], R._module_at(self.renamed[file], file, module)
+            return R.sealed(text, point['qual'], sample['args'], sample['kwargs'], self.runtime.imports(file, module, old)) \
+                if text is not None else dict(status='unavailable', reason='no baseline source')
+        def value(out):
+            return out.get('value') if out['status'] == 'ok' else {'raises': out.get('error')}
+        def equal(left, right):
+            return json.dumps(left, sort_keys=True, allow_nan=False) == json.dumps(right, sort_keys=True, allow_nan=False)
+        def comparable(a, b):
+            return (a['status'] != 'unavailable' and b['status'] != 'unavailable'
+                    and not (a['status'] == b['status'] == 'raised' and a['error'] == b['error']))
+        for index, point, _, _, _ in self.records:
+            reading = self.runtime.readings[index]
+            if reading.sample is not None:
+                samples.setdefault(point['target'], {})[json.dumps(reading.sample, sort_keys=True)] = reading.sample
+        for target, calls in samples.items():
+            calls = list(calls.values())
+            point = self.points[target]
+            # Before/after only for a function that changed; an unchanged copy still joins its group below.
+            if not point['changed']:
                 continue
-            values = self.state.engine.rr_space(rule.decides)[2]
-            for field in [name for name in rule.fields if name not in fields]:
-                pool = axes.setdefault(field, [])
-                additions = [*values.get(field, ()), *(row.inputs[field] for row in rule.live_rows if field in row.inputs)]
-                pool.extend(value for value in additions if not any(R.outcome_equal(value, prior) for prior in pool))
-        peers, measured = [], []
-        declared = {_canonical(point, name): value for name, value in bound.arguments.items()}
-        if not self.runtime.safety(original, bound.arguments) and point['anchor']:
-            for anchor in self.index.named(point['name'], 'sensor'):
-                other = self.bound.get(anchor.target)
-                if other is point:
+            rows, changes, reasons = [], [], []
+            for sample in calls:
+                old, now = run(point, sample, True), run(point, sample)
+                if not comparable(old, now):
+                    reasons.append(old.get('reason') or now.get('reason') or 'both versions raise the same exception')
                     continue
-                if not other or 'original' not in other:
-                    self.grey.append(point['name'] + ': copy not loaded in this real context: ' + anchor.target)
-                    continue
-                # The actual context is borrowed only under the same named roles.
-                contexts = {p.name: p.source_type for p in point['anchor'].parameters if p.name not in axes}
-                theirs = {p.name: p.source_type for p in anchor.parameters if p.name not in axes}
-                if contexts != theirs or ({'self', 'cls'} & bound.arguments.keys() and point.get('receiver') is not other.get('receiver')):
-                    self.grey.append(point['name'] + ': copy context is not available under the same roles')
-                    continue
-                import inspect
-                try:
-                    arguments = inspect.signature(other['original']).bind(
-                        **{_spelled(other, name): value for name, value in declared.items()})
-                except TypeError:
-                    self.grey.append(point['name'] + ': copy signature does not accept this real context')
-                    continue
-                if self.runtime.safety(other['original'], arguments.arguments):
-                    self.grey.append(point['name'] + ': copy is not safe to replay in this context')
-                    continue
-                try:
-                    other_axes, other_part, other_unknown = self._partition(other, other['original'], arguments)
-                except (ValueError, TypeError, OSError, SyntaxError, AttributeError) as error:
-                    self.grey.append(point['name'] + ': copy partition unavailable: ' + str(error))
-                    continue
-                for field, values in other_axes.items():
-                    pool = axes.setdefault(field, [])
-                    pool.extend(value for value in values if not any(R.outcome_equal(value, prior) for prior in pool))
-                if other_unknown or other_part is None or not other_part.complete:
-                    self.grey.append(point['name'] + ': same-name partition is not closed; candidate comparisons only')
-                measured.append((other, arguments))
-        for other, arguments in measured:
-            token = R._PRIVATE.set(True)
-            index = len(self.runtime.readings)
-            try:
-                self.runtime.observe(other['original'], arguments, owner=other['fn'], name=point['name'],
-                                     axes={_spelled(other, name): values for name, values in axes.items()}, private=True)
-            except Exception:
-                pass  # Raised rows, not the synthetic final call, decide agreement.
-            finally:
-                R._PRIVATE.reset(token)
-            if len(self.runtime.readings) > index:
-                peers.append((self.runtime.readings[index], other))
-        self.records.append((len(self.runtime.readings), point, part, unknown, self._cause(point, original)))
-        self.pairs.append((len(self.runtime.readings), point, peers))
-        return {_spelled(point, name): values for name, values in axes.items()}
+                inputs = _declared(point, sample['inputs'])
+                rows.append((inputs, value(now)))
+                if not equal(old, now):
+                    changes.append((inputs, value(old), value(now)))
+            line = getattr(point['anchor'], 'target_line', 0) or getattr(point['node'], 'lineno', 0)
+            items.append(dict(name=point['name'], file=point['file'], line=line,
+                              unanchored=point['anchor'] is None, status='grey' if reasons else 'ok', complete=not reasons,
+                              rows=rows, changed=changes, total=len(calls), reasons=list(dict.fromkeys(reasons))))
+            from . import signals
+            if changes:
+                self.changes.append(signals.changed_line(point['qual'], target, point['file'], line, changes, len(rows),
+                                                         why=point['why'] if point['anchor'] is None else ''))
+            elif reasons:
+                self._unchecked(f'{point["name"]} ({point["file"]}:{line})', reasons, function=target,
+                                places=(f'{point["file"]}:{line}',))
+            elif self.comparison_requested:
+                self.compared.append(f'{point["name"]} ({point["file"]}:{line}): {len(rows)} inputs compared, none differs')
+        groups = {}
+        for point in self.points.values():
+            if point['anchor'] and point['kind'] == 'sensor':
+                groups.setdefault(point['name'], []).append(point)
+        for name, points in groups.items():
+            if len(points) < 2:
+                continue
+            recorded = [_declared(point, sample['inputs']) for point in points for sample in samples.get(point['target'], {}).values()]
+            found = compare_copies(name, points, recorded, source, run, self._place)
+            self.grey.extend(found.grey)
+            if found.issue is not None:
+                self.copies.append(found.issue)
+            if found.ran:
+                self.ran.add(f'same:{name}')        # every copy answered every compared input sealed
+        return items
 
     @contextmanager
     def scope(self, item):
@@ -784,36 +861,7 @@ class Observations:
                 for name in {point['module'] for point in self.points.values()}:
                     if (module := sys.modules.get(name)) is not None:
                         self._module(module)
-                entered = []          # the runtime record's own entries of the event code objects
-                if self.changed and any(point['kind'] == 'event' for point in self.points.values()):
-                    # Event code objects only, with local events; later imports add theirs.
-                    self.event_record = self.runtime.record(list(self.event_codes.values()), entry_only=True, events=entered)
-                    try:
-                        with self.event_record:
-                            yield
-                    finally:
-                        self.event_record = None
-                else:
-                    yield
-                self.actual_path = [event['anchor'] for event in entered if event['phase'] == 'call']
-
-    def old_path(self, item, nextitem):
-        if not self.changed or not self.actual_path or not self.event_codes:
-            return
-        old = []
-        with self.runtime.old_code():
-            codes = {id(point['fn'].__code__): (point['fn'].__code__, point['name']) for point in self.bound.values()
-                     if point['kind'] == 'event' and point['fn'] in self.runtime.patches}
-            if len(codes) != len(self.event_codes):
-                self.grey.append(item.nodeid + ': baseline event code is unavailable')
-                return
-            with self.runtime.record(codes=list(codes.values()), private=True, entry_only=True, events=old):
-                result = self.runtime.replay(item, nextitem=nextitem)
-        if result['status'] == 'ok':
-            before = [event['anchor'] for event in old if event['phase'] == 'call']
-            self.paths.append(dict(test=item.nodeid, before=before, after=self.actual_path))
-        else:
-            self.grey.extend(item.nodeid + ': ' + reason for reason in result['reasons'])
+                yield
 
     @staticmethod
     def _rule_rows(point, reading):
@@ -840,10 +888,12 @@ class Observations:
             if point['target'] != home.target or index >= len(self.runtime.readings):
                 continue
             reading = self.runtime.readings[index]
-            if selector and not self._named_test(reading.test, selector):
+            # A repeated input has one reading for every test that made it: the call is the named test's own.
+            test = next((test for test in sorted(reading.tests) if self._named_test(test, selector)), None) if selector else reading.test
+            if test is None:
                 continue
             rows, why = self._rule_rows(point, reading)
-            calls.extend((inputs, outcome, reading.test) for inputs, outcome in rows)
+            calls.extend((inputs, outcome, test) for inputs, outcome in rows)
             reasons.extend(why)
         return calls, list(dict.fromkeys(reasons))
 
@@ -857,8 +907,7 @@ class Observations:
         from . import cells as C
         from .engine import CONFLICT, PredicateError, outcome_eq
         from .loader import item_names
-        from .sources import parse
-        engine, checked, quoted = self.state.engine, {}, set()
+        engine, checked = self.state.engine, {}
         for index, point, part, unknown, cause in self.records:
             if index >= len(self.runtime.readings):
                 continue
@@ -875,6 +924,8 @@ class Observations:
                     continue
                 active = [other for other in self.state.model.active(rule.decides)
                           if other is rule or not self.state.model.distinct_pair(rule.id, other.id)]
+                if any(self._parsed(other) is None for other in active):
+                    continue    # a rule the loader refused: its load line is red, nothing of it is judged
                 for other in active:
                     if other.id not in checked:
                         item = self.state.model.file_of[other.id] + '::' + other.id + '[rules]'
@@ -883,7 +934,8 @@ class Observations:
                 if reasons := [reason for guard in guards for reason in guard['grey']]:
                     self.grey.extend(rule.id + ': ' + reason for reason in reasons)
                     continue
-                self.red.extend(rule.id + ': ' + message for guard in guards for message in guard['red'])
+                for message in (message for guard in guards for message in guard['red']):
+                    self._rule_red(rule, message)
                 required = {field for other in active for field in other.fields}
                 for inputs, actual in rows:
                     if not required <= inputs.keys():
@@ -892,24 +944,22 @@ class Observations:
                     try:
                         expected = engine.effective(rule, inputs)
                     except PredicateError as error:
-                        self.red.append(str(error))
+                        self._rule_red(rule, str(error).removeprefix(rule.id + ': '), place=self._site(point['target']))
                         continue
                     if expected is CONFLICT:
                         continue  # The independent rule conflict above owns this red.
                     if expected is not None and not outcome_eq(expected, actual):
-                        self.red.append(f'{rule.id}: {C.show_cell(inputs)} -> rule {C.show(expected)}, code {str(actual) if type(actual) is bool else C.show(actual)}')
-                        if rule.id not in quoted:
-                            source = parse(rule.source)
-                            self.red.append(rule.id + ' 出处：' + (source.quote or source.text))
-                            quoted.add(rule.id)
+                        said = f'{C.show_cell(inputs)} -> rule {C.show_value(expected)}, code {C.show_value(actual)}'
+                        self._rule_red(rule, f'{said} at {self._site(point["target"])}', place=self._site(point['target']))
                         break
 
     def _flow_signals(self):
-        """Check actual projected readings without proving or replaying a contract."""
+        """Check actual projected readings without proving or replaying a contract: a red relation is the flow's red
+        finding, what could not be checked is not compared."""
         from dataclasses import replace
         from .flow import runtime_check, _rule, _test_entry_references, Unverified
-        from .sources import authority, parse
-        state, results, guards = self.state, [], {}
+        from .sources import authority
+        state, guards = self.state, {}
         self.grey.extend(state.anchor_issues)
         observed_anchors = {event.anchor for event in state.events}
         observed_calls = {event.anchor for event in state.events if event.phase == 'call'}
@@ -924,6 +974,8 @@ class Observations:
             entries = _test_entry_references(model, self.index)
             if entries and not entries.intersection(observed_calls):
                 continue  # A sensor called outside this explicit scenario is not its case.
+            if self._parsed(model) is None:
+                continue  # the loader refused it: its load line is red, nothing of it is judged
             relations, grey, quotes = [], [], {}
             for relation in model.relations:
                 try:
@@ -935,8 +987,10 @@ class Observations:
                 for active in state.model.active(rule.decides):
                     if active is not rule and state.model.distinct_pair(rule.id, active.id):
                         continue
-                    if active.id not in guards:
-                        source = parse(active.source)
+                    if active.id not in guards and self._parsed(active) is None:
+                        guards[active.id] = ([f'refused by the loader ({self._declared_at(active.id)})'], active.source)
+                    elif active.id not in guards:
+                        source = self._parsed(active)
                         valid, reason = authority(source, active.confirmed, self.cfg, state.engine.archive, active.quote)
                         borrowed = state.engine.borrowed(active)
                         guards[active.id] = (([reason] if not valid else []) + borrowed, source.quote or source.text)
@@ -948,181 +1002,286 @@ class Observations:
                     relations.append(relation)
             observed = runtime_check(replace(model, relations=tuple(relations)), state.events, self.index,
                                      rules=state.model.rules, engine=state.engine, _observed_only=True)
-            source = parse(model.source)
+            source = self._parsed(model)
             valid, reason = authority(source, None, self.cfg, state.engine.archive, None)
             observed['grey'].extend([*grey, *([] if valid else [reason])])
-            observed['verdict'] = 'red' if observed['red'] else 'grey' if observed['grey'] else 'ok'
-            observed['info'].append('rule scope: actual input points and static project-reference checks; full independence remains an intent check')
-            observed.update(id=identifier, scope='observed paths and relations only', complete=False)
             self.grey.extend(identifier + ': ' + reason for reason in observed['grey'])
-            self.red.extend(identifier + ': ' + reason for reason in observed['red'])
             if observed['red']:
                 if (quote := source.quote or source.text) not in quotes.values():
                     quotes[identifier] = quote
-                self.red.extend(name + ' 出处：' + quote for name, quote in quotes.items())
-            results.append(observed)
-        return results
+                where = f'{state.model.file_of[identifier]}:{model.line}'
+                for reason in observed['red']:
+                    cases = re.findall(r'(?<![\w./-])[\w./-]+\.py::[\w./#\[\]-]+', reason)    # the tests' cases it names
+                    self._found('flow', f'flow:{identifier}', f'flow {identifier}', reason, FLOW_STEP.format(id=identifier),
+                                places=(where, *cases), detail=[f'{name} source: {quote}' for name, quote in quotes.items()])
 
     def report(self):
-        from types import SimpleNamespace
-        from . import cells as C, differences as D, runtime as R, signals
+        """Judge the session: the 4.3 lines (`self.lines`, `signals.collect`) of every finding the session decides,
+        and the report the runtime_observations payload keeps and `check` reads of its batch (the baseline, the
+        compared items and FlowGuard's own seconds). True when a line is red: FlowGuard fails a run only for red."""
+        timing = time.perf_counter()
+        from . import signals, sources
         self._rule_signals()
-        partial_flows = self._flow_signals()
-        items, leads = [], []
-        key = lambda inputs: tuple((name, type(value).__name__, repr(value)) for name, value in sorted(inputs.items()))
-        for index, point, part, unknown, cause in self.records:
-            if index >= len(self.runtime.readings):
-                continue
-            reading = self.runtime.readings[index]
+        self._flow_signals()
+        items = self._compare()
+        for _, point, _, _, _ in self.records:
             if self.request and self.request['target'] == point['target']:
-                self.request['readings'].append(reading)
-            actual = {key(_declared(point, inputs)): value for inputs, value in reading.rows}
-            changes = {key(_declared(point, inputs)): old for inputs, old, new in reading.changed}
-            if index in self.reused:
-                result = self.reused[index]['result']
-            elif part is not None:
-                before, after = [], []
-                for region in part.regions:
-                    signature = key(region.inputs)
-                    available = signature in actual and reading.status == reading.comparison_status == 'ok'
-                    before.append(SimpleNamespace(status='ok' if available else 'grey', reasons=tuple(reading.reasons + reading.comparison_reasons),
-                                                  value=changes.get(signature, actual.get(signature))))
-                    after.append(SimpleNamespace(status='ok' if available else 'grey', reasons=tuple(reading.reasons), value=actual.get(signature)))
-                result = D._result(point['name'], part, before, after)
-                result['reasons'] += unknown
-                result['complete'] &= not unknown
-                if index in self.keys and reading.status == reading.comparison_status == 'ok':
-                    self.fresh[self.keys[index]] = json.dumps(dict(target=reading.target, result=result), ensure_ascii=False)
-            else:
-                from dataclasses import asdict
-                result = asdict(reading)
-                result['reasons'] += unknown
-                result['complete'] = False
-            # `lost` marks a point whose loss is red or listed under [unverified]; an unanchored point
-            # without a rule is never red, so its grey stays listed as unverified.
-            result.update(name=point['name'], file=point['file'], line=getattr(point['anchor'], 'target_line', 0) or point['node'].lineno,
-                          unanchored=point['anchor'] is None, lost=reading.lost if self._losable(point) else '')
-            if reading.status != 'ok':
-                result.update(complete=False, reasons=reading.reasons, status='grey', rows=[])
-            if cause:
-                result['cause'] = cause
-            items.append(result)
-        from .anchors import project
-        def projected(point, value):
-            try:
-                return True, project(point['anchor'], value) if point['anchor'] else value
-            except ValueError as error:
-                self.grey.append(point['name'] + ': ' + str(error))
-                return False, None
-        # Same-name copies ran on the same inputs. What every copy answered on the smallest input where one
-        # differs, and again on the first input of each other copy that differs elsewhere (`signals.copy_lines`);
-        # the owner, when one is registered, is the reference, else no copy is chosen.
-        reported = set()
-        def nearest(signature):       # report the smallest differing input, whatever the set order
-            def size(text):
-                try:
-                    return 0, abs(float(text)), float(text)
-                except ValueError:
-                    return 1, 0, text
-            return [size(value) for _, _, value in signature]
-        for index, point, peers in self.pairs:
-            if index >= len(self.runtime.readings) or not peers or point['name'] in reported:
-                continue
-            current = self.runtime.readings[index]
-            if current.status != 'ok':
-                continue
-            tables = [(reading, member, {key(_declared(member, inputs)): value for inputs, value in reading.rows})
-                      for reading, member in [(current, point), *peers] if reading.status == 'ok']
-            inputs, owner = [], None
-            for signature in sorted(tables[0][2], key=nearest):
-                answers = []
-                for reading, member, table in tables:
-                    if signature not in table:
-                        continue
-                    ok, answer = projected(member, table[signature])
-                    if ok:
-                        place = f'{self._place(reading.target)} {member["qual"]}'
-                        owner = place if member['anchor'] and member['anchor'].owner else owner
-                        answers.append((place, answer))
-                if len(answers) > 1:
-                    inputs.append((', '.join(f'{name}={value}' for name, kind, value in signature), answers))
-            lines = signals.copy_lines(inputs, R.outcome_equal, C.show, owner=owner, total=len(peers) + 1)
-            if lines:
-                self.red.append(signals.copy_red(current.name, lines))
-                reported.add(point['name'])
-        unverified, failed_items = [], set()      # an intent item's red is already a failed test
+                self.request['readings'].extend(reading for reading in self.runtime.readings if reading.target == point['target'])
+        # Only a call due for a comparison is `not compared`: a function that changed itself, or one of two or
+        # more same-name copies. A lone unchanged `same` function has nothing to compare it with.
+        copies = Counter(point['name'] for point in self.points.values() if point['anchor'] and point['kind'] == 'sensor')
+        self.grey.extend(point['name'] + ': no comparable JSON result' for index, point, _, _, _ in self.records
+                         if self.runtime.readings[index].sample is None
+                         and (point['changed'] or copies[point['name']] > 1))
+        model = self.state.model
         for item, result in self.state.results.items():
             if result.get('verdict') == 'grey':
-                unverified.extend(item.partition('::')[2] + '：' + str(reason) for reason in result.get('grey', ()) or ['未验证'])
-            if result.get('red'):
-                rule = self.state.model.rules.get(result.get('rule'))
-                quote = ''
-                if rule:
-                    from .sources import parse
-                    source = parse(rule.source)
-                    quote = source.quote or source.text
-                lines = [signals.constraint(message, result.get('rule') or '规矩') for message in result['red']]
-                if quote:
-                    lines.append(str(result.get('rule') or '规矩') + ' 出处：' + quote)
-                self.red.extend(lines)
-                failed_items.update(lines)
-        unverified.extend(self._lost())
-        # Each violated rule names the next step: correct the code, or the rule first when the need changed.
-        for rule in self.state.model.rules.values():
-            if any(str(message).partition('：')[0].partition(': ')[0].partition(' 出处')[0] == rule.id for message in self.red):
-                homes = '、'.join(self._place(home.target) for home in rule.homes if not hasattr(home, 'scenario')) or rule.id + ' 的绑定'
-                said = [str(message).partition('：')[2] for message in self.red if str(message).startswith(rule.id + '：')]
-                self.steps.setdefault(rule.id, signals.rule_steps(rule.id, homes, f'{self.state.model.file_of[rule.id]}:{rule.line}', said))
+                self._unchecked(item.partition('::')[2], [str(reason) for reason in result.get('grey', ())] or ['unverified'])
+            # an intent item's red is already a failed test; a declaration that does not load is the model's error below
+            if result.get('red') and result.get('kind') != 'load':
+                self.carried.add(self._item_red(result))
+            if result.get('before'):
+                self._item_before(item, result)
+        self._judged_names()
+        syntax = []             # files that cannot be parsed: only they are unverified
         for issue in self.index.issues:
             if issue.level == 'red':
-                self.red.append(issue.message)
+                place = f'{issue.file}:{issue.line}' if issue.line else issue.file
+                what, step = signals.split_step(signals.ascii_text(issue.message))
+                self._found('input', f'comment:{place}:{issue.code}', f'comment {place}', what,
+                            step or 'correct this flowguard comment', places=(place,), files=(issue.file,))
             elif issue.code == 'source-syntax':
-                self.grey.append(f'{issue.file}' + (f':{issue.line}' if issue.line else '')
-                                 + ': cannot be parsed, only this file is unverified: ' + issue.message)
-        if self.changed or self.mapped:
-            # Static leads and owner writes need no replay: an old value still elsewhere (rules too),
-            # a new spelling of a label, a new write outside a data owner's writers, a pair, a value.
+                syntax.append(f'{issue.file}' + (f':{issue.line}' if issue.line else '')
+                              + ': cannot be parsed, only this file is unverified: ' + issue.message)
+                self._unchecked(issue.file, ['cannot be parsed: ' + signals.ascii_text(issue.message)],
+                                places=(issue.file,))
+        found = None
+        catalog = sources.catalog_files(self.cfg)
+        if self.changed or self.mapped or set(sources.CATALOG_FILES) & self.touched:
+            # The map checks need no replay: owner writes and pairs, values, the catalog, structure problems.
             from . import anchors, owners
             graph = self.state.get_map()       # the map's index also holds the TS/JS owners (check --static reads it)
-            found = owners.static_findings(self.cfg, graph, anchors.collect(graph), self.runtime.baseline)
-            self.red.extend(found.red)
-            leads.extend(found.leads)
+            collector = _SIGNALS.get()
+            everything = collector.everything if collector is not None else False
+            key = (self.cfg.root, self.requested_base, everything)
+            if collector is not None and key in collector.static:
+                found = collector.static[key]
+            else:
+                found = owners.static_findings(self.cfg, graph, anchors.collect(graph), self.runtime.baseline,
+                                              everything=everything)
+                if collector is not None:
+                    collector.static[key] = found
             self.structure = found.summary         # the session brief's count of open structure problems
-        self.red.extend(f'load {error["file"]}:{error["line"]}: {error["msg"]}' for error in self.state.model.errors)
-        items = [dict(name='未覆盖', status='grey', complete=False, changes=[], changed=0, total=0, reasons=[reason]) for reason in dict.fromkeys(self.grey)] + items
+            self.hidden = list(found.hidden)
+        elif catalog:
+            # Without a change the map checks do not run; an invalid rules.toml or known.toml, or a known entry whose
+            # site names nothing on the map, is red in every run (D4).
+            self.issues.extend(sources.input_findings(self.cfg, self.state.get_map))
+        for error in model.errors:
+            place = f'{error["file"]}:{error["line"]}'
+            self._found('input', f'load:{place}', f'load {place}', signals.ascii_text(error['msg']),
+                        'correct this declaration; until then none of its file is checked', places=(place,), files=(error['file'],))
+        items = [dict(name='uncovered', status='grey', complete=False, changes=[], changed=0, total=0, reasons=[reason]) for reason in dict.fromkeys([*self.grey, *syntax])] + items
         fallbacks = self.state.ledger()
-        # a [structure] entry of a later FlowGuard is unverified, never red, also in a run without a source change
-        unverified.extend(fallbacks.later)
-        report = dict(session=True, baseline=self.missing or self.runtime.baseline, baseline_kind=self.baseline_kind,
+        if self.state.ledger_judged and not fallbacks.grey:
+            self.ran.add('ledger')          # every entry and handler compared with the map
+        from .ledger import LEDGER
+        for finding in fallbacks.red:
+            places = (LEDGER, *re.findall(r'(?<![\w./-])[\w./-]+\.[A-Za-z]\w*:\d+', finding.text))   # the code it names
+            key = self._found('ledger', f'ledger:{finding.text}', 'ledger', signals.ascii_text(finding.text), signals.LEDGER_STEP,
+                              places=places, files=(LEDGER,), detail=list(finding.fix))      # the entry to copy, as it is
+            if self.state.sentinel_ledger:
+                self.carried.add(key)       # the sentinel test already failed on it
+        for reason in dict.fromkeys(self.grey):
+            subject, why = signals._grey(signals.ascii_text(reason))
+            self._unchecked(subject or why, [why])
+        for reason in fallbacks.later:              # a [structure] entry of a later FlowGuard: it checks nothing here
+            self._unchecked(LEDGER, [signals.ascii_text(reason)], places=(LEDGER,))
+        report = dict(baseline=self.missing or self.runtime.baseline, baseline_kind=self.baseline_kind,
                       baseline_ahead=self.baseline_ahead,
-                      # the overflow's command keeps --flowguard-base, as `--base`, so it lists these leads
-                      more_leads=signals.more_leads('check --static', base=self.requested_base),
                       source_changed=self.changed or bool(self.mapped) or bool(fallbacks.later),
-                      comparison_requested=self.comparison_requested, items=items, paths=self.paths,
-                      leads=leads, red=list(dict.fromkeys(self.red)), steps=self.steps, partial_flows=partial_flows, unverified=unverified,
-                      ledger_red=[dict(text=finding.text, fix=list(finding.fix)) for finding in fallbacks.red])
+                      comparison_requested=self.comparison_requested, items=items,
+                      seconds=self.state.tool_seconds + getattr(self.runtime, 'seconds', 0) + time.perf_counter() - timing)
+        delivery = self.delivery()
+        self.lines, self.ignored = signals.collect([delivery], found)
         from dataclasses import fields
         from .flow import Event
-        self.payload = observation_payload(dict(stamp=self.state.started, baseline=self.runtime.baseline, items=report, paths=self.paths,
-                                  events=[{field.name: getattr(event, field.name) for field in fields(Event)}
+        names = [field.name for field in fields(Event)]
+        self.payload = observation_payload(dict(stamp=self.state.started, baseline=self.runtime.baseline, items=report,
+                                  events=[{name: getattr(event, name) for name in names}
                                           for event in self.state.events if type(event) is Event]))
         collector = _SIGNALS.get()
         if collector is not None:
+            # `check` reads its batch's report and delivery, and renders the block itself.
             collector.append(report)
+            collector.deliveries.append(delivery)
         else:
-            self.text = signals.render(report)
+            self.text = self.block(self.seconds())
         # The reds no failed test carries: a lost observation, a copy, a static finding; the ledger's
         # unless the sentinel test already failed on it.
-        self.session_red = [*(line for line in report['red'] if line not in failed_items),
-                            *([] if self.state.sentinel_ledger else [finding['text'] for finding in report['ledger_red']])]
-        return bool(self.red or fallbacks.red)
+        self.session_red = [line for line in self.lines if line.kind == 'red' and (line.name, line.function) not in self.carried]
+        return any(line.kind == 'red' for line in self.lines)
 
-    def _red(self, subject, *texts, next=()):
+    def delivery(self):
+        """What this session gives the block (`signals.delivery`): its own findings, the changed and not compared
+        lines, and the functions and files the change touches (a same-name finding where one of its copies' files
+        is touched; the static findings add their own)."""
         from . import signals
-        message, steps = signals.red(subject, *texts, next=next)
-        self.red.append(message)
-        for key, lines in steps.items():
-            self.steps.setdefault(key, lines)
+        issues = [signals.finding(entry['family'], name, entry['subject'], entry['whats'], entry['step'], function=function,
+                                  places=entry['places'], files=entry['files'], detail=entry['detail'])
+                  for (name, function), entry in self.findings.items()]
+        issues += self.copies + self.issues
+        touched = {target for target, point in self.points.items() if point.get('changed')}
+        touched |= {part[0] for issue in self.copies if issue.files & self.touched for part in issue.parts}
+        unchecked = [signals.not_compared(subject, entry['reasons'], function=function, places=entry['places'])
+                     for (subject, function), entry in self.unchecked.items()]
+        return signals.delivery(issues, [*self.changes, *unchecked], touched_functions=touched, touched_files=self.touched,
+                                ran=self.ran)
+
+    def seconds(self):
+        """FlowGuard's own time in this session so far: its setup, collection and recording, and its judgement."""
+        return self.state.tool_seconds + getattr(self.runtime, 'seconds', 0)
+
+    def block(self, seconds):
+        """The end-of-run block (`signals.render_block`) with FlowGuard's own `seconds` in its first line."""
+        from . import signals
+        heading = signals.title(self.lines, baseline=self.missing or self.runtime.baseline, kind=self.baseline_kind,
+                                ahead=self.baseline_ahead, seconds=seconds)
+        return signals.render_block(self.lines, title=heading, files=self.repository)
+
+    def last(self, seconds):
+        """The payload `cache.save_last` keeps for `show --last` (`signals.last_run`)."""
+        from . import deprecation, signals
+        return signals.last_run(self.lines, self.ignored, run='pytest', stamp=self.state.started,
+                                baseline=self.missing or self.runtime.baseline, kind=self.baseline_kind,
+                                title=self.block(seconds).partition('\n')[0], seconds=seconds,
+                                deprecated=deprecation.used(self.state.deprecations), hidden=self.hidden, compared=self.compared)
+
+    def _found(self, family, name, subject, what, step, *, function='', places=(), files=(), detail=()):
+        """Add `what` to the finding (name, function) of this session; returns that key."""
+        entry = self.findings.setdefault((name, function), dict(family=family, subject=subject, step=step, places=tuple(places),
+                                                                files=set(), whats=[], detail=[]))
+        entry['whats'].append(what)
+        entry['places'] = tuple(dict.fromkeys((*entry['places'], *places)))
+        entry['files'].update(file for file in files if file)
+        for line in detail:
+            if line not in entry['detail']:
+                entry['detail'].append(line)
+        if entry['step'] is None:
+            entry['step'] = step
+        return name, function
+
+    def _unchecked(self, subject, reasons, *, function='', places=()):
+        """Add why `subject` (a function when `function`, its id) was not compared."""
+        entry = self.unchecked.setdefault((subject, function), dict(places=tuple(places), reasons=[]))
+        entry['reasons'].extend(reason for reason in reasons if reason not in entry['reasons'])
+
+    def _site(self, target):
+        """A function's place as the 4.3 lines spell one: `path:qualified name`."""
+        point = self.points.get(target)
+        return f'{point["file"]}:{point["qual"]}' if point is not None else target
+
+    def _declared_at(self, identifier):
+        model = self.state.model
+        declaration = (model.rules.get(identifier) or model.states.get(identifier) or model.structures.get(identifier)
+                       or model.flows.get(identifier) or model.anchor_distincts.get(identifier))
+        return f'{model.file_of[identifier]}:{declaration.line}' if declaration is not None and identifier in model.file_of else ''
+
+    def _parsed(self, declaration):
+        """The parsed source of a declaration the loader accepted (`loader._validate` parsed it), else None: the loader
+        refused it, a source that does not parse among the reasons, which is the red `load FILE:LINE` line (D4), and the
+        session judges nothing of it (its items fail on their own)."""
+        if _refused(self.state.model, declaration):
+            return None
+        from .sources import parse
+        return parse(declaration.source)
+
+    def _rule_red(self, rule, what, *, place=None):
+        """A red of rule `rule`: an intent rule's own check, or the code at one of its homes (`place`). One line per
+        rule (D30: its member is the rule): the rule's own reds first, then the code's, its step from
+        `signals.rule_steps` over every red the engine gave it (a row the rule contradicts is the row's red, not the
+        code's), every step and the owner's words in its detail."""
+        from . import signals
+        model = self.state.model
+        where = self._declared_at(rule.id)
+        source = self._parsed(rule)
+        sites = [self._site(home.target) for home in rule.homes if not hasattr(home, 'scenario')]
+        said = what
+        found = re.match(r'(?:\S+: )?(\d+ of \d+ (?:cells|rows) disagree); smallest (.+? -> rule .+?)(?: \((row L\d+)\))?$', what)
+        if found and place:     # the engine's count of one home: its smallest input first, as the code's red reads
+            what = f'{found[2]} at {place} ({found[1]}' + (f', {found[3]})' if found[3] else ')')
+        key = self._found('rule', f'rule:{rule.id}', f'rule {rule.id}', what, None,
+                          places=tuple(dict.fromkeys(item for item in (where, place, *sites) if item)),
+                          files=(model.file_of.get(rule.id, ''),))
+        entry = self.findings[key]
+        entry.setdefault('said', []).append(said)
+        entry.setdefault('at', []).extend([place] if place and place not in entry['at'] else [])
+        # where the code disagrees, else every home (a scenario rule: the places its reds name)
+        homes = entry['at'] or sites or [rule.id + ' binding']
+        entry['whats'].sort(key=lambda text: not text.startswith(('self: ', 'row ', 'conflict ', 'gap in ')))
+        steps = [step.rstrip('; ') for step in signals.rule_steps(rule.id, homes, where, entry['said'])]
+        entry['step'] = steps[0] if steps else ''
+        entry['detail'] = [*steps, f'{rule.id} source: ' + (source.quote or source.text if source is not None else rule.source)]
+        return key
+
+    def _item_name(self, identifier, kind):
+        """The finding name of a declaration's intent item (`_item_red`): `rule:ID` of a rule, else its kind's."""
+        if identifier in self.state.model.rules:
+            return f'rule:{identifier}'
+        return f'{ITEM_KINDS.get(kind, "rule")}:{identifier}'
+
+    def _judged_names(self):
+        """Put into `ran` the finding names of the declarations every intent item of which this session judged (none
+        unverified, nor its check on the observed calls, nor refused by the loader): `rule:ID` (or `flow:ID`, ...), and
+        `source:ID` when every item passed, which no source of its that fails does."""
+        verdicts, kinds = {}, {}
+        for result in self.state.results.values():
+            if result['rule']:
+                verdicts.setdefault(result['rule'], []).append(result['verdict'])
+                kinds.setdefault(result['rule'], result.get('kind'))
+        model = self.state.model
+        for identifier, found in verdicts.items():
+            declaration = (model.rules.get(identifier) or model.states.get(identifier) or model.structures.get(identifier)
+                           or model.flows.get(identifier) or model.anchor_distincts.get(identifier))
+            if 'grey' in found or any(str(reason).startswith(identifier + ': ') for reason in self.grey) \
+                    or declaration is not None and _refused(model, declaration):
+                continue
+            self.ran.add(self._item_name(identifier, kinds[identifier]))
+            if all(verdict == 'ok' for verdict in found):
+                self.ran.add(f'source:{identifier}')
+
+    def _item_red(self, result):
+        """The red of a failed intent item: its rule's or flow's (the item's target its member), already a failed test."""
+        from . import signals
+        model, identifier = self.state.model, result.get('rule') or ''
+        target = result.get('target') or ''
+        if identifier in model.rules:
+            key = None
+            for message in result['red']:
+                key = self._rule_red(model.rules[identifier], str(message), place=self._site(target) if target else None)
+            return key
+        kind = ITEM_KINDS.get(result.get('kind'), 'rule')
+        step = FLOW_STEP.format(id=identifier) if kind == 'flow' else \
+            f'correct the code or {kind} {identifier} at {self._declared_at(identifier)}'
+        key = None
+        for message in result['red']:
+            key = self._found('flow' if kind == 'flow' else 'rule', f'{kind}:{identifier}', f'{kind} {identifier}',
+                              signals.ascii_text(message), step, function=target,
+                              places=(self._declared_at(identifier),) if self._declared_at(identifier) else ())
+        return key
+
+    def _item_before(self, item, result):
+        """A cited source that already failed at the baseline (`engine._judged`): before where the change touches the
+        file that declares it, never red."""
+        from . import signals
+        from .health import Issue, LINES_ONLY
+        identifier = result.get('rule') or item.partition('::')[2]
+        where = self._declared_at(identifier) or item.partition('::')[0]
+        reasons = tuple(dict.fromkeys(signals.ascii_text(reason) for reason in result['before']))
+        subject = f'source {identifier}'
+        self.issues.append(Issue(f'source:{identifier}', LINES_ONLY, subject, f'{subject}: {reasons[0]}', signals.BEFORE_STEP,
+                                 files=frozenset({where.partition(':')[0]}), family='source', subject=subject,
+                                 parts=(('', where, reasons[0], signals.BEFORE_STEP),), detail=reasons))
 
     def _place(self, target):
         point = self.points.get(target)
@@ -1130,188 +1289,12 @@ class Observations:
             return target
         return f"{point['file']}:{getattr(point['anchor'], 'target_line', 0) or getattr(point['node'], 'lineno', 0)}"
 
-    def _lost(self):
-        """Observations that the baseline code makes in the same context and the current code turns grey.
 
-        Each fails the run, unless `.flowguard/ledger.toml` lists its anchor or rule under [unverified]
-        with a reason; listed ones are returned as unverified lines. Without a baseline nothing is lost."""
-        from . import ledger
-        listed = ledger.unverified(self.cfg)[0]     # its malformed lines are red in the ledger's own check
-        model = self.state.model      # check --all asks for any grey owner-sourced declaration, a Flow too
-        names = ({anchor.name for anchor in self.index.entries} | set(model.rules) | set(model.flows)
-                 | set(model.states) | set(model.structures) | set(model.anchor_distincts))
-        for name in sorted(set(listed) - names):
-            self._red(f'[unverified] 里的 {name}', f'不是锚点、规则或模型的名字，从 {ledger.LEDGER} 的 [unverified] 段删掉它')
-        kept, seen = [], set()
-        for index, point, part, unknown, cause in self.records:
-            if index >= len(self.runtime.readings) or not self._losable(point):
-                continue
-            reading = self.runtime.readings[index]
-            if not reading.lost:
-                continue
-            subjects = [point['name']] if point['anchor'] else []
-            subjects += [rule.id for rule in self.rules.get(point['target'], ())]
-            key = point['target'], reading.lost
-            if key in seen:
-                continue
-            seen.add(key)
-            reason = next((listed[name] for name in subjects if name in listed), '')
-            if reason:
-                kept.append(f'{subjects[0]}（{self._place(point["target"])}）：已登记不回放：{reason}')
-                continue
-            self._red('观察丢失 ' + '、'.join(subjects),
-                      f'{self._place(point["target"])} 在 {reading.test or "这个测试"} 里，基准代码能比较，现在是灰：{reading.lost}',
-                      next=[_restore_step(reading.lost),
-                            f'或者确实不再回放：在 {ledger.LEDGER} 的 [unverified] 段写一句理由（不少于 {ledger.MIN_WORDS} 个词）'
-                            + ('' if ledger.path(self.cfg).is_file() else '；还没有这个文件时先运行 python -m flowguard ledger init') + '：',
-                            '[unverified]', f'{subjects[0]} = ' + ledger._quote(ledger.PLACEHOLDER_UNVERIFIED)])
-        return kept
 
-    def _losable(self, point):
-        """Only an anchor, or a function a rule is bound to, can lose its observation."""
-        return point['anchor'] is not None or bool(self.rules.get(point['target']))
 
-    def _reachable(self, fn):
-        """The function and the project helpers it calls, as the runtime registered them."""
-        found, pending = [], [fn]
-        while pending:
-            current = pending.pop()
-            if current in found:
-                continue
-            found.append(current)
-            patch = self.runtime.patches.get(current)
-            pending.extend(patch.dependencies if patch else ())
-        return found
 
-    def _moved_constants(self, fn):
-        """(name, namespace, before, after, file, function) of the module constants that this function, or a project
-        helper it calls, reads and that differ from the baseline."""
-        import ast
-        import inspect
-        from . import runtime as R
-        found = []
-        for function in self._reachable(fn):
-            # Names from the source, not the code object: an observed helper runs FlowGuard's call hook.
-            names = self.metadata.setdefault(('names', function), {node.id for node in ast.walk(R._definition(function))
-                                                                   if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)})
-            for (_, name), (namespace, before) in self.runtime.constants.items():
-                if namespace is not function.__globals__ or name not in names:
-                    continue
-                after = namespace[name]
-                if R.outcome_equal(self.runtime._old_value(namespace, name, before), after):
-                    continue
-                file = Path(inspect.getsourcefile(function)).resolve().relative_to(self.cfg.root).as_posix()
-                if (name, file) not in {(entry[0], entry[4]) for entry in found}:
-                    found.append((name, namespace, before, after, file, function))
-        return found
 
-    def _moved_literals(self, point, current):
-        """(before, after, line) of the literals that differ inside an otherwise identical function body."""
-        import ast
-        import copy
-        from . import runtime as R
-        patch = self.runtime.patches.get(point['fn'])
-        if patch is None:
-            return []
-        class Shape(ast.NodeTransformer):
-            def visit_Constant(self, node):
-                return ast.copy_location(ast.Constant(type(node.value).__name__), node)
-        if ast.dump(Shape().visit(copy.deepcopy(patch.node)), include_attributes=False) != ast.dump(Shape().visit(copy.deepcopy(current)), include_attributes=False):
-            return []
-        return [(before.value, after.value, after.lineno) for before, after in zip(
-                    (node for node in ast.walk(patch.node) if isinstance(node, ast.Constant)),
-                    (node for node in ast.walk(current) if isinstance(node, ast.Constant)))
-                if type(before.value) is type(after.value) and not R.outcome_equal(before.value, after.value)]
 
-    def _widen(self, point, original, axes, part, unknown):
-        """Comparison points the branch partition alone misses, for integer inputs:
-
-        - every value between the old and the new value of a moved integer constant (also one read by a
-          helper, or a literal changed inside the body), so a moved boundary shows as its whole interval;
-        - for a function that returns arithmetic on an input, six consecutive values from each
-          representative, since the branch classes do not separate arithmetic results. That grid is
-          not a partition: the comparison is then reported as incomplete."""
-        import ast
-        import itertools
-        from . import sites
-        from .runtime import _definition
-        integer = [name for name, pool in axes.items() if pool and all(type(value) is int for value in pool)]
-        if not integer:
-            return part, unknown
-        try:
-            current = _definition(original)
-        except (OSError, TypeError, SyntaxError):
-            return part, unknown
-        own = list(sites.own_nodes(current))
-
-        def related(names=(), helpers=(), line=0):
-            """The integer inputs compared with the moved value, or passed to the helper that reads it."""
-            found = set()
-            for node in own:
-                inside = {child.id for child in ast.walk(node) if isinstance(child, ast.Name)}
-                if isinstance(node, ast.Compare) and (inside & set(names) or line and node.lineno <= line <= node.end_lineno):
-                    found |= inside
-                elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in helpers:
-                    found |= inside
-            return [name for name in integer if name in found] or integer
-        moved = [(before, after, related(names=[name] if function is point['fn'] else (),
-                                         helpers=[function.__name__] if function is not point['fn'] else ()))
-                 for name, _, before, after, _, function in self._moved_constants(point['fn'])]
-        moved += [(before, after, related(line=line)) for before, after, line in self._moved_literals(point, current)]
-        for before, after, inputs in moved:
-            if type(before) is int and type(after) is int and abs(before - after) <= 64:
-                for name in inputs:
-                    axes[name].extend(value for value in range(min(before, after) - 1, max(before, after) + 2)
-                                      if value not in axes[name])
-        patch = self.runtime.patches.get(point['fn'])
-        bodies = [current] + ([patch.node] if patch is not None else [])
-        arithmetic = set()
-        for body in bodies:
-            parts = list(sites.own_nodes(body))
-            computed = {target.id for part in parts if isinstance(part, ast.Assign) and any(isinstance(node, ast.BinOp) for node in ast.walk(part.value))
-                        for target in part.targets if isinstance(target, ast.Name)}
-            returns = [part.value for part in parts if isinstance(part, ast.Return) and part.value is not None]
-            if body.returns is not None and ast.unparse(body.returns) == 'bool' or not any(
-                    isinstance(node, ast.BinOp) or isinstance(node, ast.Name) and node.id in computed
-                    for value in returns for node in ast.walk(value)):
-                continue
-            arithmetic |= {node.id for part in parts if isinstance(part, ast.BinOp) for node in ast.walk(part) if isinstance(node, ast.Name)}
-        windowed = {name: sorted({step for value in axes[name] for step in range(value - 1, value + 6)}) for name in integer if name in arithmetic}
-        sizes = [len(windowed.get(name, axes[name])) for name in axes]
-        if windowed and all(len(values) <= 40 for values in windowed.values()) and len(list(itertools.islice(
-                itertools.product(*(range(size) for size in sizes)), 4097))) <= 4096:
-            for name, values in windowed.items():
-                axes[name].extend(value for value in values if value not in axes[name])
-            part, unknown = None, [*unknown, '算术结果：每类取了连续的代表值，不是完整划分']
-        return part, unknown
-
-    def _cause(self, point, original=None):
-        import ast
-        import difflib
-        from . import runtime as R
-        for name, namespace, before, after, file, _ in self._moved_constants(point['fn']):
-            tree = ast.parse((self.cfg.root / file).read_text(encoding='utf-8-sig'))
-            line = next((node.lineno for node in tree.body if isinstance(node, (ast.Assign, ast.AnnAssign))
-                         and any(isinstance(target, ast.Name) and target.id == name for target in (node.targets if isinstance(node, ast.Assign) else [node.target]))), 1)
-            return dict(name=name, before=before, after=after, file=file, line=line)
-        from ..map.common import MapError
-        try:
-            old = self.runtime._source(point['file'])
-        except MapError:
-            return None  # Runtime owns the explicit unavailable-baseline reason.
-        if old is None:
-            return None
-        source = (self.cfg.root / point['file']).read_text(encoding='utf-8-sig')
-        from .runtime import _functions
-        current = dict(_functions(ast.parse(source))).get(point['qual'])
-        if current is None:
-            return None
-        for before, after, line in self._moved_literals(point, current):
-            return dict(name=point['name'] + ' 的常量', before=before, after=after, file=point['file'], line=line)
-        for tag, i, stop, j, end in difflib.SequenceMatcher(a=old.splitlines(), b=source.splitlines()).get_opcodes():
-            if tag != 'equal' and current.lineno <= j + 1 <= current.end_lineno:
-                return f'{point["name"]}（{point["file"]}:{j + 1}）'
-        return None
 
 def pytest_addoption(parser):
     from .cache import base_commit
@@ -1357,6 +1340,10 @@ def _session(config):
         state.owns_root = hold_root(state.cfg.root)
         state.previous_session, _CURRENT = _CURRENT, state
         config.add_cleanup(state.close)
+        # pytest captures the collection's stderr: from here the session's notices wait for the end of its block, and
+        # its close says those a session that ends earlier still holds
+        from .deprecation import hold
+        hold(state.notices)
     config._flowguard_intent.guard_process_exit(config)
     return config._flowguard_intent
 
@@ -1365,6 +1352,8 @@ def pytest_configure(config):
     config.addinivalue_line('markers', 'rule(ID): this test must actually enter a source anchor of the declared rule')
     _refuse_distribution(config)
     _session(config)
+    if not config.pluginmanager.has_plugin('flowguard-block'):
+        config.pluginmanager.register(Block(), 'flowguard-block')
 
 
 def _refuse_distribution(config):
@@ -1493,6 +1482,9 @@ def pytest_collection_modifyitems(config, items):
     from .calibration import probe_context
     if probe_context(config):
         return  # A private source subtree cannot replace the real collection.
+    if any(any(item.iter_markers('rule')) for item in items):
+        from .deprecation import warn
+        warn('pytest.mark.rule')
     state = config._flowguard_intent
     state.collected = {i.nodeid for i in items if isinstance(i, IntentItem)}
     if config.getoption('--flowguard-complete', default=False):
@@ -1516,11 +1508,32 @@ def pytest_collection_modifyitems(config, items):
 @pytest.hookimpl(trylast=True)
 def pytest_collection_finish(session):
     state = session.config._flowguard_intent
+    with state.timed():
+        _finish_collection(session, state)
+
+
+@contextmanager
+def _uncollected():
+    """No cyclic garbage collection while the block runs, and the collector as it was after it: the changed files'
+    syntax trees that Observations builds are many objects in no cycle, so collecting while they are built only
+    rescans them, and they are freed without it once read."""
+    collecting = gc.isenabled()
+    gc.disable()
+    try:
+        yield
+    finally:
+        if collecting:
+            gc.enable()
+
+
+def _finish_collection(session, state):
     if state.complete_collection is not None and {item.nodeid for item in session.items} != state.complete_collection:
         raise pytest.UsageError('another selection changed the full ordinary collection')
     state.get_model()
-    state.observations = Observations(state)
+    with _uncollected():
+        state.observations = Observations(state)
     state.engine.call_sites = state.observations.rule_calls
+    state.engine.baseline = state.observations.runtime.baseline
     state.source_items = tuple(item for item in session.items if not isinstance(item, IntentItem) and item.name != SENTINEL)
     intent = [item for item in session.items if isinstance(item, IntentItem)]
     # A Flow reads its lower rules' contracts from their items' results, so Flow items run last.
@@ -1583,8 +1596,8 @@ def sentinel(config: pytest.Config):
     from .calibration import probe_context
     from . import ledger
     fallbacks = ledger.Result(present=False) if probe_context(config) else state.ledger()
-    red = ('\n' + ledger.summary(fallbacks) + ' -> 运行 python -m flowguard ledger check 列出全部差异和可照抄的条目\n'
-           + '\n'.join('红：' + finding.text for finding in fallbacks.red)) if fallbacks.red else ''
+    red = ('\n' + ledger.summary(fallbacks) + ' -> run python -m flowguard ledger check for all differences and entries to copy\n'
+           + '\n'.join('red: ' + finding.text for finding in fallbacks.red)) if fallbacks.red else ''
     if missing:
         raise AssertionError(f'only {len(declared) - len(missing)} of {len(declared)} intent items collected or reusable; missing ' + ', '.join(missing[:3]) + ' -> run the complete declared collection' + red)
     if red:
@@ -1643,27 +1656,31 @@ def pytest_runtest_protocol(item, nextitem):
         from .calibration import session as source_session
         try:
             state.get_model()
-            with state.verification(), source_session(state.runtime, state.source_items, nextitem=item):
+            with state.timed(), state.verification(), source_session(state.runtime, state.source_items, nextitem=item,
+                                                                     events=state.events):
                 item._prepared_result = item.evaluate_verified()
         except Exception as error:
             item._evaluation_error = error, error.__traceback__
     state.last_test = item.nodeid
     capture = None
     with ExitStack() as scopes:
-        if not isinstance(item, IntentItem) and item.name != SENTINEL and state.observations is not None:
-            scopes.enter_context(state.observations.scope(item))
-        from .calibration import probe_context
-        # Anchor events are always recorded (local events on anchored code only), so
-        # show NAME and model draft have data after a plain pytest run.
-        if (not isinstance(item, IntentItem) and item.name != SENTINEL and state.model is not None
-                and state.model.anchor_index.entries and not probe_context(item.config)):
-            from .flow import Capture
-            capture = scopes.enter_context(Capture(state.cfg.root, state.model.anchor_index, item.nodeid,
-                                                   models=state.model.flows.values() if state.model.flows and not state.observations.changed else None, _ordinary=True))
-            if state.observations is not None:
-                # Modules imported during this test add their anchored code to the capture.
-                state.observations.capture = capture
-                scopes.callback(setattr, state.observations, 'capture', None)
+        with state.timed():         # entering the test's observation scopes is FlowGuard's own work
+            if not isinstance(item, IntentItem) and item.name != SENTINEL and state.observations is not None:
+                scopes.enter_context(state.observations.scope(item))
+            from .calibration import probe_context
+            # Anchor events are always recorded (local events on anchored code only), so
+            # show NAME and model draft have data after a plain pytest run. A source change keeps the
+            # Flows' test-entry filter: no old-code rerun reads the other events (design 6.5). Without
+            # one (no Flows, or a Flow that starts in production code) an anchor no Flow reads is sampled.
+            if (not isinstance(item, IntentItem) and item.name != SENTINEL and state.model is not None
+                    and state.model.anchor_index.entries and not probe_context(item.config)):
+                from .flow import Capture
+                capture = scopes.enter_context(Capture(state.cfg.root, state.model.anchor_index, item.nodeid,
+                                                       models=state.model.flows.values(), _ordinary=True))
+                if state.observations is not None:
+                    # Modules imported during this test add their anchored code to the capture.
+                    state.observations.capture = capture
+                    scopes.callback(setattr, state.observations, 'capture', None)
         try:
             if (isinstance(item, IntentItem) or item.name == SENTINEL
                     or not any(item.iter_markers('rule'))):
@@ -1674,12 +1691,10 @@ def pytest_runtest_protocol(item, nextitem):
                     yield
         finally:
             if capture:
-                scopes.close()
-                state.events.extend(capture.events)
-                state.anchor_issues.extend(capture.issues)
-    if (not isinstance(item, IntentItem) and item.name != SENTINEL and state.observations is not None
-            and state.readings.get(item.nodeid, {}).get('outcome') == 'passed'):
-        state.observations.old_path(item, nextitem)
+                with state.timed():
+                    scopes.close()
+                    state.events.extend(capture.events)
+                    state.anchor_issues.extend(capture.issues)
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -1706,6 +1721,8 @@ def pytest_runtest_makereport(item, call):
     if state.complete_collection is not None and report.when == 'teardown':
         state.completed.add(item.nodeid)
     _skip_violation(item, call, report)
+    if not report.passed and not isinstance(item, IntentItem) and state.observations is not None:
+        state.runtime.outcome(item.nodeid, report.when, report.outcome, call.excinfo)       # what calibration reads
     state.durations[item.nodeid] = state.durations.get(item.nodeid, 0.0) + report.duration
     if item.name == SENTINEL and report.when == 'call':
         state.sentinel = 'ok' if report.passed or state.sentinel_ledger else 'failed'
@@ -1762,6 +1779,25 @@ def pytest_make_collect_report(collector):
 def _meta(con, name, value):
     from .cache import put_meta
     put_meta(con, name, _json(value))
+
+
+def _final(state):
+    """The block's time, taken once: FlowGuard's own work in the session up to its last write (`_save_last`, the last
+    step of the session's transaction), so the terminal, junit's flowguard::session case and show --last print one
+    first line."""
+    observed = state.observations
+    if observed is not None and observed.text and observed.final is None:
+        observed.final = _seconds(state)
+        observed.text = observed.block(observed.final)
+
+
+def _save_last(con, state):
+    """The session's lines for `show --last` (`cache.save_last`), when this run prints the block: the last write of
+    its transaction, with the block's final time (`_final`)."""
+    if state.observations is not None and state.observations.text:
+        from .cache import save_last
+        _final(state)
+        save_last(con, state.observations.last(state.observations.final))
 
 
 def _save_readings(con, state):
@@ -1825,28 +1861,71 @@ def _completion_policy(session, state, declared):
 
 @pytest.hookimpl(tryfirst=True)     # the session verdict exists before junitxml writes its file
 def pytest_sessionfinish(session, exitstatus):
+    """The session's verdict and its transaction; the block prints later, after pytest's summary (`Block`)."""
     state = session.config._flowguard_intent
-    with state.verification():
-        result = finish_verified(session, exitstatus)
-    _junit_session(session, state)
-    # Verification and transaction completion precede optional terminal output.
-    if state.observations is not None and state.observations.text:
-        from .differences import display
-        reporter = session.config.pluginmanager.get_plugin('terminalreporter')
-        if reporter is not None and reporter._tw.width_of_current_line:
-            reporter._tw.line()             # never after the progress line of the last test
-        try:
-            display(state.observations.text)
-        except (OSError, ValueError) as error:
-            state.observations.payload['display_unavailable'] = type(error).__name__
-            path = state.cfg.cache / 'map.sqlite'
-            if path.is_file():
-                try:
-                    with closing(sqlite3.connect(path, timeout=30)) as con, con:
-                        _meta(con, 'runtime_observations', state.observations.payload)
-                except sqlite3.Error:
-                    pass  # The earlier committed verdict remains authoritative.
+    state.finishing = time.perf_counter()
+    with state.timed():
+        with state.verification():
+            result = finish_verified(session, exitstatus)
+        _junit_session(session, state)
     return result
+
+
+class Block:
+    """FlowGuard's block after pytest's own summary (design 4.7, D25).
+
+    The outermost wrapper of `pytest_sessionfinish` (tryfirst): after it yields, the verdict above, junitxml and every
+    other implementation and wrapper, the terminal summary and its `N passed` line among them, have finished, so the
+    block is the last thing the run prints, with -q, --no-summary, -p no:terminal and after an interrupt alike."""
+
+    @pytest.hookimpl(wrapper=True, tryfirst=True)
+    def pytest_sessionfinish(self, session, exitstatus):
+        result = yield
+        _display(session)
+        session.config._flowguard_intent.say_notices()
+        return result
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_runtestloop(self, session):
+        """The project's tests run with deprecation notices as they come (a FlowGuard call inside a test is that test's
+        own output); the session's own, before and after them, wait for the end of its block."""
+        from . import deprecation
+        notices = session.config._flowguard_intent.notices
+        deprecation.unhold(notices)
+        try:
+            return (yield)
+        finally:
+            deprecation.hold(notices)
+
+
+def _display(session):
+    """Print the block as the verdict fixed it (`_final`: its time is FlowGuard's own work in the session). A console
+    that cannot take it leaves the committed verdict as it is and records why in the observations."""
+    state = session.config._flowguard_intent
+    if state.observations is None or not state.observations.text:
+        return
+    from .differences import display
+    reporter = session.config.pluginmanager.get_plugin('terminalreporter')
+    if reporter is not None and reporter._tw.width_of_current_line:
+        reporter._tw.line()             # never after the progress line of the last test
+    text = state.observations.text
+    try:
+        display(text)
+    except (OSError, ValueError) as error:
+        state.observations.payload['display_unavailable'] = type(error).__name__
+        path = state.cfg.cache / 'map.sqlite'
+        if path.is_file():
+            try:
+                with closing(sqlite3.connect(path, timeout=30)) as con, con:
+                    _meta(con, 'runtime_observations', state.observations.payload)
+            except sqlite3.Error as failure:
+                print(f'FlowGuard: the verdict is committed; recording that its block could not be shown failed: {failure}',
+                      file=sys.stderr)
+
+
+def _seconds(state):
+    """FlowGuard's own time in the session so far, its judgement in `pytest_sessionfinish` included."""
+    return state.observations.seconds() + (time.perf_counter() - state.finishing if state.finishing is not None else 0)
 
 
 def _junit_session(session, state):
@@ -1866,6 +1945,23 @@ def _junit_session(session, state):
 
 
 def finish_verified(session, exitstatus):
+    """The session's verdict and its records; then the block's text with its final time (`_final`, already taken where
+    the transaction kept the run for show --last), whose lines junit's flowguard::session case carries."""
+    state = session.config._flowguard_intent
+    _verify(session, exitstatus)
+    _final(state)
+    observed = state.observations
+    if observed is not None and observed.session_red:
+        state.session_red.extend(observed.text.splitlines() or ['red: ' + line.text for line in observed.session_red])
+
+
+def _refused(model, declaration):
+    """Whether the loader refused `declaration` at its own line (`loader._validate`: its source does not parse, a field
+    or a rule it names does not fit, ...): its load line is red, and no session check or record judges it."""
+    return any(error['file'] == model.file_of[declaration.id] and error['line'] == declaration.line for error in model.errors)
+
+
+def _verify(session, exitstatus):
     state = session.config._flowguard_intent
     from .calibration import probe_context
     if probe_context(session.config):
@@ -1883,8 +1979,6 @@ def finish_verified(session, exitstatus):
     state.rule_contracts()
     if state.observations is not None and state.observations.report():
         session.exitstatus = pytest.ExitCode.TESTS_FAILED
-        if state.observations.session_red:
-            state.session_red.extend(state.observations.text.splitlines() or state.observations.session_red)
     state.session_red[:0] = state.session_errors
     exitstatus = session.exitstatus
     missing = _missing(state, declared)
@@ -1894,27 +1988,34 @@ def finish_verified(session, exitstatus):
     if state.complete_collection is not None:
         attempt['complete_collection'] = dict(collected_nodeids=sorted(state.complete_collection),
                                                completed_nodeids=sorted(state.completed))
-    observed = state.observations is not None and (state.observations.records or state.observations.paths or state.observations.red)
+    observed = state.observations is not None and (state.observations.records
+                                                   or any(line.kind == 'red' for line in state.observations.lines))
     if not declared and not state.footprints and not observed:
         # Standalone pytest does not build a map, but must retire old traces
         # for a test it ran without recording. Never refresh them by implication.
-        # Recorded anchor events are kept even before the first map exists.
+        # Recorded anchor events are kept even before the first map exists. A
+        # session that ran no test but prints its block keeps the block alone, so
+        # show --last never prints an earlier run as the last one; without a cache
+        # there is no earlier run to print.
         path = state.cfg.cache / 'map.sqlite'
-        if (path.is_file() or state.events) and state.readings:
+        printed = state.observations is not None and bool(state.observations.text)
+        if (path.is_file() or state.events) and (state.readings or printed):
             from flowguard.map.common import cache_dir
             cache_dir(state.cfg.root)
             with closing(sqlite3.connect(path, timeout=30)) as con:
                 con.executescript(SCHEMA + 'CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);\n')
                 with con:
                     con.execute('BEGIN IMMEDIATE')
-                    _meta(con, 'intent_attempt', attempt)
-                    if state.observations is not None and state.observations.payload is not None:
-                        _meta(con, 'runtime_observations', state.observations.payload)
-                    if state.observations is not None and state.observations.structure is not None:
-                        from .cache import save_structure
-                        save_structure(con, state.observations.structure)
-                    _save_readings(con, state)
-                    _save_ordinary_collection(con, session, state)
+                    if state.readings:
+                        _meta(con, 'intent_attempt', attempt)
+                        if state.observations is not None and state.observations.payload is not None:
+                            _meta(con, 'runtime_observations', state.observations.payload)
+                        if state.observations is not None and state.observations.structure is not None:
+                            from .cache import save_structure
+                            save_structure(con, state.observations.structure)
+                        _save_readings(con, state)
+                        _save_ordinary_collection(con, session, state)
+                    _save_last(con, state)
         return
     with closing(state.get_map()) as mapping:
         con = mapping.con
@@ -1940,12 +2041,12 @@ def finish_verified(session, exitstatus):
             for rid in fresh:
                 declaration = (model.rules.get(rid) or model.states.get(rid) or model.structures.get(rid)
                                or model.flows.get(rid) or model.anchor_distincts.get(rid))
+                if _refused(model, declaration):
+                    continue        # a declaration the loader refused is judged again once it loads; no record
                 records[rid] = record(state.cfg, model, declaration,
                                       [r for r in state.results.values() if r['rule'] == rid], mapping, now, found)
             save_dependencies(con, records)
         _save_readings(con, state)
         _save_ordinary_collection(con, session, state)
-        if state.observations is not None and state.observations.fresh:
-            from .cache import save_comparisons
-            save_comparisons(con, state.observations.runtime.baseline, state.observations.fresh)
+        _save_last(con, state)
         con.commit()

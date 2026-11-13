@@ -10,31 +10,12 @@ from flowguard.map.common import MapError, content_digest, git_blob, git_run, no
 from .cache import scan
 
 
-def _revision(cfg, value=None):
-    if value:
-        git_run(cfg.root, 'rev-parse', '--verify', value + '^{commit}')
-        return value
-    if git_run(cfg.root, 'rev-parse', '--verify', 'HEAD', allowed=(0, 128)).returncode:
-        return None
-    upstream = git_run(cfg.root, 'rev-parse', '--verify', 'origin/main', allowed=(0, 128))
-    if upstream.returncode == 0:
-        base = git_run(cfg.root, 'merge-base', 'HEAD', 'origin/main').stdout.decode().strip()
-        if base != git_run(cfg.root, 'rev-parse', 'HEAD').stdout.decode().strip():
-            return base
-    dirty = git_run(cfg.root, 'diff', '--quiet', 'HEAD', allowed=(0, 1)).returncode
-    untracked = git_run(cfg.root, 'ls-files', '--others', '--exclude-standard', '-z').stdout.split(b'\0')
-    if dirty or any(path.endswith(b'.py') for path in untracked):
-        return 'HEAD'
-    parent = git_run(cfg.root, 'rev-parse', '--verify', 'HEAD^', allowed=(0, 128))
-    if parent.returncode == 0:
-        return parent.stdout.decode().strip()
-    shallow = git_run(cfg.root, 'rev-parse', '--is-shallow-repository').stdout.strip()
-    return None if shallow == b'true' else 'HEAD'
-
-
 def _texts(cfg, revision, folder):
+    """{path: text} of the Python files under `folder` at `revision`, both relative to the project's root: ls-tree
+    names them from there, and `./` makes `git show` read them from there too, also below the repository's top
+    folder (a bare `revision:path` is read from that top folder)."""
     paths = git_run(cfg.root, 'ls-tree', '-r', '--name-only', '-z', revision, '--', folder).stdout.split(b'\0')
-    return {path.decode(): git_run(cfg.root, 'show', revision + ':' + path.decode()).stdout.decode('utf-8-sig')
+    return {path.decode(): git_run(cfg.root, 'show', revision + ':./' + path.decode()).stdout.decode('utf-8-sig')
             for path in paths if path and path.endswith(b'.py')}
 
 
@@ -80,7 +61,10 @@ def _guards(texts):
 
 def check(cfg, base=None):
     """Compare Git's baseline, never a cache that might already have forgotten a deleted rule."""
-    revision = _revision(cfg, base)
+    from .owners import baseline
+    revision = baseline(cfg, base)
+    if base is not None:
+        git_run(cfg.root, 'rev-parse', '--verify', base + '^{commit}')
     if revision is None:
         shallow = git_run(cfg.root, 'rev-parse', '--is-shallow-repository', allowed=(0, 128))
         return ['anchor gone (no history: use fetch-depth 0)'] if shallow.stdout.strip() == b'true' else []
@@ -229,47 +213,35 @@ def confirmation(cfg, rule, engine=None):
 def _historical_home(runtime, home, values):
     """An absent function is new code; an absent comment or environment is not."""
     from . import anchors, sites
-    from .runtime import _functions, _resolve, _SAFE
-    import types,builtins
+    from .runtime import _functions
     anchor=home.anchor
-    source=runtime._source(anchor.file)
+    file,module=runtime.baseline_place(anchor.file,anchor.module)     # a file this change moved: its old path and name
+    source=runtime._source(file)
     if source is None:return dict(status='unknown',reason='old module location cannot be restored')
     tree=ast.parse(source)
     definition=dict(_functions(tree)).get(anchor.qual)
     if definition is None:
-        constants=runtime._constants(tree,anchor.module)
-        inert=all(isinstance(node,(ast.Assign,ast.AnnAssign)) and all(isinstance(t,ast.Name) and t.id in constants for t in (node.targets if isinstance(node,ast.Assign) else [node.target])) for node in tree.body)
-        return dict(status='new code' if inert else 'unknown',reason='old production function is absent' if inert else 'old dynamic function binding cannot be restored')
-    facts=anchors.source_facts(tree,source,anchor.module,anchor.file)
+        reasons={}
+        assigned=all(isinstance(node,(ast.Assign,ast.AnnAssign)) and all(isinstance(t,ast.Name) for t in (node.targets if isinstance(node,ast.Assign) else [node.target])) for node in tree.body)
+        constants=runtime._constants(tree,module,reasons=reasons) if assigned else {}    # only assignments can be inert
+        inert=assigned and all(t.id in constants for node in tree.body for t in (node.targets if isinstance(node,ast.Assign) else [node.target]))
+        if inert:return dict(status='new code',reason='old production function is absent')
+        # the first old constant that did not fold says why, e.g. a power whose exponent is past the folding bound
+        unfolded=next(((name,reasons[name]) for name in reasons if name not in constants),None)
+        return dict(status='unknown',reason='old dynamic function binding cannot be restored'+(f': old constant {unfolded[0]} is not folded: {unfolded[1]}' if unfolded else ''))
+    facts=anchors.source_facts(tree,source,module,file)
     previous=next((old for old in facts.get('anchors',()) if old['name']==anchor.name and old['qual']==anchor.qual),None)
     if previous is None:return dict(status='unknown',reason='old source has no corresponding observation anchor')
-    if [(p['name'],p['source_type'],p['unit']) for p in previous['parameters']]!=[(p.name,p.source_type,p.unit) for p in anchor.parameters]:
-        return dict(status='unknown',reason='old observation parameter meaning cannot be restored')
+    previous=anchors._anchor(previous)
+    if previous.parameters!=anchor.parameters or any(getattr(previous,name)!=getattr(anchor,name) for name in
+            ('kind','output','output_type','projection','fields','values','calibrated_by')):
+        return dict(status='unknown',reason='old observation meaning cannot be restored')
     function=sites.unwrap(sites.resolve_loaded(anchor.target))
     if runtime.register(function) is None:return dict(status='unknown',reason=runtime.unavailable.get(function,'old function unavailable'))
-    for native,patch in runtime.patches.items():
-        names={node.id for node in ast.walk(patch.node) if isinstance(node,ast.Name) and isinstance(node.ctx,ast.Load)}-set(patch.code.co_varnames)
-        available=set(native.__globals__)|set(vars(builtins))|{name for (_,name),(namespace,_) in runtime.constants.items() if namespace is native.__globals__}
-        if names-available:return dict(status='unknown',reason='old global cannot be restored: '+', '.join(sorted(names-available)))
-        old=ast.parse(runtime._source(Path(native.__code__.co_filename).resolve().relative_to(runtime.root).as_posix()))
-        now=ast.parse(Path(native.__code__.co_filename).read_text(encoding='utf-8-sig'))
-        def environment(module):
-            constants=runtime._constants(module,native.__module__)
-            return [ast.dump(node,include_attributes=False) for node in module.body
-                    if not isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef))
-                    and not (isinstance(node,(ast.Assign,ast.AnnAssign)) and all(
-                        isinstance(target,ast.Name) and target.id in constants for target in
-                        (node.targets if isinstance(node,ast.Assign) else [node.target])))]
-        if environment(old)!=environment(now):return dict(status='unknown',reason='old imports or module environment cannot be restored')
-        for part in ast.walk(patch.node):
-            if isinstance(part,ast.Attribute):
-                owner=_resolve(part.value,native.__globals__)
-                value=_resolve(part,native.__globals__)
-                if isinstance(owner,types.ModuleType) and (id(vars(owner)),part.attr) not in runtime.constants \
-                        and all(value is not known for known in (*_SAFE,*runtime.patches)):
-                    return dict(status='unknown',reason='old imported attribute cannot be restored: '+ast.unparse(part))
+    # Qualification and later evaluation both use the historical source in fresh sealed globals.
+    # Live module bindings are deliberately irrelevant; no old code is installed into them.
     signature = inspect.signature(function, follow_wrapped=False)
-    supplied = {parameter.name: values[parameter.name] for parameter in anchor.parameters if parameter.name in values}
+    supplied = {parameter.source: values[parameter.name] for parameter in anchor.parameters if parameter.name in values}
     positional = [supplied[parameter.name] for parameter in signature.parameters.values()
                   if parameter.kind is inspect.Parameter.POSITIONAL_ONLY and parameter.name in supplied]
     keywords = {name: value for name, value in supplied.items()
@@ -285,6 +257,7 @@ def _historical_home(runtime, home, values):
         files={home.testnode.partition('::')[0]}|{Path(definition.func.__code__.co_filename).resolve().relative_to(runtime.root).as_posix() for definitions in item._fixtureinfo.name2fixturedefs.values() for definition in definitions if hasattr(definition.func,'__code__') and Path(definition.func.__code__.co_filename).resolve().is_relative_to(runtime.root)}
         if any(normalize_newlines((runtime._source(file) or '').encode())!=normalize_newlines((runtime.root/file).read_text(encoding='utf-8-sig').encode()) for file in files):
             return dict(status='unknown',reason='old test context cannot be restored')
+        return dict(status='unknown',reason='not compared: old scenario event/path replay is unavailable; a leaf does not establish the previous path')
     return None
 
 
@@ -326,10 +299,14 @@ def _probe(root, rule, row, *, runtime=None):
                 else 'new code' if statuses=={'new code'} else 'regression',homes=answers)
 
 
-def proven(cfg, rule, row, base='HEAD^'):
+def proven(cfg, rule, row, base=None):
     """Compare old functions/constants in the same verified inputs, not an old project run."""
     from .runtime import Runtime
-    try:revision=_revision(cfg,base)
+    from .owners import baseline
+    try:
+        revision = baseline(cfg, base)
+        if base is not None:
+            git_run(cfg.root, 'rev-parse', '--verify', base + '^{commit}')
     except MapError as error:return dict(status='unknown',reason=str(error))
     if revision is None:return dict(status='unknown',reason='no previous commit')
     current=_probe(cfg.root,rule,row)

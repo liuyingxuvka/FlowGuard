@@ -94,6 +94,8 @@ def try_in_test(cfg, anchor, values, *, grid=False):
         return _result('grey', [anchor.name + ': use the current test session; a nested pytest session is unavailable'])
     if not anchor.calibrated_by:
         return _result('grey', [anchor.name + ': real context needs calibrated_by naming one ordinary test'])
+    if set(values) - {parameter.name for parameter in anchor.inputs}:
+        return _result('grey', [anchor.name + ': context inputs cannot be replaced'])
     selector = anchor.calibrated_by
     file, separator, _ = selector.partition('::')
     path = (cfg.root / file).resolve()
@@ -109,18 +111,69 @@ def try_in_test(cfg, anchor, values, *, grid=False):
     if len(readings) != 1:
         return _result('grey', [f'{anchor.name}: test reached {len(readings)} readings; choose one unambiguous invocation'])
     reading = readings[0]
-    requested = {**request.get('actual_inputs', {}), **values}
-    rows = reading.rows if grid else [(inputs, value) for inputs, value in reading.rows
-        if all(name in inputs and outcome_equal(inputs[name], expected) for name, expected in requested.items())]
     reasons = list(dict.fromkeys([*request.get('reasons', []), *reading.reasons]))
-    if reading.status != 'ok' or reasons or not rows or not grid and len(rows) != 1:
-        return _result(request.get('status', 'grey'), [anchor.name + ': ' + ('; '.join(reasons) or 'requested reading unavailable')],
-                       rows=rows, reasons=reasons)
-    reasons = list(dict.fromkeys(request.get('partition_reasons', []))) if grid else []
-    lines = [f'{anchor.name}: {len(rows)} observed input classes in its real test context']
+    if reading.sample is None or reading.actual is None or reasons:
+        return _result('grey', [anchor.name + ': not compared: ' + ('; '.join(reasons) or 'actual call has no JSON reading')], reasons=reasons)
+    from . import sites
+    try:
+        anchors._source(cfg.root, anchor)
+        function = sites.unwrap(sites.resolve_loaded(anchor.target))
+        bound = inspect.signature(function, follow_wrapped=False).bind(*reading.sample['args'], **reading.sample['kwargs'])
+        bound.apply_defaults()
+        expected, reason = Runtime(cfg.root).guarded(function, bound)
+        if reason or isinstance(expected, cells.Raised) or isinstance(reading.actual[1], cells.Raised) \
+                or not outcome_equal(expected, reading.json_result):
+            return _result('grey', [anchor.name + ': not compared: ' + (reason or 'actual outcome differs from sealed source')])
+        for parameter in anchor.inputs:
+            if parameter.name in values:
+                bound.arguments[parameter.source] = values[parameter.name]
+        result = _evaluate(cfg, anchor, function, bound, grid)
+        result['lines'].insert(0, anchor.name + ': sealed alternatives in its real test context; ordinary call unchanged')
+        return result
+    except (OSError, ValueError, TypeError, AttributeError, sites.NotMutable) as error:
+        return _result('grey', [anchor.name + ': not compared: ' + str(error)])
+
+
+def _evaluate(cfg, anchor, function, bound, grid):
+    """Only this explicit request enumerates inputs; ordinary observation never receives a grid."""
+    for parameter in anchor.inputs:
+        actual = bound.arguments[parameter.source]
+        try:
+            accepted = anchors._accepts(parameter.source_type, actual)
+        except (ValueError, SyntaxError):
+            kind = anchors.parameter_kind(parameter, actual)
+            accepted = kind is not None and kind.accepts(actual)
+        if not accepted:
+            return _result('red', [f'{anchor.name}: {parameter.name} has the wrong source type'])
+    runtime = Runtime(cfg.root)
+    value, reason = runtime.guarded(function, bound)
+    if reason:
+        return _result('grey', [f'{anchor.name}: not compared: {reason}'], reasons=[reason])
+    point = {parameter.name: bound.arguments[parameter.source] for parameter in anchor.inputs}
+    if not grid:
+        return _result('ok', [f'{anchor.name}: {point!r} -> {value!r}'], value=value, rows=[(point, value)], tested=1, reasons=[])
+    decision = anchors.decision_reading(cfg.root, anchor)
+    space = cells.build_space(decision.kinds, decision.reading.consts, decision.reading.planes,
+                              decision.reading.links, decision.reading.reasons, decision.reading.hints)
+    axes = space.pts
+    complete = space.complete and set(axes) == {parameter.name for parameter in anchor.inputs} and not decision.issues
+    for name, incoming in point.items():
+        axes.setdefault(name, [incoming])
+    inputs, _, _ = cells.enumerate_cells(axes, complete)
+    rows, reasons = [], []
+    for incoming in inputs:
+        selected = inspect.BoundArguments(bound.signature, dict(bound.arguments))
+        for parameter in anchor.inputs:
+            selected.arguments[parameter.source] = incoming[parameter.name]
+        outcome, refused = runtime.guarded(function, selected)
+        if refused:
+            reasons.append(f'{incoming!r}: not compared: {refused}')
+        else:
+            rows.append((incoming, outcome))
+    lines = [f'{anchor.name}: {len(rows)} representatives evaluated' + ('; source partition incomplete' if not complete else '')]
+    lines.extend(f'{incoming!r} -> {outcome!r}' for incoming, outcome in rows)
     lines.extend('grey: ' + reason for reason in reasons)
-    lines.extend(f'{inputs!r} → {value!r}' for inputs, value in rows)
-    return _result('grey' if reasons else 'ok', lines, rows=rows, tested=len(rows), value=rows[0][1] if not grid else None)
+    return _result('ok' if complete and not reasons else 'grey', lines, value=value, rows=rows, tested=len(rows), reasons=reasons)
 
 
 def show_observation(cfg, name, index, last_events=(), *, model=None):
@@ -178,7 +231,7 @@ def show_observation(cfg, name, index, last_events=(), *, model=None):
         edge_counts.update(zip(path, path[1:]))
     lines = [f'{name}: historical model observations (not a new verification)']
     lines.extend(f'{node.name}: {node.reference}/{node.phase}, observed {node_counts[node.name]}' for node in flow.nodes)
-    lines.extend(f'{a} → {b}: {edge_counts[a, b]}' + ('; unobserved' if not edge_counts[a, b] else '') for a, b in flow.edges)
+    lines.extend(f'{a} -> {b}: {edge_counts[a, b]}' + ('; unobserved' if not edge_counts[a, b] else '') for a, b in flow.edges)
     lines.extend('red: ' + reason for reason in checked['red'])
     lines.extend('grey: ' + reason for reason in checked['grey'])
     if stale:
@@ -213,8 +266,8 @@ def try_anchor(cfg, name, values, grid=False, runner=None, *, index=None):
             if (not inspect.isfunction(fn) or Path(fn.__code__.co_filename).resolve() != (cfg.root / anchor.file).resolve()
                     or fn.__qualname__.replace('.<locals>.', '.') != anchor.qual):
                 return _result('grey', [f'{name}: loaded callable does not identify current source'])
-            supplied = {p.name: values[p.name] for p in anchor.inputs if p.name in values}
-            if set(values) - set(supplied):
+            supplied = {p.source: values[p.name] for p in anchor.inputs if p.name in values}
+            if set(values) - {p.name for p in anchor.inputs}:
                 return _result('red', [f'{name}: undeclared or context inputs'])
             signature = inspect.signature(fn)
             positional = []
@@ -223,42 +276,7 @@ def try_anchor(cfg, name, values, grid=False, runner=None, *, index=None):
                     positional.append(supplied.pop(parameter.name, parameter.default))
             bound = signature.bind(*positional, **supplied)
             bound.apply_defaults()
-            for parameter in anchor.inputs:
-                actual = bound.arguments[parameter.name]
-                try:
-                    accepted = anchors._accepts(parameter.source_type, actual)
-                except (ValueError, SyntaxError):
-                    kind = anchors.parameter_kind(parameter, actual)
-                    accepted = kind is not None and kind.accepts(actual)
-                if not accepted:
-                    return _result('red', [f'{name}: {parameter.name} has the wrong source type'])
-            runtime = Runtime(cfg.root)
-            if not grid:
-                reason = runtime.safety(fn, bound.arguments)
-                if reason:
-                    return _result('grey', [f'{name}: {reason}'])
-                value, refused = runtime.guarded(fn, bound)
-                if refused:
-                    return _result('grey', [f'{name}: {refused}'])
-                return _result('ok', [f'{name}: {dict(bound.arguments)!r} → {value!r}'], value=value,
-                               rows=[(dict(bound.arguments), value)], tested=1, reasons=[])
-            decision = anchors.decision_reading(cfg.root, anchor)
-            space = cells.build_space(decision.kinds, decision.reading.consts, decision.reading.planes,
-                                      decision.reading.links, decision.reading.reasons, decision.reading.hints)
-            axes = space.pts
-            complete = space.complete and set(axes) == {p.name for p in anchor.inputs} and not decision.issues
-            for parameter in anchor.inputs:
-                axes.setdefault(parameter.name, [bound.arguments[parameter.name]])
-            try:
-                value = runtime.observe(fn, bound, name=name, axes=axes, private=True)
-            except Exception as error:
-                value = cells.Raised(error)
-            reading = runtime.readings[-1]
-            rows = reading.rows if grid else [(dict(bound.arguments), value)]
-            lines = [f'{name}: {len(reading.rows)} representatives evaluated' + ('; source partition incomplete' if not complete else '')]
-            lines.extend(f'{inputs!r} → {outcome!r}' for inputs, outcome in rows)
-            return _result(reading.status if complete else 'grey', lines, value=value, rows=rows,
-                           tested=len(reading.rows), reasons=reading.reasons)
+            return _evaluate(cfg, anchor, fn, bound, grid)
     except (OSError, ValueError, TypeError, ImportError, AttributeError) as error:
         return _result('grey', [f'{name}: unavailable: {type(error).__name__}: {error}'])
 

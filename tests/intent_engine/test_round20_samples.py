@@ -3,8 +3,8 @@
 The project is `tests/fixtures/round20_samples` (see its README): the round-19 acceptance project with
 seven anchors, five grace copies and one rule quoting the owner's words. Every sample applies one edit to
 the committed baseline and reads the FlowGuard block at the end of the complete run, where 4.0 crowded
-the relevant lines out: red first, then changes, leads and the unverified summary, at most ten lines
-after the reds, names and places never shortened.
+the relevant lines out: in 4.3 the first line counts each kind, then red, changed and the one not compared line,
+at most ten lines besides red, loosened and known fixed?.
 """
 from pathlib import Path
 import json
@@ -17,11 +17,14 @@ import sys
 
 import pytest
 
-from tests.intent_engine._cli_fixture import display_text
+from flowguard import __version__
+from tests.intent_engine._cli_fixture import block, display_text, last, unchecked
 
 SOURCE = str(Path(__file__).resolve().parents[2])
 FIXTURE = Path(__file__).resolve().parents[1] / 'fixtures/round20_samples'
 BROKEN = 'import sys\nsys.path.insert(0, ".")\ndef broken(:\n    pass\n'
+BROKEN_LINE = 'not compared: _tmp_x.py (cannot be parsed: SyntaxError: invalid syntax line 3) -> not a failure'
+VERSION = '.'.join(__version__.split('.')[:2])
 
 
 def _git(root, *arguments):
@@ -80,23 +83,12 @@ def _pytest(root, *options, env=None):
     return result, text
 
 
-def _block(text):
-    """The FlowGuard block: its title, the red lines with their next steps, and the bounded rest."""
-    lines = text.splitlines()
-    start = next(index for index, line in enumerate(lines) if line.startswith('FlowGuard（'))
-    block = []
-    for line in lines[start + 1:]:
-        if not line.strip() or line.startswith(('====', '____')) or re.match(r'\d+ (passed|failed)', line):
-            break
-        block.append(line)
-    red = [line for line in block if line.startswith('红：') or line.startswith('    ')]
-    rest = [line for line in block if line not in red]
-    assert len(rest) <= 10, block
-    assert not any('…' in line for line in block), block
-    kinds = ('红', '变', '比较', '线索', '未验证')
-    order = [kinds.index(re.match('|'.join(kinds), line)[0]) for line in block if not line.startswith('    ')]
-    assert order == sorted(order), block
-    return lines[start], block
+def _block(result):
+    """The FlowGuard block, last on stdout: its first line, then lines of the kinds in their order, at most ten
+    besides red, loosened and known fixed?, nothing cut to `…`."""
+    title, *lines = block(result)
+    assert not any('…' in line for line in lines), lines
+    return title, lines
 
 
 def _observations(root):
@@ -107,21 +99,28 @@ def _observations(root):
 def test_without_a_change_the_run_is_quiet(shop):
     result, text = _pytest(shop)
     assert result.returncode == 0 and '12 passed' in result.stdout, text
-    assert 'FlowGuard（' not in text, text
+    # Only the first line with FlowGuard's own time (4.10) and the broken file of sample 19, which is never
+    # compared: no red, change or before line.
+    title, block = _block(result)
+    assert re.fullmatch(r'FlowGuard \d+\.\d+ \(since [0-9a-f]{7}\): 0 red, 1 not compared; \d+\.\d s', title), title
+    assert block == [BROKEN_LINE], block
 
 
-def test_sample_1_equal_stock_and_reserved_changes_from_refused_to_allowed(shop):
+def test_sample_1_a_database_decision_is_not_compared_and_names_itself(shop):
     _edit(shop, 'shop/store.py', 'return stock > reserved', 'return stock >= reserved')
     result, text = _pytest(shop)
-    assert result.returncode == 0, text
-    title, block = _block(text)
+    assert result.returncode == 0 and '12 passed' in result.stdout, text
+    title, block = _block(result)
     head = _git(shop, 'rev-parse', 'HEAD').strip()
-    assert title == f'FlowGuard（相对任务开始 {head[:7]}）', title
-    line = next(line for line in block if line.startswith('变：AVAILABLE（shop/store.py:12）'))
-    assert re.search(r'(stock=reserved|reserved=stock)（0–2）', line) and 'False → True' in line, line
+    assert title.startswith(f'FlowGuard {VERSION} (since {head[:7]}): 0 red, 2 not compared; '), title
+    # The connection argument is not JSON: no change is claimed for it either way (4.5, 6.4).
+    assert block == ['not compared: 2 items: _tmp_x.py and AVAILABLE (cannot be parsed: SyntaxError: invalid syntax line 3, '
+                     'or no comparable JSON result) -> not a failure'], block
+    assert '    no comparable JSON result' in last(shop).splitlines()
+    assert not any(line.startswith('changed: can_hire') for line in block), block
 
 
-def test_sample_2_database_write_is_refused_at_its_line_and_the_table_is_unchanged(shop, tmp_path):
+def test_sample_2_a_database_write_is_not_compared_and_the_table_has_one_row(shop, tmp_path):
     _edit(shop, 'shop/store.py', 'return count + stock - reserved', 'return max(0, count + stock - reserved)')
     rows = {}
     for label, options in (('plugin', ()), ('without', ('-p', 'no:flowguard.intent.plugin'))):
@@ -130,83 +129,101 @@ def test_sample_2_database_write_is_refused_at_its_line_and_the_table_is_unchang
         assert result.returncode == 0, text
         rows[label] = json.loads(target.read_text())
         if label == 'plugin':
-            line = next(line for line in _block(text)[1] if line.startswith('未验证：HIRES'))
-            assert ('回放被拦住：shop/store.py:19 db.execute("insert into hires(item_id) values (?)", (item_id,))'
-                    '：写数据库 INSERT hires') in line, line
+            assert _block(result)[1] == ['not compared: 3 items: _tmp_x.py, STANDING and HIRES (cannot be parsed: SyntaxError: '
+                                         'invalid syntax line 3, no recorded JSON inputs, or 1 other reason) -> not a failure'], text
+            assert any('HIRES: no comparable JSON result' in reason for item in _observations(shop)['items']
+                       for reason in item.get('reasons', ())), text
     assert rows == {'plugin': 1, 'without': 1}
-    result, text = _pytest(shop)                         # the full suite shows the same line
-    assert result.returncode == 0 and any(line.startswith('未验证：HIRES（shop/store.py:18）：回放被拦住') for line in _block(text)[1]), text
+    result, text = _pytest(shop)                         # the full suite shows the same line, with HIRES's reason
+    assert result.returncode == 0 and 'HIRES' in _block(result)[1][-1], text
+    assert 'no comparable JSON result' in unchecked(shop)['HIRES'], last(shop)
 
 
-def test_sample_3_a_helper_constant_shows_its_whole_interval_and_cause(shop):
+def test_sample_3_a_helper_constant_makes_the_copies_disagree_at_its_own_value(shop):
     _edit(shop, 'shop/policy.py', 'GRACE_DAYS = 3', 'GRACE_DAYS = 7')
     result, text = _pytest(shop)
-    title, block = _block(text)
-    line = next(line for line in block if line.startswith('变：STANDING（shop/policy.py:10）'))
-    assert 'days_after_expiry=4–7' in line and 'False → True' in line, line
-    assert '原因：GRACE_DAYS 3 → 7（shop/policy.py:1）' in line, line
-    # The copy in preview.py still says 3: the same-name anchors now disagree, red with its next step.
+    title, block = _block(result)
+    # standing_allows reaches the changed constant through its same-file helper, which its sealed run executes
+    # (design 4.5): both are compared before and after. Their recorded calls (0 and 9) answer the same: no
+    # change is claimed for either.
+    items = {item.get('name'): item for item in _observations(shop)['items']}
+    assert items['STANDING']['total'] == 2 and items['STANDING']['changed'] == [], items
+    assert items['within_grace']['total'] == 2 and items['within_grace']['changed'] == [], items
+    assert not any(line.startswith('changed: standing_allows') for line in block), block
+    # The copy in preview.py still says 3: the helper's constant 7 is in the compared union, where the
+    # same-name anchors now disagree: red with its next step.
     assert result.returncode == 1, text
-    red = next(index for index, line in enumerate(block) if line.startswith('红：同名锚点 STANDING：'))
-    assert '2 份：1 份得 T（shop/policy.py:10 standing_allows），1 份得 F（shop/preview.py:2 preview_allows）' in block[red], block
-    # its next step chooses neither copy: the changed one may be the right one
-    assert block[red].endswith(' -> 先定哪份对，再让另一份和它一致；有意不同，就改用不同的锚点名并写 distinct'), block
+    # Its next step chooses neither copy (the changed one may be the right one) and offers no way to silence it.
+    assert block == ['red: same STANDING: on days_after_expiry=7, suspended=False, owed=0: policy.py:standing_allows returns True, '
+                     'preview.py:preview_allows returns False -> decide which copy is right, then make the other agree', BROKEN_LINE], block
 
 
-def test_sample_4_unanchored_late_fee_reports_the_member_classes(shop):
+def test_sample_4_unanchored_late_fee_claims_no_change_for_the_member_branch_no_test_calls(shop):
     _edit(shop, 'shop/fees.py', 'return fee // 2 if member else fee', 'return fee * 2 // 3 if member else fee')
     result, text = _pytest(shop)
     assert result.returncode == 0, text
-    line = next(line for line in _block(text)[1] if line.startswith('变：late_fee（未挂锚点，自动）（shop/fees.py:1）'))
-    assert int(re.search(r'变 (\d+) 类', line)[1]) >= 5 and 'member=T' in line and 'member=F' not in line, line
-    assert '例：days=3, member=T：1 → 2' in line, line
+    # Inputs come only from the tests' calls (4.5): late_fee(5, False) gives 9 before and after.
+    item = next(item for item in _observations(shop)['items'] if item.get('name') == 'late_fee')
+    assert item['unanchored'] and item['rows'] == [[{'days': 5, 'member': False}, 9]] and item['changed'] == [], item
+    assert not any(line.startswith('changed: late_fee') for line in _block(result)[1]), text
 
 
-def test_sample_5_the_skipped_save_step_is_a_visible_path_change(shop):
+def test_sample_5_the_skipped_save_step_is_a_changed_decision_on_the_real_path(shop):
     _edit(shop, 'shop/publish.py', 'return not artifact_id.startswith("tmp")', 'return not artifact_id.startswith(("tmp", "a"))')
     result, text = _pytest(shop)
     assert result.returncode == 0, text
-    assert '变：路径 tests/test_publish.py::test_release：ENTRY → SAVED → PUBLISHED 变成 ENTRY → PUBLISHED' in _block(text)[1], text
+    block = _block(result)[1]
+    assert block == ["changed: needs_save (publish.py:17): (artifact_id='a1') was True, now False; 1/1 inputs differ "
+                     '-> if you meant it, say so', BROKEN_LINE], block
+    assert '    no flowguard comment: compared because its code changed' in last(shop).splitlines()
+    # The test is not run again with the old code (6.5); the real current path is recorded without SAVED.
+    assert not any('became' in line for line in block), block
+    with sqlite3.connect(shop / '.flowguard/cache/map.sqlite') as connection:
+        events = json.loads(connection.execute("SELECT v FROM meta WHERE k='runtime_observations'").fetchone()[0])['events']
+    calls = [event['anchor'] for event in events if event['case'] == 'tests/test_publish.py::test_release' and event['phase'] == 'call']
+    assert calls == ['ENTRY', 'PUBLISHED'], events
 
 
 def test_sample_7_rule_violation_is_one_red_line_with_the_owner_sentence(shop):
     _edit(shop, 'shop/deposit.py', 'return deposit > 100', 'return deposit > 100 and not member')
     result, text = _pytest(shop)
     assert result.returncode == 1 and '2 failed, 10 passed' in result.stdout, text
-    block = _block(text)[1]
-    reds = [index for index, line in enumerate(block) if line.startswith('红：DEPOSIT_REVIEW')]
-    assert len(reds) == 1, block
-    line = block[reds[0]]
-    assert 'deposit=101 member=T' in line and line.endswith('出处：owner R1: 会员也一样，不能例外。'), line
-    assert block[reds[0] + 1] == '    改代码，让 shop/deposit.py:2 符合规则 DEPOSIT_REVIEW；', block
-    assert 'tests/intent/deposit.py:4' in block[reds[0] + 2], block
+    block = _block(result)[1]
+    # One red line for the rule's home; the owner sentence and every step are its detail (show --last).
+    assert block == ['red: rule DEPOSIT_REVIEW: deposit=101 member=T: rule True, code False at shop/deposit.py:needs_approval '
+                     '(2 of 10 cells disagree) (+1 more) -> change the code so shop/deposit.py:needs_approval follows rule DEPOSIT_REVIEW',
+                     BROKEN_LINE], block
+    shown = last(shop).splitlines()
+    detail = shown[shown.index(next(line for line in shown if line.startswith('red: rule DEPOSIT_REVIEW: '))) + 1:]
+    assert '    change the code so shop/deposit.py:needs_approval follows rule DEPOSIT_REVIEW' in detail, shown
+    assert any(line.startswith('    if requirements changed, ') and 'tests/intent/deposit.py:4' in line for line in detail), shown
+    assert '    DEPOSIT_REVIEW source: owner R1: 会员也一样，不能例外。' in detail, shown
 
 
-def test_sample_7_the_phase_0_config_fee_rule_is_red_in_the_new_block(tmp_path):
-    from tests.intent_engine.test_calibrated_config_rule import _demo
+def test_sample_7_the_phase_0_config_fee_rule_is_unverified_in_the_new_block(tmp_path):
+    from tests.intent_engine.test_calibrated_config_rule import _demo, _sealed_grey
     root = _demo(tmp_path / 'demo')
     _edit(root, 'shop/fees.json', '"per_day": 3', '"per_day": 4')
     _edit(root, 'tests/test_fees.py', '== 9', '== 12')
     result, text = _pytest(root, '-rf')
-    assert result.returncode == 1 and '2 failed' in result.stdout, text
-    line = next(line for line in _block(text)[1] if line.startswith('红：FEE'))
-    assert 'days=3 member=F -> rule 3, code 4' in line and '出处：assumed: 3 per day after 2 free days, members half' in line, line
+    # The calibrated reader of fees.json cannot run sealed: its rule items are unverified, never passed or red.
+    assert result.returncode == 0 and '2 passed, 3 unverified' in result.stdout, text
+    assert not any(line.startswith('red: FEE') for line in _block(result)[1]), text
+    _sealed_grey(root)
 
 
-def test_sample_9_both_database_contexts_are_observed_and_the_second_shows_an_interval(shop):
+def test_sample_9_both_database_calls_run_once_and_are_not_compared(shop):
     _edit(shop, 'shop/members.py', '    return days_after_expiry <= 3\n', '    return days_after_expiry <= 7\n')
     result, text = _pytest(shop)
-    assert result.returncode == 0, text
-    line = next(line for line in _block(text)[1] if line.startswith('变：BORROW（shop/members.py:11）'))
-    assert 'days_after_expiry=4–7，member_id=1' in line and '原因：BORROW 的常量 3 → 7（shop/members.py:15）' in line, line
-    readings = [item for item in _observations(shop)['items'] if item.get('name') == 'BORROW']
-    assert len(readings) == 2 and all(item['status'] == 'ok' for item in readings), readings
-    assert readings[0]['changed'] == [] and len(readings[1]['changed']) == 4, readings
+    assert result.returncode == 0 and '12 passed' in result.stdout, text       # one debt row, as the test asserts
+    assert _block(result)[1] == ['not compared: 2 items: _tmp_x.py and BORROW (cannot be parsed: SyntaxError: invalid syntax '
+                                 'line 3, or no comparable JSON result) -> not a failure'], text
+    assert not [item for item in _observations(shop)['items'] if item.get('name') == 'BORROW'], _observations(shop)
 
 
 def test_sample_19_the_broken_file_is_only_unverified(shop):
     _edit(shop, 'shop/store.py', 'return stock > reserved', 'return stock >= reserved')
     result, text = _pytest(shop)
     assert result.returncode == 0, text
-    grey = [item for item in _observations(shop)['items'] if item.get('name') == '未覆盖']
+    grey = [item for item in _observations(shop)['items'] if item.get('name') == 'uncovered']
     assert any('_tmp_x.py' in reason and 'cannot be parsed' in reason for item in grey for reason in item['reasons']), grey

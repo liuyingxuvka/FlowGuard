@@ -45,7 +45,7 @@ def test_try_grid_evaluates_and_prints_all_rows_when_explicitly_requested(tmp_pa
     assert result['status'] == 'ok', result
     assert result['tested'] == len(result['rows']) == 512
     assert len(result['lines']) == 513
-    assert sum('→' in line for line in result['lines']) == 512
+    assert sum('->' in line for line in result['lines']) == 512
     assert sum(value is True for _, value in result['rows']) == 256
 
 
@@ -121,7 +121,7 @@ def test_show_model_reuses_path_checks_and_counts_unobserved_edges(tmp_path):
     assert shown['status'] == 'red' and shown['node_counts'] == {'a': 1, 'c': 1}
     assert shown['edge_counts'] == {('a', 'c'): 1}
     assert any('runtime path a -> c is not allowed' in line for line in shown['lines'])
-    assert any('a → b: 0; unobserved' in line for line in shown['lines'])
+    assert any('a -> b: 0; unobserved' in line for line in shown['lines'])
 
 
 def test_try_untyped_positional_only_input_and_default(tmp_path):
@@ -139,15 +139,35 @@ def test_watch_restores_trace_when_program_replaces_it_then_raises(tmp_path):
     assert 'ValueError: after replacement' in result['error']
 
 
-def test_point_try_calls_exact_value_once(tmp_path):
+def test_point_try_calls_sealed_exactly_once_without_faking_an_ordinary_call(tmp_path, monkeypatch):
     from flowguard.intent.runtime import Runtime
+    from flowguard.intent import runtime as executor
     cfg, index, name = project(tmp_path, '# flowguard: sensor LIMIT\ndef limit(x: int) -> bool:\n    return x <= 3\n')
-    calls = []
+    calls, sealed_calls = [], []
+    original = executor.sealed
+    def record(source, qual, args, kwargs, imports=None):        # imports: how project constants are read
+        sealed_calls.append((qual, args, kwargs))
+        return original(source, qual, args, kwargs, imports)
+    monkeypatch.setattr(executor, 'sealed', record)
     runtime = Runtime(tmp_path)
     with runtime.record(predicate=lambda code: code.co_filename == str(tmp_path / (name + '.py')) and code.co_name == 'limit',
                         callback=lambda frame, event, arg: calls.append(frame.f_locals['x']), private=True, entry_only=True):
         result = debug.try_anchor(cfg, 'LIMIT', {'x': 4}, index=index)
-    assert calls == [4] and result['tested'] == 1 and result['value'] is False
+    assert calls == [] and sealed_calls == [('limit', [4], {})]
+    assert result['tested'] == 1 and result['value'] is False
+
+
+@pytest.mark.parametrize('source, value', [
+    ('from decimal import Decimal\n# flowguard: sensor LIMIT\ndef limit(x: Decimal) -> bool:\n    return x <= Decimal("3")\n', 'decimal'),
+    ('from datetime import date\n# flowguard: sensor LIMIT\ndef limit(x: date) -> bool:\n    return x <= date(2026, 1, 1)\n', 'date'),
+])
+def test_try_non_json_date_or_decimal_is_not_reported_as_compared(tmp_path, source, value):
+    from decimal import Decimal
+    from datetime import date
+    cfg, index, _ = project(tmp_path, source)
+    result = debug.try_anchor(cfg, 'LIMIT', {'x': Decimal('4') if value == 'decimal' else date(2026, 1, 2)}, index=index)
+    assert result['status'] == 'grey', result
+    assert any('not compared' in line and 'JSON' in line for line in result['lines']), result
 
 
 def test_point_try_checks_module_initialization_before_import(tmp_path):

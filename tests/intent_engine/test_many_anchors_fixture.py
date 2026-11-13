@@ -6,14 +6,17 @@ that drifts from its owner, are red with their source and the places involved. O
 asserted here; the run times are measured outside the suite.
 """
 from pathlib import Path
+import json
 import os
+import re
 import shutil
+import sqlite3
 import subprocess
 import sys
 
 import pytest
 
-from tests.intent_engine._cli_fixture import display_text
+from tests.intent_engine._cli_fixture import block, display_text, last
 
 SOURCE = str(Path(__file__).resolve().parents[2])
 FIXTURE = Path(__file__).resolve().parents[1] / 'fixtures/many_anchors'
@@ -89,16 +92,34 @@ def test_the_fixture_has_its_anchors_rules_and_copies(template):
 def test_without_a_change_the_run_passes_quietly(shop):
     result, text = _pytest(shop)
     assert result.returncode == 0, text
-    assert '62 passed' in result.stdout, text
-    assert 'FlowGuard（' not in text, text
+    # 75 items, as before the sealed comparison (62 passed, 13 unverified): the anchors that read a literal
+    # constant from shop.settings run sealed with that constant read from its source, never imported.
+    assert '62 passed, 13 unverified' in result.stdout, text
+    # Nothing red, changed or before: the timed first line and the one line of what could not be compared.
+    title, *rest = block(text)
+    assert re.fullmatch(r'FlowGuard \d+\.\d+ \(since [0-9a-f]{7}\): 0 red, 22 not compared; \d+\.\d s', title), title
+    assert rest == ['not compared: 22 items (assumed: confirm against actual owner words, or not exhaustively checked) '
+                    '-> not a failure'], rest
+    with sqlite3.connect(shop / '.flowguard/cache/map.sqlite') as connection:
+        greys = {item: json.loads(payload)['grey'] for item, payload in connection.execute('SELECT item, payload FROM result')
+                 if json.loads(payload)['verdict'] == 'grey'}
+        results = {item: json.loads(payload)['verdict'] for item, payload in connection.execute('SELECT item, payload FROM result')}
+    assert not any('uses unavailable binding' in reason for reasons in greys.values() for reason in reasons), greys
+    assert results['tests/intent/rules.py::STANDING_RULE[shop.policy.standing_allows:rows]'] == 'ok', results
 
 
 def test_a_change_against_the_owner_words_is_red_with_the_sentence(shop):
     _edit(shop, 'shop/fees.py', '    return deposit > 100\n', '    return deposit > 100 and not member\n')
     result, text = _pytest(shop)
     assert result.returncode == 1, text
-    red = next(line for line in text.splitlines() if line.startswith('红：DEPOSIT_REVIEW'))
-    assert 'deposit=150 member=T -> rule T, code False' in red and '出处：owner R1: 会员也一样，不能例外。' in red, red
+    assert [line for line in block(text) if line.startswith('red: ')] == [
+        'red: rule DEPOSIT_REVIEW: deposit=101 member=T: rule True, code False at fees.py:needs_approval (2 of 10 cells disagree) '
+        '(+1 more) -> change the code so fees.py:needs_approval follows rule DEPOSIT_REVIEW'], text
+    # The other count and the owner's sentence are the red's detail.
+    shown = last(shop).splitlines()
+    detail = shown[shown.index(next(line for line in shown if line.startswith('red: rule DEPOSIT_REVIEW: '))) + 1:]
+    assert 'deposit=150 member=T: rule True, code False at shop/fees.py:needs_approval (1 of 1 rows disagree, row L' in detail[0], shown
+    assert '    DEPOSIT_REVIEW source: owner R1: 会员也一样，不能例外。' in detail, shown
     assert 'FAILED tests/intent/rules.py::DEPOSIT_REVIEW[shop.fees.needs_approval:rows]' in text, text
 
 
@@ -106,9 +127,15 @@ def test_a_copy_that_drifts_from_its_owner_is_red_at_both_places(shop):
     _edit(shop, 'shop/preview.py', 'return days_after_expiry <= 3 and owed <= 20', 'return days_after_expiry <= 4 and owed <= 20')
     result, text = _pytest(shop)
     assert result.returncode == 1, text
-    red = next(line for line in text.splitlines() if line.startswith('红：同名锚点 STANDING'))
-    # the owner is the reference: the copy that left it is the one to change
-    assert ('3 份：2 份得 F（负责人 shop/policy.py:5 standing_allows、shop/kiosk.py:2 kiosk_allows），'
-            '1 份得 T（shop/preview.py:2 preview_allows） -> 让 shop/preview.py:2 preview_allows 和负责人一致') in red, red
-    assert any(line.startswith('线索：旧值 3 还出现在') and 'shop/kiosk.py:3' in line for line in text.splitlines()), text
+    # The owner reads GRACE_DAYS from shop.settings, a literal read from its source: all three copies run
+    # sealed, and the owner is the reference the drifting copy must agree with.
+    assert ('red: same STANDING: on days_after_expiry=4, suspended=False, owed=0: kiosk.py:kiosk_allows and the reference '
+            'policy.py:standing_allows return False, preview.py:preview_allows returns True '
+            '-> make preview.py:preview_allows agree with the reference') in block(text), text
+    with sqlite3.connect(shop / '.flowguard/cache/map.sqlite') as connection:
+        items = json.loads(connection.execute("SELECT v FROM meta WHERE k='runtime_observations'").fetchone()[0])['items']['items']
+    assert not any('uses unavailable binding' in reason for item in items for reason in item.get('reasons', ())), items
+    shown = last(shop).splitlines()
+    leads = shown[shown.index('deprecated leads (5.0):') + 1:]
+    assert any('old values 3 remain in' in line and 'shop/kiosk.py:3' in line for line in leads), shown
     assert 'FAILED tests/intent/rules.py::STANDING_RULE[shop.preview.preview_allows:rows]' in text, text

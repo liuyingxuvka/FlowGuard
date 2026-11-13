@@ -63,6 +63,7 @@ def native(root, module, target, name, parameters, *, call=None, body=None):
 # plugin, so Footprint and mutants observe the actual call rather than a child.
 from contextlib import ExitStack
 from contextvars import ContextVar
+import sys
 import pytest
 _SCOPES=ContextVar('source_fixture_scopes')
 
@@ -185,8 +186,10 @@ def _source_engine(model):
                 request.config.hook.pytest_collection_modifyitems(
                     session=request.session,config=request.config,items=items)
             finally:_PRIVATE.reset(token)
-    scopes.enter_context(calibration.session(runtime,items,nextitem=request.node))
+    events=[]
+    scopes.enter_context(calibration.session(runtime,items,nextitem=request.node,events=events))
     scopes.enter_context(_execution_session(cfg.root))
+    ordinary_run(model,runtime,items,events,request.node)
     from flowguard.intent.calibration import _prepare, _prepare_scenario
     for rule in model.rules.values():
         for binding in rule.homes:
@@ -196,6 +199,67 @@ def _source_engine(model):
                 _prepare(model.cfg.root,binding.anchor)
     model.deep=True
     return Engine(model)
+
+
+def ordinary_run(model,runtime,items,events,nextitem):
+    """The native tests' one ordinary run, recorded as the pytest plugin records it: the real calls of every
+    production sensor (`Runtime.hook`) and each test's anchor events (`Capture`). Calibration reads only these;
+    no test runs again (design 4.5, 8). The outer FlowGuard session does not observe this private run."""
+    from _pytest.runner import runtestprotocol
+    from flowguard.intent import sites
+    from flowguard.intent.flow import Capture
+    from flowguard.intent.runtime import _PRIVATE
+    index=model.anchor_index
+    if not items:
+        return
+    # A calibrated anchor's calls, and the calls a scenario test makes, which a sealed scenario point reads.
+    # An event's calls are not recorded, as in the plugin.
+    sensors={anchor.target:anchor for anchor in index.entries if anchor.kind=='sensor' and anchor.source_role!='test'}
+    def loaded(target):
+        """The loaded function of a target, or None when its module or member is not loaded."""
+        module,_,qual=target.partition(':')
+        value=sys.modules.get(module)
+        for part in qual.split('.'):
+            value=vars(value).get(part) if value is not None and hasattr(value,'__dict__') else None
+        value=value.__func__ if isinstance(value,(staticmethod,classmethod)) else value
+        return sites.unwrap(value) if callable(value) and hasattr(sites.unwrap(value),'__code__') else None
+    codes=[(loaded(anchor.target).__code__,anchor.target) for anchor in index.entries
+           if anchor.kind in ('sensor','event') and loaded(anchor.target) is not None]
+    with ExitStack() as hooks:
+        for anchor in sensors.values():
+            if loaded(anchor.target) is not None:
+                try:
+                    hooks.enter_context(runtime.hook(loaded(anchor.target),name=anchor.name,private=True,
+                                                     fields=anchor.fields,line=anchor.line))
+                except sites.NotMutable:
+                    continue    # the plugin cannot hook it either: it has no recorded calls, and a point says so
+        for item in items:
+            runtime.test=item.nodeid
+            function=sites.unwrap(item.obj)
+            own=[(function.__code__,anchor.target) for anchor in index.entries if anchor.kind=='event'
+                 and Path(function.__code__.co_filename).resolve()==(Path(model.cfg.root)/anchor.file).resolve()
+                 and function.__qualname__==anchor.qual]
+            capture=Capture(model.cfg.root,index,item.nodeid)
+            class Outcomes:
+                """What the pytest plugin records of each phase that did not pass, with its exception."""
+                @pytest.hookimpl(hookwrapper=True)
+                def pytest_runtest_makereport(self,item,call):
+                    report=(yield).get_result()
+                    if not report.passed:
+                        runtime.outcome(item.nodeid,report.when,report.outcome,call.excinfo)
+            recorder=Outcomes()
+            item.config.pluginmanager.register(recorder)
+            token=_PRIVATE.set(True)
+            try:
+                with runtime.record([*codes,*own],callback=capture.on_trace,private=True):
+                    item.session._setupstate.teardown_exact(item)
+                    runtestprotocol(item,log=False,nextitem=nextitem)
+            finally:
+                _PRIVATE.reset(token)
+                item.config.pluginmanager.unregister(recorder)
+                capture.close()
+            events.extend(capture.events)
+    runtime._test=''          # the ordinary run is over: later calls belong to no test
 
 
 def scenario(root,module,code,intent,*,rule,target,parameters,source_parameters,

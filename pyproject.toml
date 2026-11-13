@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 dependencies = ["pytest>=8.0"]
 
 [project.optional-dependencies]
-dev = ["setuptools>=61", "wheel"]
+dev = ["setuptools>=61", "wheel", "pytest-mock>=3.14"]
 languages = [
     "tree-sitter>=0.25.2,<0.26",
     "tree-sitter-javascript>=0.25,<0.26", "tree-sitter-typescript>=0.23,<0.24",

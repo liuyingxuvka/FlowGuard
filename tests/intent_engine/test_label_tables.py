@@ -47,14 +47,8 @@ FILES = {
     'frontend/src/layout/Sidebar.tsx': "const MINE = { BU: 'My Unit', MAIN_DEPARTMENT: 'My Department', TEAM: 'My Team' };\n",
     'frontend/tests/labels.test.ts': "const EXPECTED = { BU: 'Business Units', MAIN_DEPARTMENT: 'Main Department', TEAM: 'Team' };\n",
 }
-ORG = ('标签表不一致：frontend/src/utils/type-label.ts:1 TYPE_LABELS、frontend/src/pages/Admin.tsx:1 TYPES、'
-       'frontend/src/pages/Detail.tsx:1 DETAIL_LABELS、backend/src/role.ts:1 TYPE_TO_ROLE：'
-       "BU 'Business Unit'（TYPE_LABELS、DETAIL_LABELS） 与 'Business unit'（TYPES）；"
-       "MAIN_DEPARTMENT 'Main Department'（TYPE_LABELS、DETAIL_LABELS） 与 'Main department'（TYPES）；"
-       'DETAIL_LABELS 缺 ENTITY；TYPE_TO_ROLE 缺 ENTITY')
-ENTRY = ('标签表不一致：backend/src/grid.ts:1 ENTRY_LABELS、backend/src/usage.ts:1 ENTRY_LABELS：'
-         "FLEXTIME 'Flex Time'（ENTRY_LABELS（grid.ts:1）） 与 'Flextime'（ENTRY_LABELS（usage.ts:1））；"
-         "SICK 'Sick Leave'（ENTRY_LABELS（grid.ts:1）） 与 'Sickness'（ENTRY_LABELS（usage.ts:1））")
+ORG = ("Label tables disagree: frontend/src/utils/type-label.ts:1 TYPE_LABELS, frontend/src/pages/Admin.tsx:1 TYPES, frontend/src/pages/Detail.tsx:1 DETAIL_LABELS, backend/src/role.ts:1 TYPE_TO_ROLE: BU 'Business Unit' (TYPE_LABELS, DETAIL_LABELS) versus 'Business unit' (TYPES); MAIN_DEPARTMENT 'Main Department' (TYPE_LABELS, DETAIL_LABELS) versus 'Main department' (TYPES); DETAIL_LABELS lacks ENTITY; TYPE_TO_ROLE lacks ENTITY")
+ENTRY = ("Label tables disagree: backend/src/grid.ts:1 ENTRY_LABELS, backend/src/usage.ts:1 ENTRY_LABELS: FLEXTIME 'Flex Time' (ENTRY_LABELS (grid.ts:1)) versus 'Flextime' (ENTRY_LABELS (usage.ts:1)); SICK 'Sick Leave' (ENTRY_LABELS (grid.ts:1)) versus 'Sickness' (ENTRY_LABELS (usage.ts:1))")
 
 
 def _git(root, *arguments):
@@ -74,24 +68,25 @@ def _findings(root, base, everything):
         return owners.static_findings(cfg, graph, anchors.collect(graph), base, everything=everything)
 
 
-def test_label_tables_that_disagree_are_listed_and_a_lead_when_this_change_edits_one(tmp_path):
+def test_label_tables_that_disagree_are_findings_new_when_this_change_edits_one(tmp_path):
     _write(tmp_path, {'.gitignore': '.flowguard/cache/\n', **FILES})
     _git(tmp_path, 'init', '-q', '-b', 'main')
     _git(tmp_path, 'add', '.')
     _git(tmp_path, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'baseline')
     base = _git(tmp_path, 'rev-parse', 'HEAD').strip()
-    found = _findings(tmp_path, base, True)
-    listed = [line.partition('标签：')[2] for line in found.section if '. 标签：' in line]
-    assert listed == [ENTRY, ORG], found.section
-    entry = found.section.index(next(line for line in found.section if line.endswith(ORG)))
-    assert found.section[entry + 2] == '       [structure."labels:frontend/src/utils/type-label.ts:TYPE_LABELS"]'
-    assert not [lead for lead in found.leads if '标签表不一致' in str(lead)]
-    # An edit elsewhere in a file with a table is no lead; an edit of a table is one, with the entry to copy.
+    def labels(found):
+        return {issue.text: issue for issue in found.issues if issue.family == 'labels'}
+    found = labels(_findings(tmp_path, base, True))
+    assert sorted(found) == sorted([ENTRY, ORG]), found
+    assert found[ORG].entry[0] == '[structure."labels:frontend/src/utils/type-label.ts:TYPE_LABELS"]'
+    assert all(issue.fresh == frozenset() for issue in found.values())
+    # An edit elsewhere in a file with a table leaves the finding old; an edit of a table makes it new, with the entry
+    # to copy.
     detail = tmp_path / 'frontend/src/pages/Detail.tsx'
     detail.write_text(detail.read_text(encoding='utf-8') + 'export const other = 1;\n', encoding='utf-8')
-    assert not [lead for lead in _findings(tmp_path, base, False).leads if '标签表不一致' in str(lead)]
+    assert all(issue.fresh == frozenset() for issue in labels(_findings(tmp_path, base, False)).values())
     detail.write_text(detail.read_text(encoding='utf-8').replace("TEAM: 'Team' }", "TEAM: 'Teams' }"), encoding='utf-8')
-    leads = [lead for lead in _findings(tmp_path, base, False).leads if '标签表不一致' in str(lead)]
-    assert len(leads) == 1 and leads[0].startswith(ORG.replace('；DETAIL_LABELS 缺', "；TEAM 'Team'（TYPE_LABELS） 与 'Teams'（DETAIL_LABELS）；DETAIL_LABELS 缺")), leads
-    assert leads[0].endswith('[structure."labels:frontend/src/utils/type-label.ts:TYPE_LABELS"] decision = "换成主人的决定：谁负责、'
-                             '为什么这样（不少于 8 个词）" source = "R<n>"'), leads
+    fresh = [issue for issue in labels(_findings(tmp_path, base, False)).values() if issue.fresh]
+    assert len(fresh) == 1 and fresh[0].text.startswith(ORG.replace('; DETAIL_LABELS lacks ', "; TEAM 'Team' (TYPE_LABELS) versus 'Teams' (DETAIL_LABELS); DETAIL_LABELS lacks ")), fresh
+    assert ' '.join(fresh[0].entry).endswith('[structure."labels:frontend/src/utils/type-label.ts:TYPE_LABELS"] decision = "Replace with the owner\'s decision: who owns this and '
+                                             'why (at least 8 words)" source = "R<n>"'), fresh

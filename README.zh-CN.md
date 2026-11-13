@@ -4,16 +4,9 @@
 
 [English](./README.md)
 
-FlowGuard 在 AI 改代码时守住整个项目的一致。类型检查、lint 和测试检查的是"这一处写得对不对"；FlowGuard 管的是它们看不见的、跨整个项目的部分。它守四件事：
+FlowGuard 在 AI 改项目时检查已经登记的约定：哪些副本必须一致、哪些字段必须一起写、谁可以写某个字段。普通测试会检查这些约定、独立意图规则和兜底账本。
 
-1. **一件事只有一个负责人。** 一个判断、一份数据各有一处负责。其他地方要么调用它，要么作为登记过的副本和它锁在一起，要么被指出来。
-2. **主人的规矩可以执行。** 照主人原话写成的规则，代码违反时报红；需求变了而规则没跟着改时，给出线索。
-3. **这次改动新增的结构问题会显现。** 新增的兜底分支、写进去的值不在声明的范围里、负责人之外的写入、该一起写的字段只写了一个、删父记录时留下子记录、副本行为分叉、同一个标签出现新写法。只报这次改动新增的；旧问题留在一张可以查看的清单里。
-4. **改出意外时会告诉你。** 在能安全回放的地方，按情况类比较改前改后的行为。
-
-它不是什么都能抓：没人写下来的需求、界面风格、并发和外部服务都不在范围内。灰表示未验证，从来不算通过。
-
-**它怎么用。** 发现问题靠认真检查：AI 读代码、插探针、主人的话。发现以后把它登记下来——一个负责人、一对配对、一个取值集合、一条规则或一条账本条目——从此 FlowGuard 守住它不再退步。结构清单（`check --all`）告诉检查先看哪里。登记跟着软件一起长：从第一条需求开始，每发现一处问题、每定下一条规矩就加一条，模型和代码一起从小长到大。
+发现问题仍靠认真审查。发现以后，在同一次改动里登记约定，让后续工作不能悄悄破坏它。缺失的业务决定由主人作出。
 
 ## 开始
 
@@ -27,79 +20,71 @@ python -m flowguard new-task
 python -m pytest
 ```
 
-`init` 启用 pytest 插件，添加采集哨兵、CI 片段和三条项目规矩；测试由 npm 跑、pytest 没有项目自己的测试时，CI 片段跑 `check --static`，基准是这个分支离开 `main` 的那个提交。`package.json` 里用了 vitest 或 jest 的项目，它再加一个测试，执行 `python -m flowguard check --static`；需要时把它加进一个只跑指定文件夹的测试脚本（先看 `test`，再看单元测试脚本），并说明哪个 npm 脚本会跑它，没有时说明该加什么；vitest 项目还会接上执行侧。`new-task` 记下这次任务的基准提交；任务中途的提交不会挪动它，所以这次任务改了什么会一直报出来（还没记下基准时，任务的第一次测试也会记）。没有规则时，检查保持安静：
+`init` 接好项目测试，写入 FlowGuard 规则块并生成 CI 片段。Vitest 或 Jest 项目还会生成静态检查测试，说明哪个 npm 脚本会跑它；Vitest 会接上执行侧。接好以后，使用项目平时的测试命令。
+
+`new-task` 记下任务起点。任务中途提交不会移动这个基准；没有基准时，第一次测试也会记下。没有意图规则时，检查输出：
 
 ```text
-FlowGuard check: no intent rules.
+FlowGuard 4.3 (since 99f025e): 0 red; 0.2 s
 ```
 
-## 测试结束时看到什么
+## 日常使用
 
-测试跑完后，FlowGuard 打印一段。标题写明这次任务的基准提交。下面是四类行，顺序是：红、变、线索、未验证。红全部打印；变、线索、未验证合计不超过十行；名字和位置不截断。每条红和线索后面都附可以照抄的下一步：一行负责人注释、一条账本条目、该改的规则行，或者一句要问主人的话。灰的测试项显示为 `U`（`-v` 下是 `UNVERIFIED`），汇总写成 `N unverified`，不算通过，退出码不变。基准代码还能观察、新代码却观察不了的，算观察丢失，测试失败。
+1. 开工时运行 `python -m flowguard new-task`，读简报。
+2. 跑项目普通测试，读测试汇总后的 FlowGuard 块。首行给出每一类的数目。只有 `red` 使测试失败：这次改动破坏了已登记的约定，要改代码。`before` 和 `known` 在任务开始前就有：照 `->` 后面写的做，写着 `ask owner` 时才告诉主人。`changed` 表示某个函数对测试用过的输入返回了别的结果：是有意的改动就在汇报里说明。`impact` 和 `not compared` 不算失败；`not compared` 是没有验证，不算通过。`python -m flowguard show --last` 列出上一次运行的每一行和细节。
+3. 修改另一份实现之前，用 `python -m flowguard show "what it decides"` 查函数、字段和约定。
 
-## 四件事
+## 登记约定
 
-### 一个负责人，副本锁在一起
-
-在负责人上方写 `# flowguard: owner NAME`，在每个必须一致的副本上方写 `# flowguard: sensor NAME`；副本不一致就红。数据负责人写明谁能写它、什么必须和它一起改：
+Python 用 `#`，TS/JS 用 `//`。每份必须一致的判断都写 `same NAME`；已经选定哪份作数时，在那份加 `ref`：
 
 ```python
-# flowguard: owner hires.reserved writers=shop.store:reserve with=hires.updated_at
+# flowguard: same ROUND ref
+def round_amount(value: float) -> int:
+    return round(value)
+
+# flowguard: same ROUND
+def preview_amount(value: float) -> int:
+    return round(value)
 ```
 
-`check` 还会把每个负责人的相似实现放到负责人的情况类上跑，分成副本、分叉的副本和只是相似三组。即使什么都没登记，这次改过的函数如果原来和别的几份行为相同、而那几份这次没改，也会给出线索。另写一处之前，用 `show "what it decides"` 找到已有的负责人。
+数据约定分开写：
 
-### 照主人原话写的规则
+```python
+# flowguard: together Booking.employee_id Booking.unit_id on=update
+# flowguard: writers Booking.employee_id reserve,release
+```
 
-`tests/intent/` 里的规则独立于代码写出预期，保留字面回归行，并写明出处：主人的原话，用 `python -m flowguard req add <file|-> --id R1` 逐字节存一次。藏在上下文里的字段，在锚点上用 `fields 名字=表达式` 读出。一个常量从 14 改成 21 时，线索会列出还写着 14 的规则和判断。
+`together A B,C` 是单向约定：写 A 的操作也必须写 B、C。`on=` 只取 `create` 或 `update`；`B=值` 要求写成该值。裸函数名只指注释所在文件；别的文件写仓库相对位置，例如 `src/store.py:reserve`。例外写成 `except=路径:函数(理由)`，需要主人同意。不要为了消掉发现而放宽约定。
 
-### 新增的结构问题
+旧注释写法继续接受并提示弃用；内部登记和保存输入仍按原义读取。
 
-`.flowguard/ledger.toml` 列出每个能不抛出就结束的异常处理，写明数量、理由和它依据的成文规矩；`python -m flowguard ledger init` 把现有的全部记为旧账。裸 `except`、`except Exception`、`contextlib.suppress`、警告过滤、`finally` 里的跳出和可能返回真值的 `__exit__` 不能登记。写进去的值不在声明集合里（`states`、枚举、Prisma enum、SQL `CHECK`）、负责人之外的写入、配对没写全，都是红；删父记录时留下子记录、某份 schema 描述缺列、标签出现新写法，是线索。改动碰到还没定下来的结构问题时，输出会提示先告诉主人；主人的决定记在 `[structure]` 下，以后不再提醒。
+## 规则与兜底理由
 
-### 改前和改后
+`tests/intent/` 中的规则独立写出预期，并注明出处。主人的原话用 `python -m flowguard req add <file|-> --id R1` 逐字节保存一次。文档出处要引用 `authority_docs` 所列文件中的原句，不能把 AI 方案存成主人原话。
 
-被改的函数和每个挂了锚点的点，都会换入基准代码，在各自的情况类上回放比较。保护会在写文件、起进程、联网、写数据库之前就拦住；被拦住、复制不了或看不清的调用为灰，并写明原因。改过的锚点如果指纹没变，就复用上一次的比较结果。
+`.flowguard/rules.toml` 存主人现行的规则，每条一行文字，出处逐字引用存下的原话或文档原句。`.flowguard/known.toml` 存还没定论的事和对待方式：`act = "ask"` 是只有主人能答的问题，`leave` 是主人推迟的问题，`fix` 是改到相关代码时就修的明确错误，`ignore` 是结构检查的误报。`python -m flowguard show rules` 列出两者，`new-task` 的简报会列出其中靠前的几条。
 
-## 语言
+`.flowguard/ledger.toml` 记录能不抛出就结束的异常处理，注明数量、理由和依据的成文规则。`python -m flowguard ledger init` 记录已有处理，`python -m flowguard ledger check` 检查账本。不能登记的形式由发现行说明。
 
-基础安装读 Python。其他语言的读取器要装 `flowguard[languages]`。
+可执行的双副本规则示例和上下文注释见[本地参考](./.agents/skills/flowguard/reference.md)。
 
-| 源码 | FlowGuard 做什么 |
-| --- | --- |
-| Python | 上面全部，在普通 pytest 里 |
-| TS/TSX、JS/JSX | 静态检查（地图查询、Prisma 写入、`catch` 兜底、字面值、声明集合、结构形状），在 `check --static` 和 `npm test` 里；vitest（ESM）还有改前改后比较和同名副本比较；jest 只有静态部分 |
-| Prisma schema、SQL 文件 | 模型、表、列（`@map`、`@@map`、`[方括号]`）、带 `onDelete` 的关系、`CHECK` 集合 |
-| C、C++、C# | 冻结的地图读取器：声明、调用、赋值 |
+## 其他检查与语言
 
-FlowGuard 的核心留在 Python；别的语言只做它需要的那一层薄接口。
+`python -m flowguard check --static` 不跑测试；加 `--all` 查看完整结构清单。`python -m flowguard check` 跑受影响的规则和测试。已有深查和有限 flow 保持冻结，不属于上面的日常接入步骤。
 
-## 日常命令
+基础安装读取 Python。TS/JS、Prisma、SQL 及冻结的 C/C++/C# 读取器使用 `flowguard[languages]`。Vitest 的 ESM 项目支持执行观察；Jest 只做静态检查。测试结束后的封闭比较跑不了的函数记为 `not compared`，并写明原因。测试输入上的一致不能证明业务答案正确。
 
-| 命令 | 用途 |
-| --- | --- |
-| `python -m pytest` | 跑测试，看 FlowGuard 那一段。 |
-| `python -m flowguard` | 简短的简报，并记下这次任务的基准提交；任务中途提交，基准不变。 |
-| `python -m flowguard new-task` | 开始下一个任务：HEAD 成为基准，再打印简报。 |
-| `python -m flowguard show "what it decides"` | 查负责人、谁写谁读、副本和规则。 |
-| `python -m flowguard check` | 重查受影响的规则和测试；副本发现在这里跑。 |
-| `python -m flowguard check --static` | 不跑测试的地图检查；有红时退出码为 1。 |
-| `python -m flowguard check --all --deep` | 全部检查，加上探针和变异检查，在 CI 里跑。 |
-| `python -m flowguard ledger check` | 列出账本和代码之间的每一处差异。 |
-| `python -m flowguard try ACCEPT days=4` | 在真实测试上下文里试一个锚点的输入。 |
-| `python -m flowguard model draft PUBLISH` | 从记录到的路径起草一个小流程。 |
-| `python -m flowguard req list` | 列出存下的主人原话。 |
+FlowGuard 只在测试运行里起作用。它从不在测试里把函数再跑一遍；打包、开发服务器和正式运行都不会加载它。
 
-## 边界和迁移
+## 兼容与仓库
 
-行为只在测试走到的上下文里比较，输出会写明是哪条测试。相似代码和新写法是线索，不是证明。副本彼此一致不能证明答案是对的；有出处的规则才能。4.1 和 4.2 保留 4.0 的全部注释、规则和保存的输入；见 [4.1 说明](./docs/upgrade-4.1.md)、[4.2 说明](./docs/upgrade-4.2.md) 和 [intent guide](./docs/intent-guide.md)。
+保留的旧输入和 API 继续支持；弃用功能会提示删除计划，不会悄悄改变旧输入的含义。现有契约见 [4.1 说明](./docs/upgrade-4.1.md)、[4.2 说明](./docs/upgrade-4.2.md)、[4.3 说明](./docs/upgrade-4.3.md) 和 [intent guide](./docs/intent-guide.md)。
 
-## 仓库
-
-- `flowguard/structure/`：代码地图和固定查询。
-- `flowguard/intent/`：规则、锚点、兜底账本、负责人、pytest 插件和 vitest 一侧。
-- `flowguard/map/`：共用的读取器和不可改的主人原话记录。
-- `.agents/skills/flowguard/`：唯一的公开技能。
+- `flowguard/structure/`：源码事实与固定查询。
+- `flowguard/intent/`：约定、意图规则、账本和测试适配器。
+- `flowguard/map/`：共用读取器和不可改的主人原话记录。
+- `.agents/skills/flowguard/`：唯一公开技能和本地参考。
 - `tests/`：普通测试和本项目自己的规则。
 
 License: MIT

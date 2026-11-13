@@ -6,7 +6,6 @@ from functools import cache
 import os
 from pathlib import Path
 import sys
-import tomllib
 from dataclasses import dataclass, field
 
 _INSERTED_PATHS = set()
@@ -55,10 +54,9 @@ def find_root(start=None):
 
 
 def load_config(root=None):
+    from ..structure.store import project_config
     root = Path(root or find_root()).resolve()
-    path = root / 'pyproject.toml'
-    data = tomllib.loads(path.read_text(encoding='utf-8-sig')) if path.is_file() else {}
-    settings = data.get('tool', {}).get('flowguard', {})
+    settings = project_config(root)
     # `propagate` names TS/JS functions that hand a caught error on, `archives` the files no code runs against
     # (MapHandle.archived); the map reads both.
     allowed = {'roots', 'intent', 'exclude', 'authority_docs', 'screen_lines', 'check_lines', 'skip_policy', 'ledger',
@@ -91,8 +89,8 @@ def load_config(root=None):
 def search_paths(cfg):
     """The folders setup_path puts first on sys.path: the root, its roots, pytest's configured pythonpath and
     the import base of each intent file."""
-    path = cfg.root / 'pyproject.toml'
-    ini = tomllib.loads(path.read_text(encoding='utf-8-sig')).get('tool', {}).get('pytest', {}).get('ini_options', {}) if path.is_file() else {}
+    from ..structure.store import project_config
+    ini = project_config(cfg.root, section='pytest').get('ini_options', {})
     extras = ini.get('pythonpath', [])
     extras = extras.split() if isinstance(extras, str) else extras
     paths = [cfg.root, *cfg.roots, *(cfg.root / part for part in extras)]

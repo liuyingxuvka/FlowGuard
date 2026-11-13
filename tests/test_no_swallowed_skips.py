@@ -175,7 +175,8 @@ def test_a_skip_or_xfail_that_did_not_come_from_a_marker_fails(tmp_path):
     def run(name):
         return _run_probe(tmp_path, name, "-rfEsx")
     result = run("test_outcomes.py")
-    summary = result.stdout.strip().splitlines()[-1]
+    lines = result.stdout.strip().splitlines()
+    summary = lines[next(index for index, line in enumerate(lines) if line.startswith('FlowGuard ')) - 1]   # FlowGuard's block follows
     assert result.returncode == 1, result.stdout + result.stderr
     for part in ("2 failed", "1 skipped", "1 xfailed", "1 error"):
         assert part in summary, result.stdout

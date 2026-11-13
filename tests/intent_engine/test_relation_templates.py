@@ -125,6 +125,25 @@ def test_transitions_reuse_the_states_comment_and_hold_at_every_anchored_call(tm
     assert "Job.status: transition 'new' -> 'archived' is outside declared states" in outside['red']
 
 
+def test_without_a_test_entry_every_event_that_read_a_declared_state_is_kept(tmp_path):
+    # No Flow scopes this capture and none names RESET, so RESET is sampled: one call per distinct input. The
+    # transitions template still reads every state change, so each RESET that read Job.status stays, and the
+    # second RESET (the same job, the same input) is where the state changes outside the declared transitions.
+    index, m = _source(tmp_path)
+    model = transitions('Job.status', new={'saved'}, saved={'published'})
+    job = m.Job()
+    with Capture(tmp_path, index, 'reset', models=[model]) as captured:
+        m.reset(job), m.save(job), m.publish(job), m.reset(job)
+    assert [event.anchor for event in captured.events if event.phase == 'call'] == ['RESET', 'SAVED', 'PUBLISHED', 'RESET']
+    assert runtime_check(model, captured.events, index)['red'] == [
+        "reset: Job.status actually changes 'published' -> 'new' at RESET, outside declared transitions"]
+    # Without a Flow that reads states, the same calls are one sample each.
+    with Capture(tmp_path, index, 'calls', models=[]) as captured:
+        for _ in range(30):
+            m.permitted(job)
+    assert [event.phase for event in captured.events] == ['call', 'return'], captured.events
+
+
 def test_model_draft_writes_template_lines_grouped_by_flow(tmp_path):
     index, m = _source(tmp_path)
     job = m.Job()

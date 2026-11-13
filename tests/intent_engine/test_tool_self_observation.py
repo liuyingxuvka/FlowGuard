@@ -41,7 +41,7 @@ def test_changed_runtime_observe_in_the_running_tool_is_not_hooked(tmp_path):
     _git(root, 'commit', '-qm', 'tool copy')
     runtime = root / 'flowguard/intent/runtime.py'
     text = runtime.read_text(encoding='utf-8')
-    marker = '        owner = sites.unwrap(owner or original)\n'
+    marker = '        function = sites.unwrap(owner or original)\n'
     assert text.count(marker) == 1
     runtime.write_text(text.replace(marker, marker + '        observed_by = name\n'), encoding='utf-8')
     bootstrap = 'import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; raise SystemExit(pytest.main(sys.argv[1:]))'

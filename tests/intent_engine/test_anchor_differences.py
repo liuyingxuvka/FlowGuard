@@ -3,8 +3,11 @@ from types import SimpleNamespace
 import subprocess
 import sys
 
+import pytest
+
 from flowguard.intent import cells as C
 from flowguard.intent import differences as D
+from tests.intent_engine._sealed_fixture import comparable, differs, sealed_pair, value
 
 
 def before(days):
@@ -91,15 +94,15 @@ def test_union_boundary_runs_one_representative_for_four_to_seven():
     assert part.complete and part.representative_points > len(part.regions)
     assert len(part.regions) == result['total'] == 3
     assert result['changed'] == 1
-    assert result['changes'] == [dict(anchor='grace', region='days=4–7',
+    assert result['changes'] == [dict(anchor='grace', region='days=4..7',
                                       witness={'days': '4'}, before='F', after='T')]
-    assert D.render(result) == 'grace：共 3 类，变 1 类\ndays=4–7；函数返回值 F → T（例：days=4）'
+    assert D.render(result) == 'grace: total 3 classes, changed 1 classes\ndays=4..7; function result F -> T(example: days=4)'
 
 
 def test_pure_refactor_has_zero_behavior_changes():
     _, result = compare(before, refactored, {'days': int})
     assert result['complete'] and result['changed'] == 0
-    assert D.render(result) == '共 2 类，变 0 类'
+    assert D.render(result) == 'total 2 classes, changed 0 classes'
 
 
 def test_old_numeric_truth_test_is_part_of_the_joint_partition():
@@ -111,7 +114,7 @@ def test_old_numeric_truth_test_is_part_of_the_joint_partition():
 def test_optional_absence_keeps_its_own_class_without_evaluating_a_guarded_atom():
     part, result = compare(optional_before, optional_after, {'days': int | None})
     assert part.complete and result['total'] == 4 and result['changed'] == 1
-    assert result['changes'][0]['region'] == 'days=4–7'
+    assert result['changes'][0]['region'] == 'days=4..7'
 
 
 def test_extra_boolean_edit_is_visible_and_labels_keep_its_identity():
@@ -126,7 +129,7 @@ def test_extra_boolean_edit_is_visible_and_labels_keep_its_identity():
 def test_disconnected_class_is_not_presented_as_a_continuous_interval():
     part = D.joint_partition(view(equal_three, {'days': int}), view(equal_three, {'days': int}))
     assert part.complete and len(part.regions) == 2
-    assert {region.label for region in part.regions} == {'days=3', 'days≠3'}
+    assert {region.label for region in part.regions} == {'days=3', 'days!=3'}
 
 
 def test_finite_input_keeps_its_actual_domain_despite_an_internal_call():
@@ -158,8 +161,8 @@ def test_observation_unknown_does_not_turn_into_zero_verified_changes():
     assert result['changed'] == 0
     assert result['checked'] == 0 and result['unknown'] == 3
     assert 'test never entered' in D.render(result)
-    assert '比较未完成，已证变化 0 类' in D.render(result)
-    assert '共 3 类，变 0 类' not in D.render(result)
+    assert 'comparison incomplete; proven changed classes: 0' in D.render(result)
+    assert 'total 3 classes, changed 0 classes' not in D.render(result)
 
 
 def test_partial_observations_keep_a_proven_change_and_unknown_classes():
@@ -169,14 +172,14 @@ def test_partial_observations_keep_a_proven_change_and_unknown_classes():
                        [observation(True), observation(True), observation(True)])
     assert result['status'] == 'grey' and not result['complete']
     assert (result['total'], result['checked'], result['unknown'], result['changed']) == (3, 2, 1, 1)
-    assert '候选 3 类，已比较 2 类；比较未完成，已证变化 1 类' in D.render(result)
+    assert 'candidate classes: 3; compared: 2; comparison incomplete; proven changed classes: 1' in D.render(result)
 
 
 def test_short_output_caps_changed_lines_without_losing_the_total():
     report = dict(changes=[dict(anchor='point', region=f'n={i}', before='F', after='T') for i in range(30)],
                   total=31, changed=30, complete=True, reasons=[])
     lines = D.render(report, limit=100).splitlines()
-    assert len(lines) <= 10 and '共 31 类，变 30 类' in lines[0]
+    assert len(lines) <= 10 and 'total 31 classes, changed 30 classes' in lines[0]
     assert all(len(line) <= 100 for line in lines)
 
 
@@ -198,40 +201,41 @@ def allowed(days: int) -> bool:
 '''
 
 
-def test_runtime_keeps_the_complete_1024_boolean_domain_without_an_automatic_budget(tmp_path):
+def test_ten_boolean_inputs_report_the_change_on_the_recorded_call_without_enumerating_a_domain(tmp_path):
     names = [f'flag{i}' for i in range(10)]
     parameters = ', '.join(f'{name}: bool' for name in names)
     code = f'def allowed({parameters}) -> bool:\n    return ' + ' and '.join(names) + '\n'
     root = tmp_path / 'large_domain'
     repository(root, code)
     (root / 'decision.py').write_text(code.replace(' and '.join(names), 'False'))
-    runtime, reading = historical(root, {name: [False, True] for name in names})
-    assert reading.status == reading.comparison_status == 'ok', reading
-    assert len(reading.rows) == 1024 and len(reading.changed) == 1
-    assert reading.changed[0][0] == dict.fromkeys(names, True)
+    runtime, readings = historical(root, [dict.fromkeys(names, False), dict.fromkeys(names, True)])
+    assert all(reading.status == 'ok' and reading.rows == [] for reading in readings)   # nothing replayed in the test
+    changes = recorded_changes(root, runtime, readings)
+    assert changes == [(dict.fromkeys(names, True), True, False)], changes
 
 
-def test_real_old_and_current_bodies_share_the_complete_union_partition(tmp_path):
+def test_real_calls_at_the_union_representatives_give_the_class_report(tmp_path):
     root = tmp_path/'project'
     repository(root, GRACE)
     (root/'decision.py').write_text(GRACE.replace('<= 3', '<= 7'))
     partition = D.joint_partition(view(before, {'days': int}), view(after, {'days': int}))
-    runtime, reading = historical(root, {'days': [r.inputs['days'] for r in partition.regions]})
-    report = historical_result(reading, partition)
+    runtime, readings = historical(root, [dict(region.inputs) for region in partition.regions])
+    report = historical_result(root, runtime, readings, partition)
     assert report['status'] == 'ok' and report['complete'], report
     assert report['total'] == 3 and report['changed'] == 1
-    assert report['changes'][0]['region'] == 'days=4–7'
+    assert report['changes'][0]['region'] == 'days=4..7'
 
 
 def test_unrelated_same_file_edit_does_not_create_a_runtime_behavior_change(tmp_path):
     root = tmp_path/'project'
     repository(root, GRACE+'\ndef unrelated(): return 10\n')
     (root/'decision.py').write_text(GRACE+'\ndef unrelated(): return 20\n')
-    runtime, reading = historical(root, {'days': [0, 4]})
-    assert reading.comparison_status == 'ok' and reading.rows and not reading.changed
+    runtime, readings = historical(root, [{'days': 0}, {'days': 4}])
+    pairs = [sealed_pair(runtime, reading, 'decision.py', 'allowed') for reading in readings]
+    assert all(comparable(*pair) for pair in pairs) and not recorded_changes(root, runtime, readings), pairs
 
 
-def test_external_helper_replays_as_the_same_object_without_guessing_or_archiving(tmp_path, monkeypatch):
+def test_external_helper_is_not_compared_and_no_old_version_is_guessed_or_archived(tmp_path, monkeypatch):
     from types import ModuleType
     dependency = ModuleType('unknown_external_dependency')
     dependency.calculate = lambda active: active
@@ -239,21 +243,24 @@ def test_external_helper_replays_as_the_same_object_without_guessing_or_archivin
     root = tmp_path/'project'
     source = 'import unknown_external_dependency\ndef allowed(active: bool):\n    return unknown_external_dependency.calculate(active)\n'
     repository(root, source)
-    runtime, reading = historical(root, {'active': [False, True]})
-    # The external helper is the same object for the current and the baseline code, so its replay under
-    # the guard compares nothing it cannot see; no old version of it is guessed or archived.
-    assert reading.status == 'ok' and reading.rows and not reading.changed
+    runtime, readings = historical(root, [{'active': False}, {'active': True}])
+    # The sealed environment has no project or external module: the call is recorded, its comparison is
+    # unavailable with the name it needs, and no old version of the helper is guessed or archived.
+    assert [reading.json_result for reading in readings] == [False, True]
+    for reading in readings:
+        old, new = sealed_pair(runtime, reading, 'decision.py', 'allowed')
+        assert not comparable(old, new) and old == new == dict(status='unavailable', reason='uses attribute calculate')
     assert 'unknown_external_dependency' not in str(runtime.patches)
 
 
-def test_runtime_replays_old_and_current_helper_bodies_in_the_same_real_module(tmp_path):
+def test_sealed_comparison_runs_old_and_current_same_file_helper_bodies(tmp_path):
     root = tmp_path/'project'
     source = 'def helper(active: bool) -> bool:\n    return active\ndef allowed(active: bool) -> bool:\n    return helper(active)\n'
     repository(root, source)
     (root/'decision.py').write_text(source.replace('return active', 'return not active', 1))
-    runtime, reading = historical(root, {'active': [False, True]})
-    assert reading.status == reading.comparison_status == 'ok' and len(reading.changed) == 2
-    assert all(old is not new for inputs, old, new in reading.changed)
+    runtime, readings = historical(root, [{'active': False}, {'active': True}])
+    assert [reading.json_result for reading in readings] == [True, False]       # the current helper ran for real
+    assert recorded_changes(root, runtime, readings) == [({'active': False}, False, True), ({'active': True}, True, False)]
 
 
 def test_same_present_anchors_compare_through_the_same_executor(tmp_path):
@@ -270,7 +277,7 @@ def test_same_name_copies_compare_actual_callables_without_any_intent_rule(tmp_p
     assert report['status'] == 'red' and report['selected'] == 1, report
     assert report['changed'] == 1 and report['total'] == 3
     assert report['changes'][0]['witness'] == {'days': '4'}
-    assert 'decision:allowed ↔ decision:copy' in D.render(report)
+    assert 'decision:allowed <-> decision:copy' in D.render(report)
 
 
 def test_differently_named_sensors_keep_separate_identity_until_an_explicit_comparison(tmp_path):
@@ -279,8 +286,8 @@ def test_differently_named_sensors_keep_separate_identity_until_an_explicit_comp
     index = D._source_index(root)
     assert set(index.by_name) == {'grace', 'different'}
     assert not index.issues
-    runtime, reading = historical(root, {'days': [0, 4]})
-    assert reading.comparison_status == 'ok' and not reading.changed
+    runtime, readings = historical(root, [{'days': 0}, {'days': 4}])
+    assert not recorded_changes(root, runtime, readings)
     explicit = D.compare(root, 'grace', 'different')
     assert explicit['status'] == 'red' and explicit['changed'] == 1, explicit
 
@@ -312,9 +319,12 @@ def test_missing_old_function_is_not_reported_as_verified_zero_changes(tmp_path)
     root = tmp_path/'project'
     repository(root, 'def ordinary(): return True\n')
     (root/'decision.py').write_text(GRACE)
-    runtime, reading = historical(root, {'days': [0, 4]})
-    assert reading.status == 'ok' and reading.rows
-    assert reading.comparison_status == 'grey' and reading.comparison_reasons and not reading.changed
+    runtime, readings = historical(root, [{'days': 0}, {'days': 4}])
+    assert [reading.json_result for reading in readings] == [True, False]
+    for reading in readings:
+        old, new = sealed_pair(runtime, reading, 'decision.py', 'allowed')
+        assert old['status'] == 'unavailable' and old['reason'] and new['status'] == 'ok', (old, new)
+    assert not recorded_changes(root, runtime, readings)
 
 
 def test_moving_and_renaming_has_current_readings_but_no_invented_historical_pair(tmp_path):
@@ -322,10 +332,12 @@ def test_moving_and_renaming_has_current_readings_but_no_invented_historical_pai
     repository(root, GRACE)
     (root/'decision.py').unlink()
     (root/'moved.py').write_text(GRACE.replace('def allowed', 'def permitted'))
-    runtime, reading = historical(root, {'days': [0, 4]}, file='moved.py', qual='permitted')
-    assert reading.status == 'ok' and reading.rows
-    assert reading.comparison_status == 'grey' and reading.comparison_reasons
-    assert not reading.changed
+    runtime, readings = historical(root, [{'days': 0}, {'days': 4}], file='moved.py', qual='permitted')
+    assert [reading.json_result for reading in readings] == [True, False]
+    for reading in readings:
+        old, new = sealed_pair(runtime, reading, 'moved.py', 'permitted')
+        assert old == dict(status='unavailable', reason='no baseline source') and new['status'] == 'ok', (old, new)
+    assert not recorded_changes(root, runtime, readings, file='moved.py', qual='permitted')
 
 
 def test_foreign_project_named_flowguard_cannot_replace_the_active_sdk_or_claim_green(tmp_path):
@@ -347,12 +359,12 @@ def test_actual_raised_message_change_uses_the_native_outcome_identity(tmp_path)
     source = "def allowed(active: bool) -> bool:\n    if active:\n        raise ValueError('before')\n    return False\n"
     repository(root, source)
     (root/'decision.py').write_text(source.replace("'before'", "'after'"))
-    runtime, reading = historical(root, {'active': [False, True]})
-    assert reading.comparison_status == 'ok' and len(reading.changed) == 1
-    _, old, new = reading.changed[0]
-    assert isinstance(old, C.Raised) and isinstance(new, C.Raised)
-    assert type(old.error) is type(new.error) is ValueError
-    assert str(old.error) == 'before' and str(new.error) == 'after'
+    runtime, readings = historical(root, [{'active': False}, {'active': True}], raises={1})
+    assert readings[1].actual[1].error.args == ('after',)                       # the real call raised natively
+    (inputs, old, new), = recorded_changes(root, runtime, readings)
+    assert inputs == {'active': True}
+    assert old == dict(status='raised', error=dict(type='ValueError', message='before'))
+    assert new == dict(status='raised', error=dict(type='ValueError', message='after'))
 
 
 def test_current_context_comparison_does_not_invent_an_independent_test_session(tmp_path, monkeypatch):
@@ -362,7 +374,8 @@ def test_current_context_comparison_does_not_invent_an_independent_test_session(
     repository(root, source+source.replace('sensor grace', 'sensor copy').replace('def allowed', 'def copy'))
     def forbidden(*args, **kwargs):
         raise AssertionError('debug comparison cannot create a fresh or nested test session')
-    monkeypatch.setattr(Runtime, 'replay', forbidden)
+    monkeypatch.setattr(pytest, 'main', forbidden)
+    assert not hasattr(Runtime, 'replay')           # no test is run again anywhere (design 4.5, 8)
     report = D.compare(root, 'grace', 'copy')
     assert report['status'] == 'grey' and not report['complete'], report
     assert 'same actual call context' in ' '.join(report['reasons'])
@@ -383,13 +396,14 @@ def test_runtime_git_blob_reads_never_export_unrelated_data_or_archive_the_tree(
         assert 'archive' not in args and not any('original-observations.bin' in str(arg) for arg in args)
         return original(path, *args, **kwargs)
     monkeypatch.setattr(common, 'git_run', record)
-    runtime, reading = historical(root, {'days': [0, 4, 8]})
-    assert reading.comparison_status == 'ok' and len(reading.changed) == 1
+    runtime, readings = historical(root, [{'days': 0}, {'days': 4}, {'days': 8}])
+    assert recorded_changes(root, runtime, readings) == [({'days': 4}, False, True)]
     assert calls and set(runtime._sources) == {'decision.py'}
     assert sum(len(text) for text in runtime._sources.values() if text) < 20_000
 
 
-def historical(root, axes, *, file='decision.py', qual='allowed'):
+def historical(root, calls, *, file='decision.py', qual='allowed', raises=()):
+    """The real calls, each recorded by the hook; the calls numbered in `raises` raise ValueError natively."""
     import importlib.util
     from flowguard.intent.runtime import Runtime
     name = 'r19_difference_' + str(abs(hash(str(root))))
@@ -400,24 +414,38 @@ def historical(root, axes, *, file='decision.py', qual='allowed'):
     fn = getattr(module, qual)
     runtime = Runtime(root)
     try:
-        with runtime.hook(fn, axes=axes):
-            fn(**{name: list(values)[0] for name, values in axes.items()})
-        assert runtime.readings
-        return runtime, runtime.readings[0]
+        with runtime.hook(fn):
+            for number, kwargs in enumerate(calls):
+                if number in raises:
+                    with pytest.raises(ValueError):
+                        fn(**kwargs)
+                else:
+                    fn(**kwargs)
+        assert len(runtime.readings) == len(calls)
+        return runtime, runtime.readings
     finally:
         sys.modules.pop(name, None)  # This test-only import is not a verified application import.
 
 
+def recorded_changes(root, runtime, readings, *, file='decision.py', qual='allowed'):
+    """(inputs, baseline, current) of each recorded call whose sealed outcome differs, in call order."""
+    changes = []
+    for reading in readings:
+        old, new = sealed_pair(runtime, reading, file, qual)
+        if differs(old, new):
+            changes.append((reading.sample['inputs'], value(old), value(new)))
+    return changes
 
-def historical_result(reading, partition):
+
+def historical_result(root, runtime, readings, partition):
     from flowguard.intent.anchors import Observation
     before, after = [], []
     for region in partition.regions:
-        row = next(value for inputs, value in reading.rows if inputs == region.inputs)
-        changed = next((old for inputs, old, now in reading.changed if inputs == region.inputs), row)
-        after.append(Observation('ok', row))
-        before.append(Observation(reading.comparison_status, changed, tuple(reading.comparison_reasons)))
-    return D._result(reading.name, partition, before, after)
+        reading = next(reading for reading in readings if reading.sample['inputs'] == region.inputs)
+        old, new = sealed_pair(runtime, reading, 'decision.py', 'allowed')
+        after.append(Observation('ok', value(new)))
+        before.append(Observation('ok' if comparable(old, new) else 'grey', value(old)))
+    return D._result(readings[0].name, partition, before, after)
 
 
 def test_current_short_and_full_same_name_comments_share_one_actual_domain(tmp_path):
@@ -427,7 +455,7 @@ def test_current_short_and_full_same_name_comments_share_one_actual_domain(tmp_p
     report = D.compare(root, 'decision:allowed', 'decision:copy')
     assert report['status'] == 'red' and report['complete'], report
     assert report['total'] == 3 and report['changed'] == 1
-    assert report['changes'][0]['region'] == 'days=4–7'
+    assert report['changes'][0]['region'] == 'days=4..7'
 
 
 def test_current_exception_message_difference_uses_real_native_outcomes(tmp_path):

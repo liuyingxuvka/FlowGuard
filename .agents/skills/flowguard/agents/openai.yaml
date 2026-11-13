@@ -2,12 +2,14 @@ interface:
   display_name: "FlowGuard"
   short_description: "Keep a project consistent while an AI changes it"
   default_prompt: >-
-    Use $flowguard: start each task with `python -m flowguard new-task`, then run the
-    ordinary tests and read its block: red, then changes, leads and
-    unverified. Every red and lead ends with the next step; do it, and tell the owner when it
-    says so. No source change stays quiet unless a constraint fails. Find existing owners with
-    `python -m flowguard show "what it decides"`; mark one owner and its same-name copies.
-    Write the owner's lasting rules independently in tests/intent with their original words as
-    the source. When review finds a problem, register it in the same change so FlowGuard keeps it
-    from regressing. Do not model the development task. Grey is unverified, not success. Report
-    actual results.
+    Use $flowguard: start with `python -m flowguard new-task`, then run the project's
+    ordinary tests and read the FlowGuard block. A red line means your change broke a
+    recorded agreement: fix the code. Follow each other line's step after `->` and tell
+    the owner when it says `ask owner`. Inspect agreements with
+    `python -m flowguard show "what it decides"`; mark necessary same-name copies with
+    `same NAME`, adding `ref` to the chosen reference. Use `together` for paired fields
+    and `writers` for allowed functions. Write the owner's lasting rules independently
+    in tests/intent, citing actual words or an exact document sentence. Register useful
+    agreements in the same change that discovers them. Do not model the development task.
+    `not compared` is unverified, not success. No source change stays quiet unless a constraint fails.
+    Report actual commands and results.

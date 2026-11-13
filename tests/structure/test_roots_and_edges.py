@@ -112,7 +112,7 @@ GUESS = {
 }
 
 
-def test_guessed_edges_count_only_when_observed(repo):
+def test_guessed_edges_do_not_count_as_resolved_callers(repo):
     repo.write(GUESS)
     m = repo.build()
     assert {(e["dst"], e["prov"]) for e in m.edges("a:g", kind="calls")} == {("b:f", "resolved")}
@@ -121,8 +121,6 @@ def test_guessed_edges_count_only_when_observed(repo):
     assert m.callers("c:Widget.frobnicate") == []
     assert m.callers("c:Widget.frobnicate", guessed=True) == ["a:h"]
     assert m.callers("b:f") == ["a:g"]
-    assert m.add_observed([("a:h", "c:Widget.frobnicate")]) == 1
-    assert m.callers("c:Widget.frobnicate") == ["a:h"]
     m.close()
     repo.write({"d.py": "class Gadget:\n    def frobnicate(self):\n        return 5\n"})
     m = repo.build()

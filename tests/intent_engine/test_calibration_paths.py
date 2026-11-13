@@ -47,28 +47,3 @@ def test_repeated_native_replays_preserve_paths_without_collecting_again(tmp_pat
         assert sys.path.count(duplicate) == 2
         assert 'native-fixture-only-path' not in sys.path
 
-
-@pytest.mark.parametrize('error', [RuntimeError('broken protocol'), KeyboardInterrupt()])
-def test_protocol_exception_restores_private_scope_and_reporter_registration(tmp_path, monkeypatch, request, error):
-    from _pytest import runner
-    anchor = native_project(tmp_path)
-    scope, item = bind_anchor(tmp_path, anchor)
-    path, entries = sys.path, sys.path[:]
-    inserted = config._INSERTED_PATHS.copy()
-    private = _PRIVATE.get()
-    plugins = tuple(request.config.pluginmanager.list_name_plugin())
-    current = calibration._CURRENT.get()
-    actual = runner.runtestprotocol
-    def broken_protocol(*args, **kwargs):
-        raise error
-    monkeypatch.setattr(runner, 'runtestprotocol', broken_protocol)
-    with pytest.raises(type(error), match=str(error) or '^$'):
-        scope.runtime.replay(item, nextitem=scope.nextitem)
-    assert _PRIVATE.get() is private
-    assert calibration._CURRENT.get() is current
-    assert tuple(request.config.pluginmanager.list_name_plugin()) == plugins
-    assert sys.path is path and sys.path == entries
-    assert config._INSERTED_PATHS == inserted
-    monkeypatch.setattr(runner, 'runtestprotocol', actual)
-    replay = scope.runtime.replay(item, nextitem=scope.nextitem)
-    assert replay['status'] == 'ok' and all(report.passed for report in replay['reports'])

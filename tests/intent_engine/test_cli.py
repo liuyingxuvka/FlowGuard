@@ -37,10 +37,13 @@ def test_a_fresh_screen_lists_rules_without_executing_them(tmp_path, capsys):
     root, cfg = project(tmp_path)
     path = cfg.intent / 'policy.py'
     path.write_text('raise RuntimeError("screen must not execute this")\n' + path.read_text())
+    (root / '.flowguard').mkdir()
+    (root / '.flowguard/rules.toml').write_text('[rule.three-days]\ntext = "A loan lasts at most three days."\n'
+                                                'source = \'doc policy.txt "At most three days."\'\n', encoding='utf-8')
     assert cli.screen(cfg) == 0
     text = capsys.readouterr().out
-    assert 'LIMIT' in text and 'no results yet' in text
-    assert len(text.splitlines()) <= 40
+    # The rules in force are those of rules.toml (design 4.4); the intent rule that checks one is not listed.
+    assert text.splitlines()[1:] == ['rule.three-days: A loan lasts at most three days.'], text
 
 
 def test_no_rules_is_one_quiet_line_without_building_a_map(tmp_path, capsys, monkeypatch):
@@ -62,14 +65,21 @@ cli.build = unused_map
 
 
 def test_output_limit_keeps_whole_decisive_red_lines_and_counts_the_rest(tmp_path):
+    # check's block: a rule with fifty reds is one red line, its first red whole and the others counted; every one of
+    # them is the line's detail (show --last).
+    from flowguard.intent import signals
+    from flowguard.intent.loader import load
     _, cfg = project(tmp_path)
     data = cache.read(cfg)
-    expected = 'LIMIT exact values: rule True, code False -> correct the home'
+    expected = 'exact values days=4 -> rule False, code True; case '
     data['results'] = {'LIMIT': {'items': {'one': dict(verdict='red', red=[expected + str(n) for n in range(50)], grey=[], info=[])}}}
-    output = cli.render(cfg, data, check=True)
-    assert len(output) <= 20
-    assert expected + '0' in output[2]
-    assert 'more lines' in output[-1] and 'red' in output[-1]
+    issues, lines = cli._cache_findings(cfg, load(cfg), data)
+    found, ignored = signals.collect([signals.delivery(issues, lines)])
+    output = signals.render_block(found, title='FlowGuard').splitlines()
+    # the line's one ` -> ` comes before its step: the engine's `days=4 -> rule False` reads `days=4: rule False`
+    shown = 'exact values days=4: rule False, code True; case '
+    assert output[1:] == [f'red: rule LIMIT: {shown}0 (+49 more) -> change the code so {cfg.root.name}.py:accept follows rule LIMIT'], output
+    assert [shown + str(n) for n in range(1, 50)] == list(found[0].detail[:49]) and ignored == 0, found
 
 
 def test_every_command_has_a_description_in_the_help(capsys, monkeypatch):
@@ -81,9 +91,45 @@ def test_every_command_has_a_description_in_the_help(capsys, monkeypatch):
     text = capsys.readouterr().out
     assert stopped.value.code == 0
     commands = re.search(r'^  \{([\w,-]+)\}$', text, re.M)[1].split(',')
-    assert len(commands) == 11 and {'check', 'show', 'init', 'req'} <= set(commands), text
+    assert set(commands) == {'new-task', 'check', 'show', 'req', 'ledger', 'init'}, text
     for command in commands:
         assert re.search(rf'^    {re.escape(command)} +\w', text, re.M), (command, text)
+
+
+@pytest.mark.parametrize('command', ['anchor', 'model', 'try', 'watch', 'compare'])
+def test_deprecated_commands_stay_callable_but_out_of_the_top_level_help(command, capsys):
+    with pytest.raises(SystemExit) as stopped:
+        cli.main([command, '--help'])
+    text = capsys.readouterr()
+    assert stopped.value.code == 0
+    assert 'usage: flowguard ' + command in text.out
+    assert 'deprecated:' in text.err and '5.0' in text.err
+
+
+@pytest.mark.parametrize('command', ['status', 'where'])
+def test_old_project_commands_only_point_to_the_current_task_entry(command, capsys):
+    assert cli.main([command]) == 0
+    assert capsys.readouterr().out == 'this is a FlowGuard 0.7x command; here run python -m flowguard new-task\n'
+
+
+def test_full_check_assembles_static_findings_once_across_pytest_and_cli(tmp_path):
+    _, cfg = project(tmp_path)
+    cli.init(cfg)
+    assert cli_fixture.check(cfg, everything=True, before_main='''
+from flowguard.intent import owners
+_static = owners.static_findings
+_calls = []
+def counted(*args, **kwargs):
+    _calls.append(1)
+    return _static(*args, **kwargs)
+owners.static_findings = counted
+_main = cli.main
+def checked_main(*args, **kwargs):
+    result = _main(*args, **kwargs)
+    assert len(_calls) == 1, f'static findings computed {len(_calls)} times'
+    return result
+cli.main = checked_main
+''') == 0
 
 
 def test_init_is_idempotent_and_merges_existing_plugin_and_project_rules(tmp_path, capsys):
@@ -303,7 +349,7 @@ def test_init_can_extend_a_final_pytest_table_without_a_trailing_newline(tmp_pat
     assert path.read_bytes() == first
 
 
-REQ_ADD = '    需求确实变了：先用 python -m flowguard req add 存下新的原话，再改规则 tests/intent/policy.py:2'
+REQ_ADD = '    if requirements changed, first store the new owner words with python -m flowguard req add, then update rule tests/intent/policy.py:2'
 LONGER = """@rule('LONGER',decides='acceptance',fields={'days':int},source='doc policy.txt "At most three days."')
 def LONGER(days):
     return days <= 4
@@ -338,31 +384,71 @@ def test_a_violated_rule_has_the_next_step_of_its_kind_in_pytest_and_every_check
         policy.write_text(policy.read_text() + FOURTH)
         code = root / (root.name + '.py')
         code.write_text(code.read_text().replace('return days <= 3', 'return days <= 3 or days == 4'))
-    steps = {'code': [f'    改代码，让 {root.name}.py:2 符合规则 LIMIT；', REQ_ADD],
-             'own row': ['    改回归行或规则 tests/intent/policy.py:2，让规则和它的回归行一致；', REQ_ADD],
-             'conflict': ['    规则 LIMIT 和 LONGER 冲突，两条定一条：要问主人；',
-                          '    主人定了：先用 python -m flowguard req add 存下主人的原话，再改规则 tests/intent/policy.py:2'],
-             'gap': ['    补规则或回归行 tests/intent/policy.py:2，让没有规则判定的格也有判定；', REQ_ADD],
-             'decision of': ['    改回归行或规则 tests/intent/policy.py:2，让规则和它的回归行一致；', REQ_ADD]}[kind]
+    # pytest and every check print the 4.3 block: one red line for the rule, its first step after ' -> ', every step
+    # in its detail (show --last).
+    steps = {'code': [f'change the code so {root.name}.py:accept follows rule LIMIT', REQ_ADD.strip()],
+             'own row': ['correct regression rows or rule tests/intent/policy.py:2 so the rule and its regression rows agree', REQ_ADD.strip()],
+             'conflict': ['rules LIMIT and LONGER conflict; choose one by asking the owner',
+                          'when the owner decides, first store the exact owner words with python -m flowguard req add, then update rule tests/intent/policy.py:2'],
+             'gap': ['add rules or regression rows at tests/intent/policy.py:2 so undecided cells have a rule result', REQ_ADD.strip()],
+             'decision of': ['correct regression rows or rule tests/intent/policy.py:2 so the rule and its regression rows agree', REQ_ADD.strip()]}[kind]
     cli.init(cfg)
     capsys.readouterr()
-    def block(text):
-        lines = cli_fixture.display_text(text).splitlines()    # a console that cannot encode Chinese shows \uXXXX
-        red = [index for index, line in enumerate(lines) if line.startswith('红：LIMIT：')]
-        assert len(red) == 1 and 'show the rule' not in text and 'correct its source' not in text, text
-        return lines[red[0]], lines[red[0] + 1:red[0] + 3]
+    def detail(root):
+        shown = cli_fixture.last(root).splitlines()
+        full = next(line for line in shown if line.startswith('red: rule LIMIT: '))
+        after = shown[shown.index(full) + 1:]
+        assert ['    ' + step for step in steps] in [after[index:index + 2] for index in range(len(after))], shown
+        return full
     bootstrap = 'import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; raise SystemExit(pytest.main(sys.argv[1:]))'
     ran = subprocess.run([sys.executable, '-c', bootstrap, cli_fixture.SOURCE, '-q'], cwd=root, capture_output=True, text=True, timeout=120)
     assert ran.returncode == 1, ran.stdout + ran.stderr
-    line, after = block(ran.stdout)
-    assert after == steps, cli_fixture.display_text(ran.stdout)
+    every = [line for line in cli_fixture.block(ran) if line.startswith('red: ')]
+    reds = [line for line in every if line.startswith('red: rule LIMIT: ')]
+    assert len(reds) == 1 and 'show the rule' not in ran.stdout and 'correct its source' not in ran.stdout, ran.stdout
+    assert reds[0].endswith(' -> ' + steps[0].replace('tests/intent/policy.py', 'policy.py')), reds
+    full = detail(root)
     assert kind not in ('gap', 'decision of') or ('gap in acceptance (total=True)' if kind == 'gap' else
-                                                  'the decision of an overriding rule is T') in line, line
+                                                  'the decision of an overriding rule is T') in full, full
     for run in ('check reuses the result pytest saved', 'check again', 'check --all reruns the rule'):
         assert cli_fixture.check(cfg, everything=run.startswith('check --all')) == 1
         text = capsys.readouterr().out
-        assert block(text)[1] == steps, (run, text)
-    assert block(text)[0] == line, text            # pytest's finding, once, without a second step on it
+        # pytest's finding, once, in pytest's words and with its step, whether check reused the result or reran it;
+        # --all cuts no line (its middle stays where pytest's 200 characters left `...`)
+        shown = [line for line in cli_fixture.block(text) if line.startswith('red: ')]
+        if run.startswith('check --all'):
+            assert len(shown) == len(every) and all(line.startswith(cut.split('...')[0]) and line.endswith(cut.split('...')[-1])
+                                                    for line, cut in zip(shown, every)), (run, text)
+        else:
+            assert shown == every, (run, text)
+        assert 'show the rule' not in text and 'correct its source' not in text, (run, text)
+        assert detail(root) == full, run
+        # check keeps its own lines for show --last, which names the run and prints the first line check printed
+        shown = cli_fixture.last(root).splitlines()
+        assert shown[0].startswith('FlowGuard last run: check at ') and shown[1] == cli_fixture.block(text)[0], (run, shown)
+
+
+def test_check_says_known_fixed_for_a_rule_whose_results_pass_also_when_it_reuses_them(tmp_path, capsys, monkeypatch):
+    # A known entry names a rule's red, and the rule now passes: the entry may be fixed. check says so where its pytest
+    # batch ran the rule and where it reused the results pytest saved, as a pytest session judges them (`ran`).
+    import subprocess
+    root, cfg = project(tmp_path)
+    (root / '.gitignore').write_text('.flowguard/cache/\n__pycache__/\n.pytest_cache/\n')
+    (root / '.flowguard').mkdir()
+    (root / '.flowguard/known.toml').write_text(f'[known.limit]\nsites = ["{root.name}.py:accept"]\nwhy = "accept took a fourth day"\n'
+                                                'act = "leave"\nfinding = "rule:LIMIT"\n')
+    cli.init(cfg)
+    for command in (['init', '-q', '-b', 'main'], ['add', '.'],
+                    ['-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'base']):
+        subprocess.run(['git', '-C', str(root), *command], check=True, capture_output=True)
+    capsys.readouterr()
+    observed = cli_fixture.calls(monkeypatch)
+    for batch in (True, False):         # the batch runs the rule; the next check, with nothing changed, reuses it
+        assert cli_fixture.check(cfg) == 0
+        text = capsys.readouterr().out
+        assert bool(observed) is batch and cli_fixture.block(text)[1:] == [
+            'known fixed?: known.limit: rule:LIMIT no longer found -> the owner deferred it: revert, or say why in your report'], text
+        observed.clear()
 
 
 def test_a_red_that_is_no_rule_keeps_a_next_step_in_pytest_and_check(tmp_path, capsys):
@@ -396,7 +482,7 @@ def test_check_uses_real_pytest_items_and_finds_the_regression(tmp_path, capsys)
     capsys.readouterr()
     assert cli_fixture.check(cfg) == 1
     text = capsys.readouterr().out
-    assert 'LIMIT' in text and 'rule F, code True' in text
+    assert 'LIMIT' in text and 'rule False, code True' in text
     assert len(text.splitlines()) <= 20
     stored = cache.read(cfg)
     assert stored['attempt']['sentinel'] == 'ok'
@@ -421,7 +507,7 @@ def test_a_skipped_declaration_is_a_visible_load_failure(tmp_path, capsys):
     assert cli_fixture.check(cfg) == 1
     assert 'Skipped' in capsys.readouterr().out
     assert cli.screen(cfg) == 0  # A screen reports cached facts; check owns execution status.
-    assert 'last check load' in capsys.readouterr().out
+    assert capsys.readouterr().out.splitlines()[-1] == '1 still red: python -m flowguard show --last'
 
 
 def test_show_short_function_name_is_an_exact_owner_candidate(tmp_path, capsys):

@@ -41,7 +41,9 @@ def test_unchanged_check_runs_zero_rules_and_preserves_a_cached_red(tmp_path, mo
     assert after['attempt'] == before['attempt'], 'reuse must not manufacture a new complete run'
     text = capsys.readouterr().out
     assert len(text.splitlines()) <= 10
-    assert '红：LIMIT' in cli_fixture.display_text(text) if wrong else text == ''
+    # the reused red keeps its line; green, the first line alone
+    reds = [line for line in cli_fixture.block(text)[1:] if line.startswith('red: rule LIMIT: ')]
+    assert len(reds) == 1 if wrong else cli_fixture.block(text)[1:] == [], text
 
 
 def test_since_selects_real_git_changes_even_after_current_cache_is_fresh(tmp_path, monkeypatch, capsys):
@@ -89,7 +91,9 @@ def test_partial_ordinary_pytest_preserves_complete_collection_without_false_red
     data = cache.read(cfg)
     assert data['attempt']['sentinel'] is None and data['attempt']['collected'] == 0
     assert data['collection'] == before
-    assert not any('red collection' in line for line in cli.render(cfg, data))
+    from flowguard.intent.loader import load
+    issues, lines = cli._cache_findings(cfg, load(cfg), data)
+    assert not [issue for issue in issues if issue.name == 'collection:intent'], issues
 
 
 @pytest.mark.parametrize('parameter_id', [None, 'a::b'])
@@ -320,6 +324,33 @@ def test_changed_dependency_rechecks_the_parent_in_one_real_pytest_session(tmp_p
     rejected = list(broken['results']['STANDING_CHECKOUT']['items'].values())
     assert rejected and rejected[0]['verdict'] == 'red'
     assert any('runtime path case -> checkout is not allowed' in reason for reason in rejected[0]['red'])
+
+def test_the_scenario_test_body_runs_once_while_sealed_points_complete_its_flow(tmp_path, monkeypatch, capsys):
+    # Design 4.5, 8: the lower contracts' other inputs are the scenario test's recorded calls evaluated sealed.
+    # The test body itself runs exactly as often as pytest runs it: once in the one real pytest session.
+    from test_composition import project as composed, git as commit
+    model, _, _ = composed(tmp_path)
+    cfg = model.cfg
+    case = cfg.root / 'tests/test_case.py'
+    first = '    app.refusal(ended,suspended,owed)\n'
+    case.write_text(case.read_text().replace(first, "    with open(__file__ + '.runs', 'a') as log:\n"
+                                                    "        log.write('run\\n')\n" + first, 1))
+    commit(cfg.root, 'add', 'tests/test_case.py')
+    commit(cfg.root, 'commit', '-qm', 'Count the scenario test body')
+    cli.init(cfg)
+    observed = calls(monkeypatch)
+    assert cli_fixture.check(cfg) == 0
+    capsys.readouterr()
+    assert len(observed) == 1
+    assert (cfg.root / 'tests/test_case.py.runs').read_text() == 'run\n'
+    results = cache.read(cfg)['results']
+    flows = list(results['STANDING_CHECKOUT']['items'].values())
+    assert len(flows) == 1 and flows[0]['verdict'] == 'ok', flows
+    for rule in ('STANDING', 'CHECKOUT'):
+        items = results[rule]['items'].values()
+        assert items and all(part['verdict'] == 'ok' for part in items), (rule, items)
+        assert any(part.get('own_contract', {}).get('complete') for part in items), (rule, items)
+
 
 def test_states_are_rechecked_even_without_any_decision_rules(tmp_path):
     root, cfg = project(tmp_path)

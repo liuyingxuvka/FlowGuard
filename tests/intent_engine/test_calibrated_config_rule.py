@@ -1,9 +1,10 @@
-"""A calibrated sensor that reads a configuration file keeps the 3.0.1 red.
+"""A calibrated sensor that reads a configuration file is unverified, never passed.
 
 The fixture is the round-19 demo's LATE_FEE/FEE pair: the anchor uses the old
-``calibrated_by`` form and its function reads ``fees.json``. Changing the
-configured daily fee (and the project's own test with it) must make ordinary
-pytest fail on the rule, not leave the rule grey and report it as passed.
+``calibrated_by`` form and its function reads ``fees.json``. Calibrated points run
+in the sealed environment (design 4.5), which has no files: the rule's items on
+the anchor stay unverified with the reason, and are never reported as passed. A
+plain sensor's own real call is still checked against its rule (last test).
 """
 from pathlib import Path
 import json
@@ -13,7 +14,7 @@ import sys
 import textwrap
 
 from flowguard.intent import anchors, calibration
-from tests.intent_engine._cli_fixture import display_text
+from tests.intent_engine._cli_fixture import display_text, last
 from tests.intent_engine._protocol_controls import bind_anchor
 from tests.intent_engine._source_fixture import source_sessions  # noqa: F401 (fixture)
 
@@ -79,50 +80,48 @@ def _pytest(root):
                           cwd=root, capture_output=True, text=True, timeout=120)
 
 
-def _verdicts(root):
+CELLS, ROWS = 'tests/intent/fees.py::FEE[shop.fees.late_fee:cells]', 'tests/intent/fees.py::FEE[shop.fees.late_fee:rows]'
+
+
+def _sealed_grey(root):
     with sqlite3.connect(root / '.flowguard/cache/map.sqlite') as con:
-        return {item: json.loads(payload)['verdict'] for item, payload in
-                con.execute("SELECT item, payload FROM result WHERE rule='FEE'")}
+        results = {item: json.loads(payload) for item, payload in
+                   con.execute("SELECT item, payload FROM result WHERE rule='FEE'")}
+    for item in (CELLS, ROWS):
+        assert results[item]['verdict'] == 'grey', results
+        assert any('uses attribute loads' in reason for reason in results[item]['grey']), results[item]
 
 
-def test_config_file_fee_change_fails_ordinary_pytest_on_the_rule(tmp_path):
+def test_config_file_fee_change_leaves_the_calibrated_rule_unverified_not_passed(tmp_path):
     root = _demo(tmp_path / 'demo')
     first = _pytest(root)
-    assert first.returncode == 0, first.stdout + first.stderr
-    cells, rows = 'tests/intent/fees.py::FEE[shop.fees.late_fee:cells]', 'tests/intent/fees.py::FEE[shop.fees.late_fee:rows]'
-    before = _verdicts(root)
-    assert before[cells] != 'red' and before[rows] == 'ok', before
+    assert first.returncode == 0 and '2 passed, 3 unverified' in first.stdout, first.stdout + first.stderr
+    _sealed_grey(root)
     # The demo change: the configured fee and the project's own test move together.
     (root / 'shop/fees.json').write_text('{"free_days": 2, "per_day": 4}\n')
     test = root / 'tests/test_fees.py'
     test.write_text(test.read_text().replace('== 9', '== 12'))
     changed = _pytest(root)
     text = display_text(changed)
-    assert changed.returncode == 1, text
-    assert '2 failed' in text, text
-    assert 'FAILED ' + cells in text and 'FAILED ' + rows in text, text
+    # The sealed environment cannot read fees.json, so it claims neither red nor passed for the rule.
+    assert changed.returncode == 0 and '2 passed, 3 unverified' in text, text
     assert 'FAILED tests/test_fees.py' not in text, 'the project test was updated with the change'
-    assert 'smallest days=3 member=F -> rule 3, code 4' in text, text
-    after = _verdicts(root)
-    assert after[cells] == 'red' and after[rows] == 'red', after
-    assert 'FEE 出处：assumed: 3 per day after 2 free days, members half' in text, text
+    _sealed_grey(root)
     assert 'calibrated anchor must be prepared' not in text
 
 
-def test_failing_calibration_test_keeps_its_red_reason_in_ordinary_pytest(tmp_path):
+def test_failing_calibration_test_fails_the_run_and_the_rule_stays_unverified(tmp_path):
     root = _demo(tmp_path / 'demo')
     (root / 'shop/fees.json').write_text('{"free_days": 2, "per_day": 4}\n')
     result = _pytest(root)
     text = display_text(result)
-    assert result.returncode == 1, text
+    assert result.returncode == 1 and '1 failed, 1 passed, 3 unverified' in text, text
     assert 'FAILED tests/test_fees.py::test_fee' in text, text
-    verdicts = _verdicts(root)
-    assert verdicts['tests/intent/fees.py::FEE[shop.fees.late_fee:rows]'] == 'red', verdicts
-    assert 'real calibration test did not pass completely' in text, text
+    _sealed_grey(root)
     assert 'calibrated anchor must be prepared' not in text
 
 
-def test_calibrated_config_reader_uses_the_named_test_call_for_each_point(tmp_path):
+def test_calibrated_config_reader_points_run_sealed_and_never_read_the_file(tmp_path):
     (tmp_path / 'policy.py').write_text(textwrap.dedent('''
         import json
         from pathlib import Path
@@ -136,11 +135,12 @@ def test_calibrated_config_reader_uses_the_named_test_call_for_each_point(tmp_pa
     anchor = anchors.collect_sources(tmp_path, [('policy.py', 'policy')]).entries[0]
     scope, item = bind_anchor(tmp_path, anchor)
     readings = [calibration.execute(tmp_path, anchor, values) for values in ({}, {'x': 5}, {'x': 3})]
-    assert [reading.status for reading in readings] == ['ok', 'ok', 'ok'], readings
-    assert [reading.value for reading in readings] == [True, False, True]
-    # The requested point replaced the named test's own call; the test was not run again around it.
+    # No point reads limit.json in the sealed environment: each is unverified with the reason, no value.
+    assert [(reading.status, reading.value) for reading in readings] == [('grey', None)] * 3, readings
+    assert all(any('uses attribute loads' in reason for reason in reading.reasons) for reading in readings), readings
     (tmp_path / 'limit.json').write_text('{"limit": 9}\n')
-    assert calibration.execute(tmp_path, anchor, {'x': 5}).value is True
+    again = calibration.execute(tmp_path, anchor, {'x': 5})
+    assert again.status == 'grey' and again.value is None, again
 
 
 def test_real_call_of_a_config_reader_is_checked_against_its_rule(tmp_path):
@@ -180,6 +180,7 @@ def test_real_call_of_a_config_reader_is_checked_against_its_rule(tmp_path):
     changed = _pytest(root)
     text = display_text(changed)
     assert changed.returncode == 1, text
-    assert 'LIMIT: days=4 -> rule F, code True' in text, text
-    assert 'LIMIT 出处：At most three days.' in text, text
+    assert ('red: rule LIMIT: days=4: rule False, code True at policy.py:accept '
+            '-> change the code so policy.py:accept follows rule LIMIT') in text.splitlines(), text
+    assert '    LIMIT source: At most three days.' in last(root).splitlines(), text
     assert 'no verified current reading' not in text, text

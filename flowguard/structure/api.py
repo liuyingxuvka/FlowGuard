@@ -12,12 +12,13 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import posixpath
 import re
 import sqlite3
 from pathlib import Path
 
-from flowguard.map.common import MapError, cache_dir, git_blob, git_common_directory, git_run, glob_match, is_test_file
+from flowguard.map.common import MapError, cache_dir, git_blob, git_common_directory, git_path_object, git_run, glob_match, is_test_file, sha256_bytes
 from . import homes, store
 from .extract import extract
 from .store import shape_list
@@ -254,21 +255,25 @@ class MapHandle:
         envs = self.__dict__.setdefault('_value_envs', {})
         if module not in envs:
             envs[module] = {}
-            own = decide.own_env(self.con.execute("SELECT qual, sig FROM node WHERE module=? AND kind='const' ORDER BY line",
-                                                  (module,)).fetchall())
-            stored = self.con.execute('SELECT path FROM file WHERE module=? LIMIT 1', (module,)).fetchone()
-            stored = stored and self.con.execute("SELECT data FROM part WHERE kind='facts.imports' AND path=?", stored).fetchone()
-            imports = store.unpack(stored[0]) if stored else {}
-            def own_of(name):
-                return decide.own_env(self.con.execute("SELECT qual, sig FROM node WHERE module=? AND kind='const' ORDER BY line",
-                                                       (name,)).fetchall())
-            envs[module] = decide.module_env(own, imports, own_of)
+            envs[module] = decide.module_env(decide.own_env(self._const_rows(module)), self._module_imports(module),
+                                             lambda name: decide.own_env(self._const_rows(name)))
         return envs[module]
 
-    def _folded(self, row):
+    def _const_rows(self, module):
+        """(qual, sig) of the module's constants in line order, as `decide.own_env` folds them."""
+        return self.con.execute("SELECT qual, sig FROM node WHERE module=? AND kind='const' ORDER BY line", (module,)).fetchall()
+
+    def _module_imports(self, module):
+        """The `imports` of the module's Python facts ({} without them)."""
+        stored = self.con.execute('SELECT path FROM file WHERE module=? LIMIT 1', (module,)).fetchone()
+        stored = stored and self.con.execute("SELECT data FROM part WHERE kind='facts.imports' AND path=?", stored).fetchone()
+        return store.unpack(stored[0]) if stored else {}
+
+    def _folded(self, row, env_of=None):
+        """The row with the constant values its right side folds to; `env_of(module)` stands for `_value_env`."""
         if not row.get('expr') or row.get('literal') or '(' in row['expr'] and ' if ' not in row['expr']:
             return row                    # a call's result is not a constant this map can fold
-        values = _fold_values(row['expr'], self._value_env(row['node'].partition(':')[0]))
+        values = _fold_values(row['expr'], (env_of or self._value_env)(row['node'].partition(':')[0]))
         if values is None:
             return row
         return dict(row, values=values, **({'value': values[0]} if len(values) == 1 else {}))
@@ -281,13 +286,7 @@ class MapHandle:
         return self._derived['schema_rows']
 
     def _read_schema_rows(self):
-        from .readers.registry import SCHEMA_LANGUAGES, SUFFIXES
-        suffixes = [suffix for suffix, language in SUFFIXES.items() if language in SCHEMA_LANGUAGES]
-        rows = []
-        for path, _, facts in self._kinds('language', 'schema'):
-            if path.lower().endswith(tuple(suffixes)) and facts.get('language') in SCHEMA_LANGUAGES:
-                rows.append((path, facts.get('schema', {})))
-        return rows
+        return _schema_rows_of((path, facts) for path, _, facts in self._kinds('language', 'schema'))
 
     def schemas(self):
         """What every mapped Prisma schema (models, fields, @map, @@map, @relation) and SQL file
@@ -298,11 +297,16 @@ class MapHandle:
 
     def _models(self):
         if 'models' not in self._derived:
-            from .readers.prisma import Models
-            self._derived['models'] = Models([(path, schema) for path, schema in self._schema_rows() if schema.get('kind') == 'prisma'])
+            self._derived['models'] = _models_of(self._schema_rows())
         return self._derived['models']
 
-    def writes(self, target=None, *, language=None, by_name=False, facts=None, fold=True):
+    def definitions(self, replaced):
+        """The definitions values and models are read from (`writes(definitions=)`) when the files of `replaced`,
+        [(path, module, facts)], hold those facts instead of the map's ({} for a file absent there), such as their
+        facts at a baseline commit: every other file keeps the map's. Built as the map builds its own."""
+        return Definitions(self, replaced)
+
+    def writes(self, target=None, *, language=None, by_name=False, facts=None, fold=True, definitions=None):
         """Who writes what, statically: Prisma client writes bound to schema models (connect and nested
         writes follow @relation), SQL write statements (TS/JS raw SQL, .sql files and Python string literals,
         recorded for the function holding them), and Python attribute assignments bound to a class. A Python
@@ -311,26 +315,30 @@ class MapHandle:
         a model or table, or a bare field/column name; rows whose fields are not visible (spread,
         non-literal data) are kept for their model with `unclear=True`. `facts` reads these file facts
         (for example one file's facts at a baseline commit) instead of the map's; `fold=False` skips folding Python
-        right sides into `values` (who writes, not what). Never execution evidence."""
+        right sides into `values` (who writes, not what). `definitions` (`definitions()`) binds models, resolves JS/TS
+        set names and folds Python constants with other definitions than the map's, such as the baseline's.
+        Never execution evidence."""
         from .readers.prisma import bind, bind_sql
         from .readers.registry import ECMA, language_for
         self._mark_query('writes', language)
-        models = self._models()
+        models = self._models() if definitions is None else definitions.models
+        sets = None if definitions is None else definitions.sets
+        env_of = None if definitions is None else definitions.env
         rows = []
         if facts is None:
             listed = self._kinds('language', 'writes')
             if by_name or any(data.get('language', 'python') == 'python' for _, _, data in listed):
-                listed = self._kinds('language', 'writes', 'assignments')     # only these rows read assignments
+                listed = self.write_records()      # only these rows read assignments
             facts = [data for _, _, data in listed]
         for facts in list(facts):
             kind = facts.get('language', 'python')
             if language is not None and kind != language:
                 continue
             writes = facts.get('writes', [])
-            rows += [self._resolved(dict(row, language=kind)) for row in bind([w for w in writes if w.get('via') == 'prisma'], models)]
+            rows += [self._resolved(dict(row, language=kind), sets) for row in bind([w for w in writes if w.get('via') == 'prisma'], models)]
             rows += [dict(row, language=kind) for row in bind_sql([w for w in writes if w.get('via') == 'sql'], models)]
             for row in facts.get('assignments', []):
-                row = self._folded(row) if kind == 'python' and fold else row
+                row = self._folded(row, env_of) if kind == 'python' and fold else row
                 if kind in ECMA and row.get('form') == 'member' and by_name and row.get('field'):
                     rows.append(dict(node=row['node'], function=row['node'].partition(':')[2] or '<module>', file=row['file'],
                                      line=row['line'], column=row.get('column'), call_line=row['line'], how='name',
@@ -354,21 +362,164 @@ class MapHandle:
             rows = [row for row in rows if _writes_target(row, target, models)]
         return Rows(sorted(rows, key=lambda row: (row['file'], row['line'], row.get('column') or 0, str(row['field']))))
 
+    def write_records(self):
+        """(path, parse error, record) of every mapped file in path order, its record as `writes(facts=)` reads it: its
+        `language`, its `writes` and, as `assignments`, the assignment rows `writes` reads (the `assignments.writes`
+        part: none of a JS/TS file but its member assignments with a field)."""
+        return [(path, error, {('assignments' if kind == 'assignments.writes' else kind): value for kind, value in data.items()})
+                for path, error, data in self._kinds('language', 'writes', 'assignments.writes')]
+
+    def writes_to(self, rows, target):
+        """The rows of `writes()` that write `target`, in their order: what `writes(target)` gives when `rows` is
+        `writes()` with the same options, without reading every write again for each target."""
+        models = self._models()
+        return Rows(row for row in rows if _writes_target(row, target, models))
+
     def file_facts(self, path):
         """The whole stored fact record of one mapped file, or None when the file is not on the map."""
         row = self.con.execute('SELECT data FROM file WHERE path=?', (path,)).fetchone()
         return store.unpack(row[0]) if row else None
+
+    def _baseline_revision(self, revision):
+        """Pin a mutable Git name, while an already immutable commit is verified once."""
+        if revision == ':':
+            return revision
+        held = self._derived.setdefault('baseline_revisions', {})
+        if re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', revision) and revision in held:
+            return held[revision]
+        commit = git_run(self.root, 'rev-parse', '--verify', revision + '^{commit}').stdout.decode().strip()
+        held[commit] = commit
+        return commit
+
+    def _baseline_object(self, revision, path):
+        revision = self._baseline_revision(revision)
+        if revision == ':':
+            return git_path_object(self.root, revision, path)
+        trees = self._derived.setdefault('baseline_objects', {})
+        if revision not in trees:
+            listing = git_run(self.root, 'ls-tree', '-r', '-t', '-z', revision).stdout
+            objects = {}
+            for row in listing.split(b'\0'):
+                if row:
+                    description, _, name = row.partition(b'\t')
+                    objects[os.fsdecode(name)] = description.split()[2].decode()
+            trees[revision] = objects
+        return trees[revision].get(Path(path).as_posix())
+
+    def _baseline_bytes(self, revision, path):
+        blob = self._baseline_object(revision, path)
+        if blob is None:
+            return None
+        held = self._derived.setdefault('baseline_bytes', {})
+        if blob not in held:
+            held[blob] = git_run(self.root, 'cat-file', 'blob', blob).stdout
+        return held[blob]
+
+    def _baseline_facts(self, revision, path, module, is_test=False):
+        """Rebuildable source facts, shared by every baseline query of this map.
+
+        Git's immutable blob and the map reader/context signature own the key;
+        no comparison or verification result is stored. Existing transactions
+        keep ownership of their commit, including these disposable facts.
+        """
+        blob = self._baseline_object(revision, path)
+        if blob is None:
+            return {}
+        key = self._baseline_key(blob, path, module, is_test)
+        facts = self._derived.setdefault('baseline_facts', {})
+        if key not in facts:
+            row = self.con.execute('SELECT v FROM meta WHERE k=?', (key,)).fetchone()
+            if row is None:
+                data = self._baseline_bytes(revision, path)
+                packed = store.pack(extract(self.root, path, data, module, is_test))
+                active = self.con.in_transaction
+                from flowguard.intent.cache import put_meta
+                put_meta(self.con, key, packed)
+                decoded = store.unpack(packed)
+                self._put_parts(key, decoded)          # in the same commit
+                if not active:
+                    self.con.commit()
+            else:
+                decoded = store.unpack(row[0])
+            decoded['nodes']  # Required fact record; a broken cache is not an absent source file.
+            facts[key] = decoded
+        return facts[key]
+
+    def _put_parts(self, key, facts):
+        """Each kind of one baseline record under `KEY:KIND`, and the list of its kinds under `KEY:`."""
+        from flowguard.intent.cache import put_meta
+        for kind, value in facts.items():
+            put_meta(self.con, key + ':' + kind, store.pack([value]))
+        put_meta(self.con, key + ':', store.pack(sorted(facts)))
+
+    def _baseline_key(self, blob, path, module, is_test):
+        reader = self.con.execute("SELECT v FROM meta WHERE k='reader_digest'").fetchone()[0]
+        identity = json.dumps([blob, reader, path, module, bool(is_test)], separators=(',', ':'))
+        return 'baseline_facts:' + sha256_bytes(identity.encode())
+
+    def _baseline_part(self, revision, path, module, kind, is_test=False):
+        """One kind of `_baseline_facts` (None when the record has none, or when the file was absent), kept
+        apart under the record's key once it was read: a query that needs only a file's nodes or literals does
+        not decode its whole record again (most of a record is the symbol reads and syntax calls)."""
+        blob = self._baseline_object(revision, path)
+        if blob is None:
+            return None
+        key = self._baseline_key(blob, path, module, is_test)
+        parts = self._derived.setdefault('baseline_parts', {})
+        whole = self._derived.get('baseline_facts', {})
+        if (key, kind) not in parts and key in whole:
+            parts[(key, kind)] = whole[key].get(kind)  # the record this handle already decoded holds it
+        if (key, kind) not in parts:
+            row = self.con.execute('SELECT v FROM meta WHERE k=?', (key + ':' + kind,)).fetchone()
+            kinds = None if row is not None else self.con.execute('SELECT v FROM meta WHERE k=?', (key + ':',)).fetchone()
+            if row is not None:
+                value = store.unpack(row[0])[0]
+            elif kinds is not None and kind not in store.unpack(kinds[0]):
+                value = None                           # the record has no such kind
+            else:
+                # A record kept before its parts were: they are written once, in one commit.
+                facts = self._baseline_facts(revision, path, module, is_test)
+                active = self.con.in_transaction
+                self._put_parts(key, facts)
+                if not active:
+                    self.con.commit()
+                value = facts.get(kind)
+            parts[(key, kind)] = value
+        return parts[(key, kind)]
+
+    def _baseline_record(self, revision, path, module, kinds, is_test=False):
+        """The `kinds` of `_baseline_facts` its record holds, each read as `_baseline_part` reads it ({} when the
+        file was absent): a check that reads a few kinds of many baseline files does not decode their whole records.
+        A record without `nodes` fails as `_baseline_facts` does."""
+        blob = self._baseline_object(revision, path)
+        if blob is None:
+            return {}
+        key = self._baseline_key(blob, path, module, is_test)
+        if key not in self._derived.get('baseline_facts', {}):
+            listed = self.con.execute('SELECT v FROM meta WHERE k=?', (key + ':',)).fetchone()
+            if listed is not None:
+                held = store.unpack(listed[0])
+                if 'nodes' not in held:
+                    raise KeyError('nodes')
+                # the parts `_baseline_part` reads, in one query; it reads a kind whose part is missing itself
+                parts = self._derived.setdefault('baseline_parts', {})
+                missing = [kind for kind in kinds if kind in held and (key, kind) not in parts]
+                stored = dict(self.con.execute(f"SELECT k, v FROM meta WHERE k IN ({','.join('?' * len(missing))})",
+                                               [key + ':' + kind for kind in missing])) if missing else {}
+                for kind in missing:
+                    if key + ':' + kind in stored:
+                        parts[(key, kind)] = store.unpack(stored[key + ':' + kind])[0]
+                return {kind: parts[(key, kind)] if (key, kind) in parts else
+                        self._baseline_part(revision, path, module, kind, is_test) for kind in kinds if kind in held}
+        whole = self._baseline_facts(revision, path, module, is_test)     # also a record kept before its parts were
+        return {kind: whole[kind] for kind in kinds if kind in whole}
 
     # ---- declared value sets, typed values, Prisma reads, relations and calls by name ----------
     def _ts_sets(self):
         """{name: [row]} of the JS/TS value sets (`as const` arrays and objects, `new Set([...])`, closed
         string unions and aliases of them), read once per handle."""
         if 'ts_sets' not in self._derived:
-            found = {}
-            for _, _, facts in self._kinds('value_sets'):
-                for row in facts.get('value_sets', ()):
-                    found.setdefault(row['name'], []).append(row)
-            self._derived['ts_sets'] = found
+            self._derived['ts_sets'] = _sets_of(facts for _, _, facts in self._kinds('value_sets'))
         return self._derived['ts_sets']
 
     def _ts_values(self, name, file=None, seen=frozenset()):
@@ -415,16 +566,17 @@ class MapHandle:
         target = self.con.execute('SELECT path FROM file WHERE module=?', (found[0],)).fetchone()
         return (target[0], found[1]) if target else None
 
-    def _resolved(self, row):
-        """A write's `values` with its `Name.KEY` spellings read from `{KEY: 'v'} as const` objects; a row
-        with a spelling no object resolves keeps no values (the value is not visible)."""
+    def _resolved(self, row, sets=None):
+        """A write's `values` with its `Name.KEY` spellings read from `{KEY: 'v'} as const` objects (of `sets`,
+        `_ts_sets` by default); a row with a spelling no object resolves keeps no values (the value is not visible)."""
         refs = row.pop('refs', None)
         if not refs:
             return row if row.get('values') else {key: value for key, value in row.items() if key != 'values'}
         values = list(row.get('values') or ())
+        sets = self._ts_sets() if sets is None else sets
         for ref in refs:
             name, _, key = ref.partition('.')
-            members = [found for found in self._ts_sets().get(name, []) if found['kind'] == 'const-object' and key in found['members']]
+            members = [found for found in sets.get(name, []) if found['kind'] == 'const-object' and key in found['members']]
             if len({found['members'][key] for found in members}) != 1:
                 return {key: value for key, value in row.items() if key != 'values'}
             values.append(members[0]['members'][key])
@@ -604,7 +756,7 @@ class MapHandle:
             rows.append(dict(
                 key=key, name=key, field=key, values=values,
                 where=f"enum {enum} ({', '.join(f'{file}:{line}' for file, line in places)}"
-                      "，没找到生成器在用的 schema，按这个包的全部 schema 判)",
+                      ", generator schema not found; checked against all schemas in this package)",
                 kind='prisma-enum', guessed=True, fold=False, file=files[0], files=files, place=files[0], scope=(), packages=(),
                 excluded_packages=frozenset(model_packages.get(key.partition('.')[0], set()) - {package})))
         for key, (_, check) in self._check_sets().items():
@@ -746,7 +898,7 @@ class MapHandle:
             found[key].extend(item for name in sorted(names) for item in by_name.get(name, ()))
         return found
 
-    def typed_writes(self, facts=None):
+    def typed_writes(self, facts=None, *, definitions=None):
         """Values JS/TS code gives a typed member: a class field initializer, `this.f = 'v'` in a class, and
         the literal fields of an object written as `const x: T = {...}`, `{...} satisfies T` or `{...} as T`.
         Not database writes: they feed the value gate only; `prisma` marks a `T` the file imports from the
@@ -755,9 +907,12 @@ class MapHandle:
         gated by `model`, the imported model's name; `schema` is the schema whose client output the import
         names ('' for `@prisma/client`). A module that re-exports the client's types is not followed.
         `type_from` is the module a `T` of the file's own project is imported from by a relative path, as a
-        path without its extension ('' otherwise). `facts` reads these file facts instead."""
+        path without its extension ('' otherwise). `facts` reads these file facts instead; `definitions`
+        (`definitions()`) resolves `Name.KEY` spellings and binds models with other definitions than the map's, such
+        as the baseline's (as `writes(definitions=)`)."""
         rows, seen = [], set()
-        models = self._models().by_name
+        models = (self._models() if definitions is None else definitions.models).by_name
+        sets = None if definitions is None else definitions.sets
         for facts in [data for _, _, data in self._kinds('language', 'typed_writes', 'dependencies')] if facts is None else facts:
             written = facts.get('typed_writes', ())
             if not written:
@@ -784,7 +939,7 @@ class MapHandle:
                     model = client[space] if client.get(space) not in (None, '*', 'default') else None
                 rows.append(self._resolved(dict(row, model=model or row['container'], language=facts.get('language'),
                                                 prisma=model is not None, schema=origin.get(space, '') if model else '',
-                                                type_from='' if dot or model else imported.get(space, ''))))
+                                                type_from='' if dot or model else imported.get(space, '')), sets))
         return Rows(rows)
 
     def _prisma_client(self, file, module):
@@ -845,6 +1000,26 @@ class MapHandle:
                     rows.append(dict(row, model=bound, language=facts.get('language')))
         return Rows(rows)
 
+    def sql_reads(self, table=None):
+        """The tables each function reads in the SQL of its string literals (a FROM or a JOIN), as rows {node, file,
+        line, function, method, table}, the table in lower case as the SQL reader keeps it (`analysis.sql_names`);
+        `table` keeps the reads of one table, its case aside. A write's own statement (UPDATE, INSERT, DELETE) reads
+        no table here."""
+        self._mark_query('sql_reads')
+        rows = []
+        wanted = None if table is None else 'sql:' + str(table).lower()
+        found = self.con.execute("SELECT DISTINCT k.node FROM key k WHERE k.kind = 'sql'" + (' AND k.value = ?' if table else ''),
+                                 (str(table).lower(),) if table else ()).fetchall()
+        for (ident,) in found:
+            item = self.con.execute('SELECT file, qual, line, raw FROM node WHERE id = ?', (ident,)).fetchone()
+            if item is None:
+                continue
+            file, qual, line, raw = item
+            for name in sorted((store.unpack(raw) if raw else {}).get('sr', ())):
+                if name.startswith('sql:') and (wanted is None or name == wanted):
+                    rows.append(dict(node=ident, file=file, line=line, function=qual, method='select', table=name[4:]))
+        return Rows(rows)
+
     def children(self, model):
         """Relations whose foreign key references `model`: [{child, relation, keys, on_delete, required,
         file, line, nullable}] from the mapped Prisma schemas (`readers.prisma.Models.children`)."""
@@ -876,13 +1051,19 @@ class MapHandle:
             return self._derived['calls']
         from .readers.ecma import PRISMA_READS, PRISMA_WRITES
         from .readers.registry import ECMA
+        prisma = PRISMA_WRITES | PRISMA_READS
         down = {}
         for src, dst in self.con.execute("SELECT src, dst FROM edge WHERE kind = 'calls' AND dst NOT LIKE 'unknown-%'"):
             down.setdefault(src, {})[dst] = 'edge'
+        foreign = {}                        # file: is it JS/TS (read once per file)
+        def ecma(file):
+            if file not in foreign:
+                foreign[file] = language_of(file) in ECMA
+            return foreign[file]
         by_name, by_holder, owners = {}, {}, {}
         for ident, file, qual, raw in self.con.execute(
                 "SELECT n.id, n.file, n.qual, n.raw FROM node n WHERE n.kind IN ('function', 'method')"):
-            if not file or language_of(file) not in ECMA or '<anonymous' in qual:
+            if not file or not ecma(file) or '<anonymous' in qual:
                 continue
             data = store.unpack(raw) if raw else {}
             name = data.get('name') or qual.rpartition('.')[2]
@@ -891,32 +1072,46 @@ class MapHandle:
             if holder:
                 by_holder.setdefault((holder, name), []).append((ident, file))
                 owners[ident] = holder
-        def one(candidates, file):
-            candidates = [(ident, where) for ident, where in candidates if self.package(where) == self.package(file)]
-            local = [ident for ident, where in candidates if where == file]
-            chosen = local if len(local) == 1 else [ident for ident, _ in candidates]
-            return chosen[0] if len(chosen) == 1 else None
-        for _, _, facts in self._kinds('language', 'syntax_calls'):
-            if facts.get('language') not in ECMA:
-                continue
-            for call in facts.get('syntax_calls', ()):
-                if call.get('resolved') or call.get('kind') == 'jsx-element':
-                    continue
-                parts = call['text'].split('.')
+        # Each list of candidates (named by `key`) grouped by package once, and each answer kept for its file: the
+        # calls of one file name the same functions again and again.
+        packages, grouped, chosen = {}, {}, {}
+        def package(file):
+            if file not in packages:
+                packages[file] = self.package(file)
+            return packages[file]
+        def one(key, candidates, file):
+            if (key, file) not in chosen:
+                if key not in grouped:
+                    grouped[key] = {}
+                    for ident, where in candidates:
+                        grouped[key].setdefault(package(where), []).append((ident, where))
+                candidates = grouped[key].get(package(file), [])
+                local = [ident for ident, where in candidates if where == file]
+                picked = local if len(local) == 1 else [ident for ident, _ in candidates]
+                chosen[(key, file)] = picked[0] if len(picked) == 1 else None
+            return chosen[(key, file)]
+        holders = {}                        # caller: the holder `this` names in it
+        def holder_of(caller):
+            if caller not in holders:
+                named = caller.partition(':')[0] + ':' + '.'.join(part for part in caller.partition(':')[2].split('.')
+                                                                  if not part.startswith('<anonymous'))
+                holders[caller] = owners.get(named) or next((owners[ident] for ident in owners if named.startswith(ident + '.')), '')
+            return holders[caller]
+        # The JS/TS syntax calls the linker left unresolved, JSX elements aside (`store.save_facts`).
+        for _, _, facts in self._kinds('syntax_calls.unresolved'):
+            for caller, file, text in facts.get('syntax_calls.unresolved', ()):
+                parts = text.split('.')
                 name = parts[-1]
-                if not name.isidentifier() or len(parts) >= 3 and name in PRISMA_WRITES | PRISMA_READS:
+                if not name.isidentifier() or len(parts) >= 3 and name in prisma:
                     continue
                 receiver = parts[-2] if len(parts) >= 2 else ''
-                caller = call['node']
                 if receiver == 'this':
-                    named = caller.partition(':')[0] + ':' + '.'.join(part for part in caller.partition(':')[2].split('.')
-                                                                      if not part.startswith('<anonymous'))
-                    holder = owners.get(named) or next((owners[ident] for ident in owners if named.startswith(ident + '.')), '')
-                    target = one(by_holder.get((holder, name), []), call['file']) if holder else None
+                    holder = holder_of(caller)
+                    target = one(('holder', holder, name), by_holder.get((holder, name), []), file) if holder else None
                 elif receiver:
-                    target = one(by_holder.get((receiver, name), []) or by_name.get(name, []), call['file'])
+                    target = one(('receiver', receiver, name), by_holder.get((receiver, name), []) or by_name.get(name, []), file)
                 else:
-                    target = one(by_name.get(name, []), call['file'])
+                    target = one(('name', name), by_name.get(name, []), file)
                 if target and target != caller:
                     down.setdefault(caller, {}).setdefault(target, 'name')
         up = {}
@@ -933,7 +1128,9 @@ class MapHandle:
         'name' (some JS/TS call on the way was resolved by name) or 'self'."""
         import bisect
         down, upward = self.call_index()
-        callers = self._derived.setdefault('callers', sorted(down))
+        if 'callers' not in self._derived:
+            self._derived['callers'] = sorted(down)
+        callers = self._derived['callers']
         if 'test_modules' not in self._derived:
             self._derived['test_modules'] = {module for (module,) in self.con.execute('SELECT module FROM file WHERE is_test = 1')}
         tests = self._derived['test_modules']
@@ -1174,6 +1371,23 @@ class MapHandle:
             rows += self._syntax('symbol_reads')
         return self._language_rows(rows,language)
 
+    def python_calls(self):
+        """The rows of `calls()` that Python files make (each row's `file` is the file whose facts hold it), read from
+        those files' parts alone, once per handle and build: a JS/TS project's calls are not unpacked for them. The
+        query counts as `calls()` (`query_coverage`): its other rows are only left out."""
+        from .readers.registry import language_for
+        self._mark_query('calls')
+        if 'python_calls' not in self._derived:
+            wanted = [path for (path,) in self.con.execute('SELECT path FROM file ORDER BY path') if language_for(path) == 'python']
+            rows = []
+            for start in range(0, len(wanted), 500):
+                chunk = wanted[start:start + 500]
+                found = dict(self.con.execute(f"SELECT path, data FROM part WHERE kind='syntax_calls' AND path IN "
+                                              f"({','.join('?' * len(chunk))})", chunk))
+                rows.extend(row for path in chunk for row in store.unpack(found.get(path)) or ())
+            self._derived['python_calls'] = rows
+        return Rows(self._derived['python_calls'])
+
     def imports(self, *, declarations=False, language=None):
         """Dependency links, or literal source declarations including external imports.
 
@@ -1251,12 +1465,6 @@ class MapHandle:
     def _observed(self, src: str, dst: str) -> bool:
         return self.con.execute("SELECT 1 FROM edge WHERE src = ? AND dst = ? AND prov = 'observed'", (src, dst)).fetchone() is not None
 
-    def add_observed(self, pairs) -> int:
-        """Record caller -> callee pairs a tracer saw; they confirm guessed edges and survive relinks."""
-        rows = [(s, d, "calls", "observed", "<observed>", 0) for s, d in sorted({(s,d) for s,d in pairs}) if not self._observed(s, d)]
-        self.con.executemany("INSERT INTO edge VALUES(?,?,?,?,?,?)", rows)
-        self.con.commit()
-        return len(rows)
 
     # ---- other homes ---------------------------------------------------------------
     def other_homes(self, ident: str, k: int = 5, *, words: str = "", decides=None,
@@ -1577,15 +1785,22 @@ class MapHandle:
 
     def _delta_against(self, since: str, files: list[str]) -> list[tuple]:
         rows = []
+        for _, found in self._file_deltas(since, files):
+            rows += found
+        return rows
+
+    def _file_deltas(self, since: str, files: list[str]) -> list[tuple]:
+        """(file, its delta rows) for each of `files` that has a reader, in their order."""
+        out = []
         names = {f: m for f, m in self.con.execute("SELECT path, module FROM file")}
         from .readers.registry import language_for, module_name
         for f in files:
             if not language_for(f):
                 continue
-            data = git_blob(self.root, since, f)
+            rows = []
             module = names.get(f) or (f[:-3].replace("/", ".") if language_for(f) == "python" else module_name(f))
             old = {f"{module}:{n['qual']}": (n["fp"], n["sig"]) for n in
-                   (extract(self.root, f, data, module, False)["nodes"] if data is not None else [])}
+                   self._baseline_part(since, f, module, 'nodes') or []}
             new = {i: (fp, sig) for i, fp, sig in self.con.execute("SELECT id, fp, sig FROM node WHERE file = ? AND "
                                                                     "kind NOT IN ('module','alias','missing')", (f,))}
             for i in sorted(set(old) | set(new)):
@@ -1595,7 +1810,8 @@ class MapHandle:
                     rows.append((i, "added", None, new[i][0], None, new[i][1]))
                 elif old[i][0] != new[i][0]:
                     rows.append((i, "changed", old[i][0], new[i][0], old[i][1], new[i][1]))
-        return rows
+            out.append((f, rows))
+        return out
 
 
 def _without_moves(delta):
@@ -1740,11 +1956,80 @@ def literal_shape(value: str) -> tuple[str, str]:
     return lead, kind
 
 
+class Definitions:
+    """The value sets (`sets`, as `MapHandle._ts_sets`), schema models (`models`, as `_models`) and each module's
+    folded constants (`env(module)`, as `_value_env`) of the map with some files' facts replaced
+    (`MapHandle.definitions`); every one is built as the map builds its own."""
+
+    def __init__(self, graph, replaced):
+        self.graph = graph
+        records = {path: facts for path, _, facts in replaced}
+        self.modules = {module: facts for _, module, facts in replaced if module}
+        held = {path: facts for path, _, facts in graph._kinds('value_sets')}
+        held.update(records)
+        self.sets = _sets_of(held[path] for path in sorted(held))
+        schemas = dict((path, schema) for path, schema in graph._schema_rows() if path not in records)
+        schemas.update(_schema_rows_of(records.items()))
+        self.models = _models_of([(path, schemas[path]) for path in sorted(schemas)])
+        self._owns, self._envs = {}, {}
+
+    def _own(self, module):
+        from . import decide
+        if module not in self._owns:
+            if module in self.modules:
+                facts = self.modules[module]
+                consts = sorted((node for node in facts['nodes'] if node['kind'] == 'const'), key=lambda node: node['line']) \
+                    if facts else []
+                rows = [(node['qual'], node['sig']) for node in consts]
+            else:
+                rows = self.graph._const_rows(module)
+            self._owns[module] = decide.own_env(rows)
+        return self._owns[module]
+
+    def env(self, module):
+        from . import decide
+        if module not in self._envs:
+            if module in self.modules:
+                facts = self.modules[module]
+                imports = facts['facts'].get('imports', {}) if facts else {}     # a test file keeps no `facts`
+            else:
+                imports = self.graph._module_imports(module)
+            self._envs[module] = decide.module_env(self._own(module), imports, self._own)
+        return self._envs[module]
+
+
+def _sets_of(records):
+    """{name: [row]} of the JS/TS value sets of these fact records, in their order."""
+    found = {}
+    for facts in records:
+        for row in facts.get('value_sets', ()):
+            found.setdefault(row['name'], []).append(row)
+    return found
+
+
+def _schema_rows_of(listed):
+    """(path, schema facts) of each (path, facts) of a Prisma or SQL file."""
+    from .readers.registry import SCHEMA_LANGUAGES, SUFFIXES
+    suffixes = tuple(suffix for suffix, language in SUFFIXES.items() if language in SCHEMA_LANGUAGES)
+    return [(path, facts.get('schema', {})) for path, facts in listed
+            if path.lower().endswith(suffixes) and facts.get('language') in SCHEMA_LANGUAGES]
+
+
+def _models_of(rows):
+    from .readers.prisma import Models
+    return Models([(path, schema) for path, schema in rows if schema.get('kind') == 'prisma'])
+
+
+def _write_names(row):
+    """(names, fields) a write row is found by: its model and table, its field and column, case folded."""
+    return ({str(row.get('model') or '').casefold(), str(row.get('table') or '').casefold()} - {''},
+            {str(row.get('field') or '').casefold(), str(row.get('db_column') or '').casefold()} - {''})
+
+
 def _writes_target(row, target, models) -> bool:
     """`Model.field`, `table.column`, a model or table name, or a bare field/column name."""
     head, dot, tail = target.rpartition('.')
-    names = {str(row.get('model') or '').casefold(), str(row.get('table') or '').casefold()} - {''}
-    fields = {str(row.get('field') or '').casefold(), str(row.get('db_column') or '').casefold()} - {''}
+    names, fields = _write_names(row)
     if not dot:
         wanted = target.casefold()
         return wanted in names or wanted in fields
