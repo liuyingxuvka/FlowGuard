@@ -392,7 +392,8 @@ def _recompile(fn, transformer, found, post=None):
     a.defaults, a.kw_defaults = [], [None] * len(a.kwonlyargs)
     for arg in a.posonlyargs + a.args + a.kwonlyargs + [x for x in (a.vararg, a.kwarg) if x]:
         arg.annotation = None
-    tree = transformer.visit(tree)
+    if transformer is not None:
+        tree = transformer.visit(tree)
     if not found():
         raise NotMutable("site not found again")
     if post is not None:
@@ -432,6 +433,8 @@ def installed(fn, code):
 
 
 def installed_origin(fn):
+    if type(fn) is types.FunctionType and not hasattr(fn, '__wrapped__'):
+        return _INSTALLED.get().get(fn)     # unwrap(fn) is fn: every capture asks this of every function it walks
     return _INSTALLED.get().get(unwrap(fn))
 
 
@@ -485,7 +488,7 @@ def intercepted(fn, callback, *, keep=None):
         keywords = [ast.keyword(p.name, ast.Name(p.name, ast.Load()))
                     for p in signature.parameters.values() if p.kind == p.KEYWORD_ONLY]
         fdef.body = [ast.Return(ast.Call(ast.Name(key, ast.Load()), args, keywords))]
-    code = _recompile(fn, ast.NodeTransformer(), lambda: True, body)
+    code = _recompile(fn, None, lambda: True, body)      # the body is replaced whole: nothing to transform
     original.__flowguard_transport__ = (code, invoke.__code__)
     mechanical = (*original.__flowguard_transport__, getattr(callback, '__code__', None),
                   *getattr(callback, '__flowguard_transport__', ()))

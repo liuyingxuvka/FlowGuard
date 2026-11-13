@@ -1069,11 +1069,13 @@ def module_codes(module, wanted):
     are skipped for the original code they replaced.
     """
     found, seen = [], set()
+    files = {file for file, _ in wanted}
     def code_walk(code):
         if id(code) in seen:
             return
         seen.add(id(code))
-        if (code.co_filename, code.co_qualname.replace('.<locals>.', '.')) in wanted:
+        # Only code compiled from a wanted file can match; its nested code objects are walked all the same.
+        if code.co_filename in files and (code.co_filename, code.co_qualname.replace('.<locals>.', '.')) in wanted:
             found.append(code)
         for constant in code.co_consts:
             if isinstance(constant, types.CodeType):
@@ -1092,7 +1094,9 @@ def module_codes(module, wanted):
                 code_walk(function.__code__)
                 if (origin := sites.installed_origin(function)) is not None:
                     code_walk(origin)
-            value, chain = inspect.getattr_static(value, '__wrapped__', None), chain + 1
+            # getattr_static of a real function reads its own __dict__ (the function type has no such attribute).
+            value, chain = (dict.get(value.__dict__, '__wrapped__') if type(value) is types.FunctionType
+                            else inspect.getattr_static(value, '__wrapped__', None)), chain + 1
         if isinstance(value, type) and depth < 6 and id(value) not in seen:
             seen.add(id(value))
             for part in list(vars(value).values()):
