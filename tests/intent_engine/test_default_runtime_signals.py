@@ -329,6 +329,31 @@ def test_a_module_s_binding_facts_have_one_owner(tmp_path):
         'LIMIT': ('value', ast.dump(ast.Constant(3), include_attributes=False)), 'f': ('function', 'f')}
 
 
+def test_bindings_kept_as_nodes_compare_as_their_dumped_facts_do():
+    """`_binding_facts(nodes=True)` keeps nodes where the facts hold their dumps; `_same_binding` compares two entries
+    as the dumped facts compare, and `_changed_constants` gives the same names with the caller's facts and dumps as
+    without, also after the same `dumps` served another pair of trees."""
+    import ast
+    from flowguard.intent.runtime import _binding_facts, _changed_constants, _same_binding
+    versions = [ast.parse(textwrap.dedent(text)) for text in (
+        'import os\nBASE = 10\nLIMIT = BASE * 2\nclass Box:\n    size = 1\ndef f():\n    return LIMIT\n',
+        'import os\nBASE = 9\nLIMIT = BASE * 2\nclass Box:\n    size = 2\ndef f():\n    return LIMIT\n',
+        'from os import path as os\nBASE = 10\nLIMIT: int = BASE * 2\nBox = 3\nf = 1\ndel BASE\n',
+        'BASE = LIMIT = 10\nclass LIMIT:\n    pass\nfor BASE in range(2):\n    pass\n', '')]
+    dumps = {}
+    for old_tree in versions:
+        for tree in versions:
+            old, new = _binding_facts(old_tree), _binding_facts(tree)
+            lazy = _binding_facts(old_tree, nodes=True), _binding_facts(tree, nodes=True)
+            assert lazy[0].keys() == old.keys() and lazy[1].keys() == new.keys()
+            for name in old.keys() | new.keys() | {'unbound'}:
+                assert _same_binding(lazy[0].get(name), lazy[1].get(name), dumps) == (old.get(name) == new.get(name)), name
+            for extra in ((), ('os',)):
+                assert _changed_constants(old_tree, tree, extra, facts=lazy, dumps=dumps) \
+                    == _changed_constants(old_tree, tree, extra)
+    assert _changed_constants(versions[0], versions[1]) == {'BASE', 'LIMIT'}
+
+
 def test_fixed_4_changed_function_needs_no_anchor_to_report_member_changes(tmp_path):
     policy = _project(tmp_path, '''
         def late_fee(days: int, member: bool) -> int:

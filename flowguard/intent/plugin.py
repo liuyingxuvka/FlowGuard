@@ -519,8 +519,8 @@ class Observations:
     def __init__(self, state):
         import ast
         from . import anchors, cache, differences
-        from .runtime import (Runtime, _binding_facts, _binding_reads, _changed_constants, _functions, _imported_changes,
-                              _read_through, changed_reads)
+        from .runtime import (Runtime, _binding_facts, _binding_reads, _changed_constants, _dumped, _functions,
+                              _imported_changes, _read_through, _same_binding, changed_reads)
         from ..map.common import MapError, git_files, git_renames, git_run, read_source
         from ..structure.readers.registry import language_for
         self.state, self.cfg = state, state.cfg
@@ -590,7 +590,7 @@ class Observations:
                 if not hasattr(home, 'scenario'):
                     self.rules.setdefault(home.target, []).append(rule)
         self.by_file, self.rels = {}, {}
-        views, trees = {}, {}
+        views, trees, facts, dumps = {}, {}, {}, {}
         def parsed(file):
             """(tree now, tree at the baseline) of a changed file; of another file, which reads a changed constant
             through an import, its one tree twice. A baseline version that does not parse reads as an empty module:
@@ -608,6 +608,13 @@ class Observations:
                 else:
                     trees[file] = tree, tree
             return trees[file]
+        def bindings(file):
+            """(baseline, current) `_binding_facts(nodes=True)` of a parsed file, read once. `dumps` keeps the ast.dump
+            of each node compared (`_same_binding`, `_dumped`) while `trees` keeps the trees."""
+            if file not in facts:
+                tree, old_tree = parsed(file)
+                facts[file] = _binding_facts(old_tree, nodes=True), _binding_facts(tree, nodes=True)
+            return facts[file]
         # Another module's constant this change alters reaches a file through its imports (`from m import LIMIT`,
         # `m.LIMIT`), also a file whose own text is the same: {module: its changed constants}, and {file: (the
         # file's constants that change with them, the names its imports bind to them, its module names)} of each
@@ -630,7 +637,7 @@ class Observations:
                 module = modules[file]
                 names, aliases, extra = _imported_changes(tree, module if file.endswith('__init__.py') else module.rpartition('.')[0],
                                                           changed_modules)
-                constants = _changed_constants(old_tree, tree, extra)
+                constants = _changed_constants(old_tree, tree, extra, facts=bindings(file), dumps=dumps)
                 imported[file] = constants, names, aliases
                 if constants - changed_modules.get(module, set()):
                     changed_modules[module] = changed_modules.get(module, set()) | constants
@@ -643,16 +650,16 @@ class Observations:
             (`imported`): `a constant it reads changed: BASE, m.LIMIT`."""
             if file not in views:
                 tree, old_tree = parsed(file)
-                views[file] = (dict(_functions(tree)), dict(_functions(old_tree)), _binding_facts(old_tree), _binding_facts(tree),
-                               _binding_reads(tree))
-            current_functions, prior_functions, old_facts, facts, reads = views[file]
+                views[file] = (dict(_functions(tree)), dict(_functions(old_tree)), *bindings(file), _binding_reads(tree))
+            current_functions, prior_functions, old_facts, now_facts, reads = views[file]
             node, prior = current_functions.get(qual), prior_functions.get(qual)
-            if node is None or prior is None or ast.dump(prior, include_attributes=False) != ast.dump(node, include_attributes=False):
+            if node is None or prior is None or prior is not node and _dumped(prior, dumps) != _dumped(node, dumps):
                 return node, 'its code changed'
             loaded = {part.id for part in ast.walk(node) if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load)}
             through = _read_through(loaded, reads)
             constants, names, aliases = imported.get(file, (set(), set(), {}))
-            read = sorted(name for name in through if old_facts.get(name) != facts.get(name) or name in constants)
+            read = sorted(name for name in through
+                          if not _same_binding(old_facts.get(name), now_facts.get(name), dumps) or name in constants)
             read += [name for name in changed_reads(node, names, aliases, changed_modules) if name not in read]
             return node, 'a constant it reads changed: ' + ', '.join(read) if read else ''
         def reaches(file, qual):

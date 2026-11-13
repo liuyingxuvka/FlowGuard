@@ -699,9 +699,12 @@ def _literal_equal(left, right):
         return None
     return None if None in outcomes else all(outcomes)
 
-def _binding_facts(tree):
+def _binding_facts(tree, *, nodes=False):
     """Top-level binding identity; function bodies have their own fingerprints. A bare annotation (`LIMIT: int`)
-    binds nothing, as `_scope` reads it."""
+    binds nothing, as `_scope` reads it. `nodes=True` keeps a class's or value's node where its ast.dump stands, so
+    that `_same_binding` dumps only the bindings a caller compares."""
+    def dumped(node):
+        return node if nodes else ast.dump(node, include_attributes=False)
     result = {}
     for statement in tree.body:
         if isinstance(statement, ast.AnnAssign) and statement.value is None:
@@ -709,7 +712,7 @@ def _binding_facts(tree):
         if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
             result[statement.name] = ('function', statement.name)
         elif isinstance(statement, ast.ClassDef):
-            result[statement.name] = ('class', ast.dump(statement, include_attributes=False))
+            result[statement.name] = ('class', dumped(statement))
         elif isinstance(statement, (ast.Import, ast.ImportFrom)):
             for alias in statement.names:
                 name = alias.asname or alias.name.split('.')[0]
@@ -723,8 +726,25 @@ def _binding_facts(tree):
             value = statement.value if isinstance(statement, (ast.Assign, ast.AnnAssign)) else statement
             for node in ast.walk(statement):
                 if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
-                    result[node.id] = ('value', ast.dump(value, include_attributes=False))
+                    result[node.id] = ('value', dumped(value))
     return result
+
+
+def _same_binding(old, new, dumps):
+    """Whether two `_binding_facts(nodes=True)` entries (None: unbound) are equal as the dumped facts are: a class or
+    value binding by its node's ast.dump (`_dumped`), any other by its fact."""
+    if old is None or new is None or old[0] != new[0] or old[0] not in ('class', 'value') or old[1] is new[1]:
+        return old == new
+    return _dumped(old[1], dumps) == _dumped(new[1], dumps)
+
+
+def _dumped(node, dumps):
+    """ast.dump of `node` without positions, computed once per node: `dumps` holds the node with it, so its id stays
+    the node's while the caller keeps `dumps`."""
+    held = dumps.get(id(node))
+    if held is None:
+        held = dumps[id(node)] = node, ast.dump(node, include_attributes=False)
+    return held[1]
 
 
 def _binding_reads(tree):
@@ -764,14 +784,16 @@ def _read_through(names, reads):
     return found
 
 
-def _changed_constants(old_tree, tree, extra=()):
+def _changed_constants(old_tree, tree, extra=(), *, facts=None, dumps=None):
     """The top-level constants of a module whose value this change may alter: a value binding whose statement differs
     from the baseline's (`_binding_facts`: edited, added or removed), the names in `extra` (bound to another module's
     changed constant, `_imported_changes`), and every binding whose right side reads one of these at any depth
-    (`_binding_reads`, `_read_through`: LIMIT = BASE * 2 changes with BASE)."""
-    old, new = _binding_facts(old_tree), _binding_facts(tree)
-    direct = {name for name in old.keys() | new.keys() if old.get(name) != new.get(name)
-              and 'value' in (old.get(name, ('',))[0], new.get(name, ('',))[0])} | set(extra)
+    (`_binding_reads`, `_read_through`: LIMIT = BASE * 2 changes with BASE). `facts` gives the two trees'
+    `_binding_facts(nodes=True)` and `dumps` their nodes' dumps (`_same_binding`) when the caller already holds them."""
+    old, new = facts if facts is not None else (_binding_facts(old_tree, nodes=True), _binding_facts(tree, nodes=True))
+    dumps = {} if dumps is None else dumps
+    direct = {name for name in old.keys() | new.keys() if 'value' in (old.get(name, ('',))[0], new.get(name, ('',))[0])
+              and not _same_binding(old.get(name), new.get(name), dumps)} | set(extra)
     reads = _binding_reads(tree)
     return direct | {name for name in reads if _read_through({name}, reads) & direct}
 
