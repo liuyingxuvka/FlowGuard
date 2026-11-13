@@ -1084,8 +1084,10 @@ def module_codes(module, wanted):
         if id(code) in seen:
             return
         seen.add(id(code))
-        # Only code compiled from a wanted file can match; its nested code objects are walked all the same.
-        if code.co_filename in files and (code.co_filename, code.co_qualname.replace('.<locals>.', '.')) in wanted:
+        # Only code compiled from a wanted file can match; its nested code objects are walked all the same. Anything
+        # else (a double's __code__, say) is still asked for its qualname, as each object here always was.
+        if (type(code) is not types.CodeType or code.co_filename in files) \
+                and (code.co_filename, code.co_qualname.replace('.<locals>.', '.')) in wanted:
             found.append(code)
         for constant in code.co_consts:
             if isinstance(constant, types.CodeType):

@@ -1,6 +1,7 @@
 """Every test's capture walks the anchored modules again: what it finds follows the module as it is now."""
 import importlib.util
 import uuid
+from unittest import mock
 
 from flowguard.intent import sites
 from flowguard.intent.runtime import module_codes
@@ -80,3 +81,20 @@ def test_walk_finds_the_original_under_an_installed_shim(tmp_path):
         codes = module_codes(module, {(str(path), 'plain')})
         assert original in codes and module.plain.__code__ in codes
     assert module_codes(module, {(str(path), 'plain')}) == [original]
+
+
+def test_walk_asks_a_function_double_what_it_asks_a_function(tmp_path, monkeypatch):
+    # mock.patch(..., spec=fn) leaves a double that passes isinstance(value, FunctionType). The walk asks every such
+    # value's __code__ for its qualname, whatever file it claims, so the calls the double records (which a test of
+    # the double may assert) do not depend on which files are anchored.
+    path = tmp_path / 'policy.py'
+    path.write_text(SOURCE)
+    module = load(path)
+    plain = module.plain
+    for wanted in ({(str(path), 'plain')}, {('/elsewhere/policy.py', 'plain')}):
+        double = mock.MagicMock(spec=plain)
+        monkeypatch.setattr(module, 'plain', double)
+        assert module_codes(module, wanted) == []
+        assert double.method_calls == [mock.call.__code__.co_qualname.replace('.<locals>.', '.')]
+        assert double.mock_calls[:3] == [mock.call.__closure__.__bool__(), mock.call.__closure__.__iter__(),
+                                         mock.call.__code__.co_qualname.replace('.<locals>.', '.')]
