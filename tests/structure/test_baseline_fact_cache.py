@@ -388,3 +388,7 @@ def test_a_few_kinds_of_baseline_records_give_what_the_whole_records_give(tmp_pa
         change = Change(load_config(root), graph, 'HEAD')
         change.old_facts('loans.py')
         assert change.old_record('loans.py', kinds) == expected['loans.py']
+    with closing(build(root)) as graph:             # a part lost from the cache is read as `_baseline_part` reads it
+        graph.con.execute("DELETE FROM meta WHERE k LIKE 'baseline_facts:%:writes'")
+        graph.con.commit()
+        assert {path: Change(load_config(root), graph, 'HEAD').old_record(path, kinds) for path in paths} == expected

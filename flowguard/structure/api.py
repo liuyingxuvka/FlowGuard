@@ -501,7 +501,16 @@ class MapHandle:
                 held = store.unpack(listed[0])
                 if 'nodes' not in held:
                     raise KeyError('nodes')
-                return {kind: self._baseline_part(revision, path, module, kind, is_test) for kind in kinds if kind in held}
+                # the parts `_baseline_part` reads, in one query; it reads a kind whose part is missing itself
+                parts = self._derived.setdefault('baseline_parts', {})
+                missing = [kind for kind in kinds if kind in held and (key, kind) not in parts]
+                stored = dict(self.con.execute(f"SELECT k, v FROM meta WHERE k IN ({','.join('?' * len(missing))})",
+                                               [key + ':' + kind for kind in missing])) if missing else {}
+                for kind in missing:
+                    if key + ':' + kind in stored:
+                        parts[(key, kind)] = store.unpack(stored[key + ':' + kind])[0]
+                return {kind: parts[(key, kind)] if (key, kind) in parts else
+                        self._baseline_part(revision, path, module, kind, is_test) for kind in kinds if kind in held}
         whole = self._baseline_facts(revision, path, module, is_test)     # also a record kept before its parts were
         return {kind: whole[kind] for kind in kinds if kind in whole}
 
