@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections import Counter
 import fnmatch
 from functools import cache
+import gc
 from contextlib import closing, ExitStack, contextmanager
 from contextvars import ContextVar
 import json
@@ -1499,11 +1500,26 @@ def pytest_collection_finish(session):
         _finish_collection(session, state)
 
 
+@contextmanager
+def _uncollected():
+    """No cyclic garbage collection while the block runs, and the collector as it was after it: the changed files'
+    syntax trees that Observations builds are many objects in no cycle, so collecting while they are built only
+    rescans them, and they are freed without it once read."""
+    collecting = gc.isenabled()
+    gc.disable()
+    try:
+        yield
+    finally:
+        if collecting:
+            gc.enable()
+
+
 def _finish_collection(session, state):
     if state.complete_collection is not None and {item.nodeid for item in session.items} != state.complete_collection:
         raise pytest.UsageError('another selection changed the full ordinary collection')
     state.get_model()
-    state.observations = Observations(state)
+    with _uncollected():
+        state.observations = Observations(state)
     state.engine.call_sites = state.observations.rule_calls
     state.engine.baseline = state.observations.runtime.baseline
     state.source_items = tuple(item for item in session.items if not isinstance(item, IntentItem) and item.name != SENTINEL)

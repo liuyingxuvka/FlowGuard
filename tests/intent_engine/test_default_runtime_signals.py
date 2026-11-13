@@ -354,6 +354,26 @@ def test_bindings_kept_as_nodes_compare_as_their_dumped_facts_do():
     assert _changed_constants(versions[0], versions[1]) == {'BASE', 'LIMIT'}
 
 
+def test_the_trees_are_built_without_cyclic_collection_and_the_collector_is_left_as_it_was():
+    """`_uncollected`, around Observations, keeps the cyclic collector off while the block runs and leaves it as it
+    was, on or off, also when the block raises."""
+    import gc
+    from flowguard.intent.plugin import _uncollected
+    was = gc.isenabled()
+    try:
+        for start in (True, False):
+            (gc.enable if start else gc.disable)()
+            with _uncollected():
+                assert not gc.isenabled()
+            assert gc.isenabled() is start
+            with pytest.raises(RuntimeError, match='stop'):
+                with _uncollected():
+                    raise RuntimeError('stop')
+            assert gc.isenabled() is start
+    finally:
+        (gc.enable if was else gc.disable)()
+
+
 def test_fixed_4_changed_function_needs_no_anchor_to_report_member_changes(tmp_path):
     policy = _project(tmp_path, '''
         def late_fee(days: int, member: bool) -> int:
