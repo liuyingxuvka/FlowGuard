@@ -185,7 +185,8 @@ _HEADERS = {}
 
 def _header(fn):
     """_parse(fn) for a copy whose body is replaced whole: a copy of the stripped function without its body, and whether
-    that body names a private attribute. The same source text always parses the same, so each text is parsed once."""
+    that body names a private attribute. The same source text always parses the same, so each text is parsed once.
+    deepcopy shares the parser's interned names with the copy, as a fresh parse would (pickle would not)."""
     src = textwrap.dedent(_source(fn))
     if src not in _HEADERS:
         tree, fdef = _function(src)
