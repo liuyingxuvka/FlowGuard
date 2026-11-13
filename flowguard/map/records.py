@@ -227,13 +227,16 @@ class FirstListings:
     """While the block runs, the listing `_first_blob` reads of each of `relative_paths` is begun ahead, for the
     integrity checks of these files in this order (`integrity_problem`), the next few beside the one a check reads.
     Only a file inside root that exists gets one, as only its check reads one, by its real path relative to root as
-    the check names it; a run no check reads is never read, and leaving the block waits for every run begun."""
+    the check names it; a run no check reads is never read, and leaving the block waits for every run begun.
+    At most AHEAD begun runs wait unread (`waiting`): a check can end before it reads its listing (a transforming
+    attribute), so when they are that many, the ones of files before the next to begin are waited for unread; a
+    check that comes to such a file later runs Git itself, as for a file this block does not list."""
     AHEAD = 4
     current = ContextVar('flowguard_first_listings', default=None)      # the block that runs now
 
     def __init__(self, root, relative_paths, common):
         root = Path(root).resolve()
-        self.root, self.runs, self.taken, self.token = root, {}, set(), None
+        self.root, self.runs, self.waiting, self.taken, self.token = root, {}, {}, set(), None
         found = []
         if common is not None:
             for relative_path in relative_paths:
@@ -241,19 +244,31 @@ class FirstListings:
                 if path.is_relative_to(root) and path.is_file():
                     found.append(path.relative_to(root).as_posix())
         self.order = list(dict.fromkeys(found))
+        self.position = {relative: index for index, relative in enumerate(self.order)}
 
     def _begin(self, first):
-        for relative in self.order[first:first + 1 + self.AHEAD]:
-            if relative not in self.runs:
-                self.runs[relative] = GitRun(self.root, *_added(relative))
+        """Begin the listings of the AHEAD files from `first` on that have none, while fewer than AHEAD wait."""
+        for relative in self.order[first:first + self.AHEAD]:
+            if relative in self.runs:
+                continue
+            if len(self.waiting) >= self.AHEAD:
+                for passed in [other for other in self.waiting if self.position[other] < first]:
+                    self.waiting.pop(passed).close()
+                if len(self.waiting) >= self.AHEAD:
+                    return
+            self.runs[relative] = self.waiting[relative] = GitRun(self.root, *_added(relative))
 
     def take(self, root, relative):
-        """The run of `relative`'s listing in `root`, once; None for any other."""
-        if root != self.root or relative not in self.order or relative in self.taken:
+        """The run of `relative`'s listing in `root`, once, begun now if it was not; None for any other, and for
+        one already waited for unread."""
+        if root != self.root or relative not in self.position or relative in self.taken:
             return None
         self.taken.add(relative)
-        self._begin(self.order.index(relative))
-        return self.runs[relative]
+        run = self.waiting.pop(relative, None)
+        if run is None and relative not in self.runs:
+            run = self.runs[relative] = GitRun(self.root, *_added(relative))
+        self._begin(self.position[relative] + 1)
+        return run
 
     def __enter__(self):
         self._begin(0)

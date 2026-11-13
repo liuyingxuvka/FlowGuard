@@ -240,3 +240,58 @@ def test_history_listings_begun_ahead_give_each_check_what_it_reads_alone(tmp_pa
     assert unread.runs and all(run.process.returncode is not None for run in unread.runs.values())
     with records.FirstListings(root, names, None) as outside:
         assert not outside.runs
+
+
+def test_history_listings_begun_ahead_stay_few_when_checks_end_before_reading_them(tmp_path, monkeypatch):
+    """A transforming attribute ends each sidecar's check before it reads its listing: at most AHEAD runs begun ahead
+    wait unread at any time (and one more is read), every check gives what it gives alone, a file whose run was
+    waited for unread is read alone when its check comes later, and request_states gives the rows it gives without
+    the block."""
+    import contextlib
+    from flowguard.map import records, requests as stored
+    from flowguard.map.common import GitRun, git_common_directory
+    root = tmp_path / 'project'
+    _project(root)
+    for index in range(30):
+        store_request(root, f'words {index}\n'.encode(), identifier=f'R{index}')
+    _seed_git(root)
+    (root / '.gitattributes').write_text('*.json filter=keep\n')
+    names = [f'.flowguard/requests/R{index}.{suffix}' for index in range(30) for suffix in ('md', 'json')]
+    alone = {name: records.integrity_problem(root, name) for name in names}
+    assert all('filter=keep' in alone[name] for name in names[1::2]) and not any(alone[name] for name in names[::2])
+    live, peak, listed = set(), [0], []
+
+    class Counted(GitRun):
+        def __init__(self, *arguments):
+            super().__init__(*arguments)
+            live.add(self)
+            peak[0] = max(peak[0], len(live))
+
+        def result(self, allowed=(0,)):
+            live.discard(self)
+            return super().result(allowed)
+
+        def close(self):
+            live.discard(self)
+            super().close()
+    original = records.git_run
+    def counted(root, *arguments, **options):
+        listed.extend([arguments[-1]] if arguments[0] == 'log' else [])
+        return original(root, *arguments, **options)
+    monkeypatch.setattr(records, 'GitRun', Counted)
+    monkeypatch.setattr(records, 'git_run', counted)
+    later = names[10:20:2]      # checks that come after every other one, once their runs were waited for unread
+    with records.FirstListings(root, names, git_common_directory(root)) as listings:
+        answers = {name: records.integrity_problem(root, name) for name in names if name not in later}
+        begun = set(listings.runs)
+        answers.update((name, records.integrity_problem(root, name)) for name in later)
+    # the later files whose runs began were waited for unread, so their checks ran Git alone
+    assert answers == alone and listed and sorted(listed) == sorted(begun & set(later))
+    assert 0 < peak[0] <= records.FirstListings.AHEAD + 1 and not live
+    assert all(run.process.returncode is not None for run in listings.runs.values())
+    peak[0] = 0
+    rows = stored.request_states(root, [f'R{index}' for index in range(30)])
+    assert 0 < peak[0] <= records.FirstListings.AHEAD + 1 and not live
+    monkeypatch.setattr(stored, 'FirstListings', lambda *arguments: contextlib.nullcontext())
+    assert stored.request_states(root, [f'R{index}' for index in range(30)]) == rows
+    assert 'filter=keep' in rows['R0']['edited'] and rows['R0']['invalid'] is None
