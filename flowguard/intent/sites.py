@@ -119,8 +119,41 @@ def code_key(code) -> tuple:
     return (code.co_filename, code.co_firstlineno)
 
 
+class _Read(list):
+    """Lines given to inspect.getblock, counting how many its tokenizer takes and whether it asked past the last."""
+    taken, ended = 0, False
+
+    def __iter__(self):
+        for line in list.__iter__(self):
+            self.taken += 1
+            yield line
+        self.ended = True
+
+
+_BLOCKS = {}
+
+
+def _source(fn):
+    """inspect.getsource(fn), the steps of inspect.getsourcelines for a function: findsource, then getblock. Every
+    test's call hooks tokenize the same few functions, so a block is reused while the lines its tokenizer took are
+    the same, and the file still ends there if it took them all; any other text is tokenized again."""
+    function = inspect.unwrap(fn)
+    if type(function) is not types.FunctionType:
+        return inspect.getsource(fn)
+    lines, lnum = inspect.findsource(function)
+    rest, key = lines[lnum:], (function.__code__.co_filename, lnum)
+    if key in _BLOCKS:
+        taken, ended, block = _BLOCKS[key]
+        if (len(rest) == len(taken) if ended else len(rest) >= len(taken)) and tuple(rest[:len(taken)]) == taken:
+            return ''.join(block)
+    read = _Read(rest)
+    block = inspect.getblock(read)
+    _BLOCKS[key] = tuple(rest[:read.taken]), read.ended, block
+    return ''.join(block)
+
+
 def _parse(fn):
-    src = textwrap.dedent(inspect.getsource(fn))
+    src = textwrap.dedent(_source(fn))
     tree = ast.parse(src)
     fdef = tree.body[0]
     if not isinstance(fdef, (ast.FunctionDef, ast.AsyncFunctionDef)):
