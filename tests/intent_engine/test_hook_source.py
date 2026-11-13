@@ -1,7 +1,9 @@
 """The call hook's source text is inspect.getsource's, whatever changed since the last test asked."""
+import ast
 import importlib.util
 import inspect
 import linecache
+import marshal
 import os
 import uuid
 
@@ -58,3 +60,20 @@ def test_reused_block_keeps_the_shim_of_the_current_source(tmp_path):
     with pytest.raises(sites.NotMutable, match='^private names in a method$'):
         with sites.intercepted(owner.days, lambda original, bound: original(*bound.args, **bound.kwargs)):
             pass
+
+
+def test_kept_parse_compiles_what_a_fresh_parse_compiles(tmp_path):
+    path = tmp_path / 'policy.py'
+    path.write_text('def grace(days: int = 3, *, unit="d") -> bool:\n    return days > 3\n')
+    grace = load(path).grace
+
+    def body(fdef):
+        fdef.body = [ast.Return(ast.Call(ast.Name('hook', ast.Load()), [ast.Name('days', ast.Load())], []))]
+    for text in (None, 'def grace(value: int = 3, *, unit="d") -> bool:\n    return value > 3\n'):
+        if text is not None:
+            rewrite(path, text)
+        kept = sites._recompile(grace, None, lambda: True, body)
+        again = sites._recompile(grace, None, lambda: True, body)
+        fresh = sites._recompile(grace, ast.NodeTransformer(), lambda: True, body)
+        assert marshal.dumps(kept) == marshal.dumps(again) == marshal.dumps(fresh)
+    assert kept.co_varnames[:2] == ('value', 'unit')

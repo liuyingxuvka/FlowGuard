@@ -11,6 +11,7 @@ in methods read `not mutable`.
 from __future__ import annotations
 
 import ast
+import copy
 import enum
 import importlib
 import inspect
@@ -152,13 +153,49 @@ def _source(fn):
     return ''.join(block)
 
 
-def _parse(fn):
-    src = textwrap.dedent(_source(fn))
+def _function(src):
     tree = ast.parse(src)
     fdef = tree.body[0]
     if not isinstance(fdef, (ast.FunctionDef, ast.AsyncFunctionDef)):
         raise NotMutable("not a function definition")
     return tree, fdef
+
+
+def _parse(fn):
+    return _function(textwrap.dedent(_source(fn)))
+
+
+def _private(fdef):
+    return any(isinstance(n, ast.Attribute) and n.attr.startswith("__") and not n.attr.endswith("__")
+               for n in ast.walk(fdef))
+
+
+def _strip(fdef):
+    """No decorators, defaults or annotations: the compiled copy keeps the function's own."""
+    fdef.decorator_list = []
+    fdef.returns = None
+    a = fdef.args
+    a.defaults, a.kw_defaults = [], [None] * len(a.kwonlyargs)
+    for arg in a.posonlyargs + a.args + a.kwonlyargs + [x for x in (a.vararg, a.kwarg) if x]:
+        arg.annotation = None
+
+
+_HEADERS = {}
+
+
+def _header(fn):
+    """_parse(fn) for a copy whose body is replaced whole: a copy of the stripped function without its body, and whether
+    that body names a private attribute. The same source text always parses the same, so each text is parsed once."""
+    src = textwrap.dedent(_source(fn))
+    if src not in _HEADERS:
+        tree, fdef = _function(src)
+        private = _private(fdef)
+        fdef.body = []
+        _strip(fdef)
+        _HEADERS[src] = tree, private
+    tree, private = _HEADERS[src]
+    tree = copy.deepcopy(tree)
+    return tree, tree.body[0], private
 
 
 def own_nodes(fdef):
@@ -415,17 +452,15 @@ def _recompile(fn, transformer, found, post=None):
     free = fn.__code__.co_freevars
     if free and free != ("__class__",):
         raise NotMutable("closure (free variables)")
-    tree, fdef = _parse(fn)
-    if "." in fn.__qualname__ and any(isinstance(n, ast.Attribute) and n.attr.startswith("__")
-                                      and not n.attr.endswith("__") for n in ast.walk(fdef)):
-        raise NotMutable("private names in a method")
-    fdef.decorator_list = []
-    fdef.returns = None
-    a = fdef.args
-    a.defaults, a.kw_defaults = [], [None] * len(a.kwonlyargs)
-    for arg in a.posonlyargs + a.args + a.kwonlyargs + [x for x in (a.vararg, a.kwarg) if x]:
-        arg.annotation = None
-    if transformer is not None:
+    if transformer is None:         # the call hook: post() replaces the whole body, so only the rest is copied
+        tree, fdef, private = _header(fn)
+        if "." in fn.__qualname__ and private:
+            raise NotMutable("private names in a method")
+    else:
+        tree, fdef = _parse(fn)
+        if "." in fn.__qualname__ and _private(fdef):
+            raise NotMutable("private names in a method")
+        _strip(fdef)
         tree = transformer.visit(tree)
     if not found():
         raise NotMutable("site not found again")
