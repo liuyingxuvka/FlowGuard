@@ -39,12 +39,42 @@ def git_run(root, *arguments: str, allowed=(0,), input: bytes | None = None, env
     try:
         result = subprocess.run(["git", "-C", str(root), *arguments], capture_output=True, input=input, env=env)
     except FileNotFoundError as error:
-        raise MapError("git executable not found: FlowGuard reads the project's Git state with it; "
-                       "install Git or put it on PATH") from error
+        raise _git_missing() from error
+    return _git_checked(root, arguments, result, allowed)
+
+
+def _git_missing():
+    return MapError("git executable not found: FlowGuard reads the project's Git state with it; "
+                    "install Git or put it on PATH")
+
+
+def _git_checked(root, arguments, result, allowed):
     if result.returncode not in allowed:
         reason = os.fsdecode(result.stderr).strip() or f"exit status {result.returncode}"
         raise MapError(f"git {arguments[0]} failed in {root}: {reason}")
     return result
+
+
+class GitRun:
+    """git_run(root, *arguments) begun now, so that several Git runs go side by side: `result()` waits for it and
+    gives what git_run gives, or raises what git_run raises; `close()` waits for it and reads nothing."""
+
+    def __init__(self, root, *arguments: str):
+        self.root, self.arguments = root, arguments
+        try:
+            self.process = subprocess.Popen(["git", "-C", str(root), *arguments], stdout=subprocess.PIPE,
+                                            stderr=subprocess.PIPE)
+        except FileNotFoundError as error:
+            raise _git_missing() from error
+
+    def result(self, allowed=(0,)) -> subprocess.CompletedProcess:
+        stdout, stderr = self.process.communicate()
+        return _git_checked(self.root, self.arguments,
+                            subprocess.CompletedProcess(self.process.args, self.process.returncode, stdout, stderr), allowed)
+
+    def close(self):
+        if self.process.returncode is None:
+            self.process.communicate()
 
 
 
@@ -125,6 +155,53 @@ def git_blob(root, revision: str, relative: str) -> bytes | None:
     if found is None:
         return None
     return git_run(root, "cat-file", "blob", found).stdout
+
+
+def git_blobs(root, revision: str, relatives) -> dict[str, bytes | None]:
+    """What git_blob(root, revision, path) gives of each of `relatives` at one commit, by the path as given, read
+    with one commit check, one listing per batch of paths and one `cat-file --batch` in place of three Git runs per
+    path. Only what this batch reads as git_blob does is given: a path a listing of several paths reads otherwise
+    (a folder another path lies in, `..` or a magic name Git rewrites), an object that is no blob, and every path of
+    a commit, listing or batch Git cannot read are left out, for git_blob to read alone, and fail on with Git's
+    message, when its caller reads it."""
+    wanted = {relative: Path(relative).as_posix() for relative in dict.fromkeys(relatives)}
+    if not wanted or git_run(root, "rev-parse", "-q", "--verify", revision + "^{commit}", allowed=(0, 1)).returncode:
+        return {}
+    names = list(dict.fromkeys(wanted.values()))
+    folders = {name[:index] for name in names for index, char in enumerate(name) if char == "/"}
+    listed = [name for name in names if name not in folders and not name.startswith((":", "/")) and ".." not in name.split("/")]
+    objects, batch, length = {}, [], 0
+    for index, name in enumerate(listed):
+        batch.append(name)
+        length += len(name) + 1
+        if length > 8000 or index == len(listed) - 1:     # a command line Windows accepts
+            listing = git_run(root, "ls-tree", "-z", revision, "--", *batch, allowed=(0, 1, 128))
+            if listing.returncode:
+                return {}
+            asked = set(batch)
+            for row in listing.stdout.split(b"\0"):
+                description, _, entry = row.partition(b"\t")
+                entry = os.fsdecode(entry)
+                if entry in asked and entry not in objects:     # git_path_object: the first entry of that name
+                    objects[entry] = os.fsdecode(description.split()[2])
+            batch, length = [], 0
+    blobs, unique = {}, list(dict.fromkeys(objects.values()))
+    if unique:
+        output = git_run(root, "cat-file", "--batch", input=("\n".join(unique) + "\n").encode(), allowed=(0, 1, 128))
+        if output.returncode:
+            return {}
+        output, position = output.stdout, 0
+        for found in unique:
+            end = output.index(b"\n", position)
+            header, position = output[position:end].split(), end + 1
+            if len(header) == 3:
+                size = int(header[2])
+                if header[1] == b"blob":
+                    blobs[found] = output[position:position + size]
+                position += size + 1
+    read = {name: blobs[objects[name]] if name in objects else None for name in listed
+            if name not in objects or objects[name] in blobs}
+    return {relative: read[name] for relative, name in wanted.items() if name in read}
 
 
 def git_renames(root, revision: str) -> dict[str, str]:

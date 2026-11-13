@@ -487,6 +487,33 @@ class MapHandle:
             parts[(key, kind)] = value
         return parts[(key, kind)]
 
+    def _baseline_record(self, revision, path, module, kinds, is_test=False):
+        """The `kinds` of `_baseline_facts` its record holds, each read as `_baseline_part` reads it ({} when the
+        file was absent): a check that reads a few kinds of many baseline files does not decode their whole records.
+        A record without `nodes` fails as `_baseline_facts` does."""
+        blob = self._baseline_object(revision, path)
+        if blob is None:
+            return {}
+        key = self._baseline_key(blob, path, module, is_test)
+        if key not in self._derived.get('baseline_facts', {}):
+            listed = self.con.execute('SELECT v FROM meta WHERE k=?', (key + ':',)).fetchone()
+            if listed is not None:
+                held = store.unpack(listed[0])
+                if 'nodes' not in held:
+                    raise KeyError('nodes')
+                # the parts `_baseline_part` reads, in one query; it reads a kind whose part is missing itself
+                parts = self._derived.setdefault('baseline_parts', {})
+                missing = [kind for kind in kinds if kind in held and (key, kind) not in parts]
+                stored = dict(self.con.execute(f"SELECT k, v FROM meta WHERE k IN ({','.join('?' * len(missing))})",
+                                               [key + ':' + kind for kind in missing])) if missing else {}
+                for kind in missing:
+                    if key + ':' + kind in stored:
+                        parts[(key, kind)] = store.unpack(stored[key + ':' + kind])[0]
+                return {kind: parts[(key, kind)] if (key, kind) in parts else
+                        self._baseline_part(revision, path, module, kind, is_test) for kind in kinds if kind in held}
+        whole = self._baseline_facts(revision, path, module, is_test)     # also a record kept before its parts were
+        return {kind: whole[kind] for kind in kinds if kind in whole}
+
     # ---- declared value sets, typed values, Prisma reads, relations and calls by name ----------
     def _ts_sets(self):
         """{name: [row]} of the JS/TS value sets (`as const` arrays and objects, `new Set([...])`, closed

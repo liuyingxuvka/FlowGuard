@@ -8,8 +8,8 @@ from pathlib import Path
 import re
 
 from .common import MapError, git_blob, git_common_directory, git_head, git_run, normalize_newlines, sha256_bytes
-from .records import (NO_ORIGINAL_FACT, Unverifiable, integrity_problem, prepare_directory, protected_paths, restore_advice,
-                      validate_new_files, write_once, read_original_bytes)
+from .records import (NO_ORIGINAL_FACT, FirstListings, Unverifiable, integrity_problem, prepare_directory, protected_paths,
+                      restore_advice, validate_new_files, write_once, read_original_bytes)
 
 REQUEST_DIR = Path('.flowguard/requests')
 RETIRED_DIR = REQUEST_DIR / 'retired'
@@ -340,8 +340,11 @@ def request_states(root: Path, identifiers) -> dict:
         return states
     common = git_common_directory(root)
     retired = set(_stems(root, RETIRED_DIR))
-    rows = {identifier: _owner_row(root, identifier, {identifier: None} if identifier in retired else {}, {}, common)
-            for identifier in wanted}
+    # the history listing of each file these rows check, their slowest Git read, begun a few checks ahead
+    with FirstListings(root, [REQUEST_DIR / (identifier + suffix) for identifier in wanted for suffix in ('.md', '.json')],
+                       common):
+        rows = {identifier: _owner_row(root, identifier, {identifier: None} if identifier in retired else {}, {}, common)
+                for identifier in wanted}
     for other in stored:
         meta = root / REQUEST_DIR / (other + '.json')
         if not meta.is_file() or not _readable(meta):

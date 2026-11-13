@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections import Counter
 import fnmatch
 from functools import cache
+import gc
 from contextlib import closing, ExitStack, contextmanager
 from contextvars import ContextVar
 import json
@@ -519,8 +520,8 @@ class Observations:
     def __init__(self, state):
         import ast
         from . import anchors, cache, differences
-        from .runtime import (Runtime, _binding_facts, _binding_reads, _changed_constants, _functions, _imported_changes,
-                              _read_through, changed_reads)
+        from .runtime import (Runtime, _binding_facts, _binding_reads, _changed_constants, _dumped, _functions,
+                              _imported_changes, _read_through, _same_binding, changed_reads)
         from ..map.common import MapError, git_files, git_renames, git_run, read_source
         from ..structure.readers.registry import language_for
         self.state, self.cfg = state, state.cfg
@@ -590,7 +591,7 @@ class Observations:
                 if not hasattr(home, 'scenario'):
                     self.rules.setdefault(home.target, []).append(rule)
         self.by_file, self.rels = {}, {}
-        views, trees = {}, {}
+        views, trees, facts, dumps = {}, {}, {}, {}
         def parsed(file):
             """(tree now, tree at the baseline) of a changed file; of another file, which reads a changed constant
             through an import, its one tree twice. A baseline version that does not parse reads as an empty module:
@@ -608,6 +609,13 @@ class Observations:
                 else:
                     trees[file] = tree, tree
             return trees[file]
+        def bindings(file):
+            """(baseline, current) `_binding_facts(nodes=True)` of a parsed file, read once. `dumps` keeps the ast.dump
+            of each node compared (`_same_binding`, `_dumped`) while `trees` keeps the trees."""
+            if file not in facts:
+                tree, old_tree = parsed(file)
+                facts[file] = _binding_facts(old_tree, nodes=True), _binding_facts(tree, nodes=True)
+            return facts[file]
         # Another module's constant this change alters reaches a file through its imports (`from m import LIMIT`,
         # `m.LIMIT`), also a file whose own text is the same: {module: its changed constants}, and {file: (the
         # file's constants that change with them, the names its imports bind to them, its module names)} of each
@@ -615,26 +623,33 @@ class Observations:
         changed_modules, imported = {}, {}
         if self.files:
             graph = state.get_map()
+            # the map's Python files; whether one is project code is asked only where an importer of a module is
+            # looked for (`project`), not of every file
             modules = {path: module for path, module, error in graph.con.execute('SELECT path, module, parse_error FROM file')
-                       if path.endswith('.py') and not error and state.is_project(str(self.cfg.root / path))}
+                       if path.endswith('.py') and not error}
             importers = {}          # module: the files importing from it, or it as a submodule (`from P import M`)
             for row in graph.imports(declarations=True):
                 if row['file'] in modules and row.get('module'):
                     importers.setdefault(row['module'], set()).add(row['file'])
                     if row.get('name') and row['name'] != '*':
                         importers.setdefault(row['module'] + '.' + row['name'], set()).add(row['file'])
-            pending = sorted((file for file in self.files if modules.get(file) in importers), reverse=True)
+            def project(file):
+                return state.is_project(str(self.cfg.root / file))
+            # the baseline versions `parsed` reads below, in one batch
+            self.runtime.read_ahead(sorted(self.renamed.get(file, file) for file in self.files))
+            pending = sorted((file for file in self.files if any(map(project, importers.get(modules.get(file), ())))),
+                             reverse=True)
             while pending:
                 file = pending.pop()
                 tree, old_tree = parsed(file)
                 module = modules[file]
                 names, aliases, extra = _imported_changes(tree, module if file.endswith('__init__.py') else module.rpartition('.')[0],
                                                           changed_modules)
-                constants = _changed_constants(old_tree, tree, extra)
+                constants = _changed_constants(old_tree, tree, extra, facts=bindings(file), dumps=dumps)
                 imported[file] = constants, names, aliases
                 if constants - changed_modules.get(module, set()):
                     changed_modules[module] = changed_modules.get(module, set()) | constants
-                    pending.extend(sorted(importers.get(module, set()) - {file}))
+                    pending.extend(sorted({other for other in importers.get(module, ()) if project(other)} - {file}))
         def function(file, qual):
             """The current node of `qual` in `file` and why the function changed since the baseline, '' when it did not:
             its code (a function new since then too), or a top-level binding it reads (a module constant), also
@@ -643,16 +658,16 @@ class Observations:
             (`imported`): `a constant it reads changed: BASE, m.LIMIT`."""
             if file not in views:
                 tree, old_tree = parsed(file)
-                views[file] = (dict(_functions(tree)), dict(_functions(old_tree)), _binding_facts(old_tree), _binding_facts(tree),
-                               _binding_reads(tree))
-            current_functions, prior_functions, old_facts, facts, reads = views[file]
+                views[file] = (dict(_functions(tree)), dict(_functions(old_tree)), *bindings(file), _binding_reads(tree))
+            current_functions, prior_functions, old_facts, now_facts, reads = views[file]
             node, prior = current_functions.get(qual), prior_functions.get(qual)
-            if node is None or prior is None or ast.dump(prior, include_attributes=False) != ast.dump(node, include_attributes=False):
+            if node is None or prior is None or prior is not node and _dumped(prior, dumps) != _dumped(node, dumps):
                 return node, 'its code changed'
             loaded = {part.id for part in ast.walk(node) if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load)}
             through = _read_through(loaded, reads)
             constants, names, aliases = imported.get(file, (set(), set(), {}))
-            read = sorted(name for name in through if old_facts.get(name) != facts.get(name) or name in constants)
+            read = sorted(name for name in through
+                          if not _same_binding(old_facts.get(name), now_facts.get(name), dumps) or name in constants)
             read += [name for name in changed_reads(node, names, aliases, changed_modules) if name not in read]
             return node, 'a constant it reads changed: ' + ', '.join(read) if read else ''
         def reaches(file, qual):
@@ -1497,11 +1512,26 @@ def pytest_collection_finish(session):
         _finish_collection(session, state)
 
 
+@contextmanager
+def _uncollected():
+    """No cyclic garbage collection while the block runs, and the collector as it was after it: the changed files'
+    syntax trees that Observations builds are many objects in no cycle, so collecting while they are built only
+    rescans them, and they are freed without it once read."""
+    collecting = gc.isenabled()
+    gc.disable()
+    try:
+        yield
+    finally:
+        if collecting:
+            gc.enable()
+
+
 def _finish_collection(session, state):
     if state.complete_collection is not None and {item.nodeid for item in session.items} != state.complete_collection:
         raise pytest.UsageError('another selection changed the full ordinary collection')
     state.get_model()
-    state.observations = Observations(state)
+    with _uncollected():
+        state.observations = Observations(state)
     state.engine.call_sites = state.observations.rule_calls
     state.engine.baseline = state.observations.runtime.baseline
     state.source_items = tuple(item for item in session.items if not isinstance(item, IntentItem) and item.name != SENTINEL)

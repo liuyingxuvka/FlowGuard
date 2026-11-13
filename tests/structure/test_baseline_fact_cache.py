@@ -328,3 +328,67 @@ def test_baseline_tree_keeps_nested_project_and_literal_file_identity(tmp_path):
     with closing(build(root)) as graph:
         with pytest.raises(MapError):
             graph._baseline_facts('HEAD', 'inside', 'not_a_file')
+
+
+def test_a_few_kinds_of_baseline_records_give_what_the_whole_records_give(tmp_path, monkeypatch):
+    """`Change.old_record` gives the kinds of `old_facts` that a file's record holds ({} for a file absent at the
+    baseline) without decoding the whole record, also for a record kept before its parts were and once the record is
+    decoded; the baseline writes and definitions read from these kinds are those the whole records give."""
+    root = project(tmp_path)
+    (root / 'loans.py').write_text('LIMIT = 3\nclass Loan:\n    def __init__(self):\n        self.days = LIMIT\n'
+                                   'def renew(loan: Loan):\n    loan.days = LIMIT + 1\n', encoding='utf-8')
+    (root / 'gone.py').write_text('from loans import Loan\ndef close(loan: Loan):\n    loan.days = 0\n', encoding='utf-8')
+    git(root, 'add', '.')
+    git(root, 'commit', '-qm', 'loans')
+    (root / 'loans.py').write_text('LIMIT = 4\nclass Loan:\n    def __init__(self):\n        self.days = LIMIT\n'
+                                   'def renew(loan: Loan):\n    loan.days = 5\n    loan.note = "x"\n', encoding='utf-8')
+    (root / 'gone.py').unlink()
+    (root / 'added.py').write_text('from loans import Loan\ndef open_(loan: Loan):\n    loan.days = 1\n', encoding='utf-8')
+    kinds = ('language', 'writes', 'assignments', 'nodes', 'facts', 'no such kind')
+
+    def whole_kinds(change, path):
+        whole = change.old_facts(path)
+        return {kind: whole[kind] for kind in kinds if kind in whole}
+
+    with closing(build(root)) as graph:
+        cfg = load_config(root)
+        wholes = Change(cfg, graph, 'HEAD')
+        paths = sorted(wholes.baseline_paths())
+        assert paths == ['added.py', 'gone.py', 'loans.py']
+        expected = {path: whole_kinds(wholes, path) for path in paths}
+        assert expected['added.py'] == {} and 'no such kind' not in expected['loans.py']
+        definitions = graph.definitions([(path, wholes.module(path), wholes.old_facts(path)) for path in paths])
+        records = [data for path, _, data in graph.write_records() if path not in paths]
+        records += [record for record in map(wholes.old_facts, paths) if record]
+        writes = {by_name: graph.writes(by_name=by_name, facts=records, definitions=definitions) for by_name in (False, True)}
+        assert {(row['function'], row['field'], row.get('value')) for row in writes[False]} >= {
+            ('renew', 'days', 4), ('close', 'days', 0)}
+    decoded = []
+    unpack = api.store.unpack
+    def counted(blob):
+        value = unpack(blob)
+        if isinstance(value, dict) and 'nodes' in value:
+            decoded.append(value)            # a whole record
+        return value
+    for kept_before_parts in (False, True):
+        with closing(build(root)) as graph:
+            if kept_before_parts:
+                graph.con.execute("DELETE FROM meta WHERE k LIKE 'baseline_facts:%:%'")
+                graph.con.commit()
+            monkeypatch.setattr(api.store, 'unpack', counted)
+            change = Change(load_config(root), graph, 'HEAD')
+            assert {path: change.old_record(path, kinds) for path in paths} == expected
+            assert change.baseline_writes() == writes[False] and change.baseline_writes(by_name=True) == writes[True]
+            assert change.baseline_definitions().env('loans') == definitions.env('loans')
+            assert len(decoded) == (2 if kept_before_parts else 0)
+            assert {path: change.old_record(path, kinds) for path in paths} == expected
+            monkeypatch.setattr(api.store, 'unpack', unpack)
+            decoded.clear()
+    with closing(build(root)) as graph:
+        change = Change(load_config(root), graph, 'HEAD')
+        change.old_facts('loans.py')
+        assert change.old_record('loans.py', kinds) == expected['loans.py']
+    with closing(build(root)) as graph:             # a part lost from the cache is read as `_baseline_part` reads it
+        graph.con.execute("DELETE FROM meta WHERE k LIKE 'baseline_facts:%:writes'")
+        graph.con.commit()
+        assert {path: Change(load_config(root), graph, 'HEAD').old_record(path, kinds) for path in paths} == expected
