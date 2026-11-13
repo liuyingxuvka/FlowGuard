@@ -137,12 +137,13 @@ def _source(fn):
     """inspect.getsource(fn), the steps of inspect.getsourcelines for a function: findsource, then getblock. Every
     test's call hooks tokenize the same few functions, so a block is reused while the lines its tokenizer took are
     the same, and the file still ends there if it took them all; any other text is tokenized again. The tokenizer
-    reports no warnings; the parse after it, which does (an invalid escape, say), still runs on every call."""
-    function = inspect.unwrap(fn)
-    if type(function) is not types.FunctionType:
+    reports no warnings; the parse after it, which does (an invalid escape, say), still runs on every call.
+    Anything but a plain function without __wrapped__ (which getsource would unwrap to itself) is getsource's alone,
+    so an object that only claims to be a function is read exactly as getsource reads it."""
+    if type(fn) is not types.FunctionType or hasattr(fn, '__wrapped__'):
         return inspect.getsource(fn)
-    lines, lnum = inspect.findsource(function)
-    rest, key = lines[lnum:], (function.__code__.co_filename, lnum)
+    lines, lnum = inspect.findsource(fn)
+    rest, key = lines[lnum:], (fn.__code__.co_filename, lnum)
     if key in _BLOCKS:
         taken, ended, block = _BLOCKS[key]
         if (len(rest) == len(taken) if ended else len(rest) >= len(taken)) and tuple(rest[:len(taken)]) == taken:

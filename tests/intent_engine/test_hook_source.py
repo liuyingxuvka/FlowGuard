@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 import textwrap
+import types
 import uuid
 
 import pytest
@@ -63,6 +64,24 @@ def test_a_block_found_without_reading_the_lines_is_not_kept(tmp_path, monkeypat
     assert sites._source(grace) == inspect.getsource(grace) == 'def grace(days):\n    return days > 3\n'
     rewrite(path, 'def grace(days):\n    return days >= 30\n    LIMIT = 1\n')
     assert sites._source(grace) == inspect.getsource(grace) == 'def grace(days):\n    return days >= 30\n    LIMIT = 1\n'
+
+
+def test_an_object_that_claims_to_be_a_function_is_read_as_getsource_reads_it(tmp_path):
+    path = tmp_path / 'policy.py'
+    path.write_text('def grace(days):\n    return days > 3\n')
+    grace = load(path).grace
+    reads = []
+
+    class Claimed:
+        def __getattribute__(self, name):
+            reads.append(name)
+            return types.FunctionType if name == '__class__' else getattr(grace, name)
+
+    claimed = Claimed()
+    text = inspect.getsource(claimed)
+    expected, reads[:] = list(reads), []
+    assert sites._source(claimed) == text == 'def grace(days):\n    return days > 3\n'
+    assert reads == expected and reads.count('__wrapped__') == 1
 
 
 def test_reused_block_keeps_the_shim_of_the_current_source(tmp_path):
