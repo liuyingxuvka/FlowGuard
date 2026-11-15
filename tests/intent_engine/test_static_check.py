@@ -19,7 +19,7 @@ import pytest
 from tests.intent_engine import _cli_fixture
 from tests.intent_engine._cli_fixture import display_text as _text, unchecked
 
-from flowguard.intent import anchors, cache
+from flowguard.intent import anchors, cache, signals
 from flowguard.structure import build
 
 SOURCE = str(Path(__file__).resolve().parents[2])
@@ -2345,7 +2345,7 @@ def test_a_pytest_session_against_flowguard_base_names_that_base_and_keeps_its_l
     code, text = _pytest(tmp_path, '--flowguard-base', 'HEAD~1')
     base = _git(tmp_path, 'rev-parse', 'HEAD~1').strip()
     title, *lines = _cli_fixture.block(text)
-    assert code == 0 and title.startswith(f'FlowGuard 4.2 (since --flowguard-base {base[:7]}): 0 red; ') and lines == [], text
+    assert code == 0 and title.startswith(f'FlowGuard {signals.version()} (since --flowguard-base {base[:7]}): 0 red; ') and lines == [], text
     shown = _cli_fixture.last(tmp_path).splitlines()
     leads = shown[shown.index('deprecated leads (5.0):') + 1:]
     assert len(leads) == 12 and all(line.startswith('    label-spelling leads: label spellings differ: ') for line in leads), shown
