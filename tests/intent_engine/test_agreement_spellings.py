@@ -178,6 +178,61 @@ def test_typescript_positions_use_the_declared_holder_not_a_matching_method_tail
                    for issue in index.issues)
 
 
+def test_a_writer_position_holds_the_writes_of_the_callbacks_inside_it(tmp_path):
+    # Planning Tool's projectService.create writes inside the arrow function it passes to $transaction; 4.2's bare
+    # name allowed that write by its function's name, and the 4.3 position must too. A write outside it is not held.
+    _files(tmp_path, {'prisma/schema.prisma': ACCOUNT_SCHEMA, 'service.ts': '''
+        // flowguard: writers Account.status service.save
+        // flowguard: together Account.status Account.changed except=other.ts:seed(fills it once)
+        export const service = {
+          async save(prisma: any) {
+            return prisma.$transaction(async (tx: any) => {
+              await tx.account.update({ where: { id: 1 }, data: { status: 'ready', changed: true } });
+            });
+          },
+        };
+        export function close(prisma: any) {
+          return prisma.$transaction(async (tx: any) => tx.account.update({ where: { id: 2 }, data: { status: 'x' } }));
+        }
+    ''', 'other.ts': '''
+        export function seed(prisma: any) {
+          return prisma.$transaction(async (tx: any) => tx.account.update({ where: { id: 3 }, data: { status: 'y' } }));
+        }
+    '''})
+    with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
+        index = anchors.collect(graph)
+        assert not index.issues
+        writers, = [entry for entry in index.named('Account.status') if entry.writers]
+        rows = {(row['file'], row['line']): row for row in graph.writes('Account.status', by_name=True)}
+        assert sorted(rows) == [('other.ts', 2), ('service.ts', 6), ('service.ts', 11)]
+        assert all('<anonymous' in row['node'] for row in rows.values())
+        assert {place for place, row in rows.items() if not owners._allowed(row, writers.writers)} == {
+            ('other.ts', 2), ('service.ts', 11)}
+        pair, = [entry for entry in index.named('Account.status') if entry.pairs]
+        exceptions = [item.partition('(')[0] for item in pair.alone]
+        assert {place for place, row in rows.items() if owners._allowed(row, exceptions)} == {('other.ts', 2)}
+
+
+def test_a_tests_own_write_is_a_fixture_and_not_held_to_a_writers_agreement(tmp_path):
+    # Planning Tool's integration tests create projects with a lifecycle status in their fixtures; as for a pair,
+    # such a write is the test's own and not a red, while production code outside the writers still is.
+    save = "export function %s(prisma: any) {\n  return prisma.account.update({ where: { id: 1 }, data: { status: 'ready' } });\n}\n"
+    _files(tmp_path, {'prisma/schema.prisma': ACCOUNT_SCHEMA,
+                      'src/local.ts': '// flowguard: writers Account.status save\n' + save % 'save',
+                      'src/other.ts': save % 'close',
+                      'tests/integration/account.test.ts': save % 'ensureFixtures'})
+    with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
+        index = anchors.collect(graph)
+        assert {row['file'] for row in graph.writes('Account.status', by_name=True)} == {
+            'src/local.ts', 'src/other.ts', 'tests/integration/account.test.ts'}
+        issue, = owners.owner_writes(owners.Change(load_config(tmp_path), graph, None), index).issues
+        assert [part[1] for part in issue.parts] == ['src/other.ts:close'] and issue.files == {'src/other.ts'}
+        shown = owners.show_lines(load_config(tmp_path), graph, index, 'Account.status')
+    assert [line for line in shown if line.startswith(('outside writers', 'test fixture'))] == [
+        'outside writers: src/other.ts:2 close (update)',
+        'test fixture (not held): tests/integration/account.test.ts:2 ensureFixtures (update)']
+
+
 def test_typescript_bare_function_and_ambiguous_holders_do_not_borrow_an_object_method(tmp_path):
     _files(tmp_path, {'policy.ts': '''
         // flowguard: writers Account.status save

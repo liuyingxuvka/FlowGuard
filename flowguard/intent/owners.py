@@ -350,9 +350,12 @@ def baseline(cfg, base=None):
 # ---- data owners --------------------------------------------------------------------------------------
 
 def _allowed(row, writers):
+    """Whether one of `writers` (a position `module:function`, or a bare name of the old owner spelling, which any
+    file's function of that name satisfies) wrote `row`: its own code or a callback inside it (a transaction's
+    arrow function writes for the method that passes it, as a bare name always allowed)."""
     for writer in writers:
         if ':' in writer:
-            if row['node'] == writer:
+            if named(row['node']) == writer:
                 return True
         elif row['function'] == writer or row['function'].endswith('.' + writer):
             return True
@@ -373,13 +376,23 @@ def _agreement_place(graph, owner, role):
     return f'canonical registration {owner.file}:{owner.line}'
 
 
+def _test_write(graph, row, tests=None):
+    """Whether a write row is a test's own (a fixture): not held to a writers agreement, as not to a pair."""
+    if tests is None:
+        tests = {path for (path,) in graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
+    return row['file'] in tests or is_test_file(row['file'])
+
+
 def owner_writes(change, index):
-    """The `writer:` finding of each data owner's writers agreement that code writes outside (`_writer_issue`)."""
+    """The `writer:` finding of each data owner's writers agreement that production code writes outside
+    (`_writer_issue`); a test's own write is a fixture, not held to it (`_test_write`)."""
     found, written = Findings(ran={'writer'}), None
+    tests = {path for (path,) in change.graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
     for owner in (a for a in index.entries if a.kind == 'owner' and a.writers):
         if written is None:
             written = change.graph.writes(by_name=True)        # read once for every owner
-        rows = [row for row in change.graph.writes_to(written, owner.name) if not row.get('unclear')]
+        rows = [row for row in change.graph.writes_to(written, owner.name)
+                if not row.get('unclear') and not _test_write(change.graph, row, tests)]
         outside = [row for row in rows if not _allowed(row, owner.writers)]
         if outside:
             found.issues.append(_writer_issue(change, owner, outside, _agreement_place(change.graph, owner, 'writers')))
@@ -2448,14 +2461,18 @@ def show_lines(cfg, graph, index, name):
     lines = []
     for owner in index.named(name):
         if owner.kind == 'owner' and owner.writers:
+            tests = {path for (path,) in graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
             rows = [row for row in graph.writes(owner.name, by_name=True)]
-            outside = [row for row in rows if not row.get('unclear') and not _allowed(row, owner.writers)]
+            fixtures = [row for row in rows if _test_write(graph, row, tests)]
+            outside = [row for row in rows if not row.get('unclear') and not _allowed(row, owner.writers)
+                       and row not in fixtures]
             where = _agreement_place(graph, owner, "writers")
             lines.append(f'owner {owner.name} {where}; writers={",".join(owner.writers)}')
             def plain(row):
                 value = f', value {row["value"]!r}' if 'value' in row else ''
                 return f'{row["file"]}:{row["line"]} {row["function"]} ({row["kind"]}{value})'
             lines.extend('outside writers: ' + plain(row) for row in outside)
+            lines.extend('test fixture (not held): ' + plain(row) for row in fixtures if not _allowed(row, owner.writers))
             lines.extend('unclear: ' + plain(row) + f' {row.get("reason", "")}' for row in rows if row.get('unclear'))
             lines.extend(f'with {pair}' for pair in owner.pairs)
             lines.extend(f'alone {item}' for item in owner.alone)
