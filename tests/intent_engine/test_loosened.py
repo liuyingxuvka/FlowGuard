@@ -102,6 +102,31 @@ def close(order: Order):
         'reopen added to writers Order.status', 'same LIMIT removed from app/order.py:close'])
 
 
+SCRIPT = """export async function main(prisma: any) {
+  await prisma.item.update({ where: { id: '3' }, data: { state: 'C', kind: 'c' } });
+}
+export async function other(prisma: any) {
+  await prisma.item.update({ where: { id: '4' }, data: { state: 'D', kind: 'd' } });
+}
+"""
+
+
+def test_rewriting_the_old_spellings_as_the_upgrade_notes_say_loosens_nothing(tmp_path):
+    # A 4.2 bare name in alone= or writers= is the function of that name in any file; the 4.3 spelling of one of
+    # them, with its path or bare in its own file, is no more than that (Planning Tool's upgrade showed two lines).
+    _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'app/s.ts': SCRIPT,
+                       'app/a.ts': _app('// flowguard: owner Item.state with=Item.note alone=main(app/s.ts fills it)',
+                                        '// flowguard: owner Item.kind writers=setState,main')})
+    _write(tmp_path, {'app/a.ts': _app('// flowguard: together Item.state Item.note except=app/s.ts:main(fills it)',
+                                       '// flowguard: writers Item.kind setState,app/s.ts:main')})
+    assert _loosened(tmp_path)[0] == []
+    # Another function than the old name allowed is still loosened, with a path or bare.
+    _write(tmp_path, {'app/a.ts': _app('// flowguard: together Item.state Item.note except=app/s.ts:other(fills it)',
+                                       '// flowguard: writers Item.kind setState,app/s.ts:main,legacy')})
+    assert sorted(_loosened(tmp_path)[0]) == ['except=app/s.ts:other added to together Item.state',
+                                              'legacy added to writers Item.kind']
+
+
 def test_moving_a_comment_between_files_or_renaming_a_file_loosens_nothing_and_no_baseline_compares_nothing(tmp_path):
     _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'app/a.ts': BASE})
     _git(tmp_path, 'mv', 'app/a.ts', 'app/b.ts')

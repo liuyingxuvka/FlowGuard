@@ -1683,7 +1683,9 @@ def loosened(change, index):
     """What this change loosened in the agreements of its `flowguard:` comments (D9), each a `loosened` line: an
     `except=` (`alone=`) added, also in a new together; a together partner removed (the whole agreement too); an
     `on=` added to or changed in a together that stays; a writer added to a writers agreement that stays; a writers
-    agreement removed; a `same NAME` removed from a function. The baseline's comments are the old `anchors` facts of
+    agreement removed; a `same NAME` removed from a function. A 4.2 bare name in `alone=` or `writers=` rewritten as
+    one function of that name (`except=path:f`, `writers A f`) narrows what it allowed and loosens nothing. The
+    baseline's comments are the old `anchors` facts of
     the files this change edits, deletes or renames away, beside the map's for every other file. Positions compare
     as the functions they resolve to, a renamed file's by its new module (`_moved_modules`): a comment moved beside
     another function of the name it spells now names that function. A file moved without Git and edited in its
@@ -1714,10 +1716,21 @@ def loosened(change, index):
         place = f'{row["file"]}:{row["line"]}'
         found.lines.append(Line('loosened', f'loosened:{key}', function, text, LOOSENED_STEP, (place,), (f'comment at {place}',)))
 
+    def added(new, old):
+        """The positions of `new` the baseline's `old` did not allow: a bare name of the old owner spelling allowed
+        the function of that name in every file (`_allowed`), so the same name with a path, or the 4.3 bare name
+        of the comment's own file, is no more than it allowed."""
+        bare = [was for was in old if ':' not in was]
+
+        def allowed(position):
+            qual = position.rpartition(':')[2]
+            return any(qual == was or qual.endswith('.' + was) for was in bare)
+        return sorted(position for position in new.keys() - old.keys() if not allowed(position))
+
     for name in sorted(then.keys() | now.keys()):
         old, new = then.get(name), now.get(name)
         if new is not None:
-            for exception in sorted(new['alone'].keys() - (old['alone'].keys() if old else set())):
+            for exception in added(new['alone'], old['alone'] if old else {}):
                 row = new['alone'][exception]
                 line(f'except:{name}:{exception}', f'except={spelled(exception, row)} added to together {name}', row)
         if old is not None and old['pairs']:
@@ -1734,7 +1747,7 @@ def loosened(change, index):
             if new is None or not new['writers']:
                 line(f'writers:{name}', f'writers {name} removed', next(iter(old['writers'].values())))
             else:
-                for writer in sorted(new['writers'].keys() - old['writers'].keys()):
+                for writer in added(new['writers'], old['writers']):
                     row = new['writers'][writer]
                     line(f'writer:{name}:{writer}', f'{spelled(writer, row)} added to writers {name}', row)
     for (name, function), rows in sorted(same_then.items()):
