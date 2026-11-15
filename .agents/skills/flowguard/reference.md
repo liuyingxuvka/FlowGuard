@@ -48,7 +48,7 @@ red: rule WINDOW: days=4: rule False, code True at orders.py:preview_accept (1 o
 red: same ACCEPT: on days=4: the reference orders.py:accept returns False, orders.py:preview_accept returns True -> make orders.py:preview_accept agree with the reference
 ```
 
-A newly written document is provisional evidence, not independent confirmation. The shortest comment is `# flowguard: same ACCEPT`; input and context roles are then read from the parameters.
+A newly written document is provisional evidence, not independent confirmation. A rule runs only Python functions: bound to a TS/JS function it is red, and TS/JS copies are compared by `same` alone. The shortest comment is `# flowguard: same ACCEPT`; input and context roles are then read from the parameters.
 
 The rule's `fields` dictionary is the supported API's explicit input schema. It is separate from the `fields name=expression` annotation described below. Keep the predicate independent of the implementation and preserve meaningful regression rows.
 

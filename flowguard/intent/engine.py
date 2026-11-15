@@ -1093,6 +1093,9 @@ class Engine:
             return []
         if home.anchor is None:
             return [f'anchor gone: {home.name}']
+        from ..structure.readers.registry import language_for
+        if language_for(home.anchor.file) != 'python':
+            return [f'{home.anchor.file}:{home.anchor.qual} is not Python: a rule runs only Python functions']
         issues = [*home.anchor.issues, *self.m.anchor_index.issues]
         if hasattr(home, 'scenario'):
             issues += list(home.scenario.issues)

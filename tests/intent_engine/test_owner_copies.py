@@ -1242,3 +1242,23 @@ def test_a_copy_this_change_makes_diverge_from_the_reference_is_new_never_broken
     assert code == 0 and not any(line.startswith('before: ') for line in shown), text
     assert 'impact: copies of ACCEPT: orders.py:preview_accept is a diverged copy of the reference orders.py:accept ' \
            '-> fix it, or say why in your report' in shown, text
+
+
+def test_a_rule_bound_to_a_typescript_copy_says_rules_run_python_functions_only(tmp_path):
+    # Planning Tool's three ISO week copies are TypeScript; a rule bound to them was red with "home gone" and a
+    # ModuleNotFoundError, as if the function had been deleted.
+    _project(tmp_path, {
+        'src/weeks.ts': '// flowguard: same ISO_WEEKS_IN_YEAR\nexport function weeks(year: number) { return 52; }\n',
+        'tests/intent/iso_weeks.py': '''
+            from flowguard.intent import rule, row
+
+            @rule("ISO_WEEKS", decides="weeks in a year", fields={"year": int}, source="assumed: test", anchor="ISO_WEEKS_IN_YEAR")
+            def ISO_WEEKS(year):
+                return 52
+        ''',
+        'tests/test_flowguard_intent.py': 'def test_flowguard_intent(request):\n'
+                                          '    from flowguard.intent.plugin import sentinel\n    sentinel(request.config)\n'})
+    code, text = _check(tmp_path)
+    red = [line for line in _block(text) if line.startswith('red: rule ISO_WEEKS')]
+    assert code == 1 and len(red) == 1 and 'home gone' not in red[0] and 'ModuleNotFoundError' not in red[0], text
+    assert red[0].startswith('red: rule ISO_WEEKS: src/weeks.ts:weeks is not Python: a rule runs only Python functions -> '), text
