@@ -1594,11 +1594,11 @@ def test_show_of_a_field_names_the_fields_its_writers_also_write_as_with_candida
     code, text = _flowguard(tmp_path, 'show', 'Node.parentId')
     assert code == 0, text
     # id and createdAt are bookkeeping that every writer sets
-    assert _lines(text, 'with= candidate') == [
-        'with= candidate (reference only): Node.level is written by 2 of the 3 functions that write Node.parentId; not by '
-        'src/nodes.ts:8 move -> if the owner says they change together: // flowguard: together Node.parentId Node.level',
-        'with= candidate (reference only): Node.title is written by 2 of the 3 functions that write Node.parentId; not by '
-        'src/nodes.ts:8 move -> if the owner says they change together: // flowguard: together Node.parentId Node.title'], text
+    assert _lines(text, 'together candidate') == [
+        'together candidate (reference only): Node.level is written by 2 of the 3 functions that write Node.parentId; not by '
+        'src/nodes.ts:8 move -> if they must change together: // flowguard: together Node.parentId Node.level',
+        'together candidate (reference only): Node.title is written by 2 of the 3 functions that write Node.parentId; not by '
+        'src/nodes.ts:8 move -> if they must change together: // flowguard: together Node.parentId Node.title'], text
 
 
 # ---- deletes that leave restricting children ---------------------------------------------------------
@@ -2268,7 +2268,7 @@ def test_check_static_says_known_fixed_for_a_ledger_finding_once_a_ledger_judges
     assert code == 0 and _block(text) == [], text
     assert _flowguard(tmp_path, 'ledger', 'init')[0] == 0
     fixed = ('known fixed?: known.old-handler: ledger:app.py:2 load returns a default no longer found '
-             '-> the owner deferred it: revert, or say why in your report')
+             '-> it was left on purpose: if you meant to fix it, remove known.old-handler and say so in your report')
     for command in (('check', '--static'), ('check',)):     # check compares the ledger itself where no intent item runs
         code, text = _flowguard(tmp_path, *command)
         assert code == 0 and _block(text) == [fixed], (command, text)
@@ -2463,6 +2463,24 @@ def test_a_change_that_touches_an_open_structure_problem_gets_one_lead(tmp_path)
     assert code == 0 and _block(text, everything=True) == [
         f'before: no writers agreement for Job.status at {name}.py:{name} was broken at task start -> leave it unless your task is about it'
         for name in ('close', 'hold', 'reopen')], text
+    # R99: a change that adds a writer is told once, at the new writer, by the line of the fields it now writes; the old
+    # writers stay quiet.
+    _write(tmp_path, {'shop/cancel.py': '''
+        from shop.models import Job
+
+
+        def cancel(job: Job):
+            job.status = 'cancelled'
+    '''})
+    code, text = _static(tmp_path)
+    assert code == 0 and _block(text) == [
+        'impact: cancel now writes Job.status; 3 other writers (no writers agreement), 0 readers of Job -> check them for '
+        'this change only (python -m flowguard show Job.status)'], text
+    # --all names the new writer as a member of the open problem, with who decides (R101) instead of a fix.
+    code, text = _static(tmp_path, '--all')
+    assert ('impact: no writers agreement for Job.status: cancel.py:cancel writes Job.status, which 4 files write without a '
+            "writers agreement -> which functions should write it may be the owner's decision; name it in your report"
+            in _block(text, everything=True)), text
 
 
 def test_a_comment_above_a_function_with_callbacks_does_not_touch_its_structure_problem(tmp_path):

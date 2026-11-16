@@ -183,7 +183,7 @@ def test_check_all_fails_a_grey_rule_quoting_the_owner_unless_it_is_listed(tmp_p
     assert ('red: rule LIMIT_RULE: cites original words from the owner (R1), but is now grey (unverified): module initialization of json '
             'is not proved pure -> restore observability so the rule is checked again') in text.splitlines(), text
     # the owner's alternative is no way out the red line names: show --last gives it, as ledger check does
-    assert any(line.startswith("    only with the owner's yes: in .flowguard/ledger.toml [unverified] section, write a reason: LIMIT_RULE = ")
+    assert any(line.startswith("    a reason in the [unverified] section of .flowguard/ledger.toml stops this check, which is the owner's decision: LIMIT_RULE = ")
                for line in last(root).splitlines()), last(root)
     (root / ledger.LEDGER).parent.mkdir(exist_ok=True)
     (root / ledger.LEDGER).write_text('[unverified]\nLIMIT_RULE = ' + ledger._quote(
@@ -487,7 +487,7 @@ def test_check_all_fails_a_grey_template_flow_quoting_the_owner(tmp_path):
     assert checked.returncode == 1, text
     assert any(line.startswith('red: rule PRECEDES_STORED_SHIPPED: cites original words from the owner (R1), but is now grey (unverified): ')
                for line in text.splitlines()), text
-    assert any(line.startswith("    only with the owner's yes: in .flowguard/ledger.toml [unverified] section, write a reason: "
+    assert any(line.startswith("    a reason in the [unverified] section of .flowguard/ledger.toml stops this check, which is the owner's decision: "
                                'PRECEDES_STORED_SHIPPED = ') for line in last(root).splitlines()), last(root)
     brief, text = _cli(root)
     # The brief (design 4.7) lists the rules of rules.toml, not an unfinished intent item: check --all lists that.

@@ -56,6 +56,7 @@ def test_show_last_prints_every_line_and_the_catalog_queries_read_the_catalog_an
         f'FlowGuard last run: pytest at {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(1.0))}',
         'FlowGuard 4.2 (since aaaaaaa): 1 red, 2 not compared; 0.5 s',
         'red: together A: src/deep/a.py:f writes A without B -> also write B in f', '    JS/TS calls resolved by name',
+        '    finding pair:A>B',          # the name known add takes; a line that is no finding has none
         'not compared: N -> not a failure', '    uses attribute close', 'not compared: M -> not a failure', '    uses attribute close',
         'ignored: 2 (act = "ignore")', 'deprecated features used (5.0): sensor, owner writers=',
         'compared, unchanged:', '    K0 (knobs.py:2): 2 inputs compared, none differs',
@@ -70,7 +71,7 @@ def test_show_last_prints_every_line_and_the_catalog_queries_read_the_catalog_an
     shown = capsys.readouterr().out.splitlines()
     assert shown[1:] == ['FlowGuard 4.2 (since aaaaaaa): 1 red, 2 not compared; 0.5 s',
                          'red: together A: src/deep/a.py:f writes A without B -> also write B in f', '    JS/TS calls resolved by name',
-                         'not compared: N -> not a failure', '    uses attribute close', 'not compared: M -> not a failure',
+                         '    finding pair:A>B', 'not compared: N -> not a failure', '    uses attribute close', 'not compared: M -> not a failure',
                          '    uses attribute close'], shown
     (tmp_path / '.flowguard').mkdir(exist_ok=True)
     (tmp_path / '.flowguard/known.toml').write_text('[known.x]\n', encoding='utf-8')

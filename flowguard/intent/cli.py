@@ -33,10 +33,10 @@ PROJECT_RULES = '''<!-- flowguard:start -->
 ## FlowGuard rules for the project agent
 1. Start each task with `python -m flowguard new-task`; read its brief (owner rules, open items) before you change code.
 2. Run the project's tests. FlowGuard prints last; its first line counts each kind. `python -m flowguard show NAME` explains any name.
-3. `red` means your change broke a recorded agreement: fix the code. Never add `except=`, remove a flowguard comment or edit `.flowguard/known.toml` to clear it without the owner's yes.
-4. `known` and `before` were there before your task: do what the line says after `->`. Tell the owner only when it says `ask owner`.
+3. `red` means your change broke a recorded agreement: fix the code. An `except=`, a removed flowguard comment or a `.flowguard/known.toml` edit that clears it loosens the agreement, which is the owner's decision.
+4. `known` and `before` were there before your task; after `->` each line says what is known and who decides. You choose when to raise an open question with the owner.
 5. `changed` means a function returns something else for the input shown: if you meant it, say so in your report; if not, fix it. `impact` and `not compared` are not failures.
-6. When you find two places that must agree, mark each with `flowguard: same NAME` in the same change; when you find a problem only the owner can decide, add it to `.flowguard/known.toml` with `act = "ask"`.
+6. When you find two places that must agree, mark each with `flowguard: same NAME` in the same change; record a problem only the owner can decide in `.flowguard/known.toml` with `act = "ask"` (`known add` writes one).
 7. Store the owner's own words once with `python -m flowguard req add - --id R<n>`, never your own text, and keep `.flowguard/rules.toml` current, each rule's source quoting those words.
 <!-- flowguard:end -->
 '''
@@ -51,6 +51,7 @@ COMMANDS = {
     'ledger': 'The fallback ledger: handlers that may end without raising',
     'req': "Store, list or retire the owner's own words, byte for byte",
     'docs': 'Rewrite the generated regions of Markdown files (<!-- flowguard: generate ... -->) from the map',
+    'known': 'Record an open matter in .flowguard/known.toml: known add FINDING --act ACT --why TEXT',
 }
 
 DEPRECATED_COMMANDS = {'anchor', 'try', 'watch', 'model', 'compare'}
@@ -126,9 +127,9 @@ def _brief_line(text, more=0):
 
 def _known_brief(entry):
     if entry.act == 'ask':
-        return (f'known.{entry.id}: asked on {entry.asked}; leave it until the owner answers: {entry.ask}' if entry.asked
-                else f'known.{entry.id}: ask owner: {entry.ask}')
-    return f'known.{entry.id}: ' + ('fix' if entry.act == 'fix' else 'leave it') + f': {entry.why}'
+        return (f'known.{entry.id}: asked the owner on {entry.asked}, no answer yet: {entry.ask}' if entry.asked
+                else f'known.{entry.id}: open question for the owner: {entry.ask}')
+    return f'known.{entry.id}: ' + ('to fix when its code changes' if entry.act == 'fix' else 'left as it is') + f': {entry.why}'
 
 
 def _brief_reds(cfg, data):
@@ -199,8 +200,8 @@ def _last_reds(cfg, baseline):
 
 def _brief(cfg, data, baseline, note='', *, structure=''):
     """The brief (design 4.7, at most BRIEF_LINES lines, no map, no project code): the baseline with its note; the
-    first rules of .flowguard/rules.toml in file order; the open matters of .flowguard/known.toml an agent must act
-    on (ask, not asked yet; fix; leave; ask, asked; never ignore); one count of the open structure problems; and what
+    first rules of .flowguard/rules.toml in file order; the open matters of .flowguard/known.toml (ask, not asked yet;
+    ask, asked; fix; leave; never ignore); one count of the open structure problems; and what
     the last run left: the reds new-task's moved baseline turned into before, the reds that still stand, and invalid
     entries of the two files."""
     from .sources import catalog
@@ -208,9 +209,9 @@ def _brief(cfg, data, baseline, note='', *, structure=''):
     first = f'FlowGuard {version} brief, baseline {baseline[:12] if baseline else "none (no Git commit)"}'
     head = [first + ('; ' + note.removeprefix('baseline: ') if note else '')]
     found = catalog(cfg)
-    order = {'ask': 0, 'fix': 1, 'leave': 2}
+    order = {'ask': 0, 'fix': 2, 'leave': 3}         # an asked question is still open: after those not asked, before fix
     waiting = sorted((entry for entry in found.known.values() if entry.act != 'ignore'),
-                     key=lambda entry: 3 if entry.act == 'ask' and entry.asked else order[entry.act])
+                     key=lambda entry: 1 if entry.act == 'ask' and entry.asked else order[entry.act])
     before, still = _last_reds(cfg, baseline)
     still += len(_brief_reds(cfg, data))
     tail = [f'{before} red from the previous task are now before'] if before else []
@@ -367,6 +368,7 @@ def show_last(cfg, full=False):
     5.0-deprecated heuristic leads, which no longer get a line, under `deprecated leads (5.0):`. Read from
     the cache (`cache.read_last`), without building the map."""
     from .differences import display
+    from .signals import family_of
     last = cache.read_last(cfg)
     if last is None:
         print('FlowGuard: no last run recorded')
@@ -376,6 +378,8 @@ def show_last(cfg, full=False):
     for line in last['lines']:
         lines.append(f'{line["kind"]}: {line["text"]}' + (f' -> {line["step"]}' if line['step'] else ''))
         lines.extend('    ' + detail for detail in line['detail'])
+        if family_of(line['name']) not in ('', 'input'):          # the name known add takes
+            lines.append(f'    finding {line["name"]}')
     if last['ignored']:
         lines.append(f'ignored: {last["ignored"]} (act = "ignore")')
     if last['deprecated']:
@@ -589,7 +593,7 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False, last=False):
             from . import health, owners as checks       # several files write it and nobody owns it: say so first
             change = checks.Change(cfg, graph, None)
             for issue in health.writers(change, index, written).issues:
-                ranked.append((2001, f'structure: {issue.text} -> {issue.step} ' + ' '.join(issue.entry)))
+                ranked.append((2001, f'structure: {issue.text} -> {issue.step}'))
             ranked.extend((2001, line) for line in health.co_written(change, query))
             ranked.extend((1999 - order, line) for order, line in enumerate(checks.field_lines(graph, query, written)))
         for rid, rule in rules.items():
@@ -641,6 +645,20 @@ def write_docs(cfg):
     if not done:
         print('no generated region is out of date')
     return int(any(problem for *_, problem in done))
+
+
+def add_known_entry(cfg, options):
+    """`python -m flowguard known add`: one entry appended to .flowguard/known.toml (`sources.add_known`), and what
+    it holds."""
+    from .sources import KNOWN, add_known
+    with closing(build(cfg.root, roots=cfg.roots)) as graph:
+        entry = add_known(cfg, graph, '' if options.finding == '-' else options.finding, act=options.act, why=options.why,
+                          ask=options.ask, identifier=options.identifier, sites=options.site)
+    print(f'known.{entry.id} added to {KNOWN}: act {entry.act}, sites {", ".join(entry.sites)}'
+          + (f', finding {entry.finding}' if entry.finding else ''))
+    if entry.act != 'ask':
+        print('the next run lists it as loosened, as every new entry whose act is not ask')
+    return 0
 
 
 def draft_anchor(cfg, target):
@@ -1469,7 +1487,7 @@ def _owner_rules_unverified(cfg, data):
                               [f'cites original words from the owner ({source.rids[0]}), but is now grey (unverified): '
                                + (reasons[0].partition(' -> ')[0] if reasons else 'no results yet')],
                               'restore observability so the rule is checked again',
-                              detail=[*reasons, f"only with the owner's yes: in {ledger.LEDGER} [unverified] section, write a reason: "
+                              detail=[*reasons, f"a reason in the [unverified] section of {ledger.LEDGER} stops this check, which is the owner's decision: "
                                                 f'{rid} = {ledger._quote(ledger.PLACEHOLDER_UNVERIFIED)}']))
     return issues
 
@@ -2345,6 +2363,16 @@ def main(argv=None):
     add_parser('init')
     add_parser('new-task')
     add_parser('docs')
+    known_parser = add_parser('known')
+    known_operations = known_parser.add_subparsers(dest='operation', required=True)
+    known_add = known_operations.add_parser('add', help="Append one entry; its sites are the places of the last run's lines of FINDING")
+    known_add.add_argument('finding', help="a finding's name as show --last lists it, or - for a matter no check finds")
+    from .sources import ACTS
+    known_add.add_argument('--act', required=True, choices=ACTS)
+    known_add.add_argument('--why', required=True, help='what the matter is')
+    known_add.add_argument('--ask', default='', help='the question for the owner (with --act ask)')
+    known_add.add_argument('--id', dest='identifier', default='', help="the entry's id; the finding's name by default")
+    known_add.add_argument('--site', action='append', default=[], help='path:symbol, instead of the finding\'s places')
     ledger_parser = add_parser('ledger')
     ledger_operations = ledger_parser.add_subparsers(dest='operation', required=True)
     ledger_operations.add_parser('init', help='Record every existing fallback as legacy')
@@ -2396,6 +2424,8 @@ def main(argv=None):
             return init(cfg)
         if options.command == 'docs':
             return write_docs(cfg)
+        if options.command == 'known':
+            return add_known_entry(cfg, options)
         if options.command == 'ledger':
             return ledger(cfg, options.operation)
         if options.command == 'req':

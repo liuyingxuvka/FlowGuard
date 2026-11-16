@@ -622,7 +622,7 @@ def _issue(fields):
     from .health import Issue
     parts = tuple((function, tuple(place) if isinstance(place, list) else place, what, step) for function, place, what, step in fields['parts'])
     return Issue(**dict(fields, nodes=frozenset(fields['nodes']), files=frozenset(fields['files']), fresh=frozenset(fields['fresh']),
-                        entry=tuple(fields['entry']), detail=tuple(fields['detail']), parts=parts))
+                        detail=tuple(fields['detail']), parts=parts))
 
 
 def prepare(root, package=None):

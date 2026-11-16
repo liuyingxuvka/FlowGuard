@@ -978,7 +978,8 @@ def owner_pairs(change, index):
                 return '  '.join(f'{row["file"]}:{row["line"]} {row["function"]}' for row in rows) \
                     + ('(JS/TS calls resolved by name)' if any(calls[id(row)] for row in rows) else '') \
                     + {'update': '(updates only)', 'create': '(creates only)'}.get(owner.on, '')
-            step = (f'write the paired value; if intentionally independent, ask the owner before adding except=path:function(reason) to the together agreement (comment at {_agreement_place(change.graph, owner, "pairs")})')
+            step = (f'write the paired value; an except=path:function(reason) on the together agreement (comment at '
+                    f'{_agreement_place(change.graph, owner, "pairs")}) would loosen it, which is the owner\'s decision')
             if not missing:
                 continue
             fresh, detail = set(), []
@@ -1631,7 +1632,6 @@ def _lock_hint(comment, name, marked):
 
 # ---- what this change loosened, and the fields it newly writes (4.3) ----------------------------------
 
-LOOSENED_STEP = "name it in your report; needs the owner's yes"
 
 
 def _agreements(rows, moved=None):
@@ -1703,7 +1703,7 @@ def loosened(change, index):
     as the functions they resolve to, a renamed file's by its new module (`_moved_modules`): a comment moved beside
     another function of the name it spells now names that function. A file moved without Git and edited in its
     comments too is a file deleted and one added."""
-    from .signals import Line
+    from .signals import LOOSENED_STEP, Line
     found = Findings()
     paths = change.baseline_paths() if change.baseline else frozenset()
     if not paths:
@@ -2479,8 +2479,8 @@ def show_lines(cfg, graph, index, name):
             lines.extend(f'with {pair}' for pair in owner.pairs)
             lines.extend(f'alone {item}' for item in owner.alone)
             if outside:
-                lines.append(f'fix: call {" or ".join(dict.fromkeys(map(_writer_name, owner.writers)))} instead; only with the '
-                             f"owner's yes add a function to the writers agreement ({where})")
+                lines.append(f'fix: call {" or ".join(dict.fromkeys(map(_writer_name, owner.writers)))} instead; adding a '
+                             f"function to the writers agreement ({where}) loosens it, which is the owner's decision")
             if owner.pairs:
                 lines.append(_pair_fix(graph, owner))
         elif owner.kind == 'owner' and owner.pairs:
@@ -2502,9 +2502,9 @@ def show_lines(cfg, graph, index, name):
 
 
 def _pair_fix(graph, owner):
-    return (f'fix: also write {", ".join(owner.pairs)} in the same operation; only with the owner\'s yes add '
-            f'except=path:function(reason) to the together agreement ({_agreement_place(graph, owner, "pairs")}), '
-            'which the next run shows as loosened')
+    return (f'fix: also write {", ".join(owner.pairs)} in the same operation; an except=path:function(reason) on the '
+            f'together agreement ({_agreement_place(graph, owner, "pairs")}) loosens it, which is the owner\'s decision and '
+            'the next run shows as loosened')
 
 
 def declaration_lines(graph, name):

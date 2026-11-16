@@ -270,7 +270,7 @@ def test_red_loosened_and_known_fixed_are_listed_in_full_and_the_rest_keep_to_te
     kinds = [line.partition(': ')[0] for line in block[1:]]
     assert kinds == ['red'] * 15 + ['before', 'known', 'known'] + ['known fixed?'] * 3 + ['changed'] * 3 + [
         'impact'] * 2 + ['loosened'] * 4 + ['not compared', '+6 more'], block
-    # known lines (each a step of the owner's entry, `ask owner` among them) come first within the two lines; the count
+    # known lines (each a step of the owner's entry, an open question among them) come first within the two lines; the count
     # line stands where its kind keeps the order of the kinds
     assert block[16:19] == ['before: 4 more (4 before) -> python -m flowguard show --last',
                             'known: subject 0: file0.py:f0 broke -> do it', 'known: subject 1: file1.py:f1 broke -> do it'], block
@@ -283,9 +283,9 @@ def test_red_loosened_and_known_fixed_are_listed_in_full_and_the_rest_keep_to_te
         'known: subject 0: file0.py:f0 broke -> do it', 'known: subject 1: file1.py:f1 broke -> do it',
         'known: 3 more (2 known, 1 before) -> python -m flowguard show --last']
     # Two or more before lines never hide a known line: one known and one before fill the two lines.
-    assert _block([_line('before', number) for number in range(3)] + [_line('known', 9, step='ask owner (not asked yet)')])[1:] == [
+    assert _block([_line('before', number) for number in range(3)] + [_line('known', 9, step='an open question for the owner, not asked yet')])[1:] == [
         'before: subject 0: file0.py:f0 broke -> do it', 'before: 2 more (2 before) -> python -m flowguard show --last',
-        'known: subject 9: file9.py:f9 broke -> ask owner (not asked yet)']
+        'known: subject 9: file9.py:f9 broke -> an open question for the owner, not asked yet']
     # Nothing to say: the first line alone.
     assert _block([]) == [f'FlowGuard {VERSION} (since aaaaaaa): 0 red; 1.2 s']
 
@@ -338,8 +338,8 @@ def test_a_long_input_gives_way_first_and_a_changed_line_keeps_what_was_and_what
 
 def test_a_line_names_at_most_three_places_and_paths_are_file_names_unless_two_share_one():
     places = tuple(f'src/a{number}.py:f' for number in range(5))
-    line = Line('known', 'known.k', '', 'known.k at ' + ', '.join(places), 'ask owner (not asked yet)', places)
-    assert _block([line])[1] == 'known: known.k at a0.py:f, a1.py:f, a2.py:f (+2 places) -> ask owner (not asked yet)'
+    line = Line('known', 'known.k', '', 'known.k at ' + ', '.join(places), 'an open question for the owner, not asked yet', places)
+    assert _block([line])[1] == 'known: known.k at a0.py:f, a1.py:f, a2.py:f (+2 places) -> an open question for the owner, not asked yet'
     # The step's places count too: the text names one, the step two more, the rest are counted.
     homes = [f'src/a{number}.py:f' for number in range(5)]
     step = signals.rule_steps('R', homes, 'tests/intent/r.py:3', ['days=4 -> rule False, code True'])[0].rstrip('; ')
@@ -763,7 +763,7 @@ def test_a_known_entry_naming_an_old_same_name_disagreement_is_its_known_line_in
     policy.write_text(policy.read_text().replace('    return 52\n', '    return 50 + 2\n', 1))     # one site, same answers
     result = _run(root)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert block(result)[1:] == ['known: known.iso-weeks at policy.py:weeks, policy.py:iso_weeks -> ask owner (not asked yet)'], result.stdout
+    assert block(result)[1:] == ['known: known.iso-weeks at policy.py:weeks, policy.py:iso_weeks -> an open question for the owner, not asked yet'], result.stdout
     shown = last(root).splitlines()
     assert '    ask: Has 2025 52 or 53 ISO weeks?' in shown, shown
     # Without the entry the same disagreement is before, with the input it is about.
@@ -771,7 +771,7 @@ def test_a_known_entry_naming_an_old_same_name_disagreement_is_its_known_line_in
     result = _run(root)
     assert result.returncode == 0 and block(result)[1:] == [
         'before: same WEEKS disagreed at task start on year=2025: policy.py:weeks returns 52, policy.py:iso_weeks returns 53 '
-        '-> leave it unless your task is about it', "loosened: known.iso-weeks removed from known.toml -> name it in your report; needs the owner's yes"
+        '-> leave it unless your task is about it', "loosened: known.iso-weeks removed from known.toml -> name it in your report; loosening an agreement is the owner's decision"
     ], result.stdout
 
 
@@ -803,8 +803,8 @@ def test_a_known_entry_whose_same_name_copies_now_agree_in_the_pytest_session_is
     policy.write_text(policy.read_text().replace('return 53 if year == 2025 else 52', 'return 52'))
     result = _run(root)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert block(result)[1:] == ['known fixed?: known.iso-weeks: copies of WEEKS now agree -> the owner deferred it: '
-                                 'revert, or say why in your report'], result.stdout
+    assert block(result)[1:] == ['known fixed?: known.iso-weeks: copies of WEEKS now agree -> it was left on purpose: '
+                                 'if you meant to fix it, remove known.iso-weeks and say so in your report'], result.stdout
     # One copy that cannot run sealed: the copies were not all compared, so nothing is said to be fixed.
     policy.write_text(policy.read_text().replace('def iso_weeks(year: int) -> int:\n    return 52',
                                                  'def iso_weeks(year: int) -> int:\n    return len(open(__file__).read()) * 0 + 52'))
@@ -835,12 +835,12 @@ def test_a_known_entry_naming_a_rule_whose_items_all_pass_in_the_session_is_know
     policy.write_text(policy.read_text().replace('days <= 3', '3 >= days'))
     result = _run(root)
     assert result.returncode == 0 and block(result)[1:] == [
-        'known fixed?: known.days: rule:STANDING_RULE no longer found -> the owner deferred it: revert, or say why in your report'
+        'known fixed?: known.days: rule:STANDING_RULE no longer found -> it was left on purpose: if you meant to fix it, remove known.days and say so in your report'
     ], result.stdout
     # The rule's items not run (another test selected): nothing says it is fixed; the touched site is known.
     result = _run(root, 'tests/test_case.py')
     assert result.returncode == 0 and block(result)[1:] == [
-        'known: known.days at policy.py:standing -> leave it (the owner deferred it)'], result.stdout
+        'known: known.days at policy.py:standing -> left as it is on purpose; yours to change only if your task is about it'], result.stdout
 
 
 def test_an_intent_item_failing_only_on_a_source_broken_at_task_start_passes_and_is_before_where_touched(tmp_path):

@@ -90,9 +90,15 @@ def test_rule_one_starts_each_task_with_new_task_and_the_block_holds_the_seven_r
     # How a task starts: new-task records the baseline and prints the brief, which is read before any change.
     assert rules[0] == ("1. Start each task with `python -m flowguard new-task`; read its brief (owner rules, open items) "
                         "before you change code."), rules[0]
-    # The block names the two catalog files and never offers a way to silence a red.
-    assert "Never add `except=`, remove a flowguard comment or edit `.flowguard/known.toml` to clear it without the " \
-           "owner's yes." in rules[2], rules[2]
+    # The block names the two catalog files and never offers a way to silence a red: loosening an agreement is the
+    # owner's decision.
+    assert "An `except=`, a removed flowguard comment or a `.flowguard/known.toml` edit that clears it loosens the " \
+           "agreement, which is the owner's decision." in rules[2], rules[2]
+    # R101: FlowGuard is the agent's tool. The rules say what a line means and who decides; none orders the agent to ask
+    # or tell the owner, and the agent chooses when to raise an open question.
+    assert rules[3].endswith('after `->` each line says what is known and who decides. You choose when to raise an '
+                             'open question with the owner.'), rules[3]
+    assert not any(word in rule for rule in rules for word in ('ask owner', 'Tell the owner', 'tell the owner', 'Never ')), rules
     assert rules[6] == ("7. Store the owner's own words once with `python -m flowguard req add - --id R<n>`, never your own "
                         "text, and keep `.flowguard/rules.toml` current, each rule's source quoting those words."), rules[6]
 

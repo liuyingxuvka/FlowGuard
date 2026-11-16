@@ -364,7 +364,7 @@ def test_check_says_known_fixed_for_same_name_copies_it_compared_and_found_agree
     (tmp_path / 'limits.py').write_text(_copies(3, 3), encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 0 and _block(text)[1:] == [
-        'known fixed?: known.limit: copies of LIMIT now agree -> the owner has not decided: revert, or say why in your report'], text
+        'known fixed?: known.limit: copies of LIMIT now agree -> the owner has not answered known.limit: if this change settles it, say so in your report'], text
 
 
 # Round 22 F1, second review: chart is the owner, report already differs from it at days=3 (`days < 3`), and this

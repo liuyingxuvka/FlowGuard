@@ -78,15 +78,15 @@ def test_label_tables_that_disagree_are_findings_new_when_this_change_edits_one(
         return {issue.text: issue for issue in found.issues if issue.family == 'labels'}
     found = labels(_findings(tmp_path, base, True))
     assert sorted(found) == sorted([ENTRY, ORG]), found
-    assert found[ORG].entry[0] == '[structure."labels:frontend/src/utils/type-label.ts:TYPE_LABELS"]'
+    # The step records a meant difference with known add, which writes the entry from the finding's places.
+    assert found[ORG].name == 'labels:frontend/src/utils/type-label.ts:TYPE_LABELS' and found[ORG].step.endswith(
+        'python -m flowguard known add labels:frontend/src/utils/type-label.ts:TYPE_LABELS --act leave --why TEXT records that'), found[ORG].step
     assert all(issue.fresh == frozenset() for issue in found.values())
-    # An edit elsewhere in a file with a table leaves the finding old; an edit of a table makes it new, with the entry
-    # to copy.
+    # An edit elsewhere in a file with a table leaves the finding old; an edit of a table makes it new.
     detail = tmp_path / 'frontend/src/pages/Detail.tsx'
     detail.write_text(detail.read_text(encoding='utf-8') + 'export const other = 1;\n', encoding='utf-8')
     assert all(issue.fresh == frozenset() for issue in labels(_findings(tmp_path, base, False)).values())
     detail.write_text(detail.read_text(encoding='utf-8').replace("TEAM: 'Team' }", "TEAM: 'Teams' }"), encoding='utf-8')
     fresh = [issue for issue in labels(_findings(tmp_path, base, False)).values() if issue.fresh]
     assert len(fresh) == 1 and fresh[0].text.startswith(ORG.replace('; DETAIL_LABELS lacks ', "; TEAM 'Team' (TYPE_LABELS) versus 'Teams' (DETAIL_LABELS); DETAIL_LABELS lacks ")), fresh
-    assert ' '.join(fresh[0].entry).endswith('[structure."labels:frontend/src/utils/type-label.ts:TYPE_LABELS"] decision = "Replace with the owner\'s decision: who owns this and '
-                                             'why (at least 8 words)" source = "R<n>"'), fresh
+    assert fresh[0].name == 'labels:frontend/src/utils/type-label.ts:TYPE_LABELS', fresh

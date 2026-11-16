@@ -663,13 +663,17 @@ def test_the_brief_names_what_the_owner_must_decide_first_and_never_an_ignored_e
         'why = "a false structure finding"', 'why = "a false structure finding"\nfinding = "delete:Order"'), encoding='utf-8')
     assert cli.screen(cfg) == 0
     lines = capsys.readouterr().out.splitlines()
-    # ask (not asked yet), then fix, then leave, then ask (asked); two at most, the rest counted.
-    assert lines[1:] == ['known.open: ask owner: an open question?',
-                         'known.wrong: fix: a clear error; +2 more: python -m flowguard show rules'], lines
-    _known(root, [('asked', 'ask', 'an asked question', '2026-11-12'), ('deferred', 'leave', 'a deferred matter', '')])
+    # ask (not asked yet), then ask (asked: still open), then fix, then leave; two at most, the rest counted. 4.3 put an
+    # asked question last, and Planning Tool's brief then showed only deferred matters while four questions stood open.
+    assert lines[1:] == ['known.open: open question for the owner: an open question?',
+                         'known.asked: asked the owner on 2026-11-12, no answer yet: an asked question?; +2 more: '
+                         'python -m flowguard show rules'], lines
+    _known(root, [('deferred', 'leave', 'a deferred matter', ''), ('wrong', 'fix', 'a clear error', ''),
+                  ('asked', 'ask', 'an asked question', '2026-11-12')])
     assert cli.screen(cfg) == 0
-    assert capsys.readouterr().out.splitlines()[1:] == ['known.deferred: leave it: a deferred matter',
-                                                       'known.asked: asked on 2026-11-12; leave it until the owner answers: an asked question?']
+    assert capsys.readouterr().out.splitlines()[1:] == [
+        'known.asked: asked the owner on 2026-11-12, no answer yet: an asked question?',
+        'known.wrong: to fix when its code changes: a clear error; +1 more: python -m flowguard show rules']
 
 
 def test_the_brief_stays_within_eight_lines_with_every_part_present(tmp_path, capsys):

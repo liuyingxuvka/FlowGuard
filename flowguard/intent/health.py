@@ -19,6 +19,8 @@ LINES_ONLY = 0               # the rank of a finding only the 4.3 lines report: 
 BOOKKEEPING = {'id', 'createdat', 'updatedat', 'created_at', 'updated_at', 'createdbyid', 'updatedbyid',
                'created_by', 'updated_by', 'revision', 'version'}     # written by every writer on purpose
 WRITER_FILES = 3             # files writing one field without an owner before it is an issue
+# R99, R101: a change that adds a writer is told so once; which functions should write the field is a design matter.
+WRITER_STEP = "which functions should write it may be the owner's decision; name it in your report"
 SIMILAR_COPY = 0.8           # shape similarity of two same-name functions that makes them copies
 CREATING = ('create', 'createMany', 'createManyAndReturn', 'upsert:create', 'upsert:update', 'update', 'updateMany',
             'updateManyAndReturn', 'sql:insert', 'sql:update')   # code that makes or keeps rows of a table
@@ -40,7 +42,6 @@ class Issue:
     step: str
     nodes: frozenset = frozenset()
     files: frozenset = frozenset()
-    entry: tuple = ()            # lines to copy (a ledger entry), which `show Model.field` prints after the step
     # The 4.3 lines (`signals.deliver`)
     family: str = ''             # a key of `signals.FAMILIES` ('pair', 'values', 'delete', ...)
     subject: str = ''            # what the finding is about: 'together Project.leaderId', 'same ISO_WEEKS_IN_YEAR'
@@ -304,15 +305,16 @@ def deletes(change):
         actions = '/'.join(dict.fromkeys(relation['on_delete'] or 'Restrict' for items in open_children.values() for relation in items))
         text = (f'Delete leaves child rows: {_places(calls)} {function} deletes {parent}; {actions} child tables {", ".join(parts)} '
                 f'are not deleted, cleared or counted in the same operation' + (' (calls resolved by name)' if by_name else ''))
-        step = 'delete or clear these child rows first, or count them and reject deletion; if database rejection is intentional, record the decision in .flowguard/ledger.toml:'
-        entry = tuple(_structure_lines(f'delete:{file}:{function}:{parent}'))
+        name = f'delete:{file}:{function}:{parent}'
+        step = ('delete or clear these child rows first, or count them and reject deletion; if the database is meant to reject '
+                f'the delete, {_leave(name)}')
         fresh = bool(change.baseline) and (file in change.files and _fresh_delete(change, file, function, parent)
                                           or bool(change.files & {child['file'] for items in open_children.values() for child in items}))
         member = named(ident)
         what = (f'deletes {parent}; {actions} child tables {", ".join(parts)} are not deleted, cleared or counted in the same operation'
                 + (' (calls resolved by name)' if by_name else ''))
-        found.issues.append(Issue(f'delete:{file}:{function}:{parent}', 4, f'delete {parent} ({function})', text, step,
-                                  frozenset({member}), frozenset({file}), entry=entry,
+        found.issues.append(Issue(name, 4, f'delete {parent} ({function})', text, step,
+                                  frozenset({member}), frozenset({file}),
                                   family='delete', subject=f'delete {parent}', parts=((member, place(calls[0]), what, step),),
                                   fresh=frozenset({member}) if fresh else frozenset(), detail=(f'delete at {_places(calls)}',)))
     return found
@@ -328,9 +330,10 @@ def _fresh_delete(change, file, function, parent):
     return not old
 
 
-def _structure_lines(name):
-    from .ledger import structure_entry
-    return structure_entry(name)
+def _leave(name):
+    """The part of a structure finding's step that records it as left on purpose: `known add` writes the known.toml
+    entry from the finding's places in the last run."""
+    return f'python -m flowguard known add {name} --act leave --why TEXT records that'
 
 
 # ---- columns one description of a table lacks -----------------------------------------------------
@@ -448,14 +451,13 @@ def delete_rules(change):
         legend = f'parentheses show {schema}\'s rule first, then this description\'s rule'
         text = head + f'{len(relations)} relations ({legend}): ' + listed(relations)
         name = 'ondelete:' + '~'.join(sorted((schema, description)))
-        step = ('align deletion rules in both schemas, including the test schema; if differences are intentional (for example, SQL Server disallows multiple cascade paths), '
-                'record the decision in .flowguard/ledger.toml:')
-        entry = tuple(_structure_lines(name))
+        step = ('align deletion rules in both schemas, including the test schema; if the differences are meant (for example, SQL Server '
+                f'disallows multiple cascade paths), {_leave(name)}')
         fresh = [relation for relation in relations if before is not None and before.isdisjoint(idents(item, relation))]
         what = (f'differs on {len(relations)} relations from {schema}'
                 + (f', {len(fresh)} added in this change' if fresh else '') + ': ' + _ascii_part(listed(fresh or relations)))
         found.issues.append(Issue(name, 4, f'onDelete {_short_path(description)}', text, step, frozenset(),
-                                  _schema_files(change.graph, schema, description), entry=entry,
+                                  _schema_files(change.graph, schema, description),
                                   family='ondelete', subject=f'onDelete {description} against {schema}',
                                   parts=(('', description, what, step),), fresh=frozenset({''}) if fresh else frozenset(),
                                   detail=(f'parentheses show the rule of {schema} first, then that of {description}',)))
@@ -579,25 +581,25 @@ def writers(change, index, rows=None):
         functions = list(dict.fromkeys(f'{row["file"]}:{row["function"]}' for row in rows))
         text = f'{name} is written by {len(files)} files without a registered writer agreement: ' + _places(rows)
         comment = '//' if any(row.get('language', 'python') != 'python' for row in rows) else '#'
-        step = (f'ask the owner who is responsible; then write {comment} flowguard: writers {name} {",".join(functions)}'
-                f' (retain only writers the owner approves), and record the decision in .flowguard/ledger.toml:')
+        step = (f'if one place should own {name}, write {comment} flowguard: writers {name} {",".join(functions)} with only the '
+                f'writers that should stay; which those are may be the owner\'s decision, so leave it unless your task is about it')
         members = {}
         for row in rows:
             members.setdefault(row_function(row), row)
         what = f'writes {name}, which {len(files)} files write without a writers agreement'
         found.issues.append(Issue(f'writers:{name}', 6, f'write {name}', text, step,
                                   frozenset(row_function(row) for row in rows), frozenset(files),
-                                  entry=tuple(_structure_lines(f'writers:{name}')), family='writers',
+                                  family='writers',
                                   subject=f'no writers agreement for {name}',
-                                  parts=tuple((function, place(row), what, 'ask the owner who may write it')
+                                  parts=tuple((function, place(row), what, WRITER_STEP)
                                               for function, row in sorted(members.items())),
                                   fresh=frozenset(set(members) - then.get(name, set())) if then is not None else frozenset()))
     return found
 
 
-# ---- fields written together with one field: with= candidates for show --------------------------
+# ---- fields written together with one field: together candidates for show -----------------------
 
-PARTNER_SHARE = 0.5          # share of a field's writing functions that also write a field before it is a with= candidate
+PARTNER_SHARE = 0.5          # share of a field's writing functions that also write a field before it is a together candidate
 PARTNERS_SHOWN = 5
 
 
@@ -633,9 +635,9 @@ def co_written(change, name):
         if count < 2 or count < PARTNER_SHARE * len(writers):
             break
         alone = [places[function] for function in writers if other not in by_function[function]]
-        lines.append(f'with= candidate (reference only): {other} is written by {count} of the {len(writers)} functions '
+        lines.append(f'together candidate (reference only): {other} is written by {count} of the {len(writers)} functions '
                      f'that write {target}' + (f'; not by {"  ".join(alone)}' if alone else '')
-                     + f' -> if the owner says they change together: {comment} flowguard: together {target} {other}')
+                     + f' -> if they must change together: {comment} flowguard: together {target} {other}')
     return lines
 
 
@@ -692,17 +694,18 @@ def uncreated(change):
     for model, verbs in sorted(uses.items()):
         text = (f'Table whose rows are never created by this code: {model} ' + ', '.join(f'{verb} {_places(verbs[verb])}' for verb in ('read', 'delete', 'update') if verb in verbs)
                 + '; no create/upsert/INSERT exists')
-        step = 'ask the owner where these rows come from (seeds, migrations or external systems); if there is no source, remove these reads and deletes; if intentional, record the decision in .flowguard/ledger.toml:'
+        step = ('find where these rows come from (seeds, migrations or external systems); with no source these reads and deletes '
+                f'may be dead code; if they are meant, {_leave(f"uncreated:{model}")}')
         members = {}
         for verb in ('read', 'delete', 'update'):
             for row in verbs.get(verb, ()):
                 members.setdefault(row_function(row), (row, []))[1].append(verb)
         parts = tuple((function, place(row), ' and '.join(verb + 's' for verb in dict.fromkeys(done)) + f' {model}, whose rows no code creates',
-                       'ask the owner where these rows come from') for function, (row, done) in sorted(members.items()))
+                       'find where these rows come from') for function, (row, done) in sorted(members.items()))
         found.issues.append(Issue(f'uncreated:{model}', 7, f'row creation {model}', text, step,
                                   frozenset(row_function(row) for items in verbs.values() for row in items),
                                   frozenset(row['file'] for items in verbs.values() for row in items),
-                                  entry=tuple(_structure_lines(f'uncreated:{model}')), family='uncreated',
+                                  family='uncreated',
                                   subject=f'uncreated {model}', parts=parts,
                                   fresh=frozenset(set(members) - then.get(model, set())) if then is not None else frozenset()))
     return found
@@ -728,12 +731,12 @@ def labels(change):
                 + ': ' + '; '.join(parts))
         head = tables[0]
         name = f'labels:{head["file"]}:{head["name"]}'
-        step = ('derive these tables from one source, or align labels and add missing keys; if differences are intentional (abbreviations or another purpose), record the decision in '
-                '.flowguard/ledger.toml:')
+        step = ('derive these tables from one source, or align labels and add missing keys; if the differences are meant '
+                f'(abbreviations or another purpose), {_leave(name)}')
         fresh = bool(change.baseline) and any(_table_changed(change, table) for table in tables)
         found.issues.append(Issue(name, 8, f'labels {head["name"]}', text, step, frozenset(),
                                   frozenset(table['file'] for table in tables),
-                                  entry=tuple(_structure_lines(name)), family='labels', subject=f'labels {head["name"]}',
+                                  family='labels', subject=f'labels {head["name"]}',
                                   parts=(('', f'{head["file"]}:{head["name"]}', 'disagrees with '
                                           + ', '.join(f'{table["file"]}:{table["name"]}' for table in tables[1:]) + ': '
                                           + _ascii_part('; '.join(parts)), 'derive these tables from one source'),),
@@ -765,7 +768,8 @@ def decided(cfg, index, issues, decisions=None):
         kind, _, target = name.partition(':')
         if kind == 'writers' and target.casefold() not in owned:
             issue = next((item for item in issues if item.name == name), None)
-            anchor = issue.step.partition('then write ')[2].partition(' (retain only')[0] if issue else \
+            anchor = issue.step.partition(' should own {target}, write '.format(target=issue.name.partition(':')[2]))[2] \
+                .partition(' with only the writers')[0] if issue else \
                 f'# flowguard: writers {target} <function,...> (use // for JS/TS)'
             wrong.append(Issue(f'structure-decision:{name}', LINES_ONLY, f'decision {name}',
                                f'Structure decision [structure."{name}"] records responsibility but has no writers agreement '

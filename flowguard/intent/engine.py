@@ -882,7 +882,8 @@ class Engine:
                        f"{s['by']} is {s['eff']}: update the row or retire it with a reason")
         for c in k["conflicts"]:
             if rule.id in (c["a"], c["b"]):
-                tail = f" (owner {', '.join(c['rids'])}) -> ask owner" if c["ask_owner"] else ""
+                tail = (f" (owner {', '.join(c['rids'])}) -> the owner's words of the two rules disagree; only the owner can settle "
+                        "which holds") if c["ask_owner"] else ""
                 red.append(f"conflict {c['a']} vs {c['b']} at {c['cell']}: {c['va']} vs {c['vb']} "
                            f"({c['n']} of {c['of']} shared cells){tail}")
         g = k["gaps"]

@@ -93,10 +93,10 @@ def test_ignored_members_are_counted_once_each():
 
 
 @pytest.mark.parametrize('act, asked, step', [
-    ('leave', '', 'leave it (the owner deferred it)'),
-    ('ask', '', 'ask owner (not asked yet)'),
-    ('ask', '2026-11-12', 'asked on 2026-11-12; leave it until the owner answers'),
-    ('fix', '', 'fix it in this change and say so in your report'),
+    ('leave', '', 'left as it is on purpose; yours to change only if your task is about it'),
+    ('ask', '', 'an open question for the owner, not asked yet'),
+    ('ask', '2026-11-12', 'asked the owner on 2026-11-12; no answer yet'),
+    ('fix', '', 'marked to fix when its code changes, as this change does'),
 ])
 def test_a_touched_old_member_named_by_a_known_entry_is_a_known_line_with_the_step_of_its_act(act, asked, step):
     known = [entry('k', act, 'pair:A>B', asked=asked, nodes={'m:g'})]
@@ -140,10 +140,10 @@ def test_writers_findings_have_lines_of_their_own_only_with_everything():
 
 
 @pytest.mark.parametrize('act, step', [
-    ('leave', 'the owner deferred it: revert, or say why in your report'),
-    ('ask', 'the owner has not decided: revert, or say why in your report'),
-    ('fix', 'say so in your report; remove known.k once the owner agrees'),
-    ('ignore', 'say so in your report; remove known.k once the owner agrees'),
+    ('leave', 'it was left on purpose: if you meant to fix it, remove known.k and say so in your report'),
+    ('ask', 'the owner has not answered known.k: if this change settles it, say so in your report'),
+    ('fix', 'if you fixed it, remove known.k and say so in your report'),
+    ('ignore', 'if it is fixed, remove known.k and say so in your report'),
 ])
 def test_known_fixed_needs_a_finding_whose_family_ran_and_that_is_gone(act, step):
     known = [entry('k', act, 'same:ISO_WEEKS', nodes={'m:f'})]
@@ -172,7 +172,7 @@ def test_an_entry_whose_sites_the_change_touches_is_known_once_and_never_for_ign
              entry('quiet', 'ignore', nodes={'m:f'}), entry('away', 'fix', nodes={'m:x'})]
     lines, ignored = deliver([], touched_functions={'m:f'}, touched_files={'prisma/schema.prisma'}, known=known)
     assert kinds(lines) == [('known', 'known.fn', ''), ('known', 'known.file', '')] and ignored == 0
-    assert (lines[0].text, lines[0].step, lines[0].places) == ('known.fn at src/a.py:f, src/b.py:g', 'ask owner (not asked yet)',
+    assert (lines[0].text, lines[0].step, lines[0].places) == ('known.fn at src/a.py:f, src/b.py:g', 'an open question for the owner, not asked yet',
                                                                ('src/a.py:f', 'src/b.py:g'))
     assert 'ask: which one?' in lines[0].detail
     # With everything, every entry but the ignore one is listed.

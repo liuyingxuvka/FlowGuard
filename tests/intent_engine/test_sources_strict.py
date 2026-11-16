@@ -487,7 +487,7 @@ def test_two_rules_citing_the_owners_words_through_the_catalog_that_disagree_ask
     store_request(tmp_path, b'Four days.\n', identifier='R2')
     engine = Engine(load(load_config(tmp_path)))
     result = engine.run_rules(engine.m.rules['THREE'])
-    assert 'conflict THREE vs FOUR at days=4: F vs T (1 of 6 shared cells) (owner R1, R2) -> ask owner' in result['red'], result['red']
+    assert 'conflict THREE vs FOUR at days=4: F vs T (1 of 6 shared cells) (owner R1, R2) -> the owner\'s words of the two rules disagree; only the owner can settle which holds' in result['red'], result['red']
 
 
 def test_check_all_fails_a_grey_rule_that_cites_the_owners_words_through_the_catalog(tmp_path):

@@ -132,7 +132,7 @@ def test_readme_no_rule_output_and_two_real_homes(tmp_path, capsys):
 
 def test_documented_commands_use_the_real_current_parser(tmp_path, monkeypatch):
     for name in ('show', 'check', 'static_check', 'ledger', 'init', 'requests', 'screen', 'draft_anchor', 'draft_model',
-                 'try_anchor', 'watch', 'write_docs'):
+                 'try_anchor', 'watch', 'write_docs', 'add_known_entry'):
         monkeypatch.setattr(cli, name, lambda *args, **kwargs: 0)
     docs = [ROOT / 'README.md', ROOT / 'README.zh-CN.md', ROOT / 'AGENTS.md', SKILL / 'SKILL.md',
             ROOT / 'docs/intent-guide.md', ROOT / 'docs/upgrade-2.0.md', ROOT / 'docs/upgrade-4.0.md', ROOT / 'docs/upgrade-4.1.md', ROOT / 'docs/upgrade-4.2.md',

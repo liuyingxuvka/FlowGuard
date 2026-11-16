@@ -91,7 +91,7 @@ def test_every_command_has_a_description_in_the_help(capsys, monkeypatch):
     text = capsys.readouterr().out
     assert stopped.value.code == 0
     commands = re.search(r'^  \{([\w,-]+)\}$', text, re.M)[1].split(',')
-    assert set(commands) == {'new-task', 'check', 'show', 'req', 'ledger', 'init', 'docs'}, text
+    assert set(commands) == {'new-task', 'check', 'show', 'req', 'ledger', 'init', 'docs', 'known'}, text
     for command in commands:
         assert re.search(rf'^    {re.escape(command)} +\w', text, re.M), (command, text)
 
@@ -447,7 +447,7 @@ def test_check_says_known_fixed_for_a_rule_whose_results_pass_also_when_it_reuse
         assert cli_fixture.check(cfg) == 0
         text = capsys.readouterr().out
         assert bool(observed) is batch and cli_fixture.block(text)[1:] == [
-            'known fixed?: known.limit: rule:LIMIT no longer found -> the owner deferred it: revert, or say why in your report'], text
+            'known fixed?: known.limit: rule:LIMIT no longer found -> it was left on purpose: if you meant to fix it, remove known.limit and say so in your report'], text
         observed.clear()
 
 

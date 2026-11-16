@@ -462,7 +462,7 @@ def test_what_a_change_loosens_in_the_catalog(tmp_path):
     head = _git(tmp_path, 'rev-parse', 'HEAD').strip()
     old = sources.catalog(cfg, head)
     assert sources.loosened(old, sources.catalog(cfg)) == []
-    step = "name it in your report; needs the owner's yes"
+    step = "name it in your report; loosening an agreement is the owner's decision"
     # A rule's text or source changed is not loosened; a rule removed is.
     _write(tmp_path, {'.flowguard/rules.toml': RULES.replace('Members pay less.', 'Members pay less, always.').replace(
         '[rule.three-days]\n    text = "A loan lasts at most three days."\n    source = \'doc SPEC.md "At most three days."\'\n', '')})
@@ -632,7 +632,7 @@ def test_copies_that_disagreed_at_task_start_are_the_known_entry_s_in_pytest_che
     root = _project(tmp_path / 'p', FEES)
     path = root / 'fees.py'
     path.write_text(path.read_text(encoding='utf-8').replace(old, new), encoding='utf-8')
-    known = 'known: known.fee-copies at fees.py:late_fee, fees.py:preview_fee -> ask owner (not asked yet)'
+    known = 'known: known.fee-copies at fees.py:late_fee, fees.py:preview_fee -> an open question for the owner, not asked yet'
     for run, (result, _) in (('pytest', _pytest(root, '-q')), ('check', _cli(root, 'check')),
                              ('check --static', _cli(root, 'check', '--static'))):
         shown = block(result)
@@ -721,8 +721,8 @@ def test_copies_that_agree_again_make_their_known_entry_known_fixed_in_pytest_an
     root = _project(tmp_path / 'p', FEES)
     path = root / 'fees.py'
     path.write_text(path.read_text(encoding='utf-8').replace('(days - 3) * 3', '(days - 3) * 2'), encoding='utf-8')
-    fixed = ('known fixed?: known.fee-copies: copies of FEE now agree -> the owner has not decided: revert, or say why '
-             'in your report')
+    fixed = ('known fixed?: known.fee-copies: copies of FEE now agree -> the owner has not answered known.fee-copies: if this change '
+             'settles it, say so in your report')
     for run, (result, _), expected in (
             ('pytest', _pytest(root, '-q'), [fixed]),
             ('check', _cli(root, 'check'), [fixed, 'not compared: FEE (returns, or numeric classes are not readable here: '
@@ -730,4 +730,4 @@ def test_copies_that_agree_again_make_their_known_entry_known_fixed_in_pytest_an
         assert result.returncode == 0 and block(result)[1:] == expected, (run, result.stdout + result.stderr)
     result, _ = _cli(root, 'check', '--static')
     assert result.returncode == 0 and block(result)[1:] == [
-        'known: known.fee-copies at fees.py:late_fee, fees.py:preview_fee -> ask owner (not asked yet)'], result.stdout
+        'known: known.fee-copies at fees.py:late_fee, fees.py:preview_fee -> an open question for the owner, not asked yet'], result.stdout

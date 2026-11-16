@@ -212,11 +212,15 @@ FAMILIES = {
 BEFORE_STEP = 'leave it unless your task is about it'
 BROKEN = {'same': 'disagreed at task start'}        # what a before line says of an old member; else 'was broken ...'
 IMPACT_STEP = 'fix it, or say why in your report'
-KNOWN_STEPS = {'leave': 'leave it (the owner deferred it)', 'fix': 'fix it in this change and say so in your report'}
-FIXED_STEPS = {'leave': 'the owner deferred it: revert, or say why in your report',
-               'ask': 'the owner has not decided: revert, or say why in your report',
-               'fix': 'say so in your report; remove known.{id} once the owner agrees',
-               'ignore': 'say so in your report; remove known.{id} once the owner agrees'}
+# The steps of known lines say what is known and who decides (R101): FlowGuard orders no question to the owner; the
+# agent decides when to raise one.
+KNOWN_STEPS = {'leave': 'left as it is on purpose; yours to change only if your task is about it',
+               'fix': 'marked to fix when its code changes, as this change does'}
+FIXED_STEPS = {'leave': 'it was left on purpose: if you meant to fix it, remove known.{id} and say so in your report',
+               'ask': 'the owner has not answered known.{id}: if this change settles it, say so in your report',
+               'fix': 'if you fixed it, remove known.{id} and say so in your report',
+               'ignore': 'if it is fixed, remove known.{id} and say so in your report'}
+LOOSENED_STEP = "name it in your report; loosening an agreement is the owner's decision"
 
 
 def family_of(name):
@@ -227,7 +231,7 @@ def family_of(name):
 
 def _known_step(entry):
     if entry.act == 'ask':
-        return f'asked on {entry.asked}; leave it until the owner answers' if entry.asked else 'ask owner (not asked yet)'
+        return f'asked the owner on {entry.asked}; no answer yet' if entry.asked else 'an open question for the owner, not asked yet'
     return KNOWN_STEPS[entry.act]
 
 
@@ -293,8 +297,9 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
             elif function in issue.fresh:
                 if ignoring and not speaking:
                     ignored.add((issue.name, function))
-                elif shown:
-                    lines.append(Line(new or 'impact', issue.name, function, text, IMPACT_STEP, places, issue.detail))
+                elif shown:          # a new writer's own step: there is nothing to fix, only a design matter
+                    lines.append(Line(new or 'impact', issue.name, function, text,
+                                      step if issue.family == 'writers' else IMPACT_STEP, places, issue.detail))
             elif ignoring and not speaking:
                 ignored.add((issue.name, function))
             elif shown and (everything or (function in touched_functions if function else bool(issue.files & touched_files))):

@@ -4,6 +4,7 @@ from __future__ import annotations
 import calendar
 from dataclasses import dataclass, field, replace
 import fnmatch
+import json
 from pathlib import Path
 import re
 import shlex
@@ -580,7 +581,6 @@ def source_state(engine, declaration, confirmed=None, quote=None, *, gone_red=Tr
 
 # ---- the catalog's findings for the static checks ---------------------------------------------------------------
 
-LOOSENED_STEP = "name it in your report; needs the owner's yes"
 FUNCTION_VALUES = ('arrow_function', 'function_expression', 'function', 'generator_function')
 
 
@@ -810,7 +810,7 @@ def loosened(old, new):
     `new` (D9): a rule removed; a known entry removed, or changed in anything but `asked`; a known entry added with an
     act other than "ask". An entry or file that is invalid now is an input finding instead. A rule's changed text or
     source is not loosened."""
-    from .signals import Line
+    from .signals import LOOSENED_STEP, Line
     invalid = {issue.name for issue in new.issues}
     lines = []
     def add(identifier, file, text):
@@ -852,3 +852,102 @@ def citing(cfg):
         if match:
             found.setdefault(match[1], []).append(f'{item["file"]}:{identifier}')
     return found
+
+
+# ---- known add: one entry written by the command ---------------------------------------------------------------
+
+def _known_id(finding, taken):
+    """An id for a new entry of `finding` ('' for none): its name with every run of other characters than letters,
+    digits, `_` and `-` as one `-`, at most 48 characters, numbered when an entry already has it."""
+    base = re.sub(r'[^A-Za-z0-9_-]+', '-', finding).strip('-_').lower()[:48].strip('-_') or 'matter'
+    name, number = base, 2
+    while name in taken:
+        name, number = f'{base}-{number}', number + 1
+    return name
+
+
+def add_known(cfg, graph, finding, *, act, why, ask='', identifier='', sites=()):
+    """`python -m flowguard known add`: append one `[known.<id>]` entry to .flowguard/known.toml; returns the Known
+    written. `finding` is a finding's name as `show --last` lists it, '' for a matter no check finds. Without `sites`,
+    the sites are the places the last run's lines of that finding name that a site can be (`path:symbol` naming one
+    function, constant or Model.field on the map, or a document); a site given that names nothing is refused. The
+    entry is checked as every run reads it; when the file then does not load, its bytes are put back and the
+    command fails. The id defaults to the finding's name (`_known_id`)."""
+    from . import cache
+    from .signals import family_of
+    found = _read_catalog(cfg, None)
+    invalid = [issue.subject for issue in found.issues if issue.subject == KNOWN or issue.subject.startswith('known.')]
+    if invalid:
+        raise ValueError(f'known add: {KNOWN} has input problems ({", ".join(invalid)}); python -m flowguard show rules lists them')
+    if finding and not family_of(finding):
+        raise ValueError(f'known add: {finding} is not a finding name (pair:..., values:..., same:..., writers:..., ...); '
+                         'python -m flowguard show --last names the finding of each line')
+    if identifier and identifier in found.known:
+        raise ValueError(f'known add: known.{identifier} is already an entry of {KNOWN}')
+    resolve = site_resolver(graph)
+    given = list(dict.fromkeys(sites))
+    for site in given:
+        problem = _site_problem(cfg, site, None) or resolve(site)[2]
+        if problem:
+            raise ValueError(f'known add: {problem}')
+    if not given and finding:
+        last = cache.read_last(cfg)
+        places = list(dict.fromkeys(place for line in (last['lines'] if last else ()) if line['name'] == finding
+                                    for place in line['places']))
+        if not places:
+            raise ValueError(f'known add: the last run reported no {finding}: python -m flowguard check --static --all '
+                             'reports every finding, or name its sites with --site path:symbol')
+        declared = {}           # (file, line) -> the names a declaration or module-level constant there gives
+        for row in [*graph.declarations(exported=False), *graph.assignments()]:
+            if ':' not in row.get('node', '') and not row.get('field'):
+                declared.setdefault((row['file'], row['line']), []).append(row.get('name') or row.get('target'))
+        def site_of(place):
+            """A place by line (`path:12`) as the constant declared on that line, else the innermost function or
+            method around it."""
+            match = re.fullmatch(r'(.+):(\d+)', place)
+            if not match:
+                return place
+            path, number = match[1], int(match[2])
+            names = list(dict.fromkeys(name for name in declared.get((path, number), ()) if name))
+            if len(names) == 1:
+                return f'{path}:{names[0]}'
+            rows = [row for row in graph.con.execute(
+                "SELECT qual, line, end_line FROM node WHERE file = ? AND kind IN ('function', 'method') "
+                "AND line <= ? AND coalesce(end_line, line) >= ?", (path, number, number)) if '<' not in row[0]]
+            return f'{path}:{min(rows, key=lambda row: (row[2] or row[1]) - row[1])[0]}' if rows else place
+        given = list(dict.fromkeys(site for site in map(site_of, places)
+                                   if not _site_problem(cfg, site, None) and not resolve(site)[2]))
+        if not given:
+            raise ValueError(f'known add: no place of {finding} ({", ".join(places)}) is a site: name one with --site '
+                             'path:symbol (a function, constant or Model.field of that file)')
+    if not given:
+        raise ValueError('known add: name its sites with --site path:symbol, or the finding the last run reported')
+    identifier = identifier or _known_id(finding, found.known)
+    if not re.fullmatch(CATALOG_ID, identifier):
+        raise ValueError(f'known add: an id is letters, digits, - and _, starting with a letter or digit, not {identifier!r}')
+    value = dict(sites=given, why=why, act=act, **({'ask': ask} if ask else {}), **({'finding': finding} if finding else {}))
+    _, problems = _known_entry(cfg, value, None)
+    if problems:
+        raise ValueError('known add: ' + '; '.join(problems))
+    path = cfg.root / KNOWN
+    old = path.read_bytes() if path.is_file() else None
+    text = old.decode('utf-8-sig') if old is not None else ''
+    newline = '\r\n' if '\r\n' in text else '\n'
+    def string(words):
+        return json.dumps(words, ensure_ascii=False)        # a JSON string is a TOML basic string
+    lines = [f'[known.{identifier}]', 'sites = [' + ', '.join(map(string, given)) + ']', f'why = {string(why)}',
+             f'act = {string(act)}', *([f'ask = {string(ask)}'] if ask else []),
+             *([f'finding = {string(finding)}'] if finding else [])]
+    head = text.rstrip('\r\n') + newline * 2 if text.strip() else ''
+    bom = b'\xef\xbb\xbf' if old is not None and old.startswith(b'\xef\xbb\xbf') else b''
+    path.parent.mkdir(exist_ok=True)
+    path.write_bytes(bom + (head + newline.join(lines) + newline).encode('utf-8'))
+    after = _read_catalog(cfg, None)
+    if identifier not in after.known or len(after.issues) > len(found.issues):
+        if old is None:
+            path.unlink()
+        else:
+            path.write_bytes(old)
+        raise ValueError(f'known add: {KNOWN} did not load with the new entry, so it is left as it was: '
+                         + '; '.join(issue.text for issue in after.issues))
+    return after.known[identifier]

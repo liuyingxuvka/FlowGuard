@@ -32,7 +32,7 @@ def _loosened(root, base='HEAD'):
     with closing(build(root, roots=cfg.roots)) as graph:
         found = owners.loosened(owners.Change(cfg, graph, base), anchors.collect(graph))
     lines, _ = signals.deliver([], touched_functions=(), touched_files=(), extra=found.lines)
-    assert all(line.kind == 'loosened' and line.step == "name it in your report; needs the owner's yes" for line in lines)
+    assert all(line.kind == 'loosened' and line.step == "name it in your report; loosening an agreement is the owner's decision" for line in lines)
     return [line.text for line in lines], lines
 
 

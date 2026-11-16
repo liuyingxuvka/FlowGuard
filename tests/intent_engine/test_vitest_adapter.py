@@ -340,15 +340,15 @@ def test_the_report_merges_the_map_checks_the_static_test_saved_and_fails_only_o
 def test_a_known_entry_this_run_speaks_for_keeps_its_own_line_beside_the_map_checks():
     from flowguard.intent.signals import Line
     from flowguard.intent.vitest import merged
-    own = [Line('known', 'known.limit', 'a.ts:f|b.ts:g', 'known.limit at a.ts:f, b.ts:g', 'ask owner (not asked yet)')]
-    static = [Line('known', 'known.limit', '', 'known.limit at a.ts:f, b.ts:g', 'ask owner (not asked yet)'),
-              Line('known', 'known.other', '', 'known.other at c.ts:h', 'leave it (the owner deferred it)'),
+    own = [Line('known', 'known.limit', 'a.ts:f|b.ts:g', 'known.limit at a.ts:f, b.ts:g', 'an open question for the owner, not asked yet')]
+    static = [Line('known', 'known.limit', '', 'known.limit at a.ts:f, b.ts:g', 'an open question for the owner, not asked yet'),
+              Line('known', 'known.other', '', 'known.other at c.ts:h', 'left as it is on purpose; yours to change only if your task is about it'),
               Line('before', 'pair:X>Y', 'c.ts:h', 'together X at c.ts:h was broken at task start', 'leave it unless your task is about it')]
     assert merged(own, static, {'known.limit'}) == [static[2], own[0], static[1]]
     assert merged(own, static, set()) == [static[2], own[0], static[0], static[1]]
     # the map checks found the entry's finding gone: their known fixed? is listed (D8) instead of this run's known line
     fixed = Line('known fixed?', 'known.limit', '', 'known.limit: declarations:Limit no longer found',
-                 'the owner has not decided: revert, or say why in your report')
+                 'the owner has not answered known.limit: if this change settles it, say so in your report')
     assert merged(own, [fixed, static[1]], {'known.limit'}) == [static[1], fixed]
 
 
@@ -1275,7 +1275,7 @@ def test_a_disagreeing_same_name_pair_is_compared_again_in_a_run_without_a_ts_ch
     block = _block(text)
     assert code == 0 and not [line for line in block if 'same LIMIT' in line], text
     # the copies were compared on every copy and agree: the entry naming their disagreement may be fixed
-    assert 'known fixed?: known.limit: copies of LIMIT now agree -> the owner has not decided: revert, or say why in your report' \
+    assert 'known fixed?: known.limit: copies of LIMIT now agree -> the owner has not answered known.limit: if this change settles it, say so in your report' \
         in block, block
 
 
@@ -1339,8 +1339,8 @@ def test_a_known_fixed_of_the_map_checks_is_listed_in_a_vitest_run_that_touches_
     other = root / 'src/b.ts'
     other.write_text(other.read_text(encoding='utf-8').replace("'open' | 'done'", "'open' | 'closed'")
                      .replace('s.toUpperCase()', 's.trim().toUpperCase()'), encoding='utf-8', newline='\n')
-    fixed = ('known fixed?: known.status: declarations:Status no longer found -> the owner deferred it: revert, or say why '
-             'in your report')
+    fixed = ('known fixed?: known.status: declarations:Status no longer found -> it was left on purpose: if you meant to fix '
+             'it, remove known.status and say so in your report')
     code, text = _flowguard(root, 'check', '--static')
     assert code == 0 and fixed in text.splitlines(), text
     code, text = _vitest(root, vitest_home)
@@ -1369,7 +1369,7 @@ def test_a_run_with_nothing_to_observe_still_prints_the_map_checks_and_a_run_wit
     entry = '[known.limit]\nsites = ["src/a.ts:over"]\nwhy = "the limit may be off by one"\nact = "ask"\nask = "is 3 included?"\n'
     _commit(root, {'.flowguard/known.toml': entry}, message='wired, with a known entry')
     (root / '.flowguard/known.toml').write_text(entry.replace('act = "ask"', 'act = "leave"'), encoding='utf-8', newline='\n')
-    loosened = "loosened: known.limit changed (act) -> name it in your report; needs the owner's yes"
+    loosened = "loosened: known.limit changed (act) -> name it in your report; loosening an agreement is the owner's decision"
     code, text = _vitest(root, vitest_home)
     block = _block(text)
     assert code == 0 and block[1:] == [loosened] and re.fullmatch(r'FlowGuard \S+ \(since HEAD \w+\): 0 red, 1 loosened; [0-9.]+ s', block[0]), text
@@ -1530,12 +1530,12 @@ def test_a_known_site_is_touched_by_an_edit_of_its_text_and_not_by_an_edit_besid
     fee.write_text('export function fee(days: number): number {\n  return days  *  2;\n}\n', encoding='utf-8', newline='\n')
     code, text = _vitest(root, vitest_home)
     assert code == 0 and [line for line in _block(text) if 'known.' in line] == [
-        'known: known.fee at fee.ts:fee -> leave it (the owner deferred it)'], text
+        'known: known.fee at fee.ts:fee -> left as it is on purpose; yours to change only if your task is about it'], text
     fee.write_text('export function fee(days: number): number {\n  return days * 2;\n}\n// no cap yet\n', encoding='utf-8', newline='\n')
     code, text = _vitest(root, vitest_home)       # beside it: nothing
     assert code == 0 and not [line for line in _block(text) if 'known.' in line], text
     fee.write_text('export function fee(days: number): number {\n  return days * 2;\n}\n', encoding='utf-8', newline='\n')
-    known = 'known: known.limit at a.ts:over, b.ts:enough -> ask owner (not asked yet)'
+    known = 'known: known.limit at a.ts:over, b.ts:enough -> an open question for the owner, not asked yet'
     first = root / 'src/a.ts'
     original = first.read_text(encoding='utf-8')
     first.write_text(original + '\n// a note beside the copies\n', encoding='utf-8', newline='\n')
@@ -2377,7 +2377,7 @@ def test_a_known_entry_naming_same_name_copies_speaks_for_their_old_difference_a
     other.write_text(other.read_text().replace('days <= 3 || days === 91', 'days === 91 || days <= 3'))   # g's code, not its answers
     result, lines = _judged(tmp_path, records)
     assert [(line.kind, line.name, line.text, line.step) for line in lines if line.kind != 'not compared'] == [
-        ('known', 'known.limit', 'known.limit at src/a.ts:f, src/b.ts:g', 'ask owner (not asked yet)')], lines
+        ('known', 'known.limit', 'known.limit at src/a.ts:f, src/b.ts:g', 'an open question for the owner, not asked yet')], lines
     path = tmp_path / 'src/a.ts'
     path.write_text(path.read_text().replace('<= 3', '<= 4'))
     result, lines = _judged(tmp_path, records)
