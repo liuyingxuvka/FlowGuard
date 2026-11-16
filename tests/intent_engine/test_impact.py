@@ -141,15 +141,24 @@ def test_show_of_a_name_starts_with_what_the_map_read_about_it(tmp_path):
     _commit(tmp_path, {
         'prisma/schema.prisma': 'model Job {\n  id    String  @id\n  share Decimal @map("job_share")\n  state String\n  @@map("jobs")\n}\n',
         'prisma/schema.sqlite.prisma': 'model Job {\n  id    String  @id\n  share Decimal @map("job_share")\n  state Int\n  @@map("jobs")\n}\n',
-        'db/setup.sql': "CREATE TABLE jobs (\n  id NVARCHAR(36) PRIMARY KEY,\n  job_share DECIMAL(6,4) NOT NULL,\n"
-                        "  state NVARCHAR(20) CHECK (state IN ('NEW', 'DONE'))\n);\n",
+        'db/setup.sql': "CREATE TABLE jobs (\n  id NVARCHAR(36) PRIMARY KEY,\n  job_share DECIMAL(6,4) NOT NULL CHECK (job_share >= 0 AND job_share <= 2),\n"
+                        "  state NVARCHAR(20) CHECK (state IN ('NEW', 'DONE'))\n);\n"
+                        "ALTER TABLE jobs ADD CONSTRAINT chk_share CHECK ([job_share] BETWEEN 0.0 AND 1.0);\n"
+                        "/* ALTER TABLE jobs ADD CONSTRAINT chk_old CHECK (job_share < 5); */\n",
         'app/limits.ts': "const MAX_SHARE = 2;\nexport const JobKind = { A: 'A', B: 'B' } as const;\n"
                          "export function shareLimit(kind: string) { return kind === JobKind.A ? MAX_SHARE : 1; }\n",
+        'app/schemas.ts': "const MAX_SHARE = 2;\nexport const createJob = z.object({ share: z.number().min(0).max(1), id: z.string() });\n"
+                          "const shareSchema = z\n  .number()\n  .gt(0)\n  .lte(MAX_SHARE);\nexport const editJob = z.object({ share: shareSchema });\n",
     })
     code, text = _flowguard(tmp_path, 'show', 'Job.share')
     lines = text.splitlines()
-    assert code == 0 and lines[2:4] == ['declared Job.share: Decimal @map("job_share") (prisma/schema.prisma:3, prisma/schema.sqlite.prisma:3)',
-                                        'column jobs.job_share DECIMAL(6,4) (db/setup.sql:3)'], text
+    # Each CHECK range is a line of its own, as SQL spells its bounds; one in a comment is not SQL that runs.
+    assert code == 0 and lines[2:6] == ['declared Job.share: Decimal @map("job_share") (prisma/schema.prisma:3, prisma/schema.sqlite.prisma:3)',
+                                        'column jobs.job_share DECIMAL(6,4) (db/setup.sql:3)',
+                                        'range jobs.job_share: 0 <= job_share <= 2 (CHECK db/setup.sql:3)',
+                                        'range jobs.job_share: 0.0 <= job_share <= 1.0 (CHECK db/setup.sql:6)'], text
+    # zod schemas of a key of that name, read from the source: inline, or a constant of the same file it names.
+    assert lines[6:8] == ['zod 0 <= share <= 1 (app/schemas.ts:2)', 'zod 0 < share <= MAX_SHARE=2 (app/schemas.ts:7)'], text
     code, text = _flowguard(tmp_path, 'show', 'Job.state')
     lines = text.splitlines()
     assert code == 0 and lines[2:6] == ['declared Job.state: String (prisma/schema.prisma:4)', 'declared Job.state: Int (prisma/schema.sqlite.prisma:4)',
@@ -157,7 +166,7 @@ def test_show_of_a_name_starts_with_what_the_map_read_about_it(tmp_path):
     code, text = _flowguard(tmp_path, 'show', 'MAX_SHARE')
     lines = text.splitlines()
     # The map knows the name itself, so functions that merely share a word with it wait for --full, which it says.
-    assert code == 0 and lines[2:] == ['const MAX_SHARE = 2 (app/limits.ts:1)',
+    assert code == 0 and lines[2:] == ['const MAX_SHARE = 2 (app/limits.ts:1, app/schemas.ts:1)',
                                        '... 1 more lines: python -m flowguard show MAX_SHARE --full lists them all'], text
     code, text = _flowguard(tmp_path, 'show', 'MAX_SHARE', '--full')
     assert code == 0 and 'shareLimit' in text and 'more lines' not in text, text

@@ -152,6 +152,59 @@ def checks(source: str, start: int, end: int) -> list[dict]:
     return found
 
 
+NUMBER = r'[+-]?\d+(?:\.\d+)?'
+FLIPPED = {'>=': '<=', '>': '<', '<=': '>=', '<': '>'}
+
+
+def _bare(body: str) -> str:
+    body = body.strip()
+    while body.startswith('(') and balanced(body, 0) == len(body):
+        body = body[1:-1].strip()
+    return body
+
+
+def ranges(source: str, start: int, end: int) -> list[dict]:
+    """`CHECK (col >= 0 AND col <= 2)` or `CHECK (col BETWEEN 0 AND 2)` groups that open between `start` and
+    `end`: the column and its numeric bounds as the source spells them (`low`, `high`, either may be absent), each
+    inclusive or not. A check that compares another column, a value that is not a number or an OR is no range."""
+    found = []
+    for match in CHECK.finditer(source, start, end):
+        closing = balanced(source, match.end() - 1)
+        if closing < 0:
+            continue
+        body = _bare(source[match.end():closing - 1])
+        between = re.fullmatch(rf'({NAME})\s+between\s+({NUMBER})\s+and\s+({NUMBER})', body, re.I)
+        if between:
+            found.append(dict(column=unquote(between.group(1)), low=between.group(2), high=between.group(3),
+                              low_inclusive=True, high_inclusive=True, offset=match.start()))
+            continue
+        column, bounds = None, {}
+        for term in re.split(r'\s+and\s+', body, flags=re.I):
+            term = _bare(term)
+            plain = re.fullmatch(rf'({NAME})\s*(>=|>|<=|<)\s*({NUMBER})', term)
+            flipped = re.fullmatch(rf'({NUMBER})\s*(>=|>|<=|<)\s*({NAME})', term)
+            if plain:
+                name, operator, number = plain.group(1), plain.group(2), plain.group(3)
+            elif flipped:
+                name, operator, number = flipped.group(3), FLIPPED[flipped.group(2)], flipped.group(1)
+            else:
+                break
+            if column not in (None, unquote(name)):
+                break
+            column = unquote(name)
+            side = 'low' if operator in ('>=', '>') else 'high'
+            bounds[side], bounds[side + '_inclusive'] = number, operator in ('>=', '<=')
+        else:
+            if column and bounds:
+                found.append(dict(column=column, **bounds, offset=match.start()))
+    return found
+
+
+def _range_rows(text: str, row: dict) -> list[dict]:
+    return [dict({key: value for key, value in item.items() if key != 'offset'}, line=line_of(text, item['offset']))
+            for item in row.get('ranges', ())]
+
+
 def _column(part: str, at: int):
     match = re.match(NAME, part)
     if not match or match.group(0).lower() in CONSTRAINTS:
@@ -181,6 +234,7 @@ def statements(text: str) -> list[dict]:
             row['columns'] = [c for part, at in top_level(source[opening + 1:closing - 1], opening + 1)
                               if (c := _column(part, at))]
             row['checks'] = checks(source, opening, closing)
+            row['ranges'] = ranges(source, opening, closing)
             row['end'] = closing
         elif verb.startswith('alter'):
             row['verb'] = 'alter'
@@ -212,6 +266,7 @@ def statements(text: str) -> list[dict]:
                 elif row['columns'] and head not in CONSTRAINTS | CLAUSES and (c := _column(part, at)):
                     row['columns'].append(c)            # T-SQL: ALTER TABLE t ADD a INT, b INT
             row['checks'] = checks(source, after, end)
+            row['ranges'] = ranges(source, after, end)
             row['end'] = end
         elif verb.startswith('drop'):
             row['verb'] = 'drop'
@@ -286,7 +341,7 @@ def extract(root, rel, data, module, is_test):
             body = text[row['offset']:row['end']]
             tables.append(dict(name=row['table'], schema=row['schema'], line=line, end=end, columns=columns,
                                checks=[dict(column=c['column'], values=c['values'], line=line_of(text, c['offset']))
-                                       for c in row.get('checks', ())]))
+                                       for c in row.get('checks', ())], ranges=_range_rows(text, row)))
             out['nodes'].append(dict(qual=qual, kind='table', cls='', line=line, end=end, column=1, end_column=1,
                                      sig=' '.join(body.split())[:160], doc='',
                                      fp=hashlib.sha256(' '.join(body.lower().split()).encode()).hexdigest()[:20],
@@ -299,7 +354,7 @@ def extract(root, rel, data, module, is_test):
             changes.append(dict(verb=row['verb'], table=row['table'], schema=row['schema'], line=line,
                                 add=columns, drop=row['drop'], **({'rename': row['rename']} if 'rename' in row else {}),
                                 checks=[dict(column=c['column'], values=c['values'], line=line_of(text, c['offset']))
-                                        for c in row.get('checks', ())]))
+                                        for c in row.get('checks', ())], ranges=_range_rows(text, row)))
             out['keys'] += [('column', row['table'] + '.' + c['name'], c['line'], '') for c in columns]
         else:
             out['writes'].append(dict(node=module, file=rel, line=line, via='sql', statement=row['verb'], function='<module>',

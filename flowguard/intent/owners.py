@@ -2531,16 +2531,29 @@ def declaration_lines(graph, name):
                         declared.setdefault(text, []).append(f'{schema["file"]}:{column["line"]}')
                         columns.setdefault('', set()).add((column.get('column') or field).casefold())
         wanted = columns.get('', set()) | {field.casefold()}
-        sql = {}
+        sql, bounded = {}, {}
         for schema in graph.schemas():
-            for table in schema.get('tables', ()) if schema['kind'] == 'sql' else ():
+            if schema['kind'] != 'sql':
+                continue
+            for table in schema.get('tables', ()):
                 if table['name'].casefold() in tables:
                     for column in table.get('columns', ()):
                         if column['name'].casefold() in wanted:
                             sql.setdefault(f'{table["name"]}.{column["name"]} {column.get("type") or "(no type)"}', []).append(
                                 f'{schema["file"]}:{column["line"]}')
+            for item in [*schema.get('tables', ()), *schema.get('changes', ())]:
+                if (item.get('name') or item.get('table') or '').casefold() in tables:
+                    for bound in item.get('ranges', ()):
+                        if bound['column'].casefold() in wanted:
+                            low = f'{bound["low"]} {"<=" if bound["low_inclusive"] else "<"} ' if 'low' in bound else ''
+                            high = f' {"<=" if bound["high_inclusive"] else "<"} {bound["high"]}' if 'high' in bound else ''
+                            table_name = item.get('name') or item.get('table')
+                            bounded.setdefault(f'{table_name}.{bound["column"]}: {low}{bound["column"]}{high}', []).append(
+                                f'CHECK {schema["file"]}:{bound["line"]}')
         lines.extend(f'declared {name}: {text} ({where(places)})' for text, places in declared.items())
         lines.extend(f'column {text} ({where(places)})' for text, places in sql.items())
+        lines.extend(f'range {text} ({where(places)})' for text, places in bounded.items())
+        lines.extend(f'zod {text} ({where(places)})' for text, places in zod_bounds(graph, field).items())
         sets = {}
         for item in graph.value_sets():
             if item['name'] == name:
@@ -2558,6 +2571,65 @@ def declaration_lines(graph, name):
             sets.setdefault(' | '.join(map(str, item['values'])), []).append(f'{item["file"]}:{item["line"]}')
     lines.extend(f'values {name}: {values} ({where(places)})' for values, places in sets.items())
     return lines
+
+
+ZOD_BOUNDS = {'min': ('low', True), 'gte': ('low', True), 'gt': ('low', False), 'max': ('high', True),
+              'lte': ('high', True), 'lt': ('high', False)}
+
+
+def zod_bounds(graph, field):
+    """{bounds text: [file:line]} of the zod number schemas that a TS/JS object key `field` is given (`field: z...` up
+    to the key's end, or a module-level `const NAME = z...` of the same file that the key names), as the source
+    spells their bounds: `min`, `gte`, `gt`, `max`, `lte`, `lt`, `positive()` and `nonnegative()`. A text reading for
+    `show`, which names each place; a bound that is a name stays that name, with its value when the same file
+    declares it a number (`MAX_FTE_SHARE=2`)."""
+    from ..structure.readers.registry import ECMA, language_for
+    found = {}
+    key = re.compile(rf'(?<![\w$.]){re.escape(field)}\s*:\s*([A-Za-z_$][\w$]*)')
+    for (path,) in graph.con.execute('SELECT path FROM file'):
+        if language_for(path) not in ECMA:
+            continue
+        text = read_source(graph.root / path)
+        if field not in text or 'z.' not in text:
+            continue
+        constants = {match.group(1): match.end() - 1 for match in re.finditer(r'(?m)^\s*(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*z\b', text)}
+        numbers = {match.group(1): match.group(2) for match in re.finditer(
+            r'(?m)^\s*(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*(?::\s*number\s*)?=\s*([+-]?\d+(?:\.\d+)?)\s*;', text)}
+        for match in key.finditer(text):
+            target = match.group(1)
+            start = match.start(1) if target == 'z' else constants.get(target)
+            if start is None:
+                continue
+            chain, depth, at = [], 0, start
+            while at < len(text):                   # the expression up to the key's , or } (or the constant's ;)
+                char = text[at]
+                if char in '([{':
+                    depth += 1
+                elif char in ')]}':
+                    if depth == 0:
+                        break
+                    depth -= 1
+                elif char in ',;' and depth == 0:
+                    break
+                chain.append(char)
+                at += 1
+            expression = ''.join(chain)
+            if not re.search(r'\bz\s*\.\s*number\s*\(', expression):
+                continue
+            bounds = {}
+            for call in re.finditer(r'\.\s*(min|gte|gt|max|lte|lt)\s*\(\s*([^,)\s]+)', expression):
+                side, inclusive = ZOD_BOUNDS[call.group(1)]
+                spelled = call.group(2)
+                bounds[side] = (f'{spelled}={numbers[spelled]}' if spelled in numbers else spelled, inclusive)
+            if re.search(r'\.\s*positive\s*\(', expression):
+                bounds['low'] = ('0', False)
+            if re.search(r'\.\s*nonnegative\s*\(', expression):
+                bounds['low'] = ('0', True)
+            low = f'{bounds["low"][0]} {"<=" if bounds["low"][1] else "<"} ' if 'low' in bounds else ''
+            high = f' {"<=" if bounds["high"][1] else "<"} {bounds["high"][0]}' if 'high' in bounds else ''
+            text_bounds = f'{low}{field}{high}' if bounds else f'{field} (no bounds)'
+            found.setdefault(text_bounds, []).append(f'{path}:{text.count(chr(10), 0, match.start()) + 1}')
+    return found
 
 
 def field_lines(graph, name, written):
