@@ -292,17 +292,20 @@ def _date_problem(text):
 
 
 def _site_problem(cfg, site, revision):
-    """'' for a site spelt `path:symbol`, its path relative to the repository (and a file of the working tree), else
-    what is wrong. Which function, method, holder.method, constant or Model.field it names is read on the map
-    (`known_sites`)."""
+    """'' for a site spelt `path:symbol`, its path relative to the repository (and a file of the working tree), or for
+    a Markdown file's path alone (a document), else what is wrong. Which function, method, holder.method, constant
+    or Model.field it names is read on the map (`known_sites`)."""
     if not isinstance(site, str) or not site:
         return f'a site is a string path:symbol, not {site!r}'
     path, colon, symbol = site.rpartition(':')
-    if not colon:
+    document = not colon and site.endswith('.md')           # a document: the site is the whole file
+    if document:
+        path = site
+    elif not colon:
         return f'site {site} is a bare name: write path:symbol, the path relative to the repository'
     if not path or path.startswith('/') or '\\' in path or ':' in path or any(part in ('', '.', '..') for part in path.split('/')):
         return f'site {site} needs a repository-relative path before the colon (forward slashes, no ..)'
-    if not re.fullmatch(r'(?:[^\W\d]|\$)[\w$]*(?:\.(?:[^\W\d]|\$)[\w$]*)*', symbol):
+    if not document and not re.fullmatch(r'(?:[^\W\d]|\$)[\w$]*(?:\.(?:[^\W\d]|\$)[\w$]*)*', symbol):
         return f'site {site} needs a function, object.method, constant or Model.field after the colon'
     if revision is None and not (cfg.root / path).is_file():
         return f'site {site}: {path} is not a file of this repository'
@@ -634,24 +637,14 @@ def _declaration_edited(change, path, symbol, now):
     return _declarations(old, data, symbol) != [now]
 
 
-def known_sites(graph, entries, change=None):
-    """(entries, input findings): the known entries with their sites resolved on the map, and one input finding per
-    entry with a site that names no single function, method, object.method, constant or Model.field of its file (that
-    entry is left out). A Model.field is a field of a schema model (Prisma, SQL) of that file, or of a class the file
-    declares that the map binds writes to (a Python class written as `order.status = ...`). A constant is any
-    module-level declaration of a TS/JS or Python file (`_declarations`), whatever its value, or a constant node of
-    the map. `Known.nodes` holds the node of each function, method or constant site the map keeps a node for and, for
-    a Model.field site, the functions that write that field now and (with `change`) at its baseline; `Known.files` the
-    schema or class file of each Model.field site, the file of each other constant site whose declaration this
-    change edits, and the file of each function or method site whose text this change edits although its code is
-    the same (a comment or blank line inside it: `Change.edited`) (D31: a site is touched when its node changes, or
-    that file changes)."""
+def site_resolver(graph, change=None):
+    """`resolve(site)` -> (nodes, files, problem) of one `path:symbol` site on the map, as `known_sites` reads a
+    known.toml site and `docs` a Markdown file's `about` marker (one reading of a site for both). A site that is a
+    Markdown file's path alone (`docs/setup.md`) names that document: no node, the file itself. `problem` is '' when
+    the site names exactly one function, method, object.method, constant or Model.field of its file."""
     from .anchors import _agreement_positions
     from .owners import row_function
     from ..structure.readers.registry import ECMA, language_for
-    entries = list(entries)
-    if not entries:
-        return [], []
     modules, errors = {}, {}
     for path, module, error in graph.con.execute('SELECT path, module, parse_error FROM file'):
         modules[path], errors[path] = module, error
@@ -660,57 +653,88 @@ def known_sites(graph, entries, change=None):
     for schema in graph.schemas():
         schemas.setdefault(schema['file'], []).append(schema)
     written = {}            # Model.field -> its write rows now, all read once (`graph.writes_to`)
+
     def writes(symbol):
         if symbol not in written:
             if not written:
                 written[None] = graph.writes()
             written[symbol] = graph.writes_to(written[None], symbol)
         return written[symbol]
+
+    def resolve(site):
+        nodes, files = set(), set()
+        path, colon, symbol = site.rpartition(':')
+        if not colon and site.endswith('.md'):
+            if not (graph.root / site).is_file():
+                return nodes, files, f'site {site}: no such document in this repository'
+            return nodes, {site}, ''
+        module = modules.get(path)
+        if module is None:
+            return nodes, files, f'site {site}: the map reads no {path} (excluded, or no source or schema file)'
+        found = list(positions[module].get(symbol, ()))
+        mapped = [row[0] for row in graph.con.execute("SELECT id FROM node WHERE module=? AND kind='const' AND qual=?",
+                                                      (module, symbol))]
+        declared = []
+        if '.' in symbol or language_for(path) not in ('python', *ECMA):
+            found += mapped
+        elif errors[path]:
+            return nodes, files, f'site {site}: {path} does not parse ({errors[path]})'
+        else:
+            declared = _declarations(path, (graph.root / path).read_bytes(), symbol)
+        model, dot, name = symbol.rpartition('.')
+        fields = [symbol for schema in schemas.get(path, ()) for item in schema['models']
+                  if dot and item['name'] == model and any(column['name'] == name for column in item['fields'])]
+        if dot and not fields and '.' not in model and graph.con.execute(
+                "SELECT 1 FROM node WHERE module=? AND kind='class' AND qual=?", (module, model)).fetchone() \
+                and any(row['model'] == model and row['field'] == name for row in writes(symbol)):
+            fields.append(symbol)
+        count = len(found) + len(declared) + len(fields)
+        if count != 1:
+            return nodes, files, (f'site {site} names ' + (f'{count} declarations' if count else 'nothing')
+                                  + f' in {path}: name one function, object.method, constant or Model.field of that file')
+        if found:
+            nodes.update(found)
+            if change is not None and change.baseline and path in change.files and any(map(change.edited, found)):
+                files.add(path)
+        elif declared:
+            if mapped:
+                nodes.update(mapped)
+            elif _declaration_edited(change, path, symbol, declared[0]):
+                files.add(path)
+        else:
+            nodes.update(row_function(row) for row in writes(symbol))
+            if change is not None and change.baseline:
+                nodes.update(row_function(row) for row in change.baseline_writes(symbol))
+            files.add(path)
+        return nodes, files, ''
+    return resolve
+
+
+def known_sites(graph, entries, change=None):
+    """(entries, input findings): the known entries with their sites resolved on the map (`site_resolver`), and one
+    input finding per entry with a site that names no single function, method, object.method, constant or Model.field
+    of its file (that entry is left out). A Model.field is a field of a schema model (Prisma, SQL) of that file, or of
+    a class the file declares that the map binds writes to (a Python class written as `order.status = ...`). A constant
+    is any module-level declaration of a TS/JS or Python file (`_declarations`), whatever its value, or a constant
+    node of the map. A Markdown file's path alone names that document. `Known.nodes` holds the node of each function,
+    method or constant site the map keeps a node for and, for a Model.field site, the functions that write that field
+    now and (with `change`) at its baseline; `Known.files` the schema or class file of each Model.field site, each
+    document site, the file of each other constant site whose declaration this change edits, and the file of each
+    function or method site whose text this change edits although its code is the same (a comment or blank line
+    inside it: `Change.edited`) (D31: a site is touched when its node changes, or that file changes)."""
+    entries = list(entries)
+    if not entries:
+        return [], []
+    resolve = site_resolver(graph, change)
     resolved, issues = [], []
     for entry in entries:
         nodes, files, problems = set(), set(), []
         for site in entry.sites:
-            path, _, symbol = site.rpartition(':')
-            module = modules.get(path)
-            if module is None:
-                problems.append(f'site {site}: the map reads no {path} (excluded, or no source or schema file)')
-                continue
-            found = list(positions[module].get(symbol, ()))
-            mapped = [row[0] for row in graph.con.execute("SELECT id FROM node WHERE module=? AND kind='const' AND qual=?",
-                                                          (module, symbol))]
-            declared = []
-            if '.' in symbol or language_for(path) not in ('python', *ECMA):
-                found += mapped
-            elif errors[path]:
-                problems.append(f'site {site}: {path} does not parse ({errors[path]})')
-                continue
-            else:
-                declared = _declarations(path, (graph.root / path).read_bytes(), symbol)
-            model, dot, name = symbol.rpartition('.')
-            fields = [symbol for schema in schemas.get(path, ()) for item in schema['models']
-                      if dot and item['name'] == model and any(column['name'] == name for column in item['fields'])]
-            if dot and not fields and '.' not in model and graph.con.execute(
-                    "SELECT 1 FROM node WHERE module=? AND kind='class' AND qual=?", (module, model)).fetchone() \
-                    and any(row['model'] == model and row['field'] == name for row in writes(symbol)):
-                fields.append(symbol)
-            count = len(found) + len(declared) + len(fields)
-            if count != 1:
-                problems.append(f'site {site} names ' + (f'{count} declarations' if count else 'nothing')
-                                + f' in {path}: name one function, object.method, constant or Model.field of that file')
-            elif found:
-                nodes.update(found)
-                if change is not None and change.baseline and path in change.files and any(map(change.edited, found)):
-                    files.add(path)
-            elif declared:
-                if mapped:
-                    nodes.update(mapped)
-                elif _declaration_edited(change, path, symbol, declared[0]):
-                    files.add(path)
-            else:
-                nodes.update(row_function(row) for row in writes(symbol))
-                if change is not None and change.baseline:
-                    nodes.update(row_function(row) for row in change.baseline_writes(symbol))
-                files.add(path)
+            found, held, problem = resolve(site)
+            if problem:
+                problems.append(problem)
+            nodes.update(found)
+            files.update(held)
         if problems:
             issues.append(_input(f'known-entry:known.{entry.id}', f'known.{entry.id}', f'{KNOWN}:known.{entry.id}', problems,
                                  f'correct the sites of [known.{entry.id}] in {KNOWN}', [KNOWN]))

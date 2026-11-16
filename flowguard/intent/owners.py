@@ -1832,8 +1832,8 @@ def static_findings(cfg, graph, index, base=None, *, everything=False, replay=Fa
     of a changed function's old body, deletes that leave children, missing columns and the open structure
     problems (`health`). `replay` (`check`) runs copy discovery and the changed-alone comparison instead
     of the static copy lead. `everything` (`--all`) reads every label spelling and look-alike, not only those this
-    change touches. The catalog's findings (`sources.findings`), what the change loosened and the fields it newly
-    writes join the same list."""
+    change touches. The catalog's findings (`sources.findings`), what the change loosened, the fields it newly
+    writes and the documents that describe code it edits (`docs.findings`) join the same list."""
     from . import health, sources
     change = Change(cfg, graph, baseline(cfg, base))
     copies = health.copies(change, index)
@@ -1841,6 +1841,8 @@ def static_findings(cfg, graph, index, base=None, *, everything=False, replay=Fa
     found.extend(sources.findings(cfg, graph, change))
     found.extend(loosened(change, index))
     found.extend(field_impact(change, index))
+    from . import docs                  # a document's text that describes code this change edits
+    found.extend(docs.findings(change, touched_functions(change), everything=everything))
     found.extend(health.values(change))
     if change.baseline:
         found.extend(old_value_leads(change))
