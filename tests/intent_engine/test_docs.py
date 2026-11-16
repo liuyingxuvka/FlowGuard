@@ -152,11 +152,13 @@ REGIONS = '''# Jobs
 def test_generated_regions_are_written_from_the_map_and_named_when_out_of_date(tmp_path):
     from tests.intent_engine.test_static_check import _flowguard
     _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'prisma/schema.sqlite.prisma': SCHEMA.replace('String?', 'Int?'),
-                       'app/jobs.ts': SOURCE, 'docs/jobs.md': REGIONS})
-    _write(tmp_path, {'docs/jobs.md': REGIONS + '\nMore text.\n'})
+                       'app/jobs.ts': SOURCE, 'docs/jobs.md': '# Jobs\n'})
+    _write(tmp_path, {'docs/jobs.md': REGIONS + '\nMore text.\n'})       # this change writes the four regions
     code, text = _static(tmp_path)
-    block = _block(text)
-    assert code == 0 and block[0] == 'impact: jobs.md:3 generate fields Job is out of date -> python -m flowguard docs rewrites it', text
+    from tests.intent_engine._cli_fixture import last
+    assert code == 0 and [line for line in last(tmp_path).splitlines() if 'jobs.md' in line] == [
+        f'impact: docs/jobs.md:{line} generate {what} is out of date -> python -m flowguard docs rewrites it' for line, what in
+        [(3, 'fields Job'), (6, 'values JobKind'), (9, 'functions app/jobs.ts'), (12, 'constants app/jobs.ts')]], text
     code, out = _flowguard(tmp_path, 'docs')
     assert code == 0 and out.splitlines() == [f'docs/jobs.md:{line} generate {what}: rewritten' for line, what in
                                               [(3, 'fields Job'), (6, 'values JobKind'), (9, 'functions app/jobs.ts'), (12, 'constants app/jobs.ts')]], out
@@ -194,9 +196,106 @@ More text.
     assert [line for line in _block(_static(tmp_path)[1]) if 'jobs.md' in line] == []
     assert _flowguard(tmp_path, 'docs')[1].splitlines() == ['no generated region is out of date']
     # A change to the code dates the region it is written from, and only that one.
+    _commit(tmp_path, message='regions written')
+    assert _flowguard(tmp_path, 'new-task')[0] == 0
     _write(tmp_path, {'app/jobs.ts': SOURCE.replace('MAX_SHARE = 2', 'MAX_SHARE = 3')})
     assert [line for line in _block(_static(tmp_path)[1]) if 'jobs.md' in line] == [
         'impact: jobs.md:23 generate constants app/jobs.ts is out of date -> python -m flowguard docs rewrites it']
+
+
+# Planning Tool's documents (T5, R99): long texts with generated regions of a constants file, a Prisma model and a
+# value set, committed before the code they list moved on.
+PT_COLORS = """/** 0 - 30 %: critically under-utilised (red). */
+export const UTILIZATION_THRESHOLD_LOW = 30;
+
+/** 30 - 90 %: partially utilised / warning (yellow). */
+export const UTILIZATION_THRESHOLD_MID = 90;
+
+/** Reserved red for capacity and 100% reference lines. */
+export const CAPACITY_LINE_COLOR = '#b9052d';
+"""
+PT_SCHEMA = """model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("customers")
+}
+
+model Project {
+  id         String @id @default(uuid())
+  customerId String @map("customer_id")
+}
+"""
+PT_GRANULARITY = "export const GRANULARITIES = ['DAY', 'WEEK', 'MONTH'] as const;\n"
+PT_DOC = """# Frontend Documentation
+
+## 1. Technology Stack
+
+React, TanStack Query, vitest.
+
+## Utilization thresholds
+
+<!-- flowguard: generate constants frontend/src/constants/utilization-colors.ts -->
+| Constant | Value |
+|---|---|
+| `UTILIZATION_THRESHOLD_LOW` | `25` |
+<!-- flowguard: end -->
+
+## Customer fields
+
+<!-- flowguard: generate fields Customer -->
+<!-- flowguard: end -->
+
+## Granularities
+
+<!-- flowguard: generate values GRANULARITIES -->
+- `DAY`
+<!-- flowguard: end -->
+"""
+
+
+def test_a_stale_region_is_named_only_when_this_change_edits_its_source_or_the_region_and_the_brief_counts_them(tmp_path):
+    """R99: a run does not push old problems on every task. Regions an earlier change left out of date say nothing in
+    the block until this change edits a file they are written from or the region itself; the session brief counts
+    them on one line, and check --all lists each."""
+    from tests.intent_engine.test_static_check import _flowguard
+    colors, schema, granularity = ('frontend/src/constants/utilization-colors.ts', 'backend/prisma/schema.prisma',
+                                   'frontend/src/constants/granularity.ts')
+    _commit(tmp_path, {colors: PT_COLORS, schema: PT_SCHEMA, granularity: PT_GRANULARITY,
+                       'frontend/src/utils/sap-reference.ts': 'export const MAX_SAP_REFERENCE = 2_147_483_647;\n',
+                       'docs/FRONTEND_DOCUMENTATION.md': PT_DOC})
+    lines = [index + 1 for index, line in enumerate(PT_DOC.splitlines()) if 'flowguard: generate' in line]
+    constants, fields, values = (f'impact: FRONTEND_DOCUMENTATION.md:{line} generate {what} is out of date -> '
+                                 'python -m flowguard docs rewrites it' for line, what in
+                                 zip(lines, [f'constants {colors}', 'fields Customer', 'values GRANULARITIES']))
+    count = '3 generated regions are out of date: python -m flowguard docs rewrites them'
+    def said(*options):
+        code, text = _static(tmp_path, *options)
+        assert code == 0, text
+        return [line for line in _block(text, everything=bool(options)) if 'generate ' in line]
+    def brief():
+        code, text = _flowguard(tmp_path)
+        assert code == 0, text
+        return [line for line in text.splitlines() if 'generated region' in line]
+    assert said() == [] and brief() == [count]            # no change: nothing in the block, one count in the brief
+    _write(tmp_path, {'frontend/src/utils/sap-reference.ts': 'export const MAX_SAP_REFERENCE = 2_147_483_646;\n'})
+    assert said() == [] and brief() == [count]            # an unrelated edit
+    _write(tmp_path, {'frontend/src/utils/sap-reference.ts': 'export const MAX_SAP_REFERENCE = 2_147_483_647;\n',
+                      colors: PT_COLORS.replace('= 30;', '= 31;')})
+    assert said() == [constants]                          # the file a constants region lists
+    _write(tmp_path, {colors: PT_COLORS, schema: PT_SCHEMA.replace('customerId String', 'customerId String?')})
+    assert said() == [fields]                             # a Prisma schema, which a fields region reads all of
+    _write(tmp_path, {schema: PT_SCHEMA, granularity: PT_GRANULARITY.replace("'MONTH'", "'MONTH', 'YEAR'")})
+    assert said() == [values]                             # the file that declares the value set
+    _write(tmp_path, {granularity: PT_GRANULARITY,
+                      'docs/FRONTEND_DOCUMENTATION.md': PT_DOC.replace('`25`', '`26`').replace('React,', 'React 18,')})
+    assert said() == [constants]                          # an edit inside a region, not one outside them
+    _write(tmp_path, {'docs/FRONTEND_DOCUMENTATION.md': PT_DOC})
+    assert said('--all') == [constants, fields, values]   # --all lists every one
+    code, out = _flowguard(tmp_path, 'docs')
+    assert code == 0 and len(out.splitlines()) == 3, out
+    assert said() == [] and brief() == []                 # rewritten: none is out of date
 
 
 def test_a_constants_region_lists_a_module_constant_that_is_an_array_of_literals(tmp_path):

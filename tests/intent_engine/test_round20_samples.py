@@ -129,8 +129,10 @@ def test_sample_2_a_database_write_is_not_compared_and_the_table_has_one_row(sho
         assert result.returncode == 0, text
         rows[label] = json.loads(target.read_text())
         if label == 'plugin':
-            assert _block(result)[1] == ['not compared: 3 items: _tmp_x.py, STANDING and HIRES (cannot be parsed: SyntaxError: '
-                                         'invalid syntax line 3, no recorded JSON inputs, or 1 other reason) -> not a failure'], text
+            # the STANDING copies, which no test of tests/test_store.py reaches and this change leaves as they were, are
+            # an old matter and say nothing (R99)
+            assert _block(result)[1] == ['not compared: 2 items: _tmp_x.py and HIRES (cannot be parsed: SyntaxError: '
+                                         'invalid syntax line 3, or no comparable JSON result) -> not a failure'], text
             assert any('HIRES: no comparable JSON result' in reason for item in _observations(shop)['items']
                        for reason in item.get('reasons', ())), text
     assert rows == {'plugin': 1, 'without': 1}

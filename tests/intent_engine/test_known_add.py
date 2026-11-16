@@ -84,7 +84,7 @@ def test_an_ignore_entry_takes_its_finding_out_of_the_briefs_count_and_a_leave_e
     # decision did; act = "leave" keeps it counted, for the problem is still open.
     from flowguard.intent import cache
     from flowguard.intent.config import load_config
-    from flowguard.intent.health import brief_line
+    from flowguard.intent.health import brief_lines
     from tests.intent_engine.test_static_check import LABELS
     finding = 'labels:src/a.ts:TYPE_LABELS'
     _commit(tmp_path, {'src/a.ts': LABELS % ('TYPE_LABELS', 'Area'), 'src/b.ts': LABELS % ('KIND_LABELS', 'Areas')})
@@ -92,15 +92,15 @@ def test_an_ignore_entry_takes_its_finding_out_of_the_briefs_count_and_a_leave_e
         code, text = _flowguard(tmp_path, 'check', '--static', '--all')
         assert code == 0, text
         cfg = load_config(tmp_path)
-        return cache.structure_summary(cfg)['count'], brief_line(cfg)
-    assert brief() == (1, '1 open structure issues; highest severity: labels TYPE_LABELS (last check; '
-                          'check --static --all lists each with its next step, check --all also copies that drifted apart)')
+        return cache.structure_summary(cfg)['count'], brief_lines(cfg)
+    assert brief() == (1, ['1 open structure issues; highest severity: labels TYPE_LABELS (last check; '
+                           'check --static --all lists each with its next step, check --all also copies that drifted apart)'])
     code, out = _flowguard(tmp_path, 'known', 'add', finding, '--act', 'leave', '--why', 'the two tables differ on purpose')
     assert code == 0, out
     assert brief()[0] == 1
     path = tmp_path / '.flowguard/known.toml'
     path.write_text(path.read_text(encoding='utf-8').replace('act = "leave"', 'act = "ignore"'), encoding='utf-8')
-    assert brief() == (0, '')
+    assert brief() == (0, [])
     # an entry of another act beside the ignore entry keeps the problem open, and counted
     code, out = _flowguard(tmp_path, 'known', 'add', finding, '--act', 'fix', '--why', 'one spelling in the next release',
                            '--site', 'src/b.ts:KIND_LABELS')

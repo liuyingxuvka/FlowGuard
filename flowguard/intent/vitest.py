@@ -490,6 +490,7 @@ def plan(cfg, commit, changed, key):
             if anchor.kind == 'sensor' and _ecma(anchor.file) and anchor.source_role != 'test':
                 wanted[anchor.target] = (anchor.name, True, anchor.file, anchor.qual, '')
         old_sources, readers, touched, constants = {}, {}, set(), {}
+        marked = {}         # the `same NAME` marks of each changed file at the baseline, as (name, function)
         renamed = git_renames(cfg.root, commit) if commit else {}    # a moved file's baseline version is at its old path
         for rel in changed:
             if rel not in modules or is_test_rel(rel) or not (cfg.root / rel).is_file():
@@ -499,6 +500,8 @@ def plan(cfg, commit, changed, key):
             old = git_blob(cfg.root, commit, renamed.get(rel, rel))
             old_sources[rel] = old
             before = extract(cfg.root, rel, old, modules[rel], False) if old is not None else dict(nodes=[], const_tables=[])
+            # a file's facts hold `anchors` only when it has a flowguard comment, as `anchors.collect` reads them
+            marked[rel] = {(row['name'], row['qual']) for row in before.get('anchors', ()) if row['kind'] == 'sensor'}
             data = (cfg.root / rel).read_bytes()
             now = extract(cfg.root, rel, data, modules[rel], False)
             constants[rel] = _const_reads(data, rel)
@@ -572,6 +575,8 @@ def plan(cfg, commit, changed, key):
                                            and skip != 'uses imported or mutable binding ' + qual),
                                source=closed, old_source=prior, old_skip=old_skip,
                                changed=((rel in changed or rel in readers) and (old is None or closed != prior)),
+                               # this change writes its `same NAME` mark: its file is changed and lacked the mark
+                               marked=anchored and rel in marked and (name, qual) not in marked[rel],
                                consts=numbers.get((rel, qual), []) + extra_numbers, labels=sorted(set(strings.get((rel, qual), [])))))
         known, inputs = _catalog(cfg, graph)
     groups = {}
@@ -1137,8 +1142,9 @@ def judge(cfg, data, records, package=None):
     before where it already failed at task start), an intent file that does not load and an invalid known.toml or
     rules.toml (red), one not compared item per point, copy group or rule that could not be compared, with its
     reasons, and what the change touches. `known` are the plan's known entries; `agreed` the same names whose copies
-    this run compared on every copy and found to agree. `package` is the folder of the vitest run: a point in another
-    package cannot be reached by its tests and is not listed as unreached."""
+    this run compared on every copy and found to agree. A same-name function no test reached is listed as unreached
+    only when this change edits it or writes its mark (R99). `package` is the folder of the vitest run: a point in
+    another package cannot be reached by its tests and is not listed as unreached."""
     from . import cache, cells as C, signals
     from .engine import CONFLICT, Engine, PredicateError, outcome_eq
     from .health import LINES_ONLY, Issue
@@ -1170,7 +1176,8 @@ def judge(cfg, data, records, package=None):
         if not calls.get(ident) and not collected:
             if point['skip'] and (copy_only or _inside(cfg, point['rel'], package)):
                 skipped(subject, [point['skip']], function=ident, places=(where,))
-            elif point['anchored'] and not copy_only and _inside(cfg, point['rel'], package):
+            elif point['anchored'] and (point['changed'] or point['marked']) and not copy_only and _inside(cfg, point['rel'], package):
+                # an unchanged copy no test reached is an old matter, not this change's (R99)
                 skipped(subject, ['not reached by any test'], function=ident, places=(where,))
             continue
         if not collected or not point['changed']:

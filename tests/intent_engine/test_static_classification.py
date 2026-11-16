@@ -300,7 +300,7 @@ def test_the_structure_count_leaves_out_the_findings_only_the_lines_report(tmp_p
         static = owners.static_findings(cfg, graph, index, 'HEAD', everything=True)
         checked = owners.check_findings(cfg, graph, index, 'HEAD', everything=True, static=static)
     for found in (static, checked):
-        assert found.summary == dict(count=1, writers=0, top=['row creation Ghost']), found.summary
+        assert found.summary == dict(count=1, writers=0, top=['row creation Ghost'], regions=0), found.summary
     listed, _ = signals.deliver(checked.issues, touched_functions=(), touched_files=(), everything=True)
     assert {'writer:Item.state', 'declarations:Kind', 'uncreated:Ghost'} <= {line.name for line in listed}, listed
 

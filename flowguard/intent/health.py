@@ -760,29 +760,39 @@ def _order(issues):
     return sorted(issues, key=lambda issue: (issue.rank, -len(issue.files) if issue.rank == 6 else 0, issue.name))
 
 
-def summary(issues):
+def summary(issues, regions):
     """The count and the three heaviest short names, which the session brief shows; fields without an
-    owner are counted apart (they wait for the owner, not for a fix)."""
+    owner are counted apart (they wait for the owner, not for a fix); and `regions`, the generated regions of the
+    documents that are out of date (`docs.findings`)."""
     ordered = _order([issue for issue in issues if issue.rank != LINES_ONLY])
     problems = [issue for issue in ordered if issue.rank != 6]
-    return dict(count=len(problems), writers=len(ordered) - len(problems), top=[issue.short for issue in ordered[:3]])
+    return dict(count=len(problems), writers=len(ordered) - len(problems), top=[issue.short for issue in ordered[:3]],
+                regions=regions)
 
 
-def brief_line(cfg):
-    """The brief's line from the last check (`cache.structure_summary`), or '' when none recorded one."""
+def brief_lines(cfg):
+    """The brief's lines from the last check (`cache.structure_summary`): the open structure problems and the generated
+    regions out of date, each when there is one; none when no check recorded them."""
     from . import cache
     data = cache.structure_summary(cfg)
-    if not data or not data['count'] and not data['writers']:
-        return ''
-    return (f'{data["count"]} open structure issues' + (f' ({data["writers"]} other fields have multiple writers and no writer agreement)' if data['writers'] else '')
-            + '; highest severity: ' + '; '.join(data['top']) + ' (last check; check --static --all lists each with its next step, check --all also copies that drifted apart)')
+    if not data:
+        return []
+    lines = []
+    if data['count'] or data['writers']:
+        lines.append(f'{data["count"]} open structure issues' + (f' ({data["writers"]} other fields have multiple writers and no writer agreement)' if data['writers'] else '')
+                     + '; highest severity: ' + '; '.join(data['top']) + ' (last check; check --static --all lists each with its next step, check --all also copies that drifted apart)')
+    if data['regions']:
+        lines.append(f'{data["regions"]} generated region{"s are" if data["regions"] != 1 else " is"} out of date: '
+                     f'python -m flowguard docs rewrites {"them" if data["regions"] != 1 else "it"}')
+    return lines
 
 
 def assess(found):
     """`found` with its `summary` for the session brief: every issue it holds but those known.toml's ignore entries
     cover (`signals.ignore_covers`, its entries `found.known`), as 4.3's `[structure]` decision closed one. Any other entry
     (`leave`, `ask`, `fix`) keeps its issue counted, for it is still open; an entry changes only the lines
-    (`signals.deliver`)."""
+    (`signals.deliver`). The generated regions out of date are those `docs.findings` counted."""
     from .signals import ignore_covers
-    found.summary = summary([issue for issue in found.issues if not ignore_covers(issue, found.known)])
+    found.summary = summary([issue for issue in found.issues if not ignore_covers(issue, found.known)],
+                            found.stats['stale_regions'])
     return found

@@ -241,10 +241,11 @@ def _last_reds(cfg, baseline):
     return moved, len(reds) - moved
 
 
-def _brief(cfg, data, baseline, note='', *, structure=''):
+def _brief(cfg, data, baseline, note='', *, structure=()):
     """The brief (design 4.7, at most BRIEF_LINES lines, no map, no project code): the baseline with its note; the
     first rules of .flowguard/rules.toml in file order; the open matters of .flowguard/known.toml (ask, not asked yet;
-    ask, asked; fix; leave; never ignore); one count of the open structure problems; and what
+    ask, asked; fix; leave; never ignore); the last check's lines (`health.brief_lines`: one count of the open
+    structure problems, one of the generated regions out of date); and what
     the last run left: the reds new-task's moved baseline turned into before, the reds that still stand, and invalid
     entries of the two files."""
     from .sources import catalog
@@ -260,7 +261,7 @@ def _brief(cfg, data, baseline, note='', *, structure=''):
         tail.append(f'{still} still red: python -m flowguard show --last')
     if found.issues:
         tail.append(f'{len(found.issues)} invalid entries in .flowguard/rules.toml or known.toml: python -m flowguard show rules')
-    fixed = [*([structure] if structure else []), *(['; '.join(tail)] if tail else [])]
+    fixed = [*structure, *(['; '.join(tail)] if tail else [])]
     known = [_brief_line(_known_brief(entry), len(waiting) - BRIEF_KNOWN if index == BRIEF_KNOWN - 1 else 0)
              for index, entry in enumerate(waiting[:BRIEF_KNOWN])]
     slots = min(BRIEF_RULES, BRIEF_LINES - len(head) - len(fixed) - len(known))
@@ -273,11 +274,11 @@ def _brief(cfg, data, baseline, note='', *, structure=''):
 def screen(cfg, *, new_task=False):
     """The brief. It keeps the task baseline while HEAD descends from it, and on a detached HEAD moves or records
     none; `new_task` (`new-task`) starts the next task at HEAD, a detached one too."""
-    from .health import brief_line
+    from .health import brief_lines
     baseline, note = cache.remember_baseline(cfg, new_task=new_task)
     data = cache.read(cfg)
     from .differences import display
-    structure = brief_line(cfg)         # one line from the last check; the brief builds no map
+    structure = brief_lines(cfg)        # the last check's counts; the brief builds no map
     display('\n'.join(_brief(cfg, data, baseline, note, structure=structure)))
     return int(bool(data['summary']['errors']))
 

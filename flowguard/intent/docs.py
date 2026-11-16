@@ -88,11 +88,14 @@ def findings(change, touched, *, everything=False):
     """The document findings for `owners.static_findings`: an `impact` line per `about` marker whose site this change
     edits (its node is in `touched`, or `Change.edited` sees a comment inside it) while the text it describes stays as
     it was, and per marker whose site names nothing that this change touches; a red input finding per marker this
-    change adds or edits whose site names nothing. Without a baseline nothing is compared."""
+    change adds or edits whose site names nothing. A generated region that is out of date is an `impact` line when this
+    change edits a file it is generated from (`_generated_from`) or the region or its marker itself (`everything`:
+    every one), and each one is counted in `stats['stale_regions']` for the session brief (R99). Without a baseline
+    nothing is compared, and no region is counted."""
     from .owners import Findings
     from .signals import Line
     from .sources import _input, site_resolver
-    found = Findings()
+    found = Findings(stats=dict(stale_regions=0))
     if not change.baseline:
         return found
     graph, resolve, linked = change.graph, None, None       # both read once, when a marker needs them
@@ -134,8 +137,10 @@ def findings(change, touched, *, everything=False):
                                             f'{_site_of(graph, other)} {how} {_site_of(graph, node)}, which this change edits',
                                             REVIEW, (place,), tuple(f'{_site_of(graph, other)} {how} {_site_of(graph, node)}'
                                                                     for other, how, node in links)))
-        regions_then = {(kind, argument) for kind, argument, *_ in regions(then)} if then is not None else set()
-        for line, kind, argument, problem in stale(graph, document, read_source(graph.root / document)):
+        old_regions = regions(then) if then is not None else []
+        regions_then = {(kind, argument) for kind, argument, *_ in old_regions}
+        kept = {(kind, argument, body) for kind, argument, _, _, _, body in old_regions}     # as the baseline has them
+        for line, kind, argument, body, problem in stale(graph, document, read_source(graph.root / document)):
             place = f'{document}:{line}'
             if problem and (kind, argument) not in regions_then:      # this change wrote the region
                 found.issues.append(_input(f'docs:{place}', f'generate {kind} {argument}', place, [problem],
@@ -144,9 +149,32 @@ def findings(change, touched, *, everything=False):
                 found.lines.append(Line('impact', f'docs:{place}', '', f'{place} generate {kind} {argument} cannot be written',
                                         'correct its marker or remove the region', (place,), (problem,)))
             else:
-                found.lines.append(Line('impact', f'docs:{place}', '', f'{place} generate {kind} {argument} is out of date',
-                                        'python -m flowguard docs rewrites it', (place,), ()))
+                found.stats['stale_regions'] += 1
+                if everything or (kind, argument, body) not in kept or _generated_from(change, kind, argument):
+                    found.lines.append(Line('impact', f'docs:{place}', '', f'{place} generate {kind} {argument} is out of date',
+                                            'python -m flowguard docs rewrites it', (place,), ()))
     return found
+
+
+def _generated_from(change, kind, argument):
+    """Whether this change edits, adds or removes a file a region of `kind` is generated from (`generated`): for
+    `functions` and `constants` the file the argument names; for `fields`, which reads every Prisma schema, a Prisma
+    schema file; for `values`, which reads the value sets of the whole map, a file that declares a set of that name now
+    (a JS/TS declaration, a Prisma enum or CHECK of the field) or a source file whose baseline text names it (its last
+    dotted part). A TS alias's values are read from the set it names, whose file alone is not followed."""
+    paths = change.baseline_paths()
+    if kind in ('functions', 'constants'):
+        return argument in paths
+    if kind == 'fields':
+        return any(path.endswith('.prisma') for path in paths)
+    graph = change.graph
+    declaring = {row['file'] for row in graph.declarations(exported=False) if row['name'] == argument}
+    declaring.update(file for row in graph.value_sets() if row['name'] == argument for file in row['files'])
+    if declaring & paths:
+        return True
+    word = re.compile(r'\b' + re.escape(argument.rpartition('.')[2]) + r'\b')     # a set this change removes or moves
+    return any(change.module(path) is not None and change.old_text(path) is not None and word.search(change.old_text(path))
+               for path in sorted(paths))
 
 
 # ---- modules: their contracts and connections (R98) ---------------------------------------------------------------
@@ -305,16 +333,17 @@ def generated(graph, kind, argument):
 
 
 def stale(graph, document, text):
-    """[(line, kind, argument, problem)] of the regions of one document that differ from what the map gives now
-    (problem '') or cannot be generated (an unknown kind or argument, no end marker)."""
+    """[(line, kind, argument, body, problem)] of the regions of one document that differ from what the map gives now
+    (problem '') or cannot be generated (an unknown kind or argument, no end marker), with each region's body as
+    `regions` reads it."""
     found = []
     for kind, argument, line, _, end, body in regions(text):
         if end is None:
-            found.append((line, kind, argument, f'generate {kind} {argument} has no <!-- flowguard: end --> marker'))
+            found.append((line, kind, argument, body, f'generate {kind} {argument} has no <!-- flowguard: end --> marker'))
             continue
         now, problem = generated(graph, kind, argument)
         if problem or now.strip() != body.strip():
-            found.append((line, kind, argument, problem))
+            found.append((line, kind, argument, body, problem))
     return found
 
 

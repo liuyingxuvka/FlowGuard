@@ -367,6 +367,81 @@ def test_the_report_names_a_file_by_an_end_no_other_file_of_the_repository_has(t
         'not compared: LIMIT (src/limits.ts:2) (not reached by any test) -> not a failure'], text
 
 
+# Planning Tool's ISO weeks (T5, R99): two non-exported copies in frontend components and one in the backend package.
+PT_WEEK_NUMBER = """/**
+ * ISO 8601 week number of a date.
+ */
+function getIsoWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+"""
+PT_CHART = PT_WEEK_NUMBER + """
+// flowguard: same ISO_WEEKS_IN_YEAR
+function getIsoWeeksInYear(year: number): number {
+  const dec28 = new Date(Date.UTC(year, 11, 28));
+  return getIsoWeekNumber(dec28);
+}
+
+export function granularityForSpan(days: number): string {
+  if (days <= 14) return 'DAY';
+  if (days <= 90) return 'WEEK';
+  return 'MONTH';
+}
+
+export function weekOptions(year: number): number[] {
+  return Array.from({ length: getIsoWeeksInYear(year) }, (_, index) => index + 1);
+}
+"""
+PT_CONTROLS = PT_WEEK_NUMBER + """
+/**
+ * Get the number of ISO weeks in a given year.
+ */
+// flowguard: same ISO_WEEKS_IN_YEAR
+function getIsoWeeksInYear(year: number): number {
+  const dec28 = new Date(year, 11, 28);
+  return getIsoWeekNumber(dec28);
+}
+
+export function lastWeek(year: number): number {
+  return getIsoWeeksInYear(year);
+}
+"""
+PT_WEEKS = """export function isoWeeksOf(year: number): number {
+  return new Date(Date.UTC(year, 11, 28)).getUTCDay() === 4 ? 53 : 52;
+}
+"""
+
+
+def test_an_unchanged_copy_no_test_reached_says_nothing_and_a_changed_or_newly_marked_one_does(tmp_path):
+    """R99: a run does not push old problems on every task. A same-name function no test of the run reached is not
+    compared, and the block says so only for one this change edits or marks; the backend copy is another package's."""
+    chart, controls = 'frontend/src/components/shared/ChartControlCard.tsx', 'frontend/src/components/shared/PlanningTimeControls.tsx'
+    _commit(tmp_path, {'frontend/package.json': '{"name": "frontend", "private": true, "type": "module"}\n', chart: PT_CHART,
+                       controls: PT_CONTROLS, 'frontend/src/utils/weeks.ts': PT_WEEKS,
+                       'backend/package.json': '{"name": "backend", "private": true, "type": "module"}\n',
+                       'backend/src/utils/calendar-iso.ts': PT_WEEK_NUMBER + '\n// flowguard: same ISO_WEEKS_IN_YEAR\n'
+                       'export function getIsoWeekCountInYear(year: number): number {\n'
+                       '  return getIsoWeekNumber(new Date(Date.UTC(year, 11, 28)));\n}\n'})
+    line = PT_CONTROLS.splitlines().index('function getIsoWeeksInYear(year: number): number {') + 1
+    def said():
+        code, text = _report(tmp_path, _prepare(tmp_path)['plan'], package='frontend')
+        assert code == 0, text
+        return _cli_fixture.block(text)[1:]
+    assert said() == []                                   # no change: both frontend copies as they were
+    (tmp_path / chart).write_text(PT_CHART.replace('days <= 14', 'days <= 15'), encoding='utf-8')
+    assert said() == []                                   # an edit beside a copy is no edit of it
+    (tmp_path / chart).write_text(PT_CHART, encoding='utf-8')
+    (tmp_path / controls).write_text(PT_CONTROLS.replace('year, 11, 28', 'year, 11, 27 + 1'), encoding='utf-8')
+    assert said() == [f'not compared: ISO_WEEKS_IN_YEAR (PlanningTimeControls.tsx:{line}) (not reached by any test) -> not a failure']
+    (tmp_path / controls).write_text(PT_CONTROLS, encoding='utf-8')
+    (tmp_path / 'frontend/src/utils/weeks.ts').write_text('// flowguard: same ISO_WEEKS_IN_YEAR\n' + PT_WEEKS, encoding='utf-8')
+    assert said() == ['not compared: ISO_WEEKS_IN_YEAR (weeks.ts:2) (not reached by any test) -> not a failure']
+
+
 def test_a_function_reading_a_changed_constant_or_table_is_planned_as_changed(tmp_path):
     _commit(tmp_path, {
         'src/limits.ts': "export const LIMIT = 3;\nexport const LABELS = { TEAM: 'Team', AREA: 'Area' };\n",
@@ -1903,6 +1978,12 @@ def test_a_run_lists_only_its_own_packages_unreached_points_one_per_place(vitest
     assert code == 0, text
     (root / 'web/flowguard.static.test.mjs').unlink()       # the execution side alone: the static test's lines are tested apart
     _commit(root, message='execution side only')
+    code, text = _vitest(root / 'web', vitest_home)
+    # R99: copies no test reaches that are as they were at the task start are an old matter, not this run's
+    assert code == 0 and _block(text)[1:] == [], text
+    for name in ('web/src/b.ts', 'web/src/c.ts', 'api/src/d.ts'):       # a change to each copy
+        (root / name).write_text((root / name).read_text(encoding='utf-8').replace(' 3;', ' 4;').replace(' 9;', ' 8;'),
+                                 encoding='utf-8')
     code, text = _vitest(root / 'web', vitest_home)
     assert code == 0, text
     assert _block(text)[1:] == ['not compared: 2 functions: B_LIMIT (b.ts:2) and B_LIMIT (c.ts:2) (not reached by any test) '

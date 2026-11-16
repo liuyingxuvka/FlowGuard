@@ -749,6 +749,22 @@ class Observations:
     def _recorded(self, point, reading):
         self.records.append((reading.index, point, None, [], None))
 
+    def _touched_copy(self, point):
+        """Whether this change edits a same-name copy (`changed`: its sealed run differs) or writes its mark: its file is
+        a changed one whose baseline version has no `same NAME` mark on that function. A file new since the baseline or
+        whose baseline does not parse has every function changed."""
+        from . import anchors
+        if point['changed'] or point['file'] not in self.files:
+            return point['changed']
+        path = self.renamed.get(point['file'], point['file'])
+        text = self.runtime._source(path)
+        tree, why = _parse_baseline(text)
+        if tree is None:
+            raise ValueError(f'{path} {why}, yet {point["qual"]} is unchanged')
+        facts = anchors.source_facts(tree, text, point['module'], point['file'])
+        marks = {(row['name'], row['qual']) for row in facts['anchors'] if row['kind'] == 'sensor'} if facts else set()
+        return (point['name'], point['qual']) not in marks
+
     def _compare(self):
         """Only after the session: sources and JSON samples enter the sealed owner."""
         import ast
@@ -814,9 +830,12 @@ class Observations:
         for point in self.points.values():
             if point['anchor'] and point['kind'] == 'sensor':
                 groups.setdefault(point['name'], []).append(point)
+        reached = {point['target'] for _, point, _, _, _ in self.records}      # the copies a test called
         for name, points in groups.items():
             if len(points) < 2:
                 continue
+            if not any(point['target'] in reached for point in points) and not any(map(self._touched_copy, points)):
+                continue        # copies no test reached, as they were at the baseline: an old matter (R99), not this change's
             recorded = [_declared(point, sample['inputs']) for point in points for sample in samples.get(point['target'], {}).values()]
             found = compare_copies(name, points, recorded, source, run, self._place)
             self.grey.extend(found.grey)

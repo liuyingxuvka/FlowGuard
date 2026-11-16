@@ -250,6 +250,63 @@ def test_fixed_6_copies_with_different_return_forms_are_compared_through_their_p
         'not compared: ELIGIBLE (no recorded JSON inputs, or no comparable JSON result) -> not a failure'], text
 
 
+# ---- T5 (R99): copies no test reached say nothing unless this change edits or marks one -------------------
+
+WEEKS_CHART = """
+import datetime
+
+
+def iso_week_number(day: datetime.date) -> int:
+    return day.isocalendar()[1]
+
+
+# flowguard: same ISO_WEEKS_IN_YEAR
+def weeks_in_year(year: int) -> int:
+    return iso_week_number(datetime.date(year, 12, 28))
+
+
+def granularity_for_span(days: int) -> str:
+    if days <= 14:
+        return 'DAY'
+    return 'WEEK' if days <= 90 else 'MONTH'
+"""
+WEEKS_CONTROLS = """
+import datetime
+
+
+# flowguard: same ISO_WEEKS_IN_YEAR
+def iso_weeks(year: int) -> int:
+    return 53 if datetime.date(year, 12, 31).isocalendar()[1] == 53 else 52
+"""
+WEEKS_OF = "import datetime\n\n\ndef weeks_of(year: int) -> int:\n    return datetime.date(year, 12, 28).isocalendar()[1]\n"
+
+
+def test_copies_no_test_reached_say_nothing_until_this_change_edits_or_marks_one(tmp_path):
+    """Planning Tool's ISO weeks in Python: no test calls the copies, so pytest has no input to compare them on. A run
+    does not push that old matter on every task (R99); a change that edits a copy or writes its mark still hears it."""
+    root = _project(tmp_path, {'planning/chart.py': WEEKS_CHART, 'planning/controls.py': WEEKS_CONTROLS,
+                               'planning/weeks.py': WEEKS_OF, 'planning/__init__.py': '', 'tests/test_span.py': """
+        from planning.chart import granularity_for_span
+        def test_span():
+            assert granularity_for_span(3) == 'DAY'
+    """})
+    chart = root / 'planning/chart.py'
+    line = 'not compared: ISO_WEEKS_IN_YEAR (no recorded JSON inputs) -> not a failure'
+    def said():
+        result = _pytest(root)
+        assert result.returncode == 0 and '1 passed' in result.stdout, _text(result)
+        return _cli_fixture.block(result)[1:]
+    assert said() == []                                   # no change
+    chart.write_text(textwrap.dedent(WEEKS_CHART).lstrip().replace('days <= 14', 'days <= 15'), encoding='utf-8')
+    assert said() == []                                   # an edit beside a copy is no edit of it
+    chart.write_text(textwrap.dedent(WEEKS_CHART).lstrip().replace('year, 12, 28', 'year, 12, 27 + 1'), encoding='utf-8')
+    assert said() == [line]                               # a one-line edit of a copy
+    chart.write_text(textwrap.dedent(WEEKS_CHART).lstrip(), encoding='utf-8')
+    (root / 'planning/weeks.py').write_text(WEEKS_OF.replace('def weeks_of', '# flowguard: same ISO_WEEKS_IN_YEAR\ndef weeks_of'),
+                                            encoding='utf-8')
+    assert said() == [line]                               # a mark this change writes on a function it leaves as it was
+
+
 # ---- round 22 F1: a same-name red names every copy's answer and chooses none -------------------------------
 
 def _copies(*bounds, owner=False):
