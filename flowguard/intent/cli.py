@@ -50,6 +50,7 @@ COMMANDS = {
     'new-task': 'Start the next task: record HEAD as the task baseline, then print the brief',
     'ledger': 'The fallback ledger: handlers that may end without raising',
     'req': "Store, list or retire the owner's own words, byte for byte",
+    'docs': 'Rewrite the generated regions of Markdown files (<!-- flowguard: generate ... -->) from the map',
 }
 
 DEPRECATED_COMMANDS = {'anchor', 'try', 'watch', 'model', 'compare'}
@@ -627,6 +628,19 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False, last=False):
         display('\n'.join(lines if full else _limit(lines, cfg.screen_lines,
                                                      f'python -m flowguard show {_spelled(query)} --full lists them all')))
     return 0
+
+
+def write_docs(cfg):
+    """`python -m flowguard docs`: rewrite every generated region of the repository's Markdown files from the map
+    (`docs.rewrite`); one line per region it rewrote or could not write. 1 when one could not be written."""
+    from . import docs
+    with closing(build(cfg.root, roots=cfg.roots)) as graph:
+        done = docs.rewrite(graph)
+    for document, line, kind, argument, problem in done:
+        print(f'{document}:{line} generate {kind} {argument}: ' + (problem or 'rewritten'))
+    if not done:
+        print('no generated region is out of date')
+    return int(any(problem for *_, problem in done))
 
 
 def draft_anchor(cfg, target):
@@ -2324,6 +2338,7 @@ def main(argv=None):
     compare_parser.add_argument('right')
     add_parser('init')
     add_parser('new-task')
+    add_parser('docs')
     ledger_parser = add_parser('ledger')
     ledger_operations = ledger_parser.add_subparsers(dest='operation', required=True)
     ledger_operations.add_parser('init', help='Record every existing fallback as legacy')
@@ -2373,6 +2388,8 @@ def main(argv=None):
                          leads=options.leads)
         if options.command == 'init':
             return init(cfg)
+        if options.command == 'docs':
+            return write_docs(cfg)
         if options.command == 'ledger':
             return ledger(cfg, options.operation)
         if options.command == 'req':

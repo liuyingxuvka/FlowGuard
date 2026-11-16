@@ -97,3 +97,88 @@ def test_a_known_entry_may_name_a_whole_document(tmp_path):
     _write(tmp_path, {'.flowguard/known.toml': known.replace('docs/rates.md', 'docs/gone.md')})
     code, text = _static(tmp_path)
     assert code == 1 and any(line.startswith('red: known.stale-pointers:') for line in _block(text)), text
+
+
+SCHEMA = 'model Job {\n  id    String  @id\n  share Decimal @map("job_share")\n  state String?\n}\n'
+SOURCE = '''export const MAX_SHARE = 2;
+export const JobKind = { A: 'A', B: 'B' } as const;
+export function shareLimit(kind: string): number { return kind === JobKind.A ? MAX_SHARE : 1; }
+export function label(job: { id: string }) { return job.id; }
+'''
+REGIONS = '''# Jobs
+
+<!-- flowguard: generate fields Job -->
+<!-- flowguard: end -->
+
+<!-- flowguard: generate values JobKind -->
+<!-- flowguard: end -->
+
+<!-- flowguard: generate functions app/jobs.ts -->
+<!-- flowguard: end -->
+
+<!-- flowguard: generate constants app/jobs.ts -->
+<!-- flowguard: end -->
+'''
+
+
+def test_generated_regions_are_written_from_the_map_and_named_when_out_of_date(tmp_path):
+    from tests.intent_engine.test_static_check import _flowguard
+    _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'prisma/schema.sqlite.prisma': SCHEMA.replace('String?', 'Int?'),
+                       'app/jobs.ts': SOURCE, 'docs/jobs.md': REGIONS})
+    _write(tmp_path, {'docs/jobs.md': REGIONS + '\nMore text.\n'})
+    code, text = _static(tmp_path)
+    block = _block(text)
+    assert code == 0 and block[0] == 'impact: jobs.md:3 generate fields Job is out of date -> python -m flowguard docs rewrites it', text
+    code, out = _flowguard(tmp_path, 'docs')
+    assert code == 0 and out.splitlines() == [f'docs/jobs.md:{line} generate {what}: rewritten' for line, what in
+                                              [(3, 'fields Job'), (6, 'values JobKind'), (9, 'functions app/jobs.ts'), (12, 'constants app/jobs.ts')]], out
+    written = (tmp_path / 'docs/jobs.md').read_text(encoding='utf-8')
+    assert written == '''# Jobs
+
+<!-- flowguard: generate fields Job -->
+| Field | Type | Column |
+|---|---|---|
+| id | String | id |
+| share | Decimal | job_share |
+| state | String? (prisma/schema.prisma), Int? (prisma/schema.sqlite.prisma) | state |
+<!-- flowguard: end -->
+
+<!-- flowguard: generate values JobKind -->
+- `A`
+- `B`
+<!-- flowguard: end -->
+
+<!-- flowguard: generate functions app/jobs.ts -->
+| Function | Signature |
+|---|---|
+| `shareLimit` | `function shareLimit(kind: string): number` |
+| `label` | `function label(job: { id: string })` |
+<!-- flowguard: end -->
+
+<!-- flowguard: generate constants app/jobs.ts -->
+| Constant | Value |
+|---|---|
+| `MAX_SHARE` | `2` |
+<!-- flowguard: end -->
+
+More text.
+''', written
+    assert [line for line in _block(_static(tmp_path)[1]) if 'jobs.md' in line] == []
+    assert _flowguard(tmp_path, 'docs')[1].splitlines() == ['no generated region is out of date']
+    # A change to the code dates the region it is written from, and only that one.
+    _write(tmp_path, {'app/jobs.ts': SOURCE.replace('MAX_SHARE = 2', 'MAX_SHARE = 3')})
+    assert [line for line in _block(_static(tmp_path)[1]) if 'jobs.md' in line] == [
+        'impact: jobs.md:23 generate constants app/jobs.ts is out of date -> python -m flowguard docs rewrites it']
+
+
+def test_a_region_this_change_writes_that_cannot_be_generated_is_red(tmp_path):
+    _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'app/jobs.ts': SOURCE, 'docs/jobs.md': '# Jobs\n'})
+    _write(tmp_path, {'docs/jobs.md': '# Jobs\n\n<!-- flowguard: generate fields Missing -->\n<!-- flowguard: end -->\n\n'
+                                      '<!-- flowguard: generate routes app -->\n<!-- flowguard: end -->\n\n'
+                                      '<!-- flowguard: generate values JobKind -->\nno end\n'})
+    code, text = _static(tmp_path)
+    reds = [line for line in _block(text) if line.startswith('red:')]
+    assert code == 1 and reds == [
+        'red: generate fields Missing: generate fields Missing: no Prisma model Missing -> correct the marker at jobs.md:3',
+        'red: generate routes app: generate routes: the kinds are fields, values, functions, constants -> correct the marker at jobs.md:6',
+        'red: generate values JobKind: generate values JobKind has no <!-- flowguard: end --> marker -> correct the marker at jobs.md:9'], text

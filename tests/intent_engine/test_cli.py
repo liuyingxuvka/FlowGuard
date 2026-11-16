@@ -91,7 +91,7 @@ def test_every_command_has_a_description_in_the_help(capsys, monkeypatch):
     text = capsys.readouterr().out
     assert stopped.value.code == 0
     commands = re.search(r'^  \{([\w,-]+)\}$', text, re.M)[1].split(',')
-    assert set(commands) == {'new-task', 'check', 'show', 'req', 'ledger', 'init'}, text
+    assert set(commands) == {'new-task', 'check', 'show', 'req', 'ledger', 'init', 'docs'}, text
     for command in commands:
         assert re.search(rf'^    {re.escape(command)} +\w', text, re.M), (command, text)
 
