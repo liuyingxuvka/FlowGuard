@@ -517,7 +517,7 @@ class Observations:
         self.runtime = state.runtime = Runtime(self.cfg.root, baseline)
         if self.requested_base and self.runtime._baseline_error:
             raise pytest.UsageError(self.runtime._baseline_error)
-        self.index = state.model.anchor_index or differences._source_index(self.cfg.root)
+        self.index = state.model.anchor_index or differences._source_index(self.cfg.root, state.get_map)
         state.model.anchor_index = self.index
         self.renamed = {}       # a moved file's baseline version is at its old path
         self.unparsed = {}      # {changed file: why its baseline version does not parse}, each comparison's reason there

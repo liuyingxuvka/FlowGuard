@@ -214,6 +214,19 @@ def test_a_long_input_gives_way_first_and_a_changed_line_keeps_what_was_and_what
     assert len(said) - len('a.py:f') - len('b.py:g') == 200, said
 
 
+def test_the_comment_a_step_tells_the_user_to_write_keeps_its_whole_paths():
+    # Review of 5.0: the block shortened the path inside the except= of the rewrite it printed, and `except=fees.py:move`
+    # names no function: the comment a step says to write keeps its paths whole; the rest of the line is shortened.
+    step = ('write # flowguard: together B.unit B.staff except=pkg/fees.py:move(r),pkg/fees.py:hold(s) and, on its own '
+            'line, # flowguard: writers B.unit reserve,pkg/fees.py:move')
+    line = Line('red', 'comment:pkg/fees.py:6:removed', '', 'comment pkg/fees.py:6: owner writers= and alone= were removed',
+                step, ('pkg/fees.py:6',))
+    assert _block([line])[1] == 'red: comment fees.py:6: owner writers= and alone= were removed -> ' + step
+    other = Line('red', 'rule:R', '', 'rule R: x at pkg/fees.py:move', 'change pkg/fees.py:move or write // flowguard: same R '
+                 'above pkg/fees.py:move', ('pkg/fees.py:move',))
+    assert _block([other])[1] == 'red: rule R: x at fees.py:move -> change fees.py:move or write // flowguard: same R above pkg/fees.py:move'
+
+
 def test_a_line_names_at_most_three_places_and_paths_are_file_names_unless_two_share_one():
     places = tuple(f'src/a{number}.py:f' for number in range(5))
     line = Line('known', 'known.k', '', 'known.k at ' + ', '.join(places), 'an open question for the owner, not asked yet', places)

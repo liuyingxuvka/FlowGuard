@@ -175,10 +175,14 @@ def git(root, *args):
     return subprocess.run(['git', '-C', str(root), *args], check=True, capture_output=True, text=True).stdout
 
 
+def _no_map():
+    raise AssertionError('these sources spell no removed 4.2 comment: the source index reads no map')
+
+
 def compare_sensors(root, left, right):
     """`differences._compare_pairs` of the two current sensors named `left` and `right` (a name, or module:qual for a
     copy), as the source index of the project reads them."""
-    index = D._source_index(root)
+    index = D._source_index(root, _no_map)
     pair = [[a for a in index.entries if a.kind == 'sensor' and value in (a.name, a.target)] for value in (left, right)]
     assert [len(matches) for matches in pair] == [1, 1], pair
     return D._compare_pairs(root, [(pair[0][0], pair[1][0])])
@@ -280,7 +284,7 @@ def test_same_name_copies_compare_actual_callables_without_any_intent_rule(tmp_p
 def test_differently_named_sensors_keep_separate_identity_until_an_explicit_comparison(tmp_path):
     root = tmp_path/'project'
     repository(root, GRACE+GRACE.replace('same grace', 'same different').replace('def allowed', 'def copy').replace('<= 3', '<= 7'))
-    index = D._source_index(root)
+    index = D._source_index(root, _no_map)
     assert set(index.by_name) == {'grace', 'different'}
     assert not index.issues
     runtime, readings = historical(root, [{'days': 0}, {'days': 4}])
@@ -293,7 +297,7 @@ def test_three_current_copies_cover_every_reference_pair_without_a_second_execut
     root = tmp_path/'project'
     repository(root, GRACE+GRACE.replace('def allowed', 'def copy')
                +GRACE.replace('def allowed', 'def third').replace('<= 3', '<= 7'))
-    index = D._source_index(root)
+    index = D._source_index(root, _no_map)
     reference, second, third = sorted(index.by_name['grace'], key=lambda a: a.target)
     report = D._compare_pairs(root, [(reference, second), (reference, third)])
     assert report['status'] == 'red' and report['selected'] == 2, report

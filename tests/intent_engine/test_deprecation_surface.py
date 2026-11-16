@@ -77,3 +77,82 @@ def test_a_pytest_session_says_each_removed_spelling_red_at_its_line_with_its_re
         'red: comment app.py:1: sensor was removed in 5.0 -> write # flowguard: same LIMIT',
         'red: comment grace.py:1: owner NAME above a function was removed in 5.0 -> write # flowguard: same GRACE ref'], done.stdout
     assert 'deprecated' not in done.stdout + done.stderr, done.stdout + done.stderr
+
+
+def test_each_entry_point_rewrites_a_removed_spelling_with_every_file_and_the_rewrite_written_as_printed_resolves(tmp_path):
+    """Review of 5.0: pytest and check read the comments of the Python files that hold one, so the rewrite of a 4.2 bare
+    name in writers= or alone= missed or misplaced a function of a file without a comment (`save,close` for
+    `save,app/b.py:close`, `except=fees.py:relocate(...)` for `except=svc/other.py:relocate(...)`), and a JS/TS 4.2
+    spelling, which only the map's reader reads, was red in check --static alone. The block also shortened the path
+    inside the except= it told the user to write (`except=fees.py:move(...)`), which resolves to no function. Each
+    entry point now prints check --static's line, and the comments written as the block prints them are red nowhere."""
+    from tests.intent_engine._cli_fixture import block
+    from tests.intent_engine.test_unverified_outcome import _cli, _pytest, _project
+    root = _project(tmp_path / 'p', {
+        'app/__init__.py': '',
+        'app/a.py': '''
+            # flowguard: owner Order.status writers=save,close
+            def save(order):
+                order.status = "saved"
+        ''',
+        'app/b.py': '''
+            def close(order):
+                order.status = "closed"
+        ''',
+        'pkg/__init__.py': '',
+        'pkg/fees.py': '''
+            # flowguard: owner Booking.unit_id with=Booking.employee_id on=update alone=move(moves keep the employee),relocate(bulk)
+            def reserve(booking, unit, employee):
+                booking.unit_id = unit
+                booking.employee_id = employee
+
+
+            def move(booking, unit):
+                booking.unit_id = unit
+        ''',
+        'svc/__init__.py': '',
+        'svc/other.py': '''
+            def relocate(booking, unit):
+                booking.unit_id = unit
+        ''',
+        'web/one.ts': '''
+            // flowguard: owner Item.state with=Item.note
+            export function setBoth(item: { state: string; note: string }) {
+              item.state = 'x';
+              item.note = 'y';
+            }
+        ''',
+        'tests/test_app.py': '''
+            from app.a import save
+
+            def test_save():
+                class Order:
+                    status = ""
+                order = Order()
+                save(order)
+                assert order.status == "saved"
+        ''',
+    })
+    # (place, step) of each red line: the block keeps a line's step whole and may shorten its text
+    wanted = [
+        ('a.py:1', 'write # flowguard: writers Order.status save,app/b.py:close'),
+        ('fees.py:1', 'write # flowguard: together Booking.unit_id Booking.employee_id on=update '
+                      'except=pkg/fees.py:move(moves keep the employee),svc/other.py:relocate(bulk)'),
+        ('one.ts:1', 'write // flowguard: together Item.state Item.note')]
+    runs = (('pytest', lambda: _pytest(root, '-q')), ('check', lambda: _cli(root, 'check')),
+            ('check --static', lambda: _cli(root, 'check', '--static')))
+    for run, call in runs:
+        result, text = call()
+        reds = sorted((line.removeprefix('red: comment ').partition(': ')[0], line.rpartition(' -> ')[2])
+                      for line in block(result)[1:] if line.startswith('red: '))
+        assert result.returncode == 1 and reds == wanted, (run, text)
+        assert 'owner writers= was removed in 5.0 -> ' in text and 'owner with= was removed in 5.0 -> ' in text, (run, text)
+    places = {'a.py:1': 'app/a.py', 'fees.py:1': 'pkg/fees.py', 'one.ts:1': 'web/one.ts'}
+    for where, step in wanted:          # each comment written as the block printed it
+        path = root / places[where]
+        lines = path.read_text(encoding='utf-8').split('\n')
+        lines[0] = '\n'.join(step.removeprefix('write ').split(' and, on its own line, '))
+        path.write_text('\n'.join(lines), encoding='utf-8')
+    for run, call in runs:
+        result, text = call()
+        assert result.returncode == 0 and not [line for line in block(result)[1:] if line.startswith('red: ')], (run, text)

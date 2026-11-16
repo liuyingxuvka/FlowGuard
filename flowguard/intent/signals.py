@@ -352,9 +352,14 @@ def _short_paths(paths, files=()):
     return shown
 
 
+_WRITTEN = re.compile(r'(?:#|//) flowguard: ')       # where a step's comment to write begins
+
+
 def _said(line, names, *, cap=True):
     """One line of the block: `{kind}: {text} -> {step}`, its places' paths shortened, at most three places (the text's
-    first, then its step's; each one cut is counted, `(+2 places)`) and 200 characters besides its paths (`cap`)."""
+    first, then its step's; each one cut is counted, `(+2 places)`) and 200 characters besides its paths (`cap`). A
+    comment the step tells the user to write (from its `# flowguard: ` or `// flowguard: ` on) is printed as written:
+    its positions (`except=pkg/fees.py:move(...)`) name their files by the whole path a comment needs."""
     text, step = _one_line(line.text), _one_line(line.step)
     named = [place for place in dict.fromkeys(line.places) if place and place in text]
     if cap and len(named) > PLACES:
@@ -364,7 +369,10 @@ def _said(line, names, *, cap=True):
     if cap and len(stepped) > PLACES - len(shown):
         room = PLACES - len(shown)
         step = _cut(step, stepped[room:], _more_places(len(stepped) - room))
-    said = _shorten(f'{line.kind}: {text}' + (f' -> {step}' if step else ''), line.places, names)
+    # a comment the step tells the user to write keeps its paths whole: a shortened one would name no file
+    written = step[found.start():] if (found := _WRITTEN.search(step)) else ''
+    said = _shorten(f'{line.kind}: {text}' + (f' -> {step[:len(step) - len(written)]}' if step else ''),
+                    line.places, names) + written
     if not cap:
         return said
     return _cap(said, [names.get(path, path) for path in map(_path_of, line.places) if path],

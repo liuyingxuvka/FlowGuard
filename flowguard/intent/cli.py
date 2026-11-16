@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import closing
+from contextlib import ExitStack, closing
 import io
 import json
 import os
@@ -991,7 +991,8 @@ def check(cfg, *, everything=False, deep=False, base=None):
     own = _Own()
     with collect_signals(everything=everything) as reports:
         _check(cfg, everything=everything, deep=deep, base=base, reports=reports, own=own)
-    index = _source_index(cfg.root)
+    with ExitStack() as maps:       # the map is read only for a removed 4.2 spelling (`_source_index`)
+        index = _source_index(cfg.root, lambda: maps.enter_context(closing(build(cfg.root, roots=cfg.roots))))
     issues, lines = _index_findings(index)
     own.issues += issues
     own.lines += lines

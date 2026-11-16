@@ -537,16 +537,65 @@ def test_show_spells_each_agreement_as_its_43_comment(tmp_path):
                 if re.match(r'(?:owner|with|alone) ', line) or re.search(r'(?:writers|with|alone)=', line)]
 
 
-def test_old_foreign_spellings_are_red_at_their_line_with_their_rewrite():
-    facts = anchors.foreign_owners('// flowguard: owner ROUND\n// flowguard: sensor ROUND\nexport function copy() {}\n'
-                                   '// flowguard: owner Account.status with=Account.changed alone=seed(fills it once)\n',
-                                   'typescript/policy.ts', 'policy.ts')
-    assert not facts['anchors']
-    assert [(issue['level'], issue['code'], issue['line'], issue['message']) for issue in facts['anchor_issues']] == [
+def test_old_foreign_spellings_are_red_at_their_line_with_their_rewrite(tmp_path):
+    # read by the map's JS/TS reader, whose functions say what a comment is on
+    _files(tmp_path, {'policy.ts': '// flowguard: owner ROUND\n// flowguard: sensor ROUND\nexport function copy() {}\n'
+                                   '// flowguard: owner Account.status with=Account.changed alone=seed(fills it once)\n'})
+    with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
+        index = anchors.collect(graph)
+    assert not index.entries
+    assert [(issue.level, issue.code, issue.line, issue.message) for issue in index.issues] == [
         ('red', 'removed', 1, 'owner NAME above a function was removed in 5.0 -> write // flowguard: same ROUND ref'),
         ('red', 'removed', 2, 'sensor was removed in 5.0 -> write // flowguard: same ROUND'),
         ('red', 'removed', 4, 'owner with= and alone= were removed in 5.0 -> write // flowguard: together Account.status '
          'Account.changed except=policy.ts:seed(fills it once)')]
+
+
+def test_an_old_owner_name_on_no_function_is_told_where_same_ref_goes_or_to_delete_the_comment(tmp_path):
+    """Review of 5.0: a 4.2 `owner NAME` that no function follows (a navigation name in 4.2 JS/TS) was told it was above
+    a function and to write `same NAME ref`, which is red there too, as it names no function. Its step now says where
+    `same NAME ref` goes, or to delete the comment; on a function the step stays `same NAME ref`, in JS/TS as in Python
+    (in a JS/TS file `same` is on a function declared within the next three lines)."""
+    nowhere = 'owner NAME was removed in 5.0; this comment is on no function -> write {} flowguard: same GRACE ref on the ' \
+              'line above the function it names, or delete the comment'
+    _files(tmp_path, {
+        'grace.ts': '// flowguard: owner GRACE\nexport {};\n',
+        'later.ts': '// flowguard: owner GRACE\n/**\n * the grace period\n * in days\n */\nexport function later(d: number) { return d; }\n',
+        'near.ts': '// flowguard: owner GRACE\n/** in days */\nexport function near(d: number) { return d; }\n',
+        'grace.py': '# flowguard: owner GRACE\nLIMIT = 3\n',
+        'near.py': '# flowguard: owner GRACE\n# in days\ndef near(days):\n    return days\n'})
+    with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
+        index = anchors.collect(graph)
+    assert sorted((issue.file, issue.code, issue.line, issue.message) for issue in index.issues) == [
+        ('grace.py', 'removed', 1, nowhere.format('#')),
+        ('grace.ts', 'removed', 1, nowhere.format('//')),
+        ('later.ts', 'removed', 1, nowhere.format('//')),
+        ('near.py', 'removed', 1, 'owner NAME above a function was removed in 5.0 -> write # flowguard: same GRACE ref'),
+        ('near.ts', 'removed', 1, 'owner NAME above a function was removed in 5.0 -> write // flowguard: same GRACE ref')]
+
+
+def test_a_removed_spelling_is_rewritten_from_its_own_line_after_a_form_feed(tmp_path):
+    """Review of 5.0: the map read a removed spelling's line again by `str.splitlines`, which also breaks at a form feed
+    (and \\x0b, \\x1c-\\x1e, \\x85, U+2028, U+2029), while the reader numbered it as the tokenizer does, at newlines
+    only: after a form feed line a comment got the rewrite of the comment above it. Python and JS/TS lines are now
+    counted at newlines, as their readers number them, so a JS/TS `same` after such a line is on its function too."""
+    _files(tmp_path, {
+        'app/__init__.py': '',
+        'app/a.py': 'class Order:\n    status = ""\n    note = ""\n\x0c\n# flowguard: owner Order.status writers=save\n'
+                    '# flowguard: owner Order.note with=Order.status\ndef save(order):\n    order.status = "saved"\n'
+                    '    order.note = "n"\n',
+        'app/b.py': 'def save(order):\n    order.status = "closed"\n    order.note = "m"\n',
+        'app/c.ts': 'export const gap = 1;\x0c\n// flowguard: owner Item.kind writers=put\n// flowguard: same LIMIT\n'
+                    'export function put(x: number) { return x > 3; }\nconst s = "a\u2028b";\n'
+                    '// flowguard: owner Item.state with=Item.note\n'})
+    with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
+        index = anchors.collect(graph)
+    assert [(issue.file, issue.line, issue.message) for issue in index.issues] == [
+        ('app/a.py', 5, 'owner writers= was removed in 5.0 -> write # flowguard: writers Order.status save,app/b.py:save'),
+        ('app/a.py', 6, 'owner with= was removed in 5.0 -> write # flowguard: together Order.note Order.status'),
+        ('app/c.ts', 2, 'owner writers= was removed in 5.0 -> write // flowguard: writers Item.kind put'),
+        ('app/c.ts', 6, 'owner with= was removed in 5.0 -> write // flowguard: together Item.state Item.note')]
+    assert [(anchor.file, anchor.line, anchor.qual) for anchor in index.named('LIMIT')] == [('app/c.ts', 3, 'put')]
 
 
 @pytest.mark.parametrize('comment', [
@@ -555,12 +604,18 @@ def test_old_foreign_spellings_are_red_at_their_line_with_their_rewrite():
     'writers Account.status ../outside.py:save',
     'writers Account.status /outside.py:save',
     'writers Account.status save extra',
+    # review of 5.0: a list of commas alone named nothing and was read as an agreement that binds nothing (4.3: red)
+    'writers Account.status ,',
+    'together Account.status ,',
+    'together Account.status , on=update',
+    'together Account.status , except=shop/m.py:f(why)',
 ])
 def test_invalid_new_agreements_are_syntax_findings(comment):
-    facts = _facts('# flowguard: ' + comment + '\n')
-    assert not facts.get('anchors')
-    assert facts['anchor_issues'][0]['level'] == 'red'
-    assert facts['anchor_issues'][0]['code'] == 'syntax'
+    for facts in (_facts('# flowguard: ' + comment + '\n'),
+                  anchors.foreign_owners('// flowguard: ' + comment + '\n', 'typescript/policy.ts', 'policy.ts')):
+        assert not facts.get('anchors')
+        assert facts['anchor_issues'][0]['level'] == 'red'
+        assert facts['anchor_issues'][0]['code'] == 'syntax'
 
 
 @pytest.mark.parametrize('source, expected', [

@@ -8,6 +8,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 from pathlib import Path
+import re
 import sys
 import time
 
@@ -183,12 +184,22 @@ def _compatible(left, right):
                     for a, b in zip(left.parameters, right.parameters)))
 
 
-def _source_index(root):
+# a JS/TS line that spells a 4.2 comment 5.0 removed, which only the map's reader reads (`anchors.foreign_owners`)
+_FOREIGN_REMOVED = re.compile(rb'//\s*flowguard:\s*(?:sensor|owner)\b')
+
+
+def _source_index(root, get_map):
+    """The flowguard comments of the project's Python files that hold one, read without the map (a source slice,
+    `anchors.collect_sources`). A removed 4.2 spelling is the map's: its rewrite names the functions it meant in every
+    file of the map, and a JS/TS one only the map's reader reads. When a Python comment of the slice or a JS/TS file
+    spells one, the map (`get_map()`, an open map the caller closes) is read and the removed reds are its index's
+    (`anchors.collect`), as check --static prints them; otherwise the map is not read."""
     from . import anchors
     from flowguard.map.common import DEFAULT_IGNORE, matches_any
     from flowguard.map.inventory import list_files
     from flowguard.structure import roots
     from flowguard.structure.paths import project_files
+    from flowguard.structure.readers.registry import ECMA, language_for
     from flowguard.structure.store import project_config
     # The same file selection as the map build: [tool.flowguard] exclude applies here too.
     ignore = [pattern for pattern in DEFAULT_IGNORE if pattern != 'venv/**'] + [
@@ -210,8 +221,17 @@ def _source_index(root):
     selected = [(file, names[file][0][0], '/tests/' in '/'+file or Path(file).name.startswith('test_'))
                 for file, raw in sources.items() if b'flowguard:' in raw]
     index = anchors.collect_sources(root, selected)
-    known = {issue.file for issue in index.issues if issue.code == 'source-syntax'}
-    return anchors.Index(index.entries, index.issues + tuple(issue for issue in unreadable if issue.file not in known))
+
+    def foreign_removed():
+        """Does a JS/TS file the map reads (selected as the map selects them) spell a removed comment?"""
+        spelled = [file for file in files if language_for(file) in ECMA and _FOREIGN_REMOVED.search((root / file).read_bytes())]
+        return any(project_files([str(root / file) for file in spelled], root))
+    issues = index.issues
+    if any(issue.code == 'removed' for issue in issues) or foreign_removed():
+        issues = tuple(issue for issue in issues if issue.code != 'removed') + tuple(
+            issue for issue in anchors.collect(get_map()).issues if issue.code == 'removed')
+    known = {issue.file for issue in issues if issue.code == 'source-syntax'}
+    return anchors.Index(index.entries, issues + tuple(issue for issue in unreadable if issue.file not in known))
 
 
 def _compare_pairs(root, pairs, *, answers=False, witnesses=False):

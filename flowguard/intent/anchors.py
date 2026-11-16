@@ -286,7 +286,7 @@ def _graph_locator(graph, modules):
     return _locator(named, modules)
 
 
-def _removed(kind, body, file, module, line, locate):
+def _removed(kind, body, file, module, line, locate, *, followed):
     """The red of a FlowGuard 4.2 comment spelling, which 5.0 removed, at its line: `sensor NAME`, `owner NAME` above a
     function, and the data owners `owner A with=B,C on=... alone=f(reason)` and `owner A writers=f,g`. Nothing of the
     comment is read with its old meaning; its step is the 4.3 comment that says the same (upgrade-4.3.md, "Comment
@@ -295,15 +295,17 @@ def _removed(kind, body, file, module, line, locate):
     A 4.2 bare name in alone= or writers= meant the function of that name in any file, a 4.2 `module:function` that
     module's function: `locate(name)` gives the functions it meant (`_locator`), each spelled as 4.3 does, a function
     of the comment's own file bare (with its path in except=, which needs one) and another file's path:function. A
-    name that meant no function stays as written (with the comment's own path in except=)."""
+    name that meant no function stays as written (with the comment's own path in except=). `followed` says whether the
+    comment is on a function as `same` needs one (declared right after it): a bare `owner NAME` on no function names
+    none, and its step says where `same NAME ref` goes, or to delete the comment."""
     comment = '#' if file.endswith('.py') else '//'
     body = body.strip()
     name = (re.match(_NAME, body) or [''])[0]
 
-    def issue(feature, *rewrites):
+    def issue(feature, *rewrites, why='', after=''):
         step = ' and, on its own line, '.join(f'{comment} flowguard: {_inline(text)}' for text in rewrites)
         verb = 'were' if ' and ' in feature else 'was'
-        return Issue('red', 'removed', f'{feature} {verb} removed in 5.0 -> write {step}', file, line, name)
+        return Issue('red', 'removed', f'{feature} {verb} removed in 5.0{why} -> write {step}{after}', file, line, name)
 
     def positions(value, path):
         found = locate(value)
@@ -318,27 +320,43 @@ def _removed(kind, body, file, module, line, locate):
                                 for position in positions(value, False))
         exceptions = dict.fromkeys(f'{position}({reason}' for item in re.findall(r'[^\s(),]+\([^()]*\)', listed['alone'] or '')
                                    for target, _, reason in [item.partition('(')] for position in positions(target, True))
+        partners = ','.join(value for value in (listed['with'] or '').split(',') if value)
         rewrites = []
         if listed['with'] or listed['on'] or listed['alone']:
-            rewrites.append(f'together {name} {listed["with"] or "PARTNERS"}' + (f' on={listed["on"]}' if listed['on'] else '')
+            rewrites.append(f'together {name} {partners or "PARTNERS"}' + (f' on={listed["on"]}' if listed['on'] else '')
                             + (' except=' + ','.join(exceptions) if exceptions else ''))
         if writers:
             rewrites.append(f'writers {name} ' + ','.join(writers))
         features = [option + '=' for option in ('writers', 'with', 'alone') if listed[option]] or ['on=']
-        return issue('owner ' + ' and '.join([', '.join(features[:-1]), features[-1]] if len(features) > 1 else features),
-                     *rewrites)
-    if name and not _OLD_OPTION.search(body):
+        if rewrites:            # a writers= list of commas alone says no 4.3 comment
+            return issue('owner ' + ' and '.join([', '.join(features[:-1]), features[-1]] if len(features) > 1 else features),
+                         *rewrites)
+    elif name and not _OLD_OPTION.search(body):
+        if not followed:
+            return issue('owner NAME', f'same {name} ref{body[len(name):]}', why='; this comment is on no function',
+                         after=' on the line above the function it names, or delete the comment')
         return issue('owner NAME above a function', f'same {name} ref{body[len(name):]}')
     return issue('owner', 'same NAME ref above a function, together FIELD PARTNERS or writers FIELD FUNCTIONS')
 
 
 def _relocated(issue, lines, module, locate):
-    """A `removed` issue of the map's facts, its rewrite read again with the whole project's functions (`locate`):
-    one file's reader knew only its own."""
+    """A `removed` issue of the map's facts whose rewrite names functions (a 4.2 writers= or alone=), its rewrite read
+    again with the whole project's functions (`locate`): one file's reader knew only its own. `lines` are the file's
+    lines as its reader numbered the issue (`_lines`); any other removed spelling's rewrite is its reader's."""
     if issue.code != 'removed' or not 0 < issue.line <= len(lines):
         return issue
     match = _REMOVED_HEAD['#' if issue.file.endswith('.py') else '//'].search(lines[issue.line - 1])
-    return _removed(*match.groups(), issue.file, module, issue.line, locate) if match else issue
+    if not match or not re.search(r'(?<!\S)(?:writers|alone)=', match[2]):
+        return issue
+    # a data owner's rewrite does not depend on a following function
+    return _removed(*match.groups(), issue.file, module, issue.line, locate, followed=True)
+
+
+def _lines(text):
+    """A source's lines as its readers number them: Python's tokenizer and the JS/TS parser break a line only at a
+    newline, every \\r\\n and lone \\r being one (as `read_source` and the readers' `parse` make them), never at a form
+    feed or another character `str.splitlines` breaks at (\\x0b, \\x0c, \\x1c-\\x1e, \\x85, U+2028, U+2029)."""
+    return text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
 
 
 def _inline(spelled):
@@ -631,9 +649,22 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
     """Canonical comment parse, called with the extractor's already parsed AST."""
     definitions, entries, problems = _definitions(tree), [], []
     enum_names, annotation = _enum_names(tree), _source_types(tree)
-    lines = text.splitlines()
+    lines = _lines(text)
     def issue(level, code, message, line, name=''):
         return Issue(level, code, message, file, line, name)
+
+    def following(line, column):
+        """(qual, node, class) of each function a comment at `line` and `column` is on: declared after it at its
+        indentation, with only blank and comment lines between."""
+        found = []
+        for qual, (node, cls) in definitions.items():
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            first = min([node.lineno] + [d.lineno for d in node.decorator_list if d.lineno > line])
+            if first > line and len(lines[first - 1]) - len(lines[first - 1].lstrip()) == column and \
+                    all(not s.strip() or s.lstrip().startswith('#') for s in lines[line:first - 1]):
+                found.append((qual, node, cls))
+        return found
     # this file's own functions: the reader of one file knows no other (`collect` reads a removed spelling again)
     locate = _locator(lambda short: [(file, module, qual, qual) for qual, (node, _) in definitions.items()
                                      if not isinstance(node, ast.ClassDef) and qual.rpartition('.')[2] == short],
@@ -645,7 +676,7 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
         spelling, body = match.groups()
         line, column = token.start
         if spelling in ('sensor', 'owner'):
-            problems.append(_removed(spelling, body, file, module, line, locate))
+            problems.append(_removed(spelling, body, file, module, line, locate, followed=bool(following(line, column))))
             continue
         try:
             kind, body, reference = _agreement(spelling, body)
@@ -723,14 +754,7 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
                 problems.append(issue('red', 'syntax', f'invalid {spelling} anchor syntax', line))
                 continue
             name, raw, output_name, output_type, projection = parsed.groups()
-            candidates = []
-            for qual, (node, cls) in definitions.items():
-                if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    continue
-                first = min([node.lineno] + [d.lineno for d in node.decorator_list if d.lineno > line])
-                if first > line and len(lines[first - 1]) - len(lines[first - 1].lstrip()) == column and \
-                        all(not s.strip() or s.lstrip().startswith('#') for s in lines[line:first - 1]):
-                    candidates.append((qual, node, cls))
+            candidates = following(line, column)
             qual, node, cls = min(candidates, key=lambda x: x[1].lineno) if candidates else ('', None, '')
             declared, context, aliases = [], [], {}
             try:
@@ -824,7 +848,9 @@ def _data_owner(spelling, body, file, module, line, is_test):
     if on not in ('', 'update', 'create') or not listed and re.search(r'(?:^|\s)on=', body):
         return Issue('red', 'syntax', 'on= is update or create and follows the partners: together Model.field Other.field '
                      'on=update (except=path:function(reason) after it)', file, line)
-    if not listed or '.' not in listed['name'].strip('.') or any('.' not in pair.partition('=')[0].strip('.') for pair in pairs):
+    # a list of commas alone (`writers A.b ,`, `together A.b , on=update`) names no writer and no partner
+    if not listed or '.' not in listed['name'].strip('.') or not (writers or pairs) \
+            or any('.' not in pair.partition('=')[0].strip('.') for pair in pairs):
         return Issue('red', 'syntax', 'together needs Table.column (or Model.field) and its partners Model.field[=value],..., '
                      'then on= and except=path:function(reason)' if spelling == 'together' else
                      'writers needs Table.column (or Model.field) and its functions: writers Table.column f,path:g', file, line)
@@ -850,11 +876,16 @@ def foreign_owners(text, module, file, *, is_test=False, functions=()):
     the vitest adapter observes it, and same-name functions are copies. A 4.2 spelling (`sensor`, `owner`) is red at
     its line with its 4.3 rewrite (`_removed`)."""
     entries, problems = [], []
-    lines = text.splitlines()
+    lines = _lines(text)            # numbered as the reader numbers its functions' lines
     declared = [(file, module, row['qual'], _declared_name(file, row['qual'], row['raw']))
                 for row in functions if row.get('kind') in ('function', 'method')]
     # this file's own functions: the reader of one file knows no other (`collect` reads a removed spelling again)
     locate = _locator(lambda short: [item for item in declared if item[2].rpartition('.')[2] == short], {file: module})
+
+    def following(number):
+        """The named functions declared on the three lines after line `number`: those a `same` comment there is on."""
+        return [row for row in functions if row.get('kind') in ('function', 'method')
+                and number < row['line'] <= number + 3 and not row['qual'].rpartition('.')[2].startswith('<anonymous')]
     for number, line in enumerate(lines, 1):
         found = _FOREIGN_HEAD.search(line)
         if not found:
@@ -863,7 +894,7 @@ def foreign_owners(text, module, file, *, is_test=False, functions=()):
         if spelling in ('sensor', 'same') and not re.match(r'\s*//', line):
             continue
         if spelling in ('sensor', 'owner'):
-            problems.append(asdict(_removed(spelling, body, file, module, number, locate)))
+            problems.append(asdict(_removed(spelling, body, file, module, number, locate, followed=bool(following(number)))))
             continue
         try:
             kind, body, reference = _agreement(spelling, body)
@@ -872,16 +903,15 @@ def foreign_owners(text, module, file, *, is_test=False, functions=()):
             continue
         if kind == 'sensor':
             name = body.strip()
-            following = [row for row in functions if row.get('kind') in ('function', 'method')
-                         and number < row['line'] <= number + 3 and not row['qual'].rpartition('.')[2].startswith('<anonymous')]
+            following_rows = following(number)
             if not re.fullmatch(_NAME, name):
                 problems.append(asdict(Issue('red', 'syntax', f'{file}:{number}: same needs one NAME: // flowguard: same NAME',
                                              file, number)))
-            elif not following:
+            elif not following_rows:
                 problems.append(asdict(Issue('red', 'syntax', f'{file}:{number}: same {name} needs a function declared on the next line',
                                              file, number, name)))
             else:
-                target = min(following, key=lambda row: row['line'])
+                target = min(following_rows, key=lambda row: row['line'])
                 params = tuple(Parameter(value, '', '', 'input', True) for value in target.get('raw', {}).get('parameters', ()))
                 entries.append(asdict(Anchor('sensor', name, file, module, target['qual'], number, target['line'], params,
                                              source_role='test' if is_test else 'production', owner=reference)))
@@ -1028,7 +1058,7 @@ def collect(graph):
             problems.extend(anchor.issues)
         issues = [Issue(**value) for value in data.get('anchor_issues', ())]
         # a removed 4.2 spelling's rewrite names the functions it meant in every file of the map
-        lines = read_source(graph.root / file).splitlines() if any(issue.code == 'removed' for issue in issues) else []
+        lines = _lines(read_source(graph.root / file)) if any(issue.code == 'removed' for issue in issues) else []
         problems.extend(_relocated(issue, lines, modules[file], locate) for issue in issues)
         field_types.extend(data.get('field_types', ()))
     classes = dict(graph.con.execute("SELECT id, sig FROM node WHERE kind='class'"))
@@ -1121,12 +1151,14 @@ def collect_sources(root, files_with_modules):
     """Same facts/index for a historical source slice, without a second full map.
 
     Entries are (relative_file, module[, is_test]); source identity uses the same
-    reader digest as the map. No project module is imported.
+    reader digest as the map. No project module is imported. A removed 4.2 spelling's red is its file's reader's,
+    whose rewrite knows that file's functions only: the map's index (`collect`) names those of every file, and
+    `differences._source_index` takes its reds from there.
     """
     root = Path(root)
     files_with_modules = tuple(files_with_modules)
     modules = {item[0]: item[1] for item in files_with_modules}
-    entries, problems, functions, removed = [], [], {}, []
+    entries, problems = [], []
     for item in files_with_modules:
         file, module, *role = item
         raw = (root / file).read_bytes()
@@ -1137,24 +1169,14 @@ def collect_sources(root, files_with_modules):
             # An unparsable file is unknown, not a verdict: only this file stays grey.
             problems.append(Issue('grey', 'source-syntax', str(error), file, error.lineno or 0))
             continue
-        for qual, (node, _) in _definitions(tree).items():
-            if not isinstance(node, ast.ClassDef):
-                functions.setdefault(qual.rpartition('.')[2], []).append((file, module, qual, qual))
         data = source_facts(tree, text, module, file, source_digest=content_digest(root / file, data=raw), is_test=bool(role and role[0]))
         for value in data.get('anchors', ()):
             anchor = _indexed_agreement(_anchor(value), modules)
             entries.append(anchor)
             problems.extend(anchor.issues)
-        for value in data.get('anchor_issues', ()):
-            if value['code'] == 'removed':
-                removed.append((Issue(**value), text.splitlines(), module))
-            else:
-                problems.append(Issue(**value))
+        problems.extend(Issue(**value) for value in data.get('anchor_issues', ()))
         if any(value['kind'] == 'states' for value in data.get('anchors', ())):
             problems.extend(_slice_gate(root, file, module, raw, [_anchor(value) for value in data['anchors']]))
-    # a removed 4.2 spelling's rewrite names the functions it meant in the files of the slice
-    locate = _locator(lambda short: functions.get(short, ()), modules)
-    problems.extend(_relocated(issue, lines, module, locate) for issue, lines, module in removed)
     return _index(entries, problems)
 
 
