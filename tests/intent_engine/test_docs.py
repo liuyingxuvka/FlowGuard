@@ -199,6 +199,30 @@ More text.
         'impact: jobs.md:23 generate constants app/jobs.ts is out of date -> python -m flowguard docs rewrites it']
 
 
+def test_a_constants_region_lists_a_module_constant_that_is_an_array_of_literals(tmp_path):
+    """T4 (U2.5): the JS/TS reader now keeps a module-level array of literals (`[0, 5, 50] as const`) as the constant's
+    value, so `generate constants` lists it beside the scalar constants, which it lists as before; an array with a
+    spread and a function's own array are no module-level literal constant."""
+    from tests.intent_engine.test_static_check import _flowguard
+    source = ("export const MAX_SHARE = 2;\nexport const PROBABILITY_STEPS = [0, 5, 50, 75, 90, 100] as const;\n"
+              "const MONTHS = ['Jan', 'Feb'];\nconst MORE = [...MONTHS, 'Mar'];\n"
+              "export function steps() { const LOCAL = [1, 2]; return LOCAL.length + MORE.length; }\n")
+    region = '<!-- flowguard: generate constants app/steps.ts -->\n<!-- flowguard: end -->\n'
+    _commit(tmp_path, {'app/steps.ts': source, 'docs/steps.md': '# Steps\n\n' + region})
+    code, out = _flowguard(tmp_path, 'docs')
+    assert code == 0 and out.splitlines() == ['docs/steps.md:3 generate constants app/steps.ts: rewritten'], out
+    assert (tmp_path / 'docs/steps.md').read_text(encoding='utf-8') == """# Steps
+
+<!-- flowguard: generate constants app/steps.ts -->
+| Constant | Value |
+|---|---|
+| `MAX_SHARE` | `2` |
+| `PROBABILITY_STEPS` | `[0, 5, 50, 75, 90, 100]` |
+| `MONTHS` | `["Jan", "Feb"]` |
+<!-- flowguard: end -->
+"""
+
+
 def test_a_region_this_change_writes_that_cannot_be_generated_is_red(tmp_path):
     _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'app/jobs.ts': SOURCE, 'docs/jobs.md': '# Jobs\n'})
     _write(tmp_path, {'docs/jobs.md': '# Jobs\n\n<!-- flowguard: generate fields Missing -->\n<!-- flowguard: end -->\n\n'

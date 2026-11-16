@@ -1,6 +1,6 @@
 # FlowGuard reference
 
-Start with `new-task`, run ordinary tests and inspect a finding with `show "what it decides"`. `show Model.field`, `show CONSTANT` or `show EnumName` first says how the schemas, SQL files and source declare it; trust that over a document's table. Register necessary agreements as the code grows. Do not model the development task.
+Start with `new-task`, run ordinary tests and inspect a finding with `show "what it decides"`. `show Model.field`, `show CONSTANT` or `show EnumName` first says how the schemas, SQL files and source declare it (a zod line matches an object key by its name and names its schema object; what only test files declare is left out; a CHECK that code builds as a string is not read); trust that over a document's table. Register necessary agreements as the code grows. Do not model the development task.
 
 ## Executable two-copy example
 

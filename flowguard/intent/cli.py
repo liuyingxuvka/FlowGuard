@@ -534,6 +534,36 @@ def _concerning(cfg, data, graph, index, query, *, path):
     return lines, set(rules)
 
 
+FIELD_QUERY = re.compile(r'[A-Za-z_]\w*\.[A-Za-z_]\w*')     # Model.field or table.column
+
+
+def _write_line(row):
+    """A `show Model.field` line of one write (`MapHandle.writes` row)."""
+    where = f'{row["file"]}:{row["line"]}' + (f' (call line {row["call_line"]})' if row['call_line'] != row['line'] else '')
+    unclear = f'; unclear: {row["reason"]}' if row['unclear'] else ''
+    return (f'writes {row["model"] or row["table"]}.{row["field"] or row["db_column"]} {where} {row["function"]} '
+            f'({row["kind"]}{unclear})')
+
+
+def _unknown_model(graph, query):
+    """The line of `show Model.field` for a model the map does not know (`owners.model_known`) whose field name the
+    map knows, from zod keys of that name or the fields of other Prisma models: those are not facts about this model;
+    '' otherwise."""
+    from .owners import model_known, zod_bounds
+    model, _, field = query.partition('.')
+    if model_known(graph, model):
+        return ''
+    models = sorted({item['name'] for schema in graph.schemas() if schema['kind'] == 'prisma'
+                     for item in schema.get('models', ()) if any(column['name'] == field for column in item.get('fields', ()))})
+    keys = zod_bounds(graph, field)
+    if not models and not keys:
+        return ''
+    objects = len({(file, schema) for file, schema, _ in keys})
+    return (f'not on the map: no Prisma model, database table, TS type or class {model}; '
+            + (f'the zod keys {field} of {objects} schema objects are not listed, as a key matches by its name alone' if keys else '')
+            + ('; ' if keys and models else '') + (f'Prisma models with a field {field}: {", ".join(models)}' if models else ''))
+
+
 def show(cfg, query=None, *, full=False, last=False):
     if last:
         if query:
@@ -615,10 +645,17 @@ def show(cfg, query=None, *, full=False, last=False):
             if concerning:
                 display('\n'.join(concerning))
             print('\n'.join(pointers))
-            from .owners import show_lines     # an owner's old ledger: writes outside its writers, look-alikes
-            if owned := show_lines(cfg, graph, index, query):
-                from .differences import display
+            from .owners import agreement_writes, declaration_lines, show_lines
+            if owned := show_lines(cfg, graph, index, query):     # writes outside its writers, look-alikes
                 display('\n'.join(owned))
+            if FIELD_QUERY.fullmatch(query):        # what the map read about the field and who writes it, as the facts
+                agreed = agreement_writes(graph, index, query)      # branch says; a write listed above once only
+                facts = [*declaration_lines(graph, query), *(_write_line(row) for row in graph.writes(query)
+                         if (row['file'], row['line'], row['function'], row['kind']) not in agreed)]
+                facts = [line for line in dict.fromkeys(facts) if line not in owned]
+                if facts:
+                    display('\n'.join(facts if full else _limit(
+                        facts, cfg.screen_lines, f'python -m flowguard show {_spelled(query)} --full lists them all')))
             from .debug import show_observation
             from types import SimpleNamespace
             model = SimpleNamespace(rules={rid: SimpleNamespace(id=rid, anchors=value.get('anchors', ()))
@@ -650,13 +687,11 @@ def show(cfg, query=None, *, full=False, last=False):
         words = tokens(query)
         from .owners import declaration_lines       # what the map already read about the name comes first
         ranked = [(3000 - order, line) for order, line in enumerate(declaration_lines(graph, query))]
-        if re.fullmatch(r'[A-Za-z_]\w*\.[A-Za-z_]\w*', query):      # Model.field or table.column: who writes it
+        unknown = ''
+        if FIELD_QUERY.fullmatch(query):      # Model.field or table.column: who writes it
             written = graph.writes(query)
-            for row in written:
-                where = f'{row["file"]}:{row["line"]}' + (f' (call line {row["call_line"]})' if row['call_line'] != row['line'] else '')
-                unclear = f'; unclear: {row["reason"]}' if row['unclear'] else ''
-                ranked.append((2000 - bool(row['unclear']), f'writes {row["model"] or row["table"]}.{row["field"] or row["db_column"]} '
-                               f'{where} {row["function"]} ({row["kind"]}{unclear})'))
+            ranked.extend((2000 - bool(row['unclear']), _write_line(row)) for row in written)
+            unknown = _unknown_model(graph, query)
             from . import health, owners as checks       # several files write it and nobody owns it: say so first
             change = checks.Change(cfg, graph, None)
             for issue in health.writers(change, index, written).issues:
@@ -693,7 +728,7 @@ def show(cfg, query=None, *, full=False, last=False):
             left = [row for row in ranked if row[0] < 1000]
             ranked = [row for row in ranked if row[0] >= 1000]
         from .differences import display          # a structure line carries Chinese text: escape what the console cannot show
-        lines = [f'show {query}'] + ([notice] if notice else []) + concerning + [line for _, line in ranked]
+        lines = [f'show {query}'] + ([notice] if notice else []) + concerning + ([unknown] if unknown else []) + [line for _, line in ranked]
         if left:
             lines.append(f'... {len(left)} more lines: python -m flowguard show {_spelled(query)} --full lists them all')
         display('\n'.join(lines if full else _limit(lines, cfg.screen_lines,

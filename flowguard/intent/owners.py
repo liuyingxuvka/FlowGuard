@@ -1944,11 +1944,7 @@ def show_lines(cfg, graph, index, name):
     lines = []
     for owner in index.named(name):
         if owner.kind == 'owner' and owner.writers:
-            tests = {path for (path,) in graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
-            rows = [row for row in graph.writes(owner.name, by_name=True)]
-            fixtures = [row for row in rows if _test_write(graph, row, tests)]
-            outside = [row for row in rows if not row.get('unclear') and not _allowed(row, owner.writers)
-                       and row not in fixtures]
+            rows, fixtures, outside = _writers_rows(graph, owner)
             where = _agreement_place(graph, owner, "writers")
             lines.append(f'writers {owner.name} {",".join(_spelled(graph, owner.module, writer) for writer in owner.writers)} {where}')
             def plain(row):
@@ -1979,6 +1975,29 @@ def show_lines(cfg, graph, index, name):
     return lines
 
 
+def _writers_rows(graph, owner):
+    """(every write of a writers agreement's field, also by field name alone; the test fixtures among them; the writes
+    outside its writers that are neither unclear nor a fixture), as `show_lines` lists them."""
+    tests = {path for (path,) in graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
+    rows = list(graph.writes(owner.name, by_name=True))
+    fixtures = [row for row in rows if _test_write(graph, row, tests)]
+    outside = [row for row in rows if not row.get('unclear') and not _allowed(row, owner.writers) and row not in fixtures]
+    return rows, fixtures, outside
+
+
+def agreement_writes(graph, index, name):
+    """{(file, line, function, kind)} of the writes `show_lines` lists for the writers agreements of `name` (outside
+    its writers, test fixtures it does not allow, unclear ones): `show` lists every other write of the field once."""
+    listed = set()
+    for owner in index.named(name):
+        if owner.kind == 'owner' and owner.writers:
+            rows, fixtures, outside = _writers_rows(graph, owner)
+            listed.update((row['file'], row['line'], row['function'], row['kind']) for row in
+                          [*outside, *(row for row in fixtures if not _allowed(row, owner.writers)),
+                           *(row for row in rows if row.get('unclear'))])
+    return listed
+
+
 def _spelled(graph, module, position, *, path=False):
     """A writers or except= position (`module:function`) as a 4.3 comment in `module` spells it: a function of that
     file bare (except= needs its path, `path`), another file's path:function, a JS/TS function by its declared name
@@ -1999,12 +2018,40 @@ def _pair_fix(graph, owner):
             'the next run shows as loosened')
 
 
+def model_known(graph, model):
+    """Does the map know `model`: a Prisma model of that name (or of that table, `@@map`), a SQL table, a top-level
+    TS interface, class or type alias, or a class of the map (Python, C#)? `show Model.field` lists the zod keys of
+    the field's name only for a model it knows (`declaration_lines`)."""
+    folded = model.casefold()
+    for schema in graph.schemas():
+        if schema['kind'] == 'prisma':
+            if any(item['name'] == model or (item.get('table') or '').casefold() == folded for item in schema.get('models', ())):
+                return True
+        elif any((item.get('name') or item.get('table') or '').casefold() == folded
+                 for item in [*schema.get('tables', ()), *schema.get('changes', ())]):
+            return True
+    if model in graph.ts_type_files():
+        return True
+    return graph.con.execute("SELECT 1 FROM node WHERE kind = 'class' AND (qual = ? OR qual LIKE ?) LIMIT 1",
+                             (model, '%.' + model)).fetchone() is not None
+
+
+def _declared_by_tests(row):
+    """Do only test files declare this value set (`MapHandle.value_sets` row): the files declaring a TS type's member
+    with it (its `scope`), or the files of an enum or a CHECK (`is_test_file`, the map's test flag)?"""
+    return all(map(is_test_file, row['scope'] if row['kind'] == 'ts-type' else row['files']))
+
+
 def declaration_lines(graph, name):
     """`show NAME` (4.4): what the map already read about a name, ahead of who writes and reads it. For `Model.field`
     or `table.column`, each distinct declaration in the Prisma schemas and in the SQL files with the files that
-    declare it so (declarations that differ between files are lines of their own), and the value sets read for it
-    (an enum, a CHECK, a TS type, a zod enum); for a bare name, the value of a module-level literal constant and the
-    members of a value set declared under that name."""
+    declare it so (declarations that differ between files are lines of their own), the value sets read for it (an
+    enum of a schema in use, a CHECK, a TS type), the enum of each Prisma schema not in use that types the field
+    (`unused_enum_lines`), and the zod number schemas of an object key of the field's name (`zod_bounds`; only for a
+    model the map knows, `model_known`); for a bare name, the value of a module-level literal constant (an array of
+    literals too) and the members of a value set declared under that name. A value set or constant only test files
+    declare is left out (`is_test_file`); a CHECK that code builds as a string and runs (`$executeRawUnsafe`) is not
+    read: only `.sql` files give ranges and CHECK sets."""
     import json
 
     def where(places):
@@ -2012,6 +2059,8 @@ def declaration_lines(graph, name):
     lines = []
     model, dot, field = name.partition('.')
     if dot and field and '.' not in field:
+        if not model_known(graph, model):
+            return lines
         declared, columns, tables = {}, {}, {model.casefold()}
         for schema in graph.schemas():
             for item in schema.get('models', ()) if schema['kind'] == 'prisma' else ():
@@ -2045,82 +2094,170 @@ def declaration_lines(graph, name):
         lines.extend(f'declared {name}: {text} ({where(places)})' for text, places in declared.items())
         lines.extend(f'column {text} ({where(places)})' for text, places in sql.items())
         lines.extend(f'range {text} ({where(places)})' for text, places in bounded.items())
-        lines.extend(f'zod {text} ({where(places)})' for text, places in zod_bounds(graph, field).items())
+        lines.extend(f'zod key {field} in {schema}: {bounds} (' + where([f'{file}:{line}' for line in at]) + ')'
+                     for (file, schema, bounds), at in zod_bounds(graph, field).items())
         sets = {}
         for item in graph.value_sets():
-            if item['name'] == name:
+            if item['name'] == name and not _declared_by_tests(item):
                 sets.setdefault(' | '.join(map(str, item['values'])), []).append(item['where'])
         lines.extend(f'values {name}: {values} ({where(places)})' for values, places in sets.items())
+        lines.extend(unused_enum_lines(graph, model, field))
         return lines
-    constants = {}
+    constants, sets, declared_at = {}, {}, set()
+    for item in graph.declarations(exported=False):
+        if item['name'] == name and not is_test_file(item['file']):
+            sets.setdefault(' | '.join(map(str, item['values'])), []).append(f'{item["file"]}:{item["line"]}')
+            declared_at.add((item['file'], item['line']))
     for row in graph.assignments():
-        if row.get('target') == name and not row.get('field') and row.get('literal') and ':' not in row['node']:
+        if row.get('target') == name and not row.get('field') and row.get('literal') and ':' not in row['node'] \
+                and not is_test_file(row['file']) and (row['file'], row['line']) not in declared_at:
             constants.setdefault(json.dumps(row['value'], ensure_ascii=False), []).append(f'{row["file"]}:{row["line"]}')
     lines.extend(f'const {name} = {value} ({where(places)})' for value, places in constants.items())
-    sets = {}
-    for item in graph.declarations(exported=False):
-        if item['name'] == name:
-            sets.setdefault(' | '.join(map(str, item['values'])), []).append(f'{item["file"]}:{item["line"]}')
     lines.extend(f'values {name}: {values} ({where(places)})' for values, places in sets.items())
     return lines
 
 
+def unused_enum_lines(graph, model, field):
+    """`values Model.field` lines of the Prisma enums that type the field in a schema the value gate does not read
+    (`MapHandle.value_sets` holds the enums of the schemas in use): each schema not in use (`prisma_schemas_in_use`:
+    a provider template such as `schema.sqlite.prisma`), and a guessed schema whose model a schema in use defines;
+    the enum's members and where it is declared, one line per enum and set (`archived` files left out, as there)."""
+    from flowguard.structure.readers.prisma import schema_folders
+    in_use, guessed = graph.prisma_schemas_in_use(), graph.prisma_schemas_guessed()
+    schemas = schema_folders(graph._live_prisma())
+    defined = {item['name'] for schema in schemas if schema['files'][0] in in_use and schema['files'][0] not in guessed
+               for item in schema['models']}
+    found = {}
+    for schema in schemas:
+        first = schema['files'][0]
+        if first in in_use and (first not in guessed or model not in defined):
+            continue                    # value_sets holds this schema's enums
+        why = 'a schema not in use' if first not in in_use else 'a guessed schema; a schema in use defines the model'
+        enums = {enum['name']: enum for enum in schema['enums']}
+        for item in schema['models']:
+            if item['name'] != model:
+                continue
+            for column in item['fields']:
+                enum = enums.get(column['type'])
+                if column['name'] == field and enum and enum['fields']:
+                    values = ' | '.join(member['name'] for member in enum['fields'])
+                    found.setdefault((values, enum['name'], why), []).append(f'{enum["file"]}:{enum["line"]}')
+    return [f'values {model}.{field}: {values} (enum {enum} {", ".join(places)}, {why if len(places) == 1 else why.replace("a schema", "schemas")})'
+            for (values, enum, why), places in found.items()]
+
+
 ZOD_BOUNDS = {'min': ('low', True), 'gte': ('low', True), 'gt': ('low', False), 'max': ('high', True),
               'lte': ('high', True), 'lt': ('high', False)}
+ZOD_OBJECTS = {'object', 'strictObject', 'looseObject', 'extend', 'safeExtend'}     # the calls a schema's shape is given to
+CHAIN = {'call_expression', 'member_expression', 'parenthesized_expression', 'as_expression', 'satisfies_expression',
+         'non_null_expression'}
 
 
 def zod_bounds(graph, field):
-    """{bounds text: [file:line]} of the zod number schemas that a TS/JS object key `field` is given (`field: z...` up
-    to the key's end, or a module-level `const NAME = z...` of the same file that the key names), as the source
-    spells their bounds: `min`, `gte`, `gt`, `max`, `lte`, `lt`, `positive()` and `nonnegative()`. A text reading for
-    `show`, which names each place; a bound that is a name stays that name, with its value when the same file
-    declares it a number (`MAX_FTE_SHARE=2`)."""
+    """{(file, schema object, bounds text): [line]} of the zod number schemas that an object key `field` is given in
+    the TS/JS files outside tests (`field: z...`, or `field: NAME...` of a module-level `const NAME = z...` of the
+    same file), matched by the key's name alone, as the source spells their bounds: `min`, `gte`, `gt`, `max`,
+    `lte`, `lt`, `positive()` and `nonnegative()`; a bound that is a name stays that name, with its value when the
+    same file declares it a number (`MAX_FTE_SHARE=2`). The schema object is the nearest enclosing
+    `z.object(`/`.extend(` (also `strictObject`, `looseObject`, `safeExtend`) whose result the source names
+    (`const NAME = z.object(`, `NAME: z.object(`), else the declaration holding the key (`const NAME = wrap(z.object(`),
+    else `an unnamed object`. A text reading for `show`, which names each place."""
+    from ..structure.readers.common import parse, text, walk
     from ..structure.readers.registry import ECMA, language_for
     found = {}
-    key = re.compile(rf'(?<![\w$.]){re.escape(field)}\s*:\s*([A-Za-z_$][\w$]*)')
-    for (path,) in graph.con.execute('SELECT path FROM file'):
-        if language_for(path) not in ECMA:
+    pattern = re.compile(rb'\bz\s*\.')
+    for (path,) in graph.con.execute('SELECT path FROM file ORDER BY path'):
+        language = language_for(path)
+        if language not in ECMA or is_test_file(path):
             continue
-        text = read_source(graph.root / path)
-        if field not in text or 'z.' not in text:
+        data = (graph.root / path).read_bytes()
+        if field.encode() not in data or not pattern.search(data):
             continue
-        constants = {match.group(1): match.end() - 1 for match in re.finditer(r'(?m)^\s*(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*z\b', text)}
-        numbers = {match.group(1): match.group(2) for match in re.finditer(
-            r'(?m)^\s*(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*(?::\s*number\s*)?=\s*([+-]?\d+(?:\.\d+)?)\s*;', text)}
-        for match in key.finditer(text):
-            target = match.group(1)
-            start = match.start(1) if target == 'z' else constants.get(target)
-            if start is None:
+        source, tree = parse(data, language)
+
+        def root(node):
+            """The identifier a call chain starts from (`z` of `z.number().min(0)`)."""
+            while node is not None and node.type in CHAIN:
+                node = node.child_by_field_name('function') if node.type == 'call_expression' else \
+                    node.child_by_field_name('object') if node.type == 'member_expression' else \
+                    (node.named_children[0] if node.named_children else None)
+            return node
+
+        def head(call):
+            """The node a call chain's value goes to: the end of `z.object({...}).strict().refine(...)`'s chain."""
+            node = call
+            while node.parent is not None and node.parent.type in CHAIN and (
+                    node.parent.type != 'call_expression' or node.parent.child_by_field_name('function') == node):
+                node = node.parent
+            return node
+
+        def named(node):
+            """The name the source gives the value `node`: its declarator's or its key's, else None."""
+            holder = node.parent
+            if holder is not None and holder.type == 'variable_declarator' and holder.child_by_field_name('value') == node:
+                return text(holder.child_by_field_name('name'), source)
+            if holder is not None and holder.type == 'pair' and holder.child_by_field_name('value') == node:
+                return key_text(holder.child_by_field_name('key'))
+            return None
+
+        def key_text(key):
+            if key is None:
+                return None
+            if key.type in ('property_identifier', 'identifier'):
+                return text(key, source)
+            return text(key, source)[1:-1] if key.type == 'string' else None
+
+        def schema_of(pair):
+            holder = pair.parent
+            while holder is not None:
+                if holder.type == 'call_expression':
+                    callee = holder.child_by_field_name('function')
+                    method = callee.child_by_field_name('property') if callee is not None and callee.type == 'member_expression' else None
+                    if method is not None and text(method, source) in ZOD_OBJECTS and (name := named(head(holder))):
+                        return name
+                holder = holder.parent
+            holder = pair.parent
+            while holder is not None and holder.type != 'variable_declarator':
+                holder = holder.parent
+            return text(holder.child_by_field_name('name'), source) if holder is not None else 'an unnamed object'
+
+        constants, numbers = {}, {}
+        for statement in tree.root_node.named_children:
+            declaration = statement.child_by_field_name('declaration') if statement.type == 'export_statement' else statement
+            if declaration is None or declaration.type != 'lexical_declaration' or not text(declaration, source).startswith('const'):
                 continue
-            chain, depth, at = [], 0, start
-            while at < len(text):                   # the expression up to the key's , or } (or the constant's ;)
-                char = text[at]
-                if char in '([{':
-                    depth += 1
-                elif char in ')]}':
-                    if depth == 0:
-                        break
-                    depth -= 1
-                elif char in ',;' and depth == 0:
-                    break
-                chain.append(char)
-                at += 1
-            expression = ''.join(chain)
-            if not re.search(r'\bz\s*\.\s*number\s*\(', expression):
+            for declarator in declaration.named_children:
+                name, value = declarator.child_by_field_name('name'), declarator.child_by_field_name('value')
+                if declarator.type != 'variable_declarator' or name is None or name.type != 'identifier' or value is None:
+                    continue
+                if value.type == 'number':
+                    numbers[text(name, source)] = text(value, source)
+                elif (start := root(value)) is not None and start.type == 'identifier' and text(start, source) == 'z':
+                    constants[text(name, source)] = value
+        for pair in walk(tree.root_node):
+            if pair.type != 'pair' or key_text(pair.child_by_field_name('key')) != field:
                 continue
+            value = pair.child_by_field_name('value')
+            start = root(value)
+            if start is None or start.type != 'identifier':
+                continue
+            expression = value if text(start, source) == 'z' else constants.get(text(start, source))
+            if expression is None or not re.search(r'\bz\s*\.\s*number\s*\(', text(expression, source)):
+                continue
+            spelled = text(expression, source)
             bounds = {}
-            for call in re.finditer(r'\.\s*(min|gte|gt|max|lte|lt)\s*\(\s*([^,)\s]+)', expression):
+            for call in re.finditer(r'\.\s*(min|gte|gt|max|lte|lt)\s*\(\s*([^,)\s]+)', spelled):
                 side, inclusive = ZOD_BOUNDS[call.group(1)]
-                spelled = call.group(2)
-                bounds[side] = (f'{spelled}={numbers[spelled]}' if spelled in numbers else spelled, inclusive)
-            if re.search(r'\.\s*positive\s*\(', expression):
+                bound = call.group(2)
+                bounds[side] = (f'{bound}={numbers[bound]}' if bound in numbers else bound, inclusive)
+            if re.search(r'\.\s*positive\s*\(', spelled):
                 bounds['low'] = ('0', False)
-            if re.search(r'\.\s*nonnegative\s*\(', expression):
+            if re.search(r'\.\s*nonnegative\s*\(', spelled):
                 bounds['low'] = ('0', True)
             low = f'{bounds["low"][0]} {"<=" if bounds["low"][1] else "<"} ' if 'low' in bounds else ''
             high = f' {"<=" if bounds["high"][1] else "<"} {bounds["high"][0]}' if 'high' in bounds else ''
-            text_bounds = f'{low}{field}{high}' if bounds else f'{field} (no bounds)'
-            found.setdefault(text_bounds, []).append(f'{path}:{text.count(chr(10), 0, match.start()) + 1}')
+            found.setdefault((path, schema_of(pair), f'{low}{field}{high}' if bounds else f'{field} (no bounds)'),
+                             []).append(pair.start_point.row + 1)
     return found
 
 

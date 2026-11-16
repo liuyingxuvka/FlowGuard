@@ -157,8 +157,10 @@ def test_show_of_a_name_starts_with_what_the_map_read_about_it(tmp_path):
                                         'column jobs.job_share DECIMAL(6,4) (db/setup.sql:3)',
                                         'range jobs.job_share: 0 <= job_share <= 2 (CHECK db/setup.sql:3)',
                                         'range jobs.job_share: 0.0 <= job_share <= 1.0 (CHECK db/setup.sql:6)'], text
-    # zod schemas of a key of that name, read from the source: inline, or a constant of the same file it names.
-    assert lines[6:8] == ['zod 0 <= share <= 1 (app/schemas.ts:2)', 'zod 0 < share <= MAX_SHARE=2 (app/schemas.ts:7)'], text
+    # zod schemas of a key of that name, read from the source: inline, or a constant of the same file it names; each
+    # line names the schema object the key belongs to and that the key matched by its name.
+    assert lines[6:8] == ['zod key share in createJob: 0 <= share <= 1 (app/schemas.ts:2)',
+                          'zod key share in editJob: 0 < share <= MAX_SHARE=2 (app/schemas.ts:7)'], text
     code, text = _flowguard(tmp_path, 'show', 'Job.state')
     lines = text.splitlines()
     assert code == 0 and lines[2:6] == ['declared Job.state: String (prisma/schema.prisma:4)', 'declared Job.state: Int (prisma/schema.sqlite.prisma:4)',
@@ -172,6 +174,361 @@ def test_show_of_a_name_starts_with_what_the_map_read_about_it(tmp_path):
     assert code == 0 and 'shareLimit' in text and 'more lines' not in text, text
     code, text = _flowguard(tmp_path, 'show', 'JobKind')
     assert code == 0 and text.splitlines()[2:] == ['values JobKind: A | B (app/limits.ts:2)'], text
+
+
+PT_SCHEMA = """datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Assignment {
+  id       String  @id
+  fteShare Decimal @map("fte_share")
+  status   String  @default("DRAFT")
+  @@map("assignments")
+}
+"""
+# Planning Tool's zod schemas, as backend/src/api/schemas/*.schemas.ts spell them (2026-11): a shared constant, a refined
+# or optional constant, nested arrays of objects, `z\n.object(` inside a helper call, `.partial().extend(` of another
+# schema and one schema object holding the key twice.
+PT_ZOD = {
+    'backend/src/api/schemas/allocation.schemas.ts': """import { z } from 'zod';
+
+const identity = z.string().uuid();
+const fte = z.number().finite().min(0).max(2);
+const periodFields = { periodStart: z.string(), periodEnd: z.string() };
+
+export const allocationPeriodSchema = z.object({
+  ...periodFields, fteShare: fte,
+}).strict().refine((value) => value.periodStart <= value.periodEnd, 'Period start must not follow its end.');
+
+export const allocationCreateSchema = z.object({
+  employeeId: identity, ...periodFields,
+  fteShare: fte.refine((value) => value > 0, 'A new allocation must be greater than zero.'),
+}).strict();
+""",
+    'backend/src/api/schemas/assignment.schemas.ts': """import { z } from 'zod';
+
+export const batchAssignSchema = z.object({
+  assignments: z
+    .array(
+      z.object({
+        employeeId: z.string().trim().min(1, 'Employee ID is required'),
+        periods: z
+          .array(
+            z.object({
+              fteShare: z.number().min(0, 'FTE share must be >= 0').max(1, 'FTE share must be <= 1'),
+            }).strict(),
+          )
+          .min(1, 'At least one period is required'),
+      }).strict(),
+    )
+    .min(1),
+}).strict();
+""",
+    'backend/src/api/schemas/personnel-mvp.schemas.ts': """import { z } from 'zod';
+
+const MAX_FTE_SHARE = 2.0;
+const dateRangeBaseSchema = z.object({ startDate: z.string(), endDate: z.string() });
+
+export const lendingUpdateSchema = requireAtLeastOneValue(
+  z
+    .object({
+      fteShare: z.number().gt(0).lte(1).optional(),
+    })
+    .refine(({ fteShare }) => fteShare !== 0),
+  'At least one update field is required.',
+);
+
+export const capacityEntryCreateSchema = dateRangeBaseSchema
+  .partial()
+  .extend({
+    fteShare: z.number().nonnegative().max(MAX_FTE_SHARE),
+  });
+
+const phases = z.union([
+  z.object({ kind: z.literal('a'), fteShare: z.number().gt(0).lte(1) }),
+  z.object({ kind: z.literal('b'), fteShare: z.number().gt(0).lte(1) }),
+]);
+
+function requireAtLeastOneValue<T>(schema: T, message: string): T { return schema; }
+""",
+    # an object key of that name that is no zod schema, a type member, a test file's schema: no zod line
+    'frontend/src/utils/add-project-quantity.ts': """export interface QuantityRow { fteShare: number }
+export const emptyRow = { fteShare: 0 };
+export function roundFteShare(value: number): number { return Math.round(value * 100) / 100; }
+""",
+    'backend/tests/unit/allocation.schemas.test.ts': """import { z } from 'zod';
+const fixture = z.object({ fteShare: z.number().max(9) });
+""",
+}
+
+
+def test_show_names_the_zod_schema_object_each_key_belongs_to_and_says_the_key_matched_by_name(tmp_path):
+    """Planning Tool (T4): `show Assignment.fteShare` printed `zod 0 <= fteShare <= 2 (allocation.schemas.ts:25, ...)`
+    for every TS object key named fteShare, and `show ProjectAssignment.fteShare`, a model that does not exist, the
+    same lines. Each zod line now names the schema object the key belongs to, as the source spells it (the nearest
+    enclosing `const NAME = z.object(`, `NAME: z.object(` or `.extend(` whose result the source names, else the
+    declaration holding it), identical bounds of one schema object on one line; a test file's schema is left out. A
+    model the map does not know gets no zod line, and a line says why."""
+    _commit(tmp_path, {'backend/prisma/schema.prisma': PT_SCHEMA, **PT_ZOD})
+    code, text = _flowguard(tmp_path, 'show', 'Assignment.fteShare')
+    assert code == 0, text
+    allocation, assignment, personnel = (f'backend/src/api/schemas/{name}.schemas.ts' for name in ('allocation', 'assignment', 'personnel-mvp'))
+    assert [line for line in text.splitlines() if line.startswith('zod')] == [
+        f'zod key fteShare in allocationPeriodSchema: 0 <= fteShare <= 2 ({allocation}:8)',
+        f'zod key fteShare in allocationCreateSchema: 0 <= fteShare <= 2 ({allocation}:13)',
+        f'zod key fteShare in batchAssignSchema: 0 <= fteShare <= 1 ({assignment}:11)',
+        f'zod key fteShare in lendingUpdateSchema: 0 < fteShare <= 1 ({personnel}:9)',
+        f'zod key fteShare in capacityEntryCreateSchema: 0 <= fteShare <= MAX_FTE_SHARE=2.0 ({personnel}:18)',
+        f'zod key fteShare in phases: 0 < fteShare <= 1 ({personnel}:22, {personnel}:23)'], text
+    code, text = _flowguard(tmp_path, 'show', 'ProjectAssignment.fteShare')
+    lines = text.splitlines()
+    assert code == 0 and not [line for line in lines if line.startswith('zod')], text
+    assert lines[2] == ('not on the map: no Prisma model, database table, TS type or class ProjectAssignment; the zod keys '
+                        'fteShare of 6 schema objects are not listed, as a key matches by its name alone; Prisma models '
+                        'with a field fteShare: Assignment'), text
+    # no line claims the map knows the name: the functions that share a word with it are listed, not held for --full
+    assert any('roundFteShare' in line for line in lines) and 'more lines' not in text, text
+
+
+def test_show_leaves_out_the_value_sets_and_constants_only_test_files_declare(tmp_path):
+    """Planning Tool (T4): `show` took 228 value sets and 55 declarations from files under tests/ and e2e specs (an
+    `interface AccessRow` of a test, a test's `as const` list). Its values and const lines now leave out what only
+    test files declare (`is_test_file`, the map's test flag); production declarations are listed as before."""
+    _commit(tmp_path, {
+        'app/limits.ts': "export const MAX_ROWS = 10;\nexport type AccessKind = 'read' | 'write';\n",
+        'app/row.ts': "export interface PlanRow { action: 'read' | 'write' }\n",
+        'backend/tests/unit/access.test.ts': ("const MAX_ROWS = 50;\nexport const ROLES = ['admin', 'viewer'] as const;\n"
+                                              "interface AccessRow { action: 'read_planning' | 'create' }\n"
+                                              "export type AccessKind = 'read' | 'write' | 'delete';\n"),
+        'e2e/flows.spec.ts': 'const MAX_ROWS = 70;\nconst STEPS = [1, 2];\n',
+    })
+    def shown(name):
+        code, text = _flowguard(tmp_path, 'show', name)
+        assert code == 0, text
+        return [line for line in text.splitlines() if line.startswith(('const ', 'values '))]
+    assert shown('MAX_ROWS') == ['const MAX_ROWS = 10 (app/limits.ts:1)']
+    assert shown('AccessKind') == ['values AccessKind: read | write (app/limits.ts:2)']
+    assert shown('PlanRow.action') == ['values PlanRow.action: read | write (app/row.ts:1)']
+    assert shown('ROLES') == shown('STEPS') == shown('AccessRow.action') == []
+
+
+def test_show_of_an_anchored_field_also_says_how_it_is_declared_and_who_writes_it(tmp_path):
+    """Planning Tool (T4): `show CentralEmployee.orgUnitId` took the ANCHOR branch (a together agreement names it) and
+    printed none of the declaration, column and writes lines `show Employee.organizationalUnitId` printed. The
+    ANCHOR branch of a Model.field now prints them too, after the agreement; a write the agreement lines name
+    (outside its writers, a test fixture) is not listed again."""
+    _commit(tmp_path, {
+        'backend/prisma/central/schema.prisma': """datasource db {
+  provider = "sqlserver"
+  url      = env("CENTRAL_DATABASE_URL")
+}
+
+model CentralEmployee {
+  id        String  @id
+  orgUnitId String? @map("org_unit_id")
+  @@map("central_employees")
+}
+""",
+        'backend/prisma/central/migrations/20260330131802_init_central_org/migration.sql':
+            'CREATE TABLE "central_employees" (\n  "id" TEXT NOT NULL PRIMARY KEY,\n  "org_unit_id" TEXT\n);\n',
+        'backend/prisma/schema.prisma': """datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Employee {
+  id                   String @id
+  organizationalUnitId String @map("organizational_unit_id")
+  @@map("employees")
+}
+
+model Project {
+  id                String @id
+  lifecycleStatusId String @map("lifecycle_status_id")
+  @@map("projects")
+}
+""",
+        'backend/src/services/employee-home-unit.service.ts': """// flowguard: together CentralEmployee.orgUnitId Employee.organizationalUnitId except=backend/prisma/migrate-to-central.ts:migrateEmployees(one-off script)
+export async function changeEmployeeHomeUnit(prisma: any, central: any, id: string, unit: string) {
+  await prisma.employee.updateMany({ where: { id }, data: { organizationalUnitId: unit } });
+  await central.centralEmployee.updateMany({ where: { id }, data: { orgUnitId: unit } });
+}
+""",
+        'backend/prisma/migrate-to-central.ts': """export async function migrateEmployees(central: any, id: string, unit: string) {
+  await central.centralEmployee.create({ data: { id, orgUnitId: unit } });
+}
+""",
+        'backend/src/services/project.service.ts': """// flowguard: writers Project.lifecycleStatusId projectService.create,projectService.update
+export const projectService = {
+  async create(prisma: any) { return prisma.project.create({ data: { id: 'p', lifecycleStatusId: 'L1' } }); },
+  async update(prisma: any, id: string) { return prisma.project.update({ where: { id }, data: { lifecycleStatusId: 'L2' } }); },
+};
+export async function softDelete(prisma: any, id: string) {
+  return prisma.project.update({ where: { id }, data: { lifecycleStatusId: 'DELETED' } });
+}
+""",
+    })
+    code, text = _flowguard(tmp_path, 'show', 'CentralEmployee.orgUnitId')
+    lines = text.splitlines()
+    assert code == 0 and lines[0] == 'ANCHOR CentralEmployee.orgUnitId' and lines[2].startswith('together CentralEmployee.orgUnitId'), text
+    facts = lines[lines.index(next(line for line in lines if line.startswith('fix: '))) + 1:][:4]
+    assert facts == [
+        'declared CentralEmployee.orgUnitId: String? @map("org_unit_id") (backend/prisma/central/schema.prisma:8)',
+        'column central_employees.org_unit_id TEXT (backend/prisma/central/migrations/20260330131802_init_central_org/migration.sql:3)',
+        'writes CentralEmployee.orgUnitId backend/prisma/migrate-to-central.ts:2 migrateEmployees (create)',
+        'writes CentralEmployee.orgUnitId backend/src/services/employee-home-unit.service.ts:4 changeEmployeeHomeUnit (updateMany)'], text
+    code, text = _flowguard(tmp_path, 'show', 'Project.lifecycleStatusId')
+    lines = text.splitlines()
+    assert code == 0 and lines[0] == 'ANCHOR Project.lifecycleStatusId', text
+    assert 'outside writers: backend/src/services/project.service.ts:7 softDelete (update)' in lines, text
+    # the writers' own writes are listed; softDelete's, named above as outside the writers, is not listed again
+    assert [line for line in lines if line.startswith(('declared ', 'writes '))] == [
+        'declared Project.lifecycleStatusId: String @map("lifecycle_status_id") (backend/prisma/schema.prisma:14)',
+        'writes Project.lifecycleStatusId backend/src/services/project.service.ts:3 create (create)',
+        'writes Project.lifecycleStatusId backend/src/services/project.service.ts:4 update (update)'], text
+    assert len(lines) == len(set(lines)), text
+
+
+def test_show_lists_the_enum_a_prisma_schema_not_in_use_types_the_field_with(tmp_path):
+    """Planning Tool (T4): `show Assignment.status` printed the String declarations and the CHECK set, not the enum
+    AssignmentStatus that backend/prisma/schema.sqlite.prisma (a provider template, not in use) types the field with:
+    the values lines came from `value_sets()`, the schemas in use only. show now lists, for each Prisma schema that
+    types the field with an enum, its members and where it is declared, saying when that schema is not in use;
+    `value_sets()`, which the values check reads, is as before."""
+    sqlite = """datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+enum AssignmentStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+enum DemandStatus {
+  OPEN
+  DONE
+}
+
+model Assignment {
+  id     String           @id
+  status AssignmentStatus @default(DRAFT)
+}
+
+model Demand {
+  id     String       @id
+  status DemandStatus @default(OPEN)
+}
+"""
+    in_use = PT_SCHEMA + '\nenum DemandStatus {\n  OPEN\n  DONE\n}\n\nmodel Demand {\n  id     String       @id\n  status DemandStatus @default(OPEN)\n}\n'
+    _commit(tmp_path, {'backend/prisma/schema.prisma': in_use, 'backend/prisma/schema.sqlite.prisma': sqlite})
+    code, text = _flowguard(tmp_path, 'show', 'Assignment.status')
+    lines = text.splitlines()
+    assert code == 0 and [line for line in lines if line.startswith(('declared ', 'values '))] == [
+        'declared Assignment.status: String @default("DRAFT") (backend/prisma/schema.prisma:9)',
+        'declared Assignment.status: AssignmentStatus @default(DRAFT) (backend/prisma/schema.sqlite.prisma:19)',
+        'values Assignment.status: DRAFT | ACTIVE | CLOSED (enum AssignmentStatus backend/prisma/schema.sqlite.prisma:6, '
+        'a schema not in use)'], text
+    # The enum of the schema in use as value_sets gives it, once; the template's own enum beside it.
+    code, text = _flowguard(tmp_path, 'show', 'Demand.status')
+    assert code == 0 and [line for line in text.splitlines() if line.startswith('values ')] == [
+        'values Demand.status: OPEN | DONE (enum DemandStatus (backend/prisma/schema.prisma:13))',
+        'values Demand.status: OPEN | DONE (enum DemandStatus backend/prisma/schema.sqlite.prisma:12, a schema not in use)'], text
+    cfg = load_config(tmp_path)
+    with closing(build(tmp_path, roots=cfg.roots)) as graph:
+        assert [(row['key'], row['files']) for row in graph.value_sets()] == [('Demand.status', ('backend/prisma/schema.prisma',))]
+
+
+def test_show_prints_a_module_constant_that_is_an_array_of_literals(tmp_path):
+    """Planning Tool (T4): `show PROBABILITY_STEPS` printed nothing, though two files declare `const PROBABILITY_STEPS =
+    [0, 5, 50, 75, 90, 100] as const`: the JS/TS reader kept a module constant's right side as a literal only for one
+    scalar, so neither the array nor its `as const` wrapper gave an assignment row. A module-level array of literals
+    is now one; a string `as const` array stays a value set (its values line, not a second const line)."""
+    _commit(tmp_path, {
+        'frontend/src/components/projects/ProjectProbabilityEditor.tsx': """/**
+ * @exports PROBABILITY_STEPS - Selectable planning probability values.
+ */
+export const PROBABILITY_STEPS = [0, 5, 50, 75, 90, 100] as const;
+
+export function ProjectProbabilityEditor({ value }: { value: number }) {
+  return <select value={value}>{PROBABILITY_STEPS.map((step) => <option key={step} value={step}>{step}%</option>)}</select>;
+}
+""",
+        'frontend/src/pages/ProjectDetailPage.tsx': """const PROBABILITY_STEPS = [0, 5, 50, 75, 90, 100] as const;
+const SCOPE_LEVELS = ['OWN', 'TEAM', 'ALL'] as const;
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar'];
+const OFFSETS = [-2.5, 0, 4];
+const MIXED = [1, ...OFFSETS];
+
+export function ProjectDetailPage() {
+  const LOCAL_STEPS = [1, 2];
+  return <div>{PROBABILITY_STEPS.length + LOCAL_STEPS.length + SCOPE_LEVELS.length + MONTH_NAMES.length + MIXED.length}</div>;
+}
+""",
+    })
+    def shown(name):
+        code, text = _flowguard(tmp_path, 'show', name)
+        assert code == 0, text
+        return [line for line in text.splitlines() if line.startswith(('const ', 'values '))]
+    assert shown('PROBABILITY_STEPS') == ['const PROBABILITY_STEPS = [0, 5, 50, 75, 90, 100] '
+                                          '(frontend/src/components/projects/ProjectProbabilityEditor.tsx:4, frontend/src/pages/ProjectDetailPage.tsx:1)']
+    assert shown('SCOPE_LEVELS') == ['values SCOPE_LEVELS: OWN | TEAM | ALL (frontend/src/pages/ProjectDetailPage.tsx:2)']
+    assert shown('MONTH_NAMES') == ['const MONTH_NAMES = ["Jan", "Feb", "Mar"] (frontend/src/pages/ProjectDetailPage.tsx:3)']
+    assert shown('OFFSETS') == ['const OFFSETS = [-2.5, 0, 4] (frontend/src/pages/ProjectDetailPage.tsx:4)']
+    assert shown('MIXED') == shown('LOCAL_STEPS') == []          # a spread is no literal; a function's own array is no module constant
+    # The other readers of assignment rows are as before: a module constant is no write of a field, also by name.
+    cfg = load_config(tmp_path)
+    with closing(build(tmp_path, roots=cfg.roots)) as graph:
+        assert [row for row in graph.writes(by_name=True) if row['file'].startswith('frontend/')] == []
+    code, text = _flowguard(tmp_path, 'check', '--static')
+    assert code == 0, text
+
+
+def test_a_check_constraint_that_code_builds_as_a_string_is_not_read_as_a_range_or_a_value_set(tmp_path):
+    """A stated limit, not a wish (T4, U2.6): Planning Tool adds `chk_project_source_type` with
+    `prisma.$executeRawUnsafe(\\`ALTER TABLE ... CHECK ([source_type] IN (...))\\`)` in
+    backend/prisma/migrate-add-import-source-type.ts. FlowGuard reads ranges and CHECK sets from `.sql` files only
+    (docs/intent-guide.md says so where show's facts are described): SQL that code builds as a string and runs gives
+    `show` no range and no values line, and the values check no set. This test pins the limit; it does not ask for a
+    reader of such strings."""
+    _commit(tmp_path, {
+        'backend/prisma/schema.prisma': """datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id         String  @id
+  sourceType String  @map("source_type")
+  share      Decimal @map("share")
+  @@map("projects")
+}
+""",
+        'backend/prisma/migrate-add-import-source-type.ts': """import { prisma } from '../src/utils/prisma.js';
+
+async function main(): Promise<void> {
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE [projects]
+       ADD CONSTRAINT [chk_project_source_type]
+       CHECK ([source_type] IN ('MANUAL', 'SAP_CATALOG', 'IMPORT'))`,
+  );
+  await prisma.$executeRawUnsafe(`ALTER TABLE [projects] ADD CONSTRAINT [chk_share] CHECK ([share] >= 0 AND [share] <= 1)`);
+}
+
+main();
+""",
+    })
+    for name, declared in (('Project.sourceType', 'String @map("source_type")'), ('Project.share', 'Decimal @map("share")')):
+        code, text = _flowguard(tmp_path, 'show', name)
+        lines = text.splitlines()
+        assert code == 0 and lines[2] == f'declared {name}: {declared} (backend/prisma/schema.prisma:{8 if "source" in name else 9})', text
+        assert not [line for line in lines if line.startswith(('range ', 'values '))], text
+    cfg = load_config(tmp_path)
+    with closing(build(tmp_path, roots=cfg.roots)) as graph:
+        assert graph.value_sets() == []
 
 
 def test_a_function_that_stops_writing_one_of_two_fields_gets_its_line_and_the_static_check_still_runs(tmp_path):

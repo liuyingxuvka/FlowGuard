@@ -158,3 +158,26 @@ def test_imported_overloads_do_not_resolve_to_the_first_signature(tmp_path):
     })) as graph:
         call=graph.calls()[0]
         assert call['resolved'] is None and call['reason']
+
+
+def test_a_module_constant_array_of_literals_is_a_literal_assignment_and_other_arrays_stay_unknown(tmp_path):
+    # Planning Tool's `export const PROBABILITY_STEPS = [0, 5, 50, 75, 90, 100] as const` (T4): through `as const`,
+    # `satisfies` and parentheses, negative numbers and a trailing comma too; never a made-up value for a hole, a
+    # spread, a name, a nested array, a destructuring or a function's own array.
+    with closing(project(tmp_path, {'a.ts': '''export const PROBABILITY_STEPS = [0, 5, 50, 75, 90, 100] as const;
+const NAMES = ['a', "b", ] satisfies readonly string[];
+const OFFSETS = ([-1, 2.5, /* none */ -0.5]);
+const HOLE = [1, , 2];
+const SPREAD = [...NAMES, 'c'];
+const NAMED = [1, PROBABILITY_STEPS];
+const NESTED = [[1]];
+const EMPTY = [];
+const [first, second] = [1, 2];
+export function f() { const LOCAL = [1, 2]; return LOCAL; }
+'''})) as graph:
+        rows = {row['target']: (row['literal'], row['value']) for row in graph.assignments(include_unknown=True)
+                if row['form'] == 'declarator'}
+    assert rows == {'PROBABILITY_STEPS': (True, [0, 5, 50, 75, 90, 100]), 'NAMES': (True, ['a', 'b']),
+                    'OFFSETS': (True, [-1, 2.5, -0.5]), 'HOLE': (False, None), 'SPREAD': (False, None),
+                    'NAMED': (False, None), 'NESTED': (False, None), 'EMPTY': (False, None),
+                    '[first, second]': (False, None), 'LOCAL': (False, None)}

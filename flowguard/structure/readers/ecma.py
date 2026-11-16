@@ -26,6 +26,31 @@ def literal(node, source):
     return False, None
 
 
+def literal_array(node, source):
+    """(True, the values) of a non-empty array of literals, also negative numbers, through `as const`,
+    `satisfies` and parentheses (`[0, 5, 50] as const`); (False, None) for anything else, a spread or a hole included."""
+    node = unwrap(node)
+    if node is None or node.type != 'array':
+        return False, None
+    values, item_next = [], True
+    for item in node.children[1:-1]:            # between [ and ]
+        if item.type in COMMENTS:
+            continue
+        if item.type == ',':
+            if item_next:                       # a hole: [, 1] or [1, , 2]
+                return False, None
+            item_next = True
+            continue
+        negative = item.type == 'unary_expression' and operator(item) == '-' and len(item.named_children) == 1 \
+            and item.named_children[0].type == 'number'
+        known, value = literal(item.named_children[0] if negative else item, source)
+        if not item_next or not known or negative and not isinstance(value, (int, float)):
+            return False, None
+        values.append(-value if negative else value)
+        item_next = False
+    return (True, values) if values else (False, None)
+
+
 def constant_like(name):
     """A name spelled as a constant (`LIMIT`, `MAX_DAYS`), as decide.named_constant reads Python names."""
     return name.strip('_').isupper()
@@ -1201,6 +1226,8 @@ def extract(root, rel, data, module, is_test):
             value = field(node, 'right') or field(node, 'value')
             if target:
                 known, val = literal(value, source)
+                if not known and node.type == 'variable_declarator' and not scope and target.type == 'identifier':
+                    known, val = literal_array(value, source)     # a module constant's array: [0, 5, 50] as const
                 key = key_of(target)
                 if node.type in ('pair', 'public_field_definition'):
                     key = text(target, source) if target.type in ('property_identifier','identifier') else string(target)

@@ -83,6 +83,8 @@ This is finite source coverage, not full type or execution proof.
   written value keeps `values` for a literal, each branch of `c ? a : b` and the fallback of `x ?? 'v'`; when only
   that fallback is spelled the row also carries `partial: true`.
 - `assignments[].form`: `member` (`obj.f = ...`), `pair`, `declarator`, `class-field` or `identifier`.
+  A module-level JS/TS declaration `NAME = [...]` (`const`, `let` or `var`) of literals (negative numbers too; through `as const`, `satisfies` and
+  parentheses; no spread or hole) is `literal=True` with the list as `value`; any other array or object stays unknown.
 
 ## Schema files
 
