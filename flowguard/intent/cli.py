@@ -7,6 +7,7 @@ import io
 import json
 import os
 from pathlib import Path
+import posixpath
 import re
 import shlex
 import sys
@@ -146,22 +147,32 @@ BRIEF_WIDTH = 200
 BASELINE_FAMILIES = frozenset({'pair', 'writer', 'values', 'same', 'changed-alone', 'source', 'ledger'})
 
 
-def _brief_line(text, more=0):
-    """A rule or known line of the brief: at most BRIEF_WIDTH characters, the last of its kind with the count of
-    the entries `show rules` lists besides."""
-    if not more:
-        return text if len(text) <= BRIEF_WIDTH else text[:BRIEF_WIDTH - 3] + '...'
-    tail = f'; +{more} more: python -m flowguard show rules'
-    text = text.removesuffix('.')
+def _brief_line(text, more=0, tail=''):
+    """A rule or known line of the brief or of `show`: at most BRIEF_WIDTH characters with `tail` (show's place to
+    read the whole entry) kept whole; in the brief the last of its kind ends with the count of the entries `show
+    rules` lists besides."""
+    if more:
+        tail, text = f'; +{more} more: python -m flowguard show rules', text.removesuffix('.')
     width = BRIEF_WIDTH - len(tail)
     return (text if len(text) <= width else text[:width - 3] + '...') + tail
 
 
+KNOWN_ORDER = {'ask': 0, 'fix': 2, 'leave': 3, 'ignore': 4}     # an asked question is still open: after those not asked
+KNOWN_WORDS = {'fix': 'to fix when its code changes', 'leave': 'left as it is', 'ignore': 'ignored, not reported'}
+
+
+def _known_order(entries):
+    """known.toml entries in the order the brief and `show` list them: questions not asked yet, asked ones, fix,
+    leave, then ignore (which the brief leaves out); file order within each act."""
+    return sorted(entries, key=lambda entry: 1 if entry.act == 'ask' and entry.asked else KNOWN_ORDER[entry.act])
+
+
 def _known_brief(entry):
+    """The words of a known.toml entry, one line in the brief and in `show`."""
     if entry.act == 'ask':
         return (f'known.{entry.id}: asked the owner on {entry.asked}, no answer yet: {entry.ask}' if entry.asked
                 else f'known.{entry.id}: open question for the owner: {entry.ask}')
-    return f'known.{entry.id}: ' + ('to fix when its code changes' if entry.act == 'fix' else 'left as it is') + f': {entry.why}'
+    return f'known.{entry.id}: {KNOWN_WORDS[entry.act]}: {entry.why}'
 
 
 def _brief_reds(cfg, data):
@@ -241,9 +252,7 @@ def _brief(cfg, data, baseline, note='', *, structure=''):
     first = f'FlowGuard {version} brief, baseline {baseline[:12] if baseline else "none (no Git commit)"}'
     head = [first + ('; ' + note.removeprefix('baseline: ') if note else '')]
     found = catalog(cfg)
-    order = {'ask': 0, 'fix': 2, 'leave': 3}         # an asked question is still open: after those not asked, before fix
-    waiting = sorted((entry for entry in found.known.values() if entry.act != 'ignore'),
-                     key=lambda entry: 1 if entry.act == 'ask' and entry.asked else order[entry.act])
+    waiting = _known_order(entry for entry in found.known.values() if entry.act != 'ignore')
     before, still = _last_reds(cfg, baseline)
     still += len(_brief_reds(cfg, data))
     tail = [f'{before} red from the previous task are now before'] if before else []
@@ -467,6 +476,64 @@ def show_catalog(cfg, query, full=False):
     return int(bool(problems))
 
 
+def _names(text, name):
+    """Does `text` (a site's symbol, an anchor's name, a finding's subject) name `name`: the same text, or its last
+    dotted part (`capacityService.updateCalendarEntry` and `ProjectRequest.status` name `updateCalendarEntry` and
+    `status`)."""
+    return text == name or text.rpartition('.')[2] == name
+
+
+def _concerning(cfg, data, graph, index, query, *, path):
+    """The first lines of `show NAME` and `show PATH` (`path` is the query when it names a file or folder, else None),
+    and the ids of the intent rules among them: the `.flowguard/known.toml` entries that concern the query, in the
+    brief's order and words (`_known_order`, `_known_brief`), each with the command that prints it whole; then the
+    intent rules (the static scan's) whose homes or anchors name it, `rule ID: decides`; then the `.flowguard/rules.toml`
+    rules those cite, in file order. A site `path:symbol` names the query when it is the query, its symbol names it
+    (`_names`), its path and symbol are those of the query's map node (`module:qual`), or, for a PATH query, its path
+    is that file or lies under that folder; an entry concerns the query when a site names it or its finding does (the
+    name after the family, `same:ISO_WEEKS_IN_YEAR`). The sites are read as written, not resolved on the map. A rule's
+    home `module:Class.field` is read as the site of its module's file; an anchor names the query by its name, or by
+    the site of a source anchor of that name (its file and target function)."""
+    from .signals import family_of
+    from .sources import RULE_FORM, catalog
+    node = graph.node(graph.canonical(query) or query) if ':' in query else None
+    folder = None if path is None else posixpath.normpath(path.replace('\\', '/'))     # './app/' -> 'app'
+
+    def site_names(site):
+        spot, colon, symbol = site.rpartition(':')
+        file = spot if colon else site          # a document site is its path alone
+        if site == query or colon and _names(symbol, query):
+            return True
+        if node is not None and colon and file == node['file'] and _names(symbol, node['qual']):
+            return True
+        return folder is not None and (folder == '.' or file == folder or file.startswith(folder + '/'))
+
+    def finding_names(finding):
+        family = family_of(finding)
+        return bool(family) and _names(finding[len(family) + 1:], query)
+
+    found = catalog(cfg)
+    entries = [entry for entry in found.known.values() if any(map(site_names, entry.sites)) or finding_names(entry.finding)]
+    lines = [_brief_line(_known_brief(entry), tail=f' (python -m flowguard show known.{entry.id})')
+             for entry in _known_order(entries)]
+    modules = dict(graph.con.execute('SELECT module, path FROM file'))
+    rules, cited = [], set()
+    for rid, item in data['summary']['rules'].items():
+        names = [name for name in item.get('anchors', ()) if not name.startswith('unresolved:')]   # states have none
+        homes = [modules[module] + ':' + symbol
+                 for module, _, symbol in (home.partition(':') for home in item['homes']) if module in modules]
+        anchored = [f'{anchor.file}:{anchor.target.partition(":")[2]}' for anchor in _anchor_targets(index, names, graph)]
+        if any(_names(name, query) for name in names) or any(map(site_names, [*item['homes'], *homes, *anchored])):
+            rules.append(rid)
+            match = RULE_FORM.fullmatch(item['source'].strip()) if isinstance(item['source'], str) else None
+            if match:
+                cited.add(match[1])
+    lines += [f'rule {rid}: {data["summary"]["rules"][rid]["decides"]}' for rid in rules]
+    lines += [_brief_line(f'rule.{rule.id}: {rule.text}', tail=f' (python -m flowguard show rule.{rule.id})')
+              for rule in found.rules.values() if rule.id in cited]
+    return lines, set(rules)
+
+
 def show(cfg, query=None, *, full=False, last=False):
     if last:
         if query:
@@ -538,9 +605,15 @@ def show(cfg, query=None, *, full=False, last=False):
             for error in data['summary']['errors']:
                 print(f'red load {error["file"]}:{error["line"]}: {error["msg"]} -> fix the intent file')
             return 1
+        # A file or folder of the repository is a PATH query: the module's lines, and the known sites under it.
+        path = query if (cfg.root / query).is_dir() or '/' in query and (cfg.root / query).is_file() else None
+        concerning, listed = _concerning(cfg, data, graph, index, query, path=path)
+        from .differences import display        # a known entry's words may hold what the console cannot show
         anchors, pointers = _source_pointers(index, [query], graph, full=full)
         if anchors:
             print('ANCHOR ' + query)
+            if concerning:
+                display('\n'.join(concerning))
             print('\n'.join(pointers))
             from .owners import show_lines     # an owner's old ledger: writes outside its writers, look-alikes
             if owned := show_lines(cfg, graph, index, query):
@@ -559,16 +632,16 @@ def show(cfg, query=None, *, full=False, last=False):
             return 0
         from .docs import module_lines
         site = query.rstrip('/') + '/' if (cfg.root / query).is_dir() else query
-        if ((cfg.root / query).is_dir() or '/' in query and (cfg.root / query).is_file()) \
-                and (module := module_lines(graph, site)):
-            from .differences import display        # R98: a module's contracts and connections
-            display('\n'.join(module))
+        if path is not None and (module := module_lines(graph, site)):
+            display('\n'.join([*module[:1], *concerning, *module[1:]]))       # R98: a module's contracts and connections
             return 0
         node = graph.node(graph.canonical(query) or query)
         if node:
             print(f'{query} {node["file"]}:{node["line"]}\n{node["sig"]}\n{node["doc"]}')
             if notice:
                 print(notice)
+            if concerning:
+                display('\n'.join(concerning))
             found = graph.search_homes(query, k=None)
             if not found['searched']:
                 print('not searched: ' + found.get('reason', '') + ' -> bind the real decision site')
@@ -593,7 +666,7 @@ def show(cfg, query=None, *, full=False, last=False):
         for rid, rule in rules.items():
             score = 1000 if query.casefold() in {rid.casefold(), rule['decides'].casefold()} else 0
             score += 4 * len(words & tokens(rule['decides'] + ' ' + rule.get('doc', '')))
-            if score:
+            if score and rid not in listed:        # a rule that concerns the query is listed first already
                 ranked.append((score, f'rule {rid}: {rule["decides"]} {rule.get("doc", "")}'))
         owners = graph.outline(('function', 'method', 'class'))
         decided = {}
@@ -620,7 +693,7 @@ def show(cfg, query=None, *, full=False, last=False):
             left = [row for row in ranked if row[0] < 1000]
             ranked = [row for row in ranked if row[0] >= 1000]
         from .differences import display          # a structure line carries Chinese text: escape what the console cannot show
-        lines = [f'show {query}'] + ([notice] if notice else []) + [line for _, line in ranked]
+        lines = [f'show {query}'] + ([notice] if notice else []) + concerning + [line for _, line in ranked]
         if left:
             lines.append(f'... {len(left)} more lines: python -m flowguard show {_spelled(query)} --full lists them all')
         display('\n'.join(lines if full else _limit(lines, cfg.screen_lines,

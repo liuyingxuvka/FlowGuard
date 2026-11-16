@@ -569,6 +569,179 @@ def test_show_of_an_entry_names_the_problem_of_its_file(tmp_path, capsys):
     assert cli.show(cfg, 'known.scale') == 0 and 'rules-file' not in capsys.readouterr().out
 
 
+# Shaped like Planning Tool's open matters (its known.toml of 2026-11-15): TS services and utils, a Prisma schema, two
+# copies of the ISO week count marked `same`, an intent rule anchored on them that cites a rules.toml rule.
+CAPACITY = {
+    'pyproject.toml': '[tool.flowguard]\nauthority_docs = ["docs/requirements.md"]\n',
+    'docs/requirements.md': 'Weekly capacity view aggregated by calendar weeks (KW 1-53).\nA working day has 8 hours.\n',
+    'docs/requests.md': '# Project requests\n\nApproves/rejects project requests.\n',
+    'backend/prisma/schema.prisma': '''
+        model ProjectRequest {
+          id               String  @id
+          status           String
+          decisionMetadata String?
+          @@map("project_requests")
+        }
+
+        model CapacityCalendarEntry {
+          id    String @id
+          unit  String
+          value Float
+          @@map("capacity_calendar_entries")
+        }
+    ''',
+    'backend/src/utils/capacity-conversion.ts': '''
+        export const DAILY_BASELINE_HOURS = 8;
+
+        export function convertPercentToHours(value: number): number {
+          return value * DAILY_BASELINE_HOURS;
+        }
+    ''',
+    'backend/src/utils/calendar-iso.ts': '''
+        // flowguard: same ISO_WEEKS_IN_YEAR
+        export function getIsoWeekCountInYear(year: number): number {
+          const day = new Date(Date.UTC(year, 11, 31)).getUTCDay();
+          return day === 4 || day === 5 ? 53 : 52;
+        }
+    ''',
+    'backend/src/services/capacity.service.ts': '''
+        import { prisma } from '../lib/prisma';
+        import { convertPercentToHours } from '../utils/capacity-conversion';
+
+        export const capacityService = {
+          async updateCalendarEntry(entryId: string, value: number) {
+            const hours = convertPercentToHours(value) / 8;
+            return prisma.capacityCalendarEntry.update({ where: { id: entryId }, data: { value: hours } });
+          },
+        };
+    ''',
+    'frontend/src/utils/weeks.ts': '''
+        // flowguard: same ISO_WEEKS_IN_YEAR
+        export function getIsoWeeksInYear(year: number): number {
+          const day = new Date(Date.UTC(year, 11, 28)).getUTCDay();
+          return day === 4 ? 53 : 52;
+        }
+    ''',
+    'tests/intent/iso_weeks.py': '''
+        from flowguard.intent import rule
+
+
+        @rule('ISO_WEEKS', decides='iso weeks in a year', fields={'year': int}, anchor='ISO_WEEKS_IN_YEAR',
+              source='rule.iso-weeks')
+        def ISO_WEEKS(year):
+            """A year has 53 ISO weeks when its 28 December falls in week 53."""
+            return None
+    ''',
+    '.flowguard/rules.toml': '''
+        [rule.iso-weeks]
+        text = "Weekly capacity is aggregated by calendar weeks KW 1 to 53."
+        source = 'doc docs/requirements.md "Weekly capacity view aggregated by calendar weeks (KW 1-53)."'
+
+        [rule.hours]
+        text = "A working day has 8 hours."
+        source = 'doc docs/requirements.md "A working day has 8 hours."'
+    ''',
+    '.flowguard/known.toml': '''
+        [known.hours-constants]
+        sites = ["backend/src/utils/capacity-conversion.ts:DAILY_BASELINE_HOURS",
+                 "backend/src/services/capacity.service.ts:capacityService.updateCalendarEntry"]
+        why   = "8 hours a day is written in the conversion and again in the capacity service"
+        act   = "fix"
+        fix   = "Read the daily hours from DAILY_BASELINE_HOURS"
+
+        [known.percent-scale]
+        sites = ["backend/src/utils/capacity-conversion.ts:convertPercentToHours",
+                 "backend/prisma/schema.prisma:CapacityCalendarEntry.value"]
+        why   = "CapacityCalendarEntry.value of PERCENT rows is read on two scales, 0..1 and 0..100"
+        act   = "ask"
+        asked = "2026-11-15"
+        ask   = "Which scale does the database store for PERCENT rows, 0..1 or 0..100?"
+
+        [known.iso-weeks]
+        sites   = ["backend/src/utils/calendar-iso.ts:getIsoWeekCountInYear", "frontend/src/utils/weeks.ts:getIsoWeeksInYear"]
+        why     = "The backend copy counts from 31 December, the frontend copy from 28 December"
+        act     = "leave"
+        finding = "same:ISO_WEEKS_IN_YEAR"
+
+        [known.project-requests]
+        sites = ["backend/prisma/schema.prisma:ProjectRequest.status", "docs/requests.md"]
+        why   = "No route approves or rejects a project request"
+        act   = "ask"
+        ask   = "Is the project-request workflow retired, or still to be built?"
+
+        [known.entry-writers]
+        sites   = ["backend/prisma/schema.prisma:CapacityCalendarEntry.value"]
+        why     = "Each service writes its own rows"
+        act     = "ignore"
+        finding = "writers:CapacityCalendarEntry.value"
+    ''',
+}
+
+ASKED = ('known.percent-scale: asked the owner on 2026-11-15, no answer yet: Which scale does the database store for PERCENT '
+         'rows, 0..1 or 0..100? (python -m flowguard show known.percent-scale)')
+OPEN = ('known.project-requests: open question for the owner: Is the project-request workflow retired, or still to be built? '
+        '(python -m flowguard show known.project-requests)')
+FIX = ('known.hours-constants: to fix when its code changes: 8 hours a day is written in the conversion and again in the '
+       'capacity service (python -m flowguard show known.hours-constants)')
+LEAVE = ('known.iso-weeks: left as it is: The backend copy counts from 31 December, the frontend copy from 28 December '
+         '(python -m flowguard show known.iso-weeks)')
+IGNORE = 'known.entry-writers: ignored, not reported: Each service writes its own rows (python -m flowguard show known.entry-writers)'
+RULE = 'rule ISO_WEEKS: iso weeks in a year'
+CITED = ('rule.iso-weeks: Weekly capacity is aggregated by calendar weeks KW 1 to 53. '
+         '(python -m flowguard show rule.iso-weeks)')
+NOTICE = 'Map: prisma 1/1 parsed; typescript 4/4 parsed; static facts, foreign native-home execution not verified.'
+
+
+def test_show_of_a_name_or_path_begins_with_the_known_entries_and_rules_that_concern_it(tmp_path, capsys):
+    # Planning Tool's agent looked names up with show and saw the open questions about them only in the session brief.
+    _commit(tmp_path, CAPACITY)
+    cfg = load_config(tmp_path)
+
+    def shown(query):
+        assert cli.show(cfg, query) == 0
+        return capsys.readouterr().out.splitlines()
+
+    # The facts branch (a function name, an object.method, its last part, a Model.field): after
+    # the header and the map notice, the entries in the brief's order (questions not asked yet, asked ones, fix, leave,
+    # ignore) with the brief's words, then the intent rules whose anchors name it and the rules.toml rules they cite.
+    lines = shown('getIsoWeekCountInYear')
+    assert lines[:5] == ['show getIsoWeekCountInYear', NOTICE, LEAVE, RULE, CITED], lines
+    # The rule's word-scored line of this branch is not repeated; the uncited rules.toml rule is not listed.
+    assert sum(line.startswith('rule ISO_WEEKS') for line in lines) == 1 and not any('rule.hours' in line for line in lines)
+    assert shown('convertPercentToHours')[:3] == ['show convertPercentToHours', NOTICE, ASKED]
+    for query in ('capacityService.updateCalendarEntry', 'updateCalendarEntry'):
+        assert shown(query)[:3] == [f'show {query}', NOTICE, FIX]
+    assert shown('CapacityCalendarEntry.value')[:4] == ['show CapacityCalendarEntry.value', NOTICE, ASKED, IGNORE]
+    assert shown('ProjectRequest.status')[:3] == ['show ProjectRequest.status', NOTICE, OPEN]
+    # The ANCHOR branch: the entry whose finding names the agreement, the rule anchored on it.
+    lines = shown('ISO_WEEKS_IN_YEAR')
+    assert lines[:4] == ['ANCHOR ISO_WEEKS_IN_YEAR', LEAVE, RULE, CITED] and lines[4].startswith('anchor ISO_WEEKS_IN_YEAR -> '), lines
+    # The module branch (a file, a folder, a document): every entry with a site there, and the rules anchored there.
+    assert shown('docs/requests.md')[:2] == ['module docs/requests.md: 1 file, 0 functions', OPEN]
+    assert shown('backend/prisma/schema.prisma')[:4] == ['module backend/prisma/schema.prisma: 1 file, 0 functions', OPEN,
+                                                         ASKED, IGNORE]
+    lines = shown('backend/src/utils/capacity-conversion.ts')
+    assert lines[:4] == ['module backend/src/utils/capacity-conversion.ts: 1 file, 1 function', ASKED, FIX,
+                         'described by no text: put <!-- flowguard: about backend/src/utils/capacity-conversion.ts --> '
+                         'above the Markdown text that is its contract'], lines
+    lines = shown('backend/src/utils')
+    assert lines[0] == 'module backend/src/utils/: 2 files, 2 functions' and lines[1:6] == [ASKED, FIX, LEAVE, RULE, CITED], lines
+    # The plain node branch: the map's id of the object method its site names.
+    lines = shown('typescript/backend/src/services/capacity.service.ts:updateCalendarEntry')
+    at = lines.index(NOTICE)
+    assert lines[0].startswith('typescript/backend/src/services/capacity.service.ts:updateCalendarEntry '
+                               'backend/src/services/capacity.service.ts:') and lines[at + 1] == FIX, lines
+    # Nothing concerns these: no known or rule line (project-requests names another field of that model).
+    assert shown('frobnicateWidgets') == ['show frobnicateWidgets', NOTICE]
+    lines = shown('ProjectRequest.decisionMetadata')
+    assert lines[:2] == ['show ProjectRequest.decisionMetadata', NOTICE] and not [
+        line for line in lines if line.startswith(('known.', 'rule'))], lines
+    # One function gives the brief and show their words: the brief's line is show's without the place to read it.
+    assert cli.screen(cfg) == 0
+    brief = capsys.readouterr().out.splitlines()
+    assert OPEN.removesuffix(' (python -m flowguard show known.project-requests)') in brief, brief
+
+
 def test_the_repository_keeps_its_rules_in_force_each_quoting_stored_owner_words(capsys):
     from pathlib import Path
     root = Path(__file__).resolve().parents[2]
