@@ -24,13 +24,15 @@ from flowguard.structure import build
 
 SOURCE = str(Path(__file__).resolve().parents[2])
 FIXTURES = Path(__file__).resolve().parents[1] / 'fixtures'
-STUB_VITEST = "export function test(name, body) { globalThis.__flowguard_tests.push([name, body]); }\n"
+STUB_VITEST = ("export function test(name, body) { globalThis.__flowguard_tests.push([name, body]); }\n"
+               "test.skip = (name) => globalThis.__flowguard_tests.push([name, null]);\n")
 RUN_STUB = '''
 globalThis.__flowguard_tests = [];
 const target = process.argv[2];
 await import(new URL('file://' + target).href);
 let failed = 0;
 for (const [name, body] of globalThis.__flowguard_tests) {
+  if (body === null) { console.log('SKIP ' + name); continue; }
   try { await body(); console.log('PASS ' + name); }
   catch (error) { failed += 1; console.log('FAIL ' + name + ': ' + error.message); }
 }
@@ -2215,6 +2217,18 @@ def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated
     output = _text(run.stdout + run.stderr)
     assert run.returncode == 1 and 'no Python that can import flowguard was found' in output, output
     assert 'set FLOWGUARD_PYTHON' in output and 'no-such-python' in output, output
+    # R85: on a machine where FlowGuard is not installed (no FLOWGUARD_PYTHON, no recorded interpreter, none on PATH
+    # that imports it) the project's tests run as without FlowGuard: the check is skipped and says why.
+    (root / '.flowguard/cache/python').unlink(missing_ok=True)
+    bare = tmp_path / 'bare-bin'
+    bare.mkdir()
+    (bare / 'python3').write_text('#!/bin/sh\necho "ModuleNotFoundError: No module named flowguard" >&2\nexit 1\n')
+    (bare / 'python3').chmod(0o755)
+    environment = {key: value for key, value in os.environ.items() if key != 'FLOWGUARD_PYTHON'}
+    run = subprocess.run([_node(), str(root.parent / (root.name + '-run.mjs')), str(generated)], cwd=root, capture_output=True,
+                         encoding='utf-8', timeout=240, env=dict(environment, PATH=str(bare) + os.pathsep + os.path.dirname(_node())))
+    assert run.returncode == 0 and run.stdout.splitlines() == [
+        'SKIP FlowGuard check --static (FlowGuard is not installed here: its map checks did not run)'], run
 
 
 def test_check_and_check_static_name_a_file_by_an_end_no_other_file_of_the_repository_has(tmp_path):

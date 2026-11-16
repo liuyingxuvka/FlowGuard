@@ -1778,6 +1778,38 @@ def test_a_build_and_the_dev_server_never_load_flowguard_only_a_vitest_run_does(
     assert 'function grade' in served and '__flowguard' not in served, served
 
 
+def test_a_project_where_flowguard_is_not_installed_runs_its_tests_as_without_it(vitest_home):
+    # R85: Planning Tool's tests did not start on a machine without FlowGuard: the vitest config's wiring threw, and the
+    # static test failed. There, the run gets no plugin and one notice, the static test is skipped with the reason,
+    # and the project's own tests give the results they give without FlowGuard. With FLOWGUARD_PYTHON set, that
+    # interpreter must import flowguard (the R85 build test above runs that case).
+    root = vitest_home / 'not-installed'
+    _commit(root, {
+        'package.json': '{"name":"not-installed","private":true,"type":"module","scripts":{"test":"vitest run"},'
+                        '"devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/grade.ts': "// flowguard: same GRADE\nexport function grade(n: number) { return n >= 5 ? 'pass' : 'fail'; }\n",
+        'tests/grade.test.ts': "import {it,expect} from 'vitest'; import {grade} from '../src/grade';\n"
+                               "it('grades', () => expect(grade(6)).toBe('pass'));\n",
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    assert (root / 'flowguard.static.test.mjs').is_file()
+    _commit(root, message='wired')
+    (root / '.flowguard/cache/python').unlink(missing_ok=True)
+    bare = root.parent / 'not-installed-bin'
+    bare.mkdir(exist_ok=True)
+    for name in ('python3', 'python'):
+        (bare / name).write_text('#!/bin/sh\necho "ModuleNotFoundError: No module named \'flowguard\'" >&2\nexit 1\n')
+        (bare / name).chmod(0o755)
+    env = {key: item for key, item in _environment().items() if key not in ('FLOWGUARD_PYTHON', 'PYTHONPATH')}
+    env['PATH'] = str(bare) + os.pathsep + os.path.dirname(_tool('node'))
+    run = subprocess.run([_tool('node'), str(vitest_home / 'node_modules/vitest/vitest.mjs'), 'run'], cwd=root,
+                         capture_output=True, encoding='utf-8', timeout=600, env=env)
+    text = display_text(ANSI.sub('', run.stderr + run.stdout))
+    assert run.returncode == 0 and re.search(r'Tests +1 passed \| 1 skipped \(2\)', text), text
+    assert 'FlowGuard is not installed here, so this vitest run has no FlowGuard checks' in text, text
+    assert not TITLE.search(text), text
+
+
 ISO_WEEK = '''
     function isoWeek(date: Date): number {
       const day = date.getUTCDay() || 7;

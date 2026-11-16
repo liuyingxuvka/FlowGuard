@@ -1529,7 +1529,9 @@ NPM_CHECK = NPM_HEADER + '''
 //   1. the FLOWGUARD_PYTHON environment variable, when set (then only that one);
 //   2. the interpreter that ran `flowguard init` on this machine, recorded in @RECORDED@ (git-ignored);
 //   3. `python3`, `python` and, on Windows, `py -3` on PATH.
-// The first that can import flowguard runs the check; when none can, the test fails and lists what was tried.
+// The first that can import flowguard runs the check. When none can, FlowGuard is not installed on this machine:
+// the test is skipped with that reason and the project's own tests run as they would without FlowGuard. With
+// FLOWGUARD_PYTHON set, that interpreter must import flowguard, or the test fails and says what was tried.
 @IMPORTS@
 const ROOT = @ROOT@;
 const RECORDED = path.join(ROOT, ...@RECORDED@.split('/'));
@@ -1562,8 +1564,12 @@ function reds(lines, stdout) {
   return first ? Number(first[1]) : 0;
 }
 
-test('FlowGuard check --static', () => {
-  const python = findPython();
+const PYTHON = findPython();
+const ABSENT = PYTHON.command === null && !process.env.FLOWGUARD_PYTHON;
+
+(ABSENT ? test.skip : test)(ABSENT ? 'FlowGuard check --static (FlowGuard is not installed here: its map checks did not run)'
+  : 'FlowGuard check --static', () => {
+  const python = PYTHON;
   if (python.command === null) {
     throw new Error('FlowGuard: no Python that can import flowguard was found; set FLOWGUARD_PYTHON to the interpreter '
       + 'FlowGuard is installed in. Tried:\\n' + python.tried.join('\\n'));

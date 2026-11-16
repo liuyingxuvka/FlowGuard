@@ -683,7 +683,9 @@ MODULE = GENERATED + '''
 // flowguard.static.test.mjs is next to this file or there is no baseline commit: then it adds the block only.
 // Comparison runs after the tests, and FlowGuard's lines follow the test summary. Python is found as flowguard.static.test.mjs finds it: FLOWGUARD_PYTHON, then the
 // interpreter that ran `flowguard init` on this machine, recorded in @RECORDED@ (git-ignored), then `python3`,
-// `python` and, on Windows, `py -3`.
+// `python` and, on Windows, `py -3`. When none imports flowguard, FlowGuard is not installed on this machine: the
+// run gets no plugin and one notice, and the tests run as they would without FlowGuard; with FLOWGUARD_PYTHON
+// set, that interpreter must import flowguard.
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -719,8 +721,13 @@ export default async function flowguard() {
     const { flowguardPlugin } = await import(pathToFileURL(answer.adapter).href);
     return flowguardPlugin({ plan: answer.plan, python: [command, ...prefix], root: ROOT, prepareSeconds: answer.seconds });
   }
-  throw new Error('FlowGuard: no Python that can import flowguard was found for the vitest execution side; set '
-    + 'FLOWGUARD_PYTHON to the interpreter FlowGuard is installed in. Tried:\\n' + tried.join('\\n'));
+  if (process.env.FLOWGUARD_PYTHON) {
+    throw new Error('FlowGuard: FLOWGUARD_PYTHON cannot import flowguard for the vitest execution side; set it to '
+      + 'the interpreter FlowGuard is installed in. Tried:\\n' + tried.join('\\n'));
+  }
+  console.warn('FlowGuard is not installed here, so this vitest run has no FlowGuard checks; the tests run as without '
+    + 'it. Tried:\\n' + tried.join('\\n'));
+  return null;
 }
 '''
 CONFIGS = [f'{stem}.config.{ext}' for stem in ('vitest', 'vite') for ext in ('ts', 'mts', 'js', 'mjs', 'cts', 'cjs')]
