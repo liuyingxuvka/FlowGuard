@@ -1000,14 +1000,17 @@ def _inside(cfg, rel, package):
 
 def closed_rows(data, records):
     """Compare source-only functions after the session, using real JSON inputs and copy neighbours. Returns the
-    rows, the reasons by point and, by same name, what the input limit left out (`signals.copy_inputs`)."""
+    rows, the reasons by point, the reasons of real calls by point (a call the test made that was not recorded or
+    could not run; a copy neighbour that gives NaN is none) and, by same name, what the input limit left out
+    (`signals.copy_inputs`)."""
     import subprocess
     from .signals import copy_inputs
     points = {point['id']: point for entry in data['files'].values() for point in entry['points']}
-    actual, groups, reasons = {}, {}, {}
+    actual, groups, reasons, real = {}, {}, {}, {}
     for record in records:
         if record.get('reason'):
             reasons.setdefault(record['id'], []).append(record['reason'])
+            real.setdefault(record['id'], set()).add(record['reason'])
         elif 'args' in record:
             actual.setdefault(record['id'], []).append(record['args'])
     for point in points.values():
@@ -1052,6 +1055,8 @@ def closed_rows(data, records):
         outcomes = json.loads(run.stdout)
         if len(outcomes) != len(jobs):
             raise ValueError('sealed comparison returned the wrong number of results')
+    recorded = {ident: {json.dumps(args, sort_keys=True) for args in actual.get(ident, ())} for ident in points}
+
     def outcome(ident, prior, args):
         index = keys.get((ident, prior, json.dumps(args, sort_keys=True)))
         if index is None:
@@ -1069,11 +1074,13 @@ def closed_rows(data, records):
                 return {'$threw': error}
         if why:
             reasons.setdefault(ident, []).append(('baseline: ' if prior else '') + why)
+            if json.dumps(args, sort_keys=True) in recorded.get(ident, ()):
+                real.setdefault(ident, set()).add(('baseline: ' if prior else '') + why)
             return {'$missing': 1}
         return result['value']
     rows = {}
     for ident, point in points.items():
-        real = {json.dumps(args, sort_keys=True) for args in actual.get(ident, ())}
+        called = recorded[ident]
         rows[ident] = []
         for args in wanted[ident]:
             now = outcome(ident, False, args)
@@ -1082,11 +1089,11 @@ def closed_rows(data, records):
             old = outcome(ident, True, args)
             rows[ident].append(dict(
                 **{'in': list(zip(point['params'], args))}, now=now, old=old,
-                actual=json.dumps(args, sort_keys=True) in real,
+                actual=json.dumps(args, sort_keys=True) in called,
                 same=any(_same(args, sample) for sample in shared.get(point['name'], ())),
                 copies={copy['id']: outcome(copy['id'], False, args) for copy in point['copies']},
                 old_copies={copy['id']: outcome(copy['id'], True, args) for copy in point['copies']}))
-    return rows, reasons, cuts
+    return rows, reasons, real, cuts
 
 
 def _plain(encoded):
@@ -1134,7 +1141,7 @@ def judge(cfg, data, records, package=None):
     from .loader import load
     from .sources import cited, parse, source_state
     points = {point['id']: point for entry in data['files'].values() for point in entry['points']}
-    rows, reasons_by_point, cuts = closed_rows(data, records)
+    rows, reasons_by_point, real_reasons, cuts = closed_rows(data, records)
     calls = {}
     for record in records:
         calls.setdefault(record['id'], []).append(record)
@@ -1163,8 +1170,11 @@ def judge(cfg, data, records, package=None):
                 skipped(subject, ['not reached by any test'], function=ident, places=(where,))
             continue
         if not collected or not point['changed']:
-            if reasons:
-                skipped(subject, reasons, function=ident, places=(where,))
+            # Unchanged, it is compared only as a copy: when some of its inputs ran, a copy neighbour that did not
+            # (a source number taken as a year that gives NaN) leaves nothing uncompared; a real call still does.
+            shown = reasons if not collected else [reason for reason in reasons if reason in real_reasons.get(ident, ())]
+            if shown:
+                skipped(subject, shown, function=ident, places=(where,))
             continue
         actual_rows = [row for row in collected if row['actual']]
         compared = [row for row in actual_rows if not (isinstance(row['old'], dict) and '$missing' in row['old'])

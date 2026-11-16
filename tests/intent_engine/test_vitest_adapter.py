@@ -2177,6 +2177,24 @@ def _reasons(lines):
     return {line.text: line.detail for line in lines if line.kind == 'not compared'}
 
 
+def test_an_unchanged_copy_compared_on_some_inputs_is_not_called_not_compared(tmp_path):
+    # Planning Tool's ISO week copies return NaN on 86400000 + 1 taken as a year (a number of their source) and a
+    # week count on every other input: they were compared, so no not compared line may say otherwise. A copy that no
+    # input could run still is one.
+    _commit(tmp_path, {
+        'src/a.ts': '// flowguard: same ROOT\nexport function f(x: number) { return Math.sqrt(x - 5); }\n',
+        'src/b.ts': '// flowguard: same ROOT\nexport function g(x: number) { return Math.sqrt(x - 5); }\n',
+        'src/c.ts': '// flowguard: same NONE\nexport function h(x: number) { return Math.sqrt(-1 - x * x); }\n'
+                    '// flowguard: same NONE\nexport function k(x: number) { return Math.sqrt(-2 - x * x); }\n',
+    })
+    records = [dict(id='typescript/src/a.ts:f', args=[9], result=2), dict(id='typescript/src/c.ts:h', args=[9], result=None)]
+    result, lines = _judged(tmp_path, records)
+    assert not _copies(result), result
+    said = _reasons(lines)
+    assert not [text for text in said if 'ROOT' in text], said
+    assert [text for text in said if 'NONE' in text], said
+
+
 @pytest.mark.parametrize('first', [0, 1])
 def test_copy_baseline_colour_is_judged_per_input_whatever_the_first_witness(tmp_path, first):
     # Off x=0 the copies already differed at the baseline (before); at x=0 they agreed and differ now (red).
