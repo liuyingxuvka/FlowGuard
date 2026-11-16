@@ -221,32 +221,37 @@ def test_old_and_current_rule_placeholders_stay_invalid_even_when_the_file_exist
                      'rule is still a placeholder: name the file containing the written rule and quote an exact sentence']
 
 
-@pytest.mark.parametrize('reason', [
-    ledger.PLACEHOLDER_UNVERIFIED,
-    '换成真实的理由：为什么这个判断不再回放、由什么守住它（不少于 8 个词）',
-])
-def test_old_and_current_unverified_placeholders_stay_invalid(shop, reason):
-    add_entry(shop, '\n[unverified]\nLIMIT = ' + ledger._quote(reason) + '\n')
-    entries, red = ledger.unverified(load_config(shop))
-    assert entries == {}
-    assert [finding.text for finding in red] == [
-        'Fallback ledger [unverified] item "LIMIT": '
-        'reason is still a placeholder: explain why replay is unavailable and what checks it instead']
+REMOVED_SECTIONS = {
+    'structure': ('[structure."writers:Job.status"]\ndecision = "close owns the status; hold and reopen will call close later"\n'
+                  'source = "R1"\n', 'ledger.toml: [structure] was removed in 5.0 -> delete the section and record each decision in '
+                  '.flowguard/known.toml: python -m flowguard known add NAME --act leave|ignore --why TEXT'),
+    'unverified': ('[unverified]\nLIMIT = "the judgment writes an audit file, so replay is refused; test_limit checks it"\n',
+                   "ledger.toml: [unverified] was removed in 5.0 -> delete the section; nothing replaces it: restore each rule's "
+                   'observability so it is checked again'),
+}
 
 
-@pytest.mark.parametrize('section, reader, empty, replacement', [
-    ('unverified', ledger.unverified, ({}, []), ' -> do not use it'),
-    # a [structure] decision names its 4.3 replacement
-    ('structure', ledger.structure_decisions, ({}, [], []),
-     ' -> write [known.<id>] in .flowguard/known.toml with act = "ignore" or "leave"'),
-])
-def test_legacy_ledger_sections_warn_only_when_present(shop, capsys, section, reader, empty, replacement):
-    assert reader(load_config(shop)) == empty
+@pytest.mark.parametrize('section', sorted(REMOVED_SECTIONS))
+def test_a_section_5_0_removed_is_one_red_input_line_naming_its_replacement_and_its_contents_are_not_read(shop, capsys, section):
+    text, line = REMOVED_SECTIONS[section]
+    add_entry(shop, '\n' + text)
+    result = evaluate(shop, head(shop))
+    # one red for the section, whatever it holds: no entry is read from it, no deprecation notice is printed
+    assert (result.red, result.grey, result.sections, result.entries) == ([], [], [section], 1), result
     assert capsys.readouterr().err == ''
-    add_entry(shop, '\n[' + section + ']\n')
-    assert reader(load_config(shop)) == empty
-    assert capsys.readouterr().err.splitlines() == [
-        'deprecated: ledger [' + section + '] goes in 5.0' + replacement]
+    checked = cli(shop, 'ledger', 'check')
+    assert checked.returncode == 1 and checked.stdout.splitlines() == [
+        'FlowGuard fallback ledger: 1 entries (1 legacy), 1 code handlers; 1 red, 0 unverified', 'red: .flowguard/' + line], checked.stdout
+    static = cli(shop, 'check', '--static')
+    assert static.returncode == 1 and 'red: ' + line in static.stdout.splitlines(), static.stdout + static.stderr
+    assert 'deprecated: ' not in static.stdout + static.stderr
+    # a pytest session says the same line in its block
+    session = pytest_run(shop)
+    assert session.returncode == 1 and 'red: ' + line in session.stdout.splitlines(), session.stdout + session.stderr
+    # an empty section is still the section
+    (shop / ledger.LEDGER).write_text((shop / ledger.LEDGER).read_text(encoding='utf-8').replace(text, '[' + section + ']\n'),
+                                      encoding='utf-8')
+    assert evaluate(shop, head(shop)).sections == [section]
 
 
 def test_word_count_reads_latin_words_and_cjk_characters():

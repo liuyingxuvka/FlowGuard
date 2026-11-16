@@ -4,9 +4,10 @@ Each check reads the one map (`MapHandle.writes()`, `value_sets()`, `queries()`,
 `schema_gaps()`, `label_tables()`, `call_tree()`): a value outside its declared set, a delete that leaves
 restricting children, a column one description of a table lacks, two same-name functions whose bodies differ.
 Every problem, old ones too, is an `Issue` with a stable name and its members, those this change added fresh;
-`signals.deliver` gives each member its line. The owner's decision in the `[structure]` section of
-`.flowguard/ledger.toml` (eight words or more, sourced from stored owner words or a written rule)
-closes an issue; a decision on who writes a field also needs its `owner ... writers=` anchor.
+`signals.deliver` gives each member its line. The owner's decision on an issue is a `.flowguard/known.toml` entry
+that names it (`python -m flowguard known add NAME --act leave|ignore --why TEXT`, read by `signals.deliver`): one
+with `act = "leave"` turns the issue's before lines into known lines, one with `act = "ignore"` counts its members
+without a line where its family may be ignored. An issue keeps its name from run to run, so the entry keeps naming it.
 """
 from __future__ import annotations
 
@@ -469,8 +470,8 @@ def delete_rules(change):
 def _module_functions(change, *, before=False):
     """The module-level production functions `copies` compares, in path and line order: (id, file, qual,
     fp, line, shape). `before` reads each file this change edits from its baseline bytes, as the code stood
-    when the owner decided on its problems; a file the change adds has none then, and one it deletes is
-    left out (its functions are no one's copy any more)."""
+    at the task's start; a file the change adds has none then, and one it deletes is left out (its functions are
+    no one's copy any more)."""
     rows = [row for row in change.graph.con.execute(
         "SELECT n.id, n.file, n.qual, n.fp, n.line, n.shape FROM node n JOIN file f ON f.path = n.file "
         "WHERE n.kind = 'function' AND f.is_test = 0 AND n.qual NOT LIKE '%.%' AND n.qual NOT LIKE '<%'")
@@ -752,33 +753,7 @@ def _table_changed(change, table):
     return not old or {key: value for key, value in old[0]['values'].items() if key} != table['values']
 
 
-# ---- decisions, touched issues, the --all section and the brief ----------------------------------
-
-def decided(cfg, index, issues, decisions=None):
-    """(open issues, input findings): issues the `[structure]` section decides are closed; a decision on who writes a
-    field without its owner anchor is an input finding, red, with the anchor line to copy. The section itself is a
-    5.0-deprecated feature: reading it prints the deprecated line (`ledger.structure_decisions`); `decisions` are the
-    decisions a change already read (`owners.Change.decisions`)."""
-    from .ledger import LEDGER, STRUCTURE, structure_decisions
-    if decisions is None:
-        decisions = structure_decisions(cfg)[0]    # malformed decisions are the ledger's red lines
-    owned = {anchor.name.casefold() for anchor in index.entries if anchor.kind == 'owner'}
-    wrong = []
-    for name in sorted(decisions):
-        kind, _, target = name.partition(':')
-        if kind == 'writers' and target.casefold() not in owned:
-            issue = next((item for item in issues if item.name == name), None)
-            anchor = issue.step.partition(' should own {target}, write '.format(target=issue.name.partition(':')[2]))[2] \
-                .partition(' with only the writers')[0] if issue else \
-                f'# flowguard: writers {target} <function,...> (use // for JS/TS)'
-            wrong.append(Issue(f'structure-decision:{name}', LINES_ONLY, f'decision {name}',
-                               f'Structure decision [structure."{name}"] records responsibility but has no writers agreement '
-                               f'-> add beside the responsible function: {anchor}', f'add {anchor}',
-                               files=frozenset({LEDGER}), family='input', subject=f'ledger [{STRUCTURE}."{name}"]',
-                               parts=(('', f'{LEDGER}:[{STRUCTURE}."{name}"]', 'records who writes the field, but no writers agreement exists',
-                                       f'add beside the responsible function: {anchor}'),), fresh=frozenset({''})))
-    return [issue for issue in issues if issue.name not in decisions], wrong
-
+# ---- the brief ---------------------------------------------------------------------------------
 
 def _order(issues):
     """By severity; fields without an owner by how many files write them, the most first."""
@@ -803,16 +778,8 @@ def brief_line(cfg):
             + '; highest severity: ' + '; '.join(data['top']) + ' (last check; check --static --all lists every issue and next step)')
 
 
-def assess(cfg, change, index, found):
-    """Close the issues the owner decided and add the decision findings to `found`; `found.summary` is for the
-    session brief. For the 4.3 lines a decided issue leaves `found.issues` (its name goes to `found.decided`, counted
-    as an ignore entry is) only when its family may be ignored: a decision never closes a finding that can be red."""
-    from .signals import FAMILIES
-    issues, wrong = decided(cfg, index, found.issues, change.decisions())
-    still = {issue.name for issue in issues}
-    closed = [issue for issue in found.issues if issue.name not in still and issue.family in FAMILIES and FAMILIES[issue.family][2]]
-    found.decided.extend(dict.fromkeys(issue.name for issue in closed))
-    gone = {id(issue) for issue in closed}
-    found.issues = [issue for issue in found.issues if id(issue) not in gone] + wrong
-    found.summary = summary(issues)
+def assess(found):
+    """`found` with its `summary` for the session brief (`summary` of every issue it holds): a known.toml entry closes
+    no issue here, it only changes the issue's lines (`signals.deliver`)."""
+    found.summary = summary(found.issues)
     return found

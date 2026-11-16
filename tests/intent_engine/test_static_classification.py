@@ -222,7 +222,7 @@ def test_declarations_that_already_differed_are_before_in_a_touched_file_and_new
         ('impact', "declarations Tone: app/c.ts:1 declares 'x' | 'y'; app/d.ts:1 declares 'x' | 'z'")]
 
 
-# ---- [structure] decisions, the deprecated heuristics, changed-alone --------------------------------------
+# ---- the [structure] section 5.0 removed, the deprecated heuristics, changed-alone ------------------------------
 
 DECISION = '''
 [structure."uncreated:Ghost"]
@@ -233,20 +233,6 @@ source = { file = "docs/owner.md", text = "Ghost rows come from the nightly impo
 decision = "The owner said only the service may write this state field"
 source = { file = "docs/owner.md", text = "Ghost rows come from the nightly import." }
 '''
-
-
-def test_a_structure_decision_closes_its_finding_and_one_without_its_anchor_is_an_input_red(tmp_path, capsys):
-    _commit(tmp_path, {'prisma/schema.prisma': PARENTS + SCHEMA, 'app/remove.ts': REMOVE % 'id',
-                       'docs/owner.md': 'Ghost rows come from the nightly import.\n', '.flowguard/ledger.toml': DECISION})
-    _write(tmp_path, {'app/remove.ts': REMOVE % "id + ''"})
-    found = _found(tmp_path)
-    assert 'uncreated:Ghost' in found.decided and not [issue for issue in found.issues if issue.name == 'uncreated:Ghost']
-    wrong = _issue(found, 'structure-decision:writers:Item.state')
-    assert (wrong.family, wrong.fresh, wrong.parts[0][1]) == ('input', frozenset({''}), '.flowguard/ledger.toml:[structure."writers:Item.state"]')
-    assert _kinds(_deliver(found), wrong.name) == [('red', '')]
-    # The section is deprecated and names its replacement (design 6.2).
-    assert ('deprecated: ledger [structure] goes in 5.0 -> write [known.<id>] in .flowguard/known.toml '
-            'with act = "ignore" or "leave"') in capsys.readouterr().err.splitlines()
 
 
 def test_label_spelling_leads_get_no_line_and_are_kept_for_show_last(tmp_path):
@@ -436,14 +422,17 @@ def summary(days: int) -> bool:
     assert all(ord(character) < 128 for line in lines for character in line.text + line.step)
 
 
-def test_the_static_assembly_reads_the_deprecated_structure_section_once(tmp_path, capsys):
+def test_the_static_assembly_never_reads_the_structure_section_5_0_removed(tmp_path, capsys):
+    # 4.3 closed a finding its [structure] decision named and made a decision on who writes a field without its
+    # anchor an input red; 5.0 reads no decision (the ledger reports the section itself as red, test_ledger.py).
     entry = _write_state('setOne', field='note')
-    _commit(tmp_path, {'prisma/schema.prisma': SCHEMA + GHOST, 'app/one.ts': entry,
+    _commit(tmp_path, {'prisma/schema.prisma': PARENTS + SCHEMA, 'app/one.ts': entry, 'app/remove.ts': REMOVE % 'id',
                        'docs/owner.md': 'Ghost rows come from the nightly import.\n', '.flowguard/ledger.toml': DECISION})
     _write(tmp_path, {'app/one.ts': entry.replace("note: 'x'", "note: 'x', state: 'y'")})
     found = _found(tmp_path)
     assert [line.kind for line in found.lines] == ['impact']            # field_impact asked for the open writers
-    assert len([line for line in capsys.readouterr().err.splitlines() if line.startswith('deprecated: ledger [structure]')]) == 1
+    assert _issue(found, 'uncreated:Ghost') and not [issue for issue in found.issues if issue.name.startswith('structure-decision:')]
+    assert capsys.readouterr().err == ''
 
 
 def test_the_baseline_writes_are_read_once_for_every_writers_agreement_and_the_old_copies_only_when_files_changed(

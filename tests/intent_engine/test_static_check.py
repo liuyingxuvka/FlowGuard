@@ -466,16 +466,7 @@ def test_a_value_set_problem_takes_the_name_4_1_gave_its_field_and_a_further_set
     # a folder is named by its name and '/', as a file by its name
     assert ('before: columns migrations/ against prisma/schema.prisma at migrations/ was broken at task start -> leave it unless your task '
             'is about it') in _block(text, everything=True), text
-    # the decision a 4.1 project recorded on that field still closes it (its problem leaves the open ones); a
-    # finding that can be red keeps its line (design 4.7: only act = "ignore" of known.toml hides a line)
-    sentence = 'Old accounts keep the status gone until the cleanup job removes them.'
-    _write(tmp_path, {'docs/decisions.md': sentence + '\n', '.flowguard/ledger.toml': (
-        '[structure."values:Account.status"]\ndecision = "old accounts keep the status gone until the cleanup job removes them"\n'
-        f'source = {{ file = "docs/decisions.md", text = "{sentence}" }}\n')})
-    code, text = _static(tmp_path, '--all')
-    assert code == 0 and [line for line in _block(text, everything=True) if line.startswith('before: values ')] == lines, text
     assert _detail(tmp_path, 'before: values Note.tone ') == ['declared at web/types.ts:1']
-    assert cache.structure_summary(_config(tmp_path))['count'] == 2
     # an enum of the schema in use takes the plain name; the CHECK and the TS type add their place
     _write(tmp_path, {'prisma/schema.prisma': 'enum Tone {\n  X\n  Y\n}\n\nenum Status {\n  open\n  closed\n}\n\n'
                                               + schema.replace('tone String', 'tone Tone').replace('status String', 'status Status')})
@@ -854,7 +845,7 @@ def test_a_typed_object_in_a_file_that_declares_its_type_without_a_set_is_not_ju
 def test_typescript_sets_of_one_name_from_aliases_of_one_file_keep_apart_names(tmp_path):
     # r25 check of the gate-6 fix: a TS set's further name added the file its alias came from, so three
     # components' `interface Props { variant: XVariant }` of one variants.ts got two equal names and one
-    # decision closed both.
+    # decision closed both (5.0: a known.toml entry names one of them).
     _commit(tmp_path, {
         'src/variants.ts': "export type BadgeVariant = 'info' | 'warning';\nexport type ButtonVariant = 'primary' | 'secondary';\n"
                            "export type LinkVariant = 'plain' | 'underline';\n",
@@ -865,25 +856,30 @@ def test_typescript_sets_of_one_name_from_aliases_of_one_file_keep_apart_names(t
         from flowguard.intent import health, owners
         names = sorted(issue.name for issue in health.values(owners.Change(_config(tmp_path), graph, None)).issues)
     assert names == ['values:Props.variant', 'values:Props.variant:src/Button.tsx', 'values:Props.variant:src/Link.tsx'], names
-    sentence = 'The link component keeps the nope variant until the design review ends.'
-    _write(tmp_path, {'docs/decisions.md': sentence + '\n', '.flowguard/ledger.toml': (
-        '[structure."values:Props.variant:src/Link.tsx"]\ndecision = "the link component keeps the nope variant until the design review ends"\n'
-        f'source = {{ file = "docs/decisions.md", text = "{sentence}" }}\n')})
     code, text = _static(tmp_path, '--all')
-    # the decision closes Link's problem alone (the open problems drop by one); a finding that can be red keeps its line
+    # each set is one problem and keeps its line
     assert code == 0 and [line for line in _block(text, everything=True) if line.startswith('before: values ')] == [
         f'before: values Props.variant at {name}.tsx:3 was broken at task start -> leave it unless your task is about it'
         for name in ('Badge', 'Button', 'Link')], text
     assert [_detail(tmp_path, f'before: values Props.variant at src/{name}.tsx:3 ') for name in ('Badge', 'Button', 'Link')] == [
         ['declared at BadgeVariant (src/variants.ts:1)'], ['declared at ButtonVariant (src/variants.ts:2)'],
         ['declared at LinkVariant (src/variants.ts:3)']]
-    assert cache.structure_summary(_config(tmp_path))['count'] == 2
+    assert cache.structure_summary(_config(tmp_path))['count'] == 3
+    # a known.toml entry names Link's problem alone: its line turns known, the other two stay before
+    code, text = _flowguard(tmp_path, 'known', 'add', 'values:Props.variant:src/Link.tsx', '--act', 'leave', '--why',
+                            'the link component keeps the nope variant until the design review ends', '--site', 'src/Link.tsx:link')
+    assert code == 0, text
+    code, text = _static(tmp_path, '--all')
+    assert code == 0 and [line for line in _block(text, everything=True) if line.startswith(('before: values ', 'known: '))] == [
+        f'before: values Props.variant at {name}.tsx:3 was broken at task start -> leave it unless your task is about it'
+        for name in ('Badge', 'Button')] + ['known: known.values-props-variant-src-link-tsx at Link.tsx:3 -> left as it is on purpose; '
+                                            'yours to change only if your task is about it'], text
 
 
 def test_a_guessed_schemas_enum_keeps_the_plain_name_beside_a_check_as_4_1_named_it(tmp_path):
     # r25 check of the gate-6 fix: 4.1 read every Prisma enum, a guessed template's too, before a CHECK, so its
     # one problem of the field was the enum's; the RC gave the plain name to the CHECK, and the problem a 4.1
-    # decision had closed came back under the enum's file.
+    # decision had closed came back under the enum's file (5.0: a known.toml entry names it so).
     schema = ('model Account {\n  id     String @id\n  status %s\n  @@map("accounts")\n}\n')
     _commit(tmp_path, {
         'prisma/schema.postgres.prisma': 'datasource db {\n  provider = "postgresql"\n  url      = env("DATABASE_URL")\n}\n\n'
@@ -901,20 +897,15 @@ def test_a_guessed_schemas_enum_keeps_the_plain_name_beside_a_check_as_4_1_named
         from flowguard.intent import health, owners
         names = sorted(issue.name for issue in health.values(owners.Change(_config(tmp_path), graph, None)).issues)
     assert names == ['values:Account.status', 'values:Account.status:prisma/migrations/'], names
-    sentence = 'Imported accounts keep the status zzz until the migration job maps them.'
-    _write(tmp_path, {'docs/decisions.md': sentence + '\n', '.flowguard/ledger.toml': (
-        '[structure."values:Account.status"]\ndecision = "imported accounts keep the status zzz until the migration job maps them"\n'
-        f'source = {{ file = "docs/decisions.md", text = "{sentence}" }}\n')})
     code, text = _static(tmp_path, '--all')
-    # the 4.1 decision closes the enum's problem, as in 4.1 (the open problems are the CHECK's, which 4.1 did not read
-    # beside it, and the declarations that differ); a finding that can be red keeps its line
+    # each set keeps its line (the enum's, the CHECK's, which 4.1 did not read beside it, and the declarations that differ)
     assert code == 0 and _block(text, everything=True)[:2] == [
         'before: values Account.status at a.ts:add was broken at task start -> leave it unless your task is about it'] * 2, text
     shown = _cli_fixture.last(tmp_path).splitlines()
     assert [shown[index + 1].strip() for index, line in enumerate(shown) if line.startswith('before: values ')] == [
         'declared at CHECK prisma/migrations/001/migration.sql:1',
         'declared at enum Status (prisma/schema.postgres.prisma:6, generator schema not found; checked against all schemas in this package)']
-    assert cache.structure_summary(_config(tmp_path))['count'] == 1
+    assert cache.structure_summary(_config(tmp_path))['count'] == 2
 
 
 def test_a_schema_folder_at_the_repository_root_keeps_its_name_in_the_brief(tmp_path):
@@ -1974,9 +1965,9 @@ def test_the_ondelete_lead_names_the_relations_the_change_added_and_the_listing_
     assert code == 0 and _block(text, everything=True) == [impact], text
 
 
-def test_an_ondelete_pair_keeps_its_name_and_its_decision_when_the_other_schema_becomes_the_larger(tmp_path):
+def test_an_ondelete_pair_keeps_its_name_and_its_known_entry_when_the_other_schema_becomes_the_larger(tmp_path):
     # Round 23 review: the pair is read against the larger of two schemas in use; tables added to the smaller
-    # one turned the pair round, renamed the problem and voided the owner's decision.
+    # one turned the pair round, renamed the problem and voided the owner's decision (5.0: its known.toml entry).
     a = _rooms('sqlserver', [('Room', 'NoAction')], 'model Hall {\n  id String @id\n}\n')
     b = _rooms('sqlserver', [('Room', 'Cascade')])
     _commit(tmp_path, {'prisma/a.prisma': a, 'prisma/b.prisma': b})
@@ -1984,7 +1975,6 @@ def test_an_ondelete_pair_keeps_its_name_and_its_decision_when_the_other_schema_
     assert 'before: onDelete b.prisma against prisma/a.prisma at b.prisma was broken at task start -> leave it unless your task is about it' \
         in _block(text, everything=True), text
     assert 'ondelete:prisma/a.prisma~prisma/b.prisma' in _names(tmp_path), _names(tmp_path)
-    name = '[structure."ondelete:prisma/a.prisma~prisma/b.prisma"]'
     _write(tmp_path, {'prisma/b.prisma': b + 'model Shed {\n  id String @id\n}\n\nmodel Barn {\n  id String @id\n}\n'})
     turned = 'before: onDelete a.prisma against prisma/b.prisma at a.prisma was broken at task start -> leave it unless your task is about it'
     code, text = _static(tmp_path, '--all')
@@ -1994,9 +1984,9 @@ def test_an_ondelete_pair_keeps_its_name_and_its_decision_when_the_other_schema_
     # the change added no difference: the pair is before, as the change touches one of its schemas
     assert _block(text) == [turned, 'impact: columns a.prisma against prisma/b.prisma: a.prisma lacks missing table Barn; missing table Shed '
                                     '-> fix it, or say why in your report'], text
-    _write(tmp_path, {'docs/decisions.md': 'The SQL Server schema keeps NoAction because of multiple cascade paths.\n',
-                      '.flowguard/ledger.toml': name + '\ndecision = "the second schema cascades on purpose, the owner keeps both"\n'
-                      'source = { file = "docs/decisions.md", text = "The SQL Server schema keeps NoAction because of multiple cascade paths." }\n'})
+    code, text = _flowguard(tmp_path, 'known', 'add', 'ondelete:prisma/a.prisma~prisma/b.prisma', '--act', 'ignore', '--why',
+                            'the second schema cascades on purpose, the owner keeps both', '--site', 'prisma/b.prisma:Room.unitId')
+    assert code == 0, text
     code, text = _static(tmp_path, '--all')
     assert code == 0 and not [line for line in _block(text, everything=True) if 'onDelete ' in line], text
 
@@ -2084,11 +2074,17 @@ ADDED = {
 }
 
 
+# kind: the --site options known add needs where the finding's places are files, not path:symbol
+SITES = {'deletes': (), 'columns': ('--site', 'prisma/schema.prisma:Unit.code'),
+         'ondelete': ('--site', 'prisma/schema.sqlite.prisma:Room.unitId'), 'labels': ()}
+
+
 @pytest.mark.parametrize('kind', sorted(ADDED))
 def test_a_structure_problem_the_owner_decided_gets_no_line_when_a_change_adds_it(tmp_path, kind):
     # Round 23 review: a decision in [structure] closed the problem in --all, but a change that added to it
     # still got the lead with a ledger entry to copy, which would have duplicated the decided table. 4.3: the change's
-    # impact line, and none once decided (counted as an ignore entry is).
+    # impact line, and none once decided (counted as an ignore entry is). 5.0: the decision is a known.toml entry with
+    # act = "ignore", written by known add from the last run's line.
     before, change, name = ADDED[kind]
     _commit(tmp_path, before)
     base = _git(tmp_path, 'rev-parse', 'HEAD').strip()
@@ -2101,10 +2097,11 @@ def test_a_structure_problem_the_owner_decided_gets_no_line_when_a_change_adds_i
         lines, ignored = signals.collect([], found)
         return [line.kind for line in lines if line.name == name] or ignored * ['ignored']
     assert leads() == ['impact'], kind
-    sentence = 'The owner keeps this difference on purpose and reviews it every release.'
-    _write(tmp_path, {'docs/decisions.md': sentence + '\n', '.flowguard/ledger.toml': (
-        f'[structure."{name}"]\ndecision = "the owner keeps this difference on purpose and reviews it every release"\n'
-        f'source = {{ file = "docs/decisions.md", text = "{sentence}" }}\n')})
+    code, text = _static(tmp_path)
+    assert code == 0 and name in _names(tmp_path), (kind, text)
+    code, text = _flowguard(tmp_path, 'known', 'add', name, '--act', 'ignore', '--why',
+                            'the owner keeps this difference on purpose and reviews it every release', *SITES[kind])
+    assert code == 0, (kind, text)
     assert leads() == ['ignored'], kind
 
 
@@ -2507,113 +2504,20 @@ def test_a_comment_above_a_function_with_callbacks_does_not_touch_its_structure_
     assert code == 0 and _block(text) == [] and touched() == ['typescript/src/hold.ts:holdJobs'], text      # an edit inside it does
 
 
-def test_a_structure_decision_closes_its_problem_and_a_decided_owner_needs_its_anchor(tmp_path):
+def test_a_writers_agreement_on_an_open_writers_problem_leaves_the_writes_outside_it_before(tmp_path):
+    # Without an agreement the field's writers are listed with --all; once one names them (the step of the writers
+    # problem), what writes Job.status outside it was there at the baseline. 4.3 also read a [structure] decision on
+    # the problem here; 5.0 reads none.
     _commit(tmp_path, WRITERS)
-    (tmp_path / 'owner.txt').write_text('Job.status belongs to the close workflow; the other writers must call it.\n')
-    code, text = _flowguard(tmp_path, 'req', 'add', str(tmp_path / 'owner.txt'), '--id', 'R1')
-    assert code == 0, text
-    ledger = tmp_path / '.flowguard/ledger.toml'
-    ledger.write_text('[structure."writers:Job.status"]\ndecision = "too short"\nsource = "R1"\n', encoding='utf-8')
-    code, text = _static(tmp_path, '--all')
-    assert code == 1 and 'Structure decision [structure."writers:Job.status"]: decision needs at least 8 words' in text, text
-    ledger.write_text('[structure."writers:Job.status"]\ndecision = "close owns the status; hold and reopen will call close later"\n'
-                      'source = "R9"\n', encoding='utf-8')
-    code, text = _static(tmp_path, '--all')
-    assert code == 1 and 'source "R9" is not stored owner wording' in text, text
-    ledger.write_text('[structure."writers:Job.status"]\ndecision = "close owns the status; hold and reopen will call close later"\n'
-                      'source = "R1"\n', encoding='utf-8')
-    code, text = _static(tmp_path, '--all')
-    # decided: the writers of Job.status are no longer listed
-    assert code == 1 and _block(text, everything=True) == [
-        'red: ledger [structure."writers:Job.status"]: ledger.toml:[structure."writers:Job.status"] records who writes the field, but no '
-        'writers agreement exists -> add beside the responsible function: # flowguard: writers Job.status '
-        'shop/close.py:close,shop/hold.py:hold,shop/reopen.py:reopen'], text
-    close = tmp_path / 'shop/close.py'
-    close.write_text('# flowguard: owner Job.status writers=close,hold,reopen\n' + close.read_text())
-    code, text = _static(tmp_path, '--all')
-    # the agreement holds now; what writes Job.status outside it was there at the baseline
-    assert code == 0 and _block(text, everything=True) == [
-        'before: writers Job.status at models.py:Job was broken at task start -> leave it unless your task is about it'], text
-
-
-LATER = 'these fields require a newer FlowGuard; upgrade before reviewing them'
-CLOSES = '. This entry closes no issue in the current version'
-
-
-def test_a_structure_entry_with_fields_of_a_later_flowguard_is_unverified_and_closes_nothing(tmp_path):
-    # Round 22 F5: FlowGuard 4.3 adds `status`, `sites`, `why`, `fix`, `ask` and `evidence` to [structure] entries.
-    # 4.2 read a ledger written so as red ("未知字段 status"): a project on 4.3 and a clone still on 4.2 disagreed.
-    _commit(tmp_path, WRITERS)
-    ledger = tmp_path / '.flowguard/ledger.toml'
-    ledger.parent.mkdir(exist_ok=True)
-    ledger.write_text('[structure."writers:Job.status"]\nstatus = "known"\nsites = ["shop/hold.py:hold"]\n'
-                      'why = "hold and reopen write the status beside close; the owner has not decided who owns it"\n'
-                      'fix = "let hold and reopen call close"\n', encoding='utf-8')
-    _commit(tmp_path, message='a 4.3 entry')
-    grey = 'Structure entry [structure."writers:Job.status"] has fields this version does not recognize: fix, sites, status, why; ' + LATER
     writers = [f'before: no writers agreement for Job.status at {name}.py:{name} was broken at task start -> leave it unless your task is '
                'about it' for name in ('close', 'hold', 'reopen')]
     code, text = _static(tmp_path, '--all')
-    # the entry closes no problem; the ledger is not compared, with the entry's reason (show --last in full)
-    assert code == 0 and _block(text, everything=True) == writers + ['not compared: ledger.toml -> not a failure'], text
-    assert unchecked(tmp_path) == {'.flowguard/ledger.toml': [grey + CLOSES]}, text
-    code, text = _flowguard(tmp_path, 'ledger', 'check')
-    assert code == 0 and 'not checked: ' + grey in text, text
-    for run in (lambda: _static(tmp_path), lambda: _flowguard(tmp_path, 'check')):
-        code, text = run()
-        assert code == 0 and _block(text) == [
-            'not compared: ledger.toml (Structure entry [structure."writers:Job.status"] has fields this version does...) -> not a failure'], text
-        assert unchecked(tmp_path) == {'.flowguard/ledger.toml': [grey + CLOSES]}, text
-    # pytest's block: one not compared line for the ledger, the entry's reason in show --last.
-    code, text = _pytest(tmp_path)
-    assert code == 0 and not re.search(r'^red: ', text, re.M), text
-    assert ('not compared: ledger.toml (Structure entry [structure."writers:Job.status"] has fields this version does...) '
-            '-> not a failure') in text.splitlines(), text
-    assert any(grey in reason for reason in unchecked(tmp_path)['.flowguard/ledger.toml']), text
-    # A decision with a field of a later FlowGuard beside it does not close its problem either.
-    (tmp_path / 'owner.txt').write_text('Job.status belongs to the close workflow; the other writers must call it.\n')
-    assert _flowguard(tmp_path, 'req', 'add', str(tmp_path / 'owner.txt'), '--id', 'R1')[0] == 0
-    ledger.write_text('[structure."writers:Job.status"]\ndecision = "close owns the status; hold and reopen will call close later"\n'
-                      'source = "R1"\nevidence = "the owner said so in the review"\n', encoding='utf-8')
+    assert code == 0 and _block(text, everything=True) == writers, text
+    close = tmp_path / 'shop/close.py'
+    close.write_text('# flowguard: writers Job.status shop/close.py:close,shop/hold.py:hold,shop/reopen.py:reopen\n' + close.read_text())
     code, text = _static(tmp_path, '--all')
-    assert code == 0 and unchecked(tmp_path) == {'.flowguard/ledger.toml': [
-        'Structure entry [structure."writers:Job.status"] has fields this version does not recognize: evidence; ' + LATER + CLOSES]}, text
-    assert _block(text, everything=True)[:3] == writers and not _lines(text, 'red: '), text
-
-
-def test_a_later_field_leaves_the_known_fields_checked_and_a_misspelt_field_stays_red(tmp_path):
-    # Round 22 F5 review: an entry with any field this version does not know was set aside unread, so a misspelt
-    # `decison` was no longer red (exit 0) and the unstored source beside it was not shown at all.
-    _commit(tmp_path, WRITERS)
-    ledger = tmp_path / '.flowguard/ledger.toml'
-    ledger.parent.mkdir(exist_ok=True)
-    entry = '[structure."writers:Job.status"]\n'
-    decision = 'decision = "close owns the status; hold and reopen will call close later"\n'
-    ledger.write_text(entry + decision.replace('decision', 'decison', 1) + 'source = "R1"\n', encoding='utf-8')
-    _commit(tmp_path, message='a misspelt entry')
-    code, text = _flowguard(tmp_path, 'ledger', 'check')
-    assert code == 1 and ('red: Structure decision [structure."writers:Job.status"]: unknown field decison (did you mean decision?); missing decision; source "R1" is not stored owner wording') in text, text
-    ledger.write_text(entry + decision + 'sorce = "R1"\n', encoding='utf-8')
-    code, text = _flowguard(tmp_path, 'ledger', 'check')
-    assert code == 1 and ': unknown field sorce (did you mean source?); missing source' in text, text
-    # A field of a later FlowGuard beside an unstored source: unverified, the source's error on the same line.
-    ledger.write_text(entry + decision + 'source = "R1"\nevidence = "the owner said so in the review"\n', encoding='utf-8')
-    code, text = _flowguard(tmp_path, 'ledger', 'check')
-    line = next(line for line in text.splitlines() if 'evidence' in line)
-    assert code == 0 and 'red: ' not in text and line.startswith('not checked: Structure entry [structure."writers:Job.status"] has fields this version does not recognize: evidence; ' + LATER), text
-    assert 'source "R1" is not stored owner wording' in line, line
-    # Second review: a field near decision or source beside that very field is no misspelling of it but another
-    # field (`sources` beside `source`, `revision` beside `decision`): unverified, not red.
-    for extra in ('sources = ["R1"]\n', 'revision = 2\n'):
-        ledger.write_text(entry + decision + 'source = "R1"\n' + extra, encoding='utf-8')
-        code, text = _flowguard(tmp_path, 'ledger', 'check')
-        name = extra.partition(' ')[0]
-        line = next((line for line in text.splitlines() if 'does not recognize: ' + name in line), None)
-        assert code == 0 and 'red: ' not in text and line and line.startswith('not checked: '), text
-    # Without the field it is near, it is that field misspelt, as before.
-    ledger.write_text(entry + decision + 'sources = "R1"\n', encoding='utf-8')
-    code, text = _flowguard(tmp_path, 'ledger', 'check')
-    assert code == 1 and ': unknown field sources (did you mean source?); missing source' in text, text
+    assert code == 0 and _block(text, everything=True) == [
+        'before: writers Job.status at models.py:Job was broken at task start -> leave it unless your task is about it'], text
 
 
 def test_the_session_brief_names_the_heaviest_open_structure_problems_in_one_line(tmp_path):

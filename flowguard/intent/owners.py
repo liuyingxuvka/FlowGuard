@@ -46,7 +46,6 @@ class Findings:
                                                     # (a known entry's `known fixed?`; `families_ran`)
     touched_functions: frozenset = frozenset()      # what this change edits or adds: a finding's member there is
     touched_files: frozenset = frozenset()          # touched (`deliver`); files for a file-level member
-    decided: list = field(default_factory=list)     # the issues a `[structure]` decision closed (counted, no line)
 
     def extend(self, other):
         self.issues.extend(other.issues)
@@ -56,7 +55,6 @@ class Findings:
         self.ran |= other.ran
         self.touched_functions |= other.touched_functions
         self.touched_files |= other.touched_files
-        self.decided.extend(other.decided)
         for key, value in other.stats.items():
             self.stats[key] = self.stats.get(key, 0) + value
         return self
@@ -114,12 +112,6 @@ class Change:
         if key not in self._held:
             self._held[key] = compute()
         return self._held[key]
-
-    def decisions(self):
-        """The ledger's `[structure]` decisions (`ledger.structure_decisions`), read once for every check of this change:
-        the section is a 5.0-deprecated feature, and each read prints its deprecation line."""
-        from .ledger import structure_decisions
-        return self.held('structure decisions', lambda: structure_decisions(self.cfg)[0])
 
     def impact(self):
         """The map's changed, added and removed ids against the baseline (read once)."""
@@ -1556,15 +1548,12 @@ def _project_spellings(change, groups):
     return kept
 
 
-def changed_once(change, decided=(), index=None):
+def changed_once(change, index=None):
     """A changed function whose baseline body (the fingerprint without name and docstring) an unchanged
-    function still has: the copy this edit probably also needed. Static; `check` compares behavior. A member
-    of a copies family the owner decided (`[structure."copies:a+b"]`; `decided` holds the member functions of
-    each such health.copies issue as it stood at the baseline, the code the owner decided on) does not count
-    the other members of that family; a function of the same name outside it (a method, an exact copy the
-    family leaves out) still counts. A copy registered with the changed function as copies of one same name
-    (`index`, the flowguard comments) is not counted either: that name's comparison already covers them, and
-    the lead never asks to register what is registered (`_lock_hint`)."""
+    function still has: the copy this edit probably also needed. Static; `check` compares behavior. A copy
+    registered with the changed function as copies of one same name (`index`, the flowguard comments) is not
+    counted: that name's comparison already covers them, and the lead never asks to register what is registered
+    (`_lock_hint`)."""
     from flowguard.structure.readers.registry import ECMA, language_for
     from flowguard.structure.store import shape_list
     found = Findings()
@@ -1599,11 +1588,10 @@ def changed_once(change, decided=(), index=None):
             similar = [(other, file, line) for other, file, line, shape in shapes
                        if other not in touched and other not in known and old_shape and shape
                        and len(old_shape & shape) / len(old_shape | shape) >= SIMILAR_FOREIGN]
-        fellows = set().union(*(members for members in decided if ident in members))
         own = registered.get(ident)
-        # the owner decided this family; copies registered with this function are compared as that name
-        twins = [item for item in twins if item[0] not in fellows and not (own and registered.get(item[0]) == own)]
-        similar = [item for item in similar if item[0] not in fellows and not (own and registered.get(item[0]) == own)]
+        # copies registered with this function are compared as that name
+        twins = [item for item in twins if not (own and registered.get(item[0]) == own)]
+        similar = [item for item in similar if not (own and registered.get(item[0]) == own)]
         if twins or similar:
             marked = [registered[other] for other in (ident, *(item[0] for item in [*twins, *similar])) if other in registered]
             name = marked[0] if marked else ident.partition(':')[2].rpartition('.')[2].strip('_').upper()
@@ -1777,7 +1765,7 @@ def field_impact(change, index):
     how many functions read its model (`MapHandle.queries`, and `MapHandle.sql_reads` of its table; model-level, tests
     included). Counts and one name only;
     `show NAME` lists them. A test's, a seed script's or a module's own code is no function this reports."""
-    from .health import _test_files, decided, written_field, writers
+    from .health import _test_files, written_field, writers
     from .signals import Line
     found = Findings()
     touched = change.touched() if change.baseline else set()
@@ -1812,7 +1800,7 @@ def field_impact(change, index):
             readers_of[model, table] = sorted({row_function(query) for query in [*graph.queries(model), *graph.sql_reads(table)]})
         readers = readers_of[model, table]
         if open_writers is None:
-            open_writers = {issue.name for issue in decided(change.cfg, index, writers(change, index).issues, change.decisions())[0]}
+            open_writers = {issue.name for issue in writers(change, index).issues}
         qual = function.partition(':')[2] or function
         text = (f'{qual} now writes {", ".join(added)}' if added else f'{qual} no longer writes {", ".join(removed)}') \
             + (f'; no longer writes {", ".join(removed)}' if added and removed else '') \
@@ -1848,16 +1836,7 @@ def static_findings(cfg, graph, index, base=None, *, everything=False, replay=Fa
         found.extend(old_value_leads(change))
         found.extend(copies_without_rule(change, index))
         if not replay:
-            decisions = change.decisions()
-            # A decided family as it stood at the baseline; one this task made (no problem of that name then) as it
-            # stands now, so the owner's decision on the problem the change just raised holds too.
-            decided = []
-            if any(name.startswith('copies:') for name in decisions):
-                then = change.held('copies before', lambda: health.copies(change, index, before=True)).issues
-                named = {issue.name for issue in then}
-                decided = [issue.nodes for issue in then if issue.name in decisions] + [
-                    issue.nodes for issue in copies.issues if issue.name in decisions and issue.name not in named]
-            found.extend(changed_once(change, decided, index))
+            found.extend(changed_once(change, index))
     if change.baseline or everything:
         found.extend(literal_drift(change, everything=everything))
     found.extend(health.deletes(change)).extend(health.columns(change))
@@ -1867,7 +1846,7 @@ def static_findings(cfg, graph, index, base=None, *, everything=False, replay=Fa
     if replay:
         found.extend(discover(cfg, graph, index, change, everything=everything))
         found.extend(changed_alone(cfg, graph, index, change))
-    found = families_ran(health.assess(cfg, change, index, found), index)
+    found = families_ran(health.assess(found), index)
     found.ran.add('pair')
     found.touched_functions, found.touched_files = touched_functions(change), frozenset(change.files)
     return found
@@ -2136,10 +2115,8 @@ def _category(same, total, shape, shared):
 def discover(cfg, graph, index, change, *, everything=False):
     """Unregistered look-alikes of each function owner, grouped by their results on its classes: a `copies:` finding
     of each diverged copy and each copy this change adds beside a reference the baseline had, and leads for `show
-    --last`. An owner whose copies the owner decided (`[structure."copies:NAME"]`, NAME its anchor name) gets no
-    leads."""
+    --last`."""
     found = Findings()
-    decisions = change.decisions()
     owners = _references(index)
     if not owners:
         return found
@@ -2203,10 +2180,8 @@ def discover(cfg, graph, index, change, *, everything=False):
         total = sum(len(group) for group in groups.values()) + len(unclear)
         if not total:
             continue
-        quiet = f'copies:{owner.name}' in decisions
         def lead(text):
-            if not quiet:
-                _hide(found, 'unregistered copy discovery', text)
+            _hide(found, 'unregistered copy discovery', text)
         lead(f'reference {label} has {total} suspected copies (candidates: {len(candidates)}; time: {seconds:.2f} seconds; '
                            f'{len(rows)} representative values; only comparable JSON inputs count; call-site reachability was not checked)'
                            f'-> choose one for each copy: call the reference; or write above the copy: # flowguard: same {owner.name}; '
@@ -2446,14 +2421,11 @@ def check_findings(cfg, graph, index, base=None, *, everything=False, static=Non
     if static is None:
         return static_findings(cfg, graph, index, base, everything=everything, replay=True)
     # Pytest already assembled the static facts. Replay remains outside its session and can add
-    # copy issues; assess those and refresh the combined summary without running the static checks twice.
+    # copy issues; the combined summary counts those without running the static checks twice.
     from . import health
     change = Change(cfg, graph, baseline(cfg, base))
     found = discover(cfg, graph, index, change, everything=everything).extend(changed_alone(cfg, graph, index, change))
-    found = health.assess(cfg, change, index, found)
-    found = families_ran(Findings().extend(static).extend(found), index)
-    found.summary = health.summary(health.decided(cfg, index, found.issues, change.decisions())[0])
-    return found
+    return health.assess(families_ran(Findings().extend(static).extend(found), index))
 
 
 def show_lines(cfg, graph, index, name):

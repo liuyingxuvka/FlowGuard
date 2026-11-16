@@ -18,8 +18,6 @@ EXCEPTIONS = {
     ('intent/ledger.py', '旧账'): 'the legacy rule marker `rule = "旧账"` of the fallback ledger, a saved value ledgers carry',
     ('intent/ledger.py', '换成真实的理由：这处做了什么、为什么可以留（不少于 8 个词）'):
         'the placeholder reason an earlier ledger init wrote, read so an unedited old entry stays refused',
-    ('intent/ledger.py', '换成真实的理由：为什么这个判断不再回放、由什么守住它（不少于 8 个词）'):
-        'the placeholder [unverified] reason an earlier ledger init wrote, read so an unedited old entry stays refused',
     ('intent/ledger.py', '成文规矩所在的文件'): 'the placeholder rule file an earlier ledger init wrote, read so it stays refused',
     ('intent/ledger.py', '该文件里必须出现的一句话'): 'the placeholder rule sentence an earlier ledger init wrote, read so it stays refused',
     ('intent/ledger.py', '[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uac00-\ud7af]'): 'counts Chinese, Japanese and Korean words of a reason',

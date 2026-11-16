@@ -1068,21 +1068,22 @@ class Observations:
         fallbacks = self.state.ledger()
         if self.state.ledger_judged and not fallbacks.grey:
             self.ran.add('ledger')          # every entry and handler compared with the map
-        from .ledger import LEDGER
+        from .ledger import LEDGER, section_removed
         for finding in fallbacks.red:
             places = (LEDGER, *re.findall(r'(?<![\w./-])[\w./-]+\.[A-Za-z]\w*:\d+', finding.text))   # the code it names
             key = self._found('ledger', f'ledger:{finding.text}', 'ledger', signals.ascii_text(finding.text), signals.LEDGER_STEP,
                               places=places, files=(LEDGER,), detail=list(finding.fix))      # the entry to copy, as it is
             if self.state.sentinel_ledger:
                 self.carried.add(key)       # the sentinel test already failed on it
+        for name in fallbacks.sections:     # a section 5.0 removed: one red input line, its contents unread
+            subject, what, step = section_removed(name)
+            self._found('input', f'ledger-section:{name}', subject, what, step, places=(LEDGER,), files=(LEDGER,))
         for reason in dict.fromkeys(self.grey):
             subject, why = signals._grey(signals.ascii_text(reason))
             self._unchecked(subject or why, [why])
-        for reason in fallbacks.later:              # a [structure] entry of a later FlowGuard: it checks nothing here
-            self._unchecked(LEDGER, [signals.ascii_text(reason)], places=(LEDGER,))
         report = dict(baseline=self.missing or self.runtime.baseline, baseline_kind=self.baseline_kind,
                       baseline_ahead=self.baseline_ahead,
-                      source_changed=self.changed or bool(self.mapped) or bool(fallbacks.later),
+                      source_changed=self.changed or bool(self.mapped),
                       comparison_requested=self.comparison_requested, items=items,
                       seconds=self.state.tool_seconds + getattr(self.runtime, 'seconds', 0) + time.perf_counter() - timing)
         delivery = self.delivery()

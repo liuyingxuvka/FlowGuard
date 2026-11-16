@@ -21,6 +21,10 @@ Other languages supply handler rows through their map reader with the same field
 the file suffix. `check --all` lists the legacy entries of production code whose handlers carry on with a
 substitute value, only log or are empty (`open_legacy`). A file whose reader cannot supply
 handlers, or that does not parse, is listed as not checked; it is never read as having no handlers.
+
+The `[structure]` and `[unverified]` sections, which FlowGuard 4.3 announced for removal, are gone in 5.0: a ledger
+that still has one gets one red input line naming it and what replaces it (`REMOVED_SECTIONS`); what it holds is not
+read.
 """
 from __future__ import annotations
 
@@ -34,7 +38,6 @@ import tomllib
 
 from flowguard.map.common import MapError, git_blob, glob_match
 from flowguard.structure.readers.registry import ECMA, language_for
-from .deprecation import warn
 
 LEDGER = '.flowguard/ledger.toml'
 INIT_RECORD = 'ledger-init.json'
@@ -46,11 +49,14 @@ _OLD_PLACEHOLDER_REASON = '换成真实的理由：这处做了什么、为什�
 _OLD_PLACEHOLDER_RULE = ('成文规矩所在的文件', '该文件里必须出现的一句话')
 MIN_WORDS = 8
 FIELDS = {'count', 'reason', 'rule'}
-UNVERIFIED = 'unverified'
-STRUCTURE = 'structure'         # [structure."name"]: the owner's decision on one structure problem
-SECTIONS = frozenset({UNVERIFIED, STRUCTURE})  # Named sections beside the handler entries.
-PLACEHOLDER_UNVERIFIED = 'Replace with the real reason: why this judgment is not replayed and what checks it instead (at least 8 words)'
-_OLD_PLACEHOLDER_UNVERIFIED = '换成真实的理由：为什么这个判断不再回放、由什么守住它（不少于 8 个词）'
+# The sections beside the handler entries that FlowGuard 5.0 removed (4.3 announced both), each with what a project does
+# instead. A ledger that still has one gets one red input line for it (`Result.sections`, `section_removed`); what the
+# section holds is never read.
+REMOVED_SECTIONS = {
+    'structure': ('delete the section and record each decision in .flowguard/known.toml: '
+                  'python -m flowguard known add NAME --act leave|ignore --why TEXT'),
+    'unverified': "delete the section; nothing replaces it: restore each rule's observability so it is checked again",
+}
 WARNING_FILTERS = {'warnings.simplefilter', 'warnings.filterwarnings', 'warnings.catch_warnings',
                    'pytest.mark.filterwarnings'}
 BROAD = {'Exception', 'BaseException', 'builtins.Exception', 'builtins.BaseException'}
@@ -103,8 +109,13 @@ class Result:
     fallbacks: int = 0
     red: list[Finding] = field(default_factory=list)
     grey: list[str] = field(default_factory=list)
-    # [structure] entries with fields of a later FlowGuard: unverified in a test run, also among `grey`
-    later: list[str] = field(default_factory=list)
+    sections: list[str] = field(default_factory=list)   # the REMOVED_SECTIONS the ledger still has, each one red line
+
+
+def section_removed(name):
+    """(subject, what, step) of the red input line of a section 5.0 removed (`REMOVED_SECTIONS`): pytest, `check` and
+    `check --static` say it in the block, and `ledger check` in the same words (`red: {subject}: {what} -> {step}`)."""
+    return LEDGER, f'[{name}] was removed in 5.0', REMOVED_SECTIONS[name]
 
 
 def path(cfg) -> Path:
@@ -177,7 +188,7 @@ def open_legacy(cfg, graph):
     ledger = path(cfg)
     if not ledger.is_file():
         return []
-    entries, _, malformed = parse(ledger.read_text(encoding='utf-8-sig'))
+    entries, _, malformed, _ = parse(ledger.read_text(encoding='utf-8-sig'))
     if malformed is None:
         return []
     found, _ = fallbacks(cfg, graph)
@@ -223,18 +234,17 @@ class Entry:
 
 
 def parse(text):
-    """({key: Entry}, [Finding], {malformed key}) from the ledger's text; every malformed entry is a red finding."""
+    """({key: Entry}, [Finding], {malformed key}, [section]) from the ledger's text: every malformed entry is a red
+    finding; `section` names each of the REMOVED_SECTIONS the text still has, whose contents are not read."""
     try:
         data = tomllib.loads(text)
     except tomllib.TOMLDecodeError as error:
-        return {}, [Finding(f"""Cannot read fallback ledger {LEDGER}: {error}""", ("correct this file's TOML syntax",))], None
-    entries, red, malformed = {}, [], set()
+        return {}, [Finding(f"""Cannot read fallback ledger {LEDGER}: {error}""", ("correct this file's TOML syntax",))], None, []
+    entries, red, malformed, sections = {}, [], set(), []
     for key, value in data.items():
-        if key == UNVERIFIED:
-            red.extend(_unverified_section(value)[1])
+        if key in REMOVED_SECTIONS:
+            sections.append(key)
             continue
-        if key in SECTIONS:
-            continue            # [structure] decisions are read and checked by structure_decisions
         if key.count(':') < 2 or not isinstance(value, dict):
             red.append(Finding(f"""Fallback ledger item {_quote(key)} is not an entry: the key must be "file:function:caught type" and the value a table""",
                                ('remove it, or write count, reason and rule below ["file:function:caught type"]',)))
@@ -265,41 +275,7 @@ def parse(text):
             malformed.add(key)
             continue
         entries[key] = Entry(key, count, reason, rule)
-    return entries, red, malformed
-
-
-def _unverified_section(value):
-    """({anchor or rule name: reason}, [Finding]) of the [unverified] section: observations that the baseline
-    code makes and the current code cannot, kept unverified on purpose. Each reason has at least eight words."""
-    warn('ledger [unverified]')
-    if not isinstance(value, dict):
-        return {}, [Finding(f"""Fallback ledger [{UNVERIFIED}] must be a table with one name = "reason" per line""",
-                            (f"""write one anchor or rule name = "reason" per line below [{UNVERIFIED}]""",))]
-    entries, red = {}, []
-    for name, reason in value.items():
-        if not isinstance(reason, str):
-            problem = 'reason must be a string'
-        elif reason.strip() in (PLACEHOLDER_UNVERIFIED, _OLD_PLACEHOLDER_UNVERIFIED):
-            problem = 'reason is still a placeholder: explain why replay is unavailable and what checks it instead'
-        elif words(reason) < MIN_WORDS:
-            problem = f"""reason has {words(reason)} words; at least {MIN_WORDS} are required: explain why replay is unavailable and what checks it instead"""
-        else:
-            entries[name] = reason
-            continue
-        red.append(Finding(f"""Fallback ledger [{UNVERIFIED}] item {_quote(name)}: {problem}""", ('correct this line',)))
-    return entries, red
-
-
-def unverified(cfg):
-    """({name: reason}, [Finding]) of the ledger's [unverified] section; no ledger lists nothing."""
-    ledger = path(cfg)
-    if not ledger.is_file():
-        return {}, []
-    try:
-        data = tomllib.loads(ledger.read_text(encoding='utf-8-sig'))
-    except tomllib.TOMLDecodeError:
-        return {}, []           # parse() reports the unreadable ledger once, as red.
-    return _unverified_section(data[UNVERIFIED]) if UNVERIFIED in data else ({}, [])
+    return entries, red, malformed, sorted(sections)
 
 
 def _sentence_problem(cfg, rule, texts):
@@ -374,7 +350,7 @@ def _legacy_reference(cfg, baseline, notes):
         raw, why = _baseline_ledger(cfg, baseline)
         if why:
             notes.append(f"""Cannot read baseline commit {baseline[:12]}: {why}""")
-        entries, _, malformed = parse(raw.decode('utf-8-sig')) if raw is not None else ({}, [], None)
+        entries, _, malformed, _ = parse(raw.decode('utf-8-sig')) if raw is not None else ({}, [], None, [])
         if malformed is not None:           # A baseline ledger that does not parse vouches for nothing.
             for key, entry in entries.items():
                 if entry.legacy:
@@ -388,10 +364,9 @@ def evaluate(cfg, graph, *, baseline=None) -> Result:
     ledger = path(cfg)
     if not ledger.is_file():
         return absent(cfg, baseline)
-    entries, red, malformed = parse(ledger.read_text(encoding='utf-8-sig'))
-    _, structure_red, later = structure_decisions(cfg)
+    entries, red, malformed, sections = parse(ledger.read_text(encoding='utf-8-sig'))
     result = Result(present=True, entries=len(entries), legacy=sum(entry.legacy for entry in entries.values()),
-                    red=red + structure_red, grey=list(later), later=later)
+                    red=red, sections=sections)
     if malformed is None:
         return result                       # An unreadable ledger is compared with nothing until it is corrected.
     found, unread = fallbacks(cfg, graph)
@@ -456,108 +431,21 @@ def evaluate(cfg, graph, *, baseline=None) -> Result:
     return result
 
 
-@dataclass(frozen=True)
-class Decision:
-    """The owner's decision on one structure problem, by its stable name (`writers:Model.field`)."""
-    name: str
-    decision: str
-    source: object      # 'R<n>' (stored owner words) or (file, sentence) like an entry's rule
-
-
-STRUCTURE_FIELDS = {'decision', 'source'}
-
-
-def structure_entry(name, decision="Replace with the owner's decision: who owns this and why (at least 8 words)", source='R<n>'):
-    """The `[structure]` lines to copy for one problem."""
-    shown = _quote(source) if isinstance(source, str) else '{ file = ' + _quote(source[0]) + ', text = ' + _quote(source[1]) + ' }'
-    return [f'[{STRUCTURE}.' + _quote(name) + ']', 'decision = ' + _quote(decision), 'source = ' + shown]
-
-
-def _near(word, known):
-    """Whether `word` is `known` with one or two letters wrong, missing or extra (`decison`, `sorce`)."""
-    previous = list(range(len(known) + 1))
-    for index, letter in enumerate(word, 1):
-        current = [index]
-        for position, other in enumerate(known, 1):
-            current.append(min(previous[position] + 1, current[-1] + 1, previous[position - 1] + (letter != other)))
-        previous = current
-    return previous[-1] <= 2
-
-
-def structure_decisions(cfg):
-    """({name: Decision}, [Finding], [str]): the `[structure]` section of the ledger. A decision has at least eight
-    words and a source: `R<n>`, owner words stored with `req add`, or a written rule `{ file, text }` whose
-    sentence the file still contains. A malformed decision is red and silences nothing, and so is a field one or
-    two letters from decision or source when that one is missing (`decison`). An entry with another field this
-    version does not know (a later FlowGuard writes `status`, `sites`, `why`, ...; `sources` beside `source`) is not
-    judged: it is one unverified line (the third list), not red, which also says what is wrong with its decision or
-    source, and it closes nothing either."""
-    ledger = path(cfg)
-    if not ledger.is_file():
-        return {}, [], []
-    try:
-        data = tomllib.loads(ledger.read_text(encoding='utf-8-sig'))
-    except tomllib.TOMLDecodeError:
-        return {}, [], []      # parse() already reports the unreadable ledger as red with its error
-    if STRUCTURE in data:
-        # A decision closes a structure problem; from 4.3 a known.toml entry does (act "ignore" or "leave").
-        warn('ledger [structure]', '[known.<id>] in .flowguard/known.toml with act = "ignore" or "leave"')
-    section = data.get(STRUCTURE, {})
-    if not isinstance(section, dict):
-        return {}, [Finding(f"""{LEDGER} [{STRUCTURE}] must be a table: write decision and source below [{STRUCTURE}."issue-name"]""",
-                            ('correct this section',))], []
-    from flowguard.map.requests import owner_word
-    decisions, red, later, texts = {}, [], [], {}
-    for name, value in section.items():
-        if not isinstance(value, dict):
-            red.append(Finding(f"""[{STRUCTURE}] item {_quote(name)} is not an entry: its value must be a table""", ('correct it using the structure_entry format',)))
-            continue
-        unknown = sorted(set(value) - STRUCTURE_FIELDS)
-        # A field one or two letters from decision or source, while that field is missing, is misspelt: the entry is
-        # judged as written. Beside the field it is near (`sources` beside `source`) it is another field.
-        misspelt = {key: known for key in unknown for known in sorted(STRUCTURE_FIELDS - set(value)) if _near(key, known)}
-        newer = [key for key in unknown if key not in misspelt and not misspelt]
-        problems = [f"""unknown field {key} (did you mean {known}?)""" for key, known in misspelt.items()]
-        problems += [f"""unknown field {key}""" for key in unknown if key not in misspelt and misspelt]
-        problems += [f"""missing {key}""" for key in sorted(STRUCTURE_FIELDS - set(value)) if not newer]
-        decision, source = value.get('decision'), value.get('source')
-        if 'decision' in value and (not isinstance(decision, str) or words(decision) < MIN_WORDS):
-            problems.append(f"""decision needs at least {MIN_WORDS} words: explain what the owner decided and why""")
-        if isinstance(source, str):
-            entry = owner_word(cfg.root, source) if re.fullmatch(r'R\d+', source) else None
-            if entry is None:
-                problems.append(f"""source {_quote(source)} is not stored owner wording: first store the original words with python -m flowguard req add, then use their R identifier""")
-            elif entry.get('edited') or entry.get('invalid') or entry.get('retired'):
-                problems.append(f"""source {source} has changed or been retired and cannot be used as a source""")
-        elif isinstance(source, dict) and set(source) == {'file', 'text'} and all(isinstance(source[k], str) and source[k].strip() for k in source):
-            if problem := _sentence_problem(cfg, (source['file'], source['text']), texts):
-                problems.append(problem.replace('rule', 'source'))
-        elif 'source' in value:
-            problems.append('source must be "R<n>" or { file = "file", text = "an exact sentence that must occur in that file" }')
-        if newer:
-            # Fields of a later FlowGuard: the entry is not judged and closes nothing; what is wrong with the fields
-            # this version knows is said on its unverified line.
-            later.append(f"""Structure entry [{STRUCTURE}.{_quote(name)}] has fields this version does not recognize: {", ".join(newer)}; these fields require a newer FlowGuard; upgrade before reviewing them. This entry closes no issue in the current version"""
-                         + ''.join('; ' + problem for problem in problems))
-            continue
-        if problems:
-            red.append(Finding(f"""Structure decision [{STRUCTURE}.{_quote(name)}]: """ + '; '.join(problems), ('correct this entry following the ledger.toml format',)))
-            continue
-        decisions[name] = Decision(name, decision, source if isinstance(source, str) else (source['file'], source['text']))
-    return decisions, red, later
-
-
 def lines(result) -> list[str]:
-    """The red findings in full, each followed by its next step, which can be copied as written."""
+    """The red findings in full, each followed by its next step, which can be copied as written; then each section 5.0
+    removed (`section_removed`)."""
     out = []
     for finding in result.red:
         out.append('red: ' + finding.text)
         out.extend('    ' + line for line in finding.fix)
+    for name in result.sections:
+        subject, what, step = section_removed(name)
+        out.append(f'red: {subject}: {what} -> {step}')
     return out
 
 
 def summary(result) -> str:
-    return (f"""FlowGuard fallback ledger: {result.entries} entries ({result.legacy} legacy), {result.fallbacks} code handlers; {len(result.red)} red, {len(result.grey)} unverified""")
+    return (f"""FlowGuard fallback ledger: {result.entries} entries ({result.legacy} legacy), {result.fallbacks} code handlers; {len(result.red) + len(result.sections)} red, {len(result.grey)} unverified""")
 
 
 def own_list_tests(cfg, graph):

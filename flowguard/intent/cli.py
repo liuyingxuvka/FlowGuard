@@ -367,7 +367,7 @@ def _silent_lines(cfg, index, rid, full, limit=10):
 def show_last(cfg, full=False):
     """`show --last`: which run it was and when (`FlowGuard last run: pytest at 2026-11-12 14:03:51`, local time), the
     run's first line, then every one of its lines (no budget, no cut, full paths) with its detail indented under
-    it; how many members an `act = "ignore"` entry of known.toml (or a `[structure]` decision) covered, when any
+    it; how many members an `act = "ignore"` entry of known.toml covered, when any
     did; the deprecated features the run used; the unchanged points an explicit comparison compared; and the
     5.0-deprecated heuristic leads, which no longer get a line, under `deprecated leads (5.0):`. Read from
     the cache (`cache.read_last`), without building the map."""
@@ -704,18 +704,20 @@ def _index_findings(index):
 
 
 def _ledger_findings(result):
-    """The fallback ledger's findings, in the words of a pytest session, as (issues, lines, ran): each red one line,
-    the entry to copy in its detail (`ledger check` prints it as well); the entries of a later FlowGuard, which check
-    nothing here, not compared; and the ledger family in `ran` when a ledger was compared with the map in full, none
+    """The fallback ledger's findings, in the words of a pytest session, as (issues, ran): each red one line, the entry
+    to copy in its detail (`ledger check` prints it as well); each section 5.0 removed one red input line
+    (`ledger.section_removed`); and the ledger family in `ran` when a ledger was compared with the map in full, none
     of it unverified, as a pytest session names it (a known entry naming a ledger finding no longer found is then
     `known fixed?`)."""
-    from .ledger import LEDGER
-    from .signals import LEDGER_STEP, ascii_text, finding, not_compared
+    from .ledger import LEDGER, section_removed
+    from .signals import LEDGER_STEP, ascii_text, finding
     issues = [finding('ledger', f'ledger:{red.text}', 'ledger', [ascii_text(red.text)], LEDGER_STEP,
                       places=(LEDGER, *re.findall(r'(?<![\w./-])[\w./-]+\.[A-Za-z]\w*:\d+', red.text)), files=(LEDGER,),
                       detail=list(red.fix)) for red in result.red]
-    lines = [not_compared(LEDGER, [ascii_text(reason) for reason in result.later], places=(LEDGER,))] if result.later else []
-    return issues, lines, {'ledger'} if result.present and not result.grey else set()
+    for name in result.sections:
+        subject, what, step = section_removed(name)
+        issues.append(finding('input', f'ledger-section:{name}', subject, [what], step, places=(LEDGER,), files=(LEDGER,)))
+    return issues, {'ledger'} if result.present and not result.grey else set()
 
 
 def _legacy_lines(listed):
@@ -1085,9 +1087,9 @@ def _static_check(cfg, *, everything, base, notices):
         result = fallbacks.evaluate(cfg, graph, baseline=baseline) if fallbacks.path(cfg).is_file() \
             else fallbacks.absent(cfg, baseline)
         comments, unparsed = _index_findings(index)
-        ledger_reds, later, ran = _ledger_findings(result)
+        ledger_reds, ran = _ledger_findings(result)
         legacy = _legacy_lines(fallbacks.open_legacy(cfg, graph)) if everything else []
-        lines, ignored = signals.collect([signals.delivery([*comments, *ledger_reds], [*unparsed, *later, *legacy], ran=ran)],
+        lines, ignored = signals.collect([signals.delivery([*comments, *ledger_reds], [*unparsed, *legacy], ran=ran)],
                                          found, everything=everything)
         target = os.environ.get('FLOWGUARD_LINES')       # the static test inside a vitest run (NPM_CHECK)
         files = frozenset() if target else git_files(cfg.root)      # the vitest report prints these lines
@@ -1242,9 +1244,8 @@ def _check(cfg, *, everything=False, deep=False, base=None, reports=None, own=No
     if not model.declared_items() and not everything and not retry_incomplete:
         # No intent item runs, so the ledger the plugin would report is compared here without pytest.
         from .owners import baseline as owner_baseline
-        issues, lines, ran = _ledger_findings(_ledger_result(cfg, owner_baseline(cfg, base)))
+        issues, ran = _ledger_findings(_ledger_result(cfg, owner_baseline(cfg, base)))
         own.issues += issues
-        own.lines += lines          # a [structure] entry of a later FlowGuard: not compared, as in pytest
         own.ran |= ran
         own.history(historical)
         return 0
@@ -1348,13 +1349,11 @@ def _check(cfg, *, everything=False, deep=False, base=None, reports=None, own=No
 
 
 def _owner_rules_unverified(cfg, data):
-    """check --all: a rule quoting the owner's words that stays grey is red (D7), unless the ledger's [unverified]
-    section lists it with a reason; one finding per rule."""
-    from . import ledger
+    """check --all: a rule quoting the owner's words that stays grey is red (D7), one finding per rule. Nothing exempts
+    one: the ledger's [unverified] section, which did, was removed in 5.0."""
     from .api import IntentError
     from .signals import ascii_text, finding
     from .sources import cited, parse
-    listed = ledger.unverified(cfg)[0]
     issues = []
     for rid, item in data['summary']['rules'].items():
         result = data['results'].get(rid, {})
@@ -1362,7 +1361,7 @@ def _owner_rules_unverified(cfg, data):
         # was checked: a `fields` anchor cannot be called directly by it, and its rule is still verified.
         checked = dict(result, items={key: value for key, value in result.get('items', {}).items()
                                       if value.get('kind') != 'live'})
-        if item.get('superseded_by') or _rule_colour(item, checked) != 'grey' or rid in listed:
+        if item.get('superseded_by') or _rule_colour(item, checked) != 'grey':
             continue
         try:
             source = cited(parse(item.get('source', '')), cfg)     # rule.<id>: the words its rules.toml entry cites
@@ -1371,14 +1370,11 @@ def _owner_rules_unverified(cfg, data):
         if source.kind not in ('owner', 'request'):
             continue
         reasons = [ascii_text(message) for value in result.get('items', {}).values() for message in value.get('grey', ())]
-        # The line names no way to silence it (design 4.7): the grey reasons, with their own steps, and the owner's
-        # alternative, a reason in the ledger, are its detail.
+        # The line names no way to silence it (design 4.7): the grey reasons, with their own steps, are its detail.
         issues.append(finding('rule', f'unverified:{rid}', f'rule {rid}',
                               [f'cites original words from the owner ({source.rids[0]}), but is now grey (unverified): '
                                + (reasons[0].partition(' -> ')[0] if reasons else 'no results yet')],
-                              'restore observability so the rule is checked again',
-                              detail=[*reasons, f"a reason in the [unverified] section of {ledger.LEDGER} stops this check, which is the owner's decision: "
-                                                f'{rid} = {ledger._quote(ledger.PLACEHOLDER_UNVERIFIED)}']))
+                              'restore observability so the rule is checked again', detail=reasons))
     return issues
 
 
@@ -2161,7 +2157,7 @@ def ledger(cfg, operation):
         print('\n'.join([*missing, f'FlowGuard ledger: no {fallbacks.LEDGER}; python -m flowguard ledger init starts one from the current code.']))
         return 0
     print('\n'.join([*missing, fallbacks.summary(result), *fallbacks.lines(result), *('not checked: ' + line for line in result.grey)]))
-    return int(bool(result.red))
+    return int(bool(result.red or result.sections))
 
 
 def _ledger_result(cfg, baseline):

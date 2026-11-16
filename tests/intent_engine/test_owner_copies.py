@@ -999,64 +999,39 @@ def test_copy_discovery_compares_on_the_codes_own_literals(tmp_path):
     assert 'Step1/src/kwp_step1/utils.py:' in forked and "-> 'district_heat'(reference returns 'waermenetze')" in forked, forked
 
 
-RULE_FILE = ('AGENTS.md', 'The two normalizers stay apart until the step 1 importer is retired next year.\n')
-DECIDED = ('decision = "the step 1 copy stays as it is until the old importer is retired"\n'
-           'source = { file = "AGENTS.md", text = "The two normalizers stay apart until the step 1 importer is retired next year." }\n')
+def _known_ignore(root, name, why):
+    """`known add NAME --act ignore`: the 5.0 record of copies meant to differ (4.3: a [structure] decision)."""
+    assert _cli_fixture.main(['--root', root, 'known', 'add', name, '--act', 'ignore', '--why', why]) == 0
 
 
-def test_an_owner_whose_copies_the_owner_decided_gets_no_discovery_leads(tmp_path):
-    # Round 23 check of r23-ondelete: [structure."copies:TECHNOLOGY"] closed the --all entry, but check still printed
-    # the owner's look-alike leads.
-    _copy_fixture(tmp_path, 'kwp_normalize')
-    _project(tmp_path, {RULE_FILE[0]: RULE_FILE[1]}, pyproject='[tool.pytest.ini_options]\npythonpath = ["Step1/src", "Step3/src"]\n')
-    technology = tmp_path / 'Step3/src/kwp_step3/technology.py'
-    technology.write_text(technology.read_text(encoding='utf-8').replace('def normalize_technology_name(value: object)',
-                                                          '# flowguard: owner TECHNOLOGY\ndef normalize_technology_name(value: object)'), encoding='utf-8')
-    diverged = 'unregistered copy discovery: diverged copy 1 copies'
-    code, text = _check(tmp_path)
-    assert code == 0 and any(lead.startswith(diverged) for lead in _leads(tmp_path)), text
-    (tmp_path / '.flowguard').mkdir(exist_ok=True)
-    # Round 24 review: a decision on a same-name family whose names merely include the anchor name is not this one
-    (tmp_path / '.flowguard/ledger.toml').write_text('[structure."copies:helper+TECHNOLOGY"]\n' + DECIDED, encoding='utf-8')
-    code, text = _check(tmp_path)
-    assert code == 0 and any(lead.startswith(diverged) for lead in _leads(tmp_path)), text
-    (tmp_path / '.flowguard/ledger.toml').write_text('[structure."copies:TECHNOLOGY"]\n' + DECIDED, encoding='utf-8')
-    code, text = _check(tmp_path)
-    assert code == 0 and _block(text)[1:] == [] and _leads(tmp_path) == [], text
-
-
-def test_a_function_whose_copies_the_owner_decided_gets_no_changed_alone_lead(tmp_path):
+def test_a_changed_copy_keeps_its_lead_and_known_add_with_act_ignore_takes_its_copies_line_out(tmp_path):
     body = ("export function total(items: number[], rate: number): number {{\n  let sum = 0;\n"
             "  for (const item of items) {{\n    if (item > {limit}) {{ sum += item * rate; }} else {{ sum += item; }}\n  }}\n"
             "  return Math.round(sum * 100) / 100;\n}}\n")
-    _project(tmp_path, {'src/a.ts': body.format(limit=10), 'src/b.ts': body.format(limit=20), RULE_FILE[0]: RULE_FILE[1]})
+    _project(tmp_path, {'src/a.ts': body.format(limit=10), 'src/b.ts': body.format(limit=20)})
     (tmp_path / 'src/a.ts').write_text(body.format(limit=10).replace('* 100) / 100', '* 1000) / 1000'), encoding='utf-8')
     static = lambda: _check(tmp_path, '--static')
     code, text = static()
     assert code == 0 and any(lead.startswith('similar-implementation leads: total(src/a.ts:1) changed;') for lead in _leads(tmp_path)), text
     assert _block(text)[1:] == ['before: copies total at a.ts:total was broken at task start -> leave it unless your task is about it'], text
-    (tmp_path / '.flowguard').mkdir(exist_ok=True)
-    (tmp_path / '.flowguard/ledger.toml').write_text('[structure."copies:total"]\n' + DECIDED, encoding='utf-8')
+    _known_ignore(tmp_path, 'copies:total', 'the two totals round differently on purpose until the reports merge')
     code, text = static()
-    assert code == 0 and _block(text)[1:] == [] and _leads(tmp_path) == [], text
+    assert code == 0 and _block(text)[1:] == ['loosened: known.copies-total added with act = "ignore" -> name it in your report; '
+                                              "loosening an agreement is the owner's decision"], text
 
 
-def test_a_copies_decision_silences_only_the_members_of_its_family(tmp_path):
-    # Round 24 review: [structure."copies:save"] for two drifted module-level `save` functions also silenced the
-    # changed-alone lead of every function or method named save anywhere, such as two identical repository methods.
+def test_a_changed_method_lists_its_identical_unchanged_copy_beside_drifted_functions_of_its_name(tmp_path):
+    # Round 24 review: two drifted module-level `save` functions must not hide the changed-alone lead of a method
+    # named save, such as two identical repository methods.
     body = ("export function save(items: number[], rate: number): number {{\n  let sum = 0;\n"
             "  for (const item of items) {{\n    if (item > {limit}) {{ sum += item * rate; }} else {{ sum += item; }}\n  }}\n"
             "  return Math.round(sum * 100) / 100;\n}}\n")
     method = ("export class {name}Repo {{\n  save(row: any, db: any): any {{\n    const data = {{ ...row, updatedAt: new Date() }};\n"
               "    if (!data.id) {{ throw new Error('no id'); }}\n    return db.{table}.update({{ where: {{ id: data.id }}, data }});\n"
               "  }}\n}}\n")
-    _project(tmp_path, {'src/a.ts': body.format(limit=10), 'src/b.ts': body.format(limit=20), RULE_FILE[0]: RULE_FILE[1],
+    _project(tmp_path, {'src/a.ts': body.format(limit=10), 'src/b.ts': body.format(limit=20),
                         'src/repo/user.ts': method.format(name='User', table='row'),
                         'src/repo/order.ts': method.format(name='Order', table='row')})
-    (tmp_path / '.flowguard').mkdir(exist_ok=True)
-    (tmp_path / '.flowguard/ledger.toml').write_text('[structure."copies:save"]\n' + DECIDED, encoding='utf-8')
-    _git(tmp_path, 'add', '.')
-    _git(tmp_path, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'decided')
     user = tmp_path / 'src/repo/user.ts'
     user.write_text(user.read_text(encoding='utf-8').replace("throw new Error('no id')", "throw new Error('no user id')"),
                     encoding='utf-8')
@@ -1064,46 +1039,6 @@ def test_a_copies_decision_silences_only_the_members_of_its_family(tmp_path):
     assert code == 0 and _block(text)[1:] == [], text
     assert any(lead.startswith('similar-implementation leads: UserRepo.save(src/repo/user.ts:2) changed; previously identical copies: 1 '
                                'unchanged: src/repo/order.ts:2') for lead in _leads(tmp_path)), text
-    # the decided family itself stays quiet: a changed member does not list the other member
-    _git(tmp_path, 'checkout', '-q', '--', 'src/repo/user.ts')
-    (tmp_path / 'src/a.ts').write_text(body.format(limit=10).replace('* 100) / 100', '* 1000) / 1000'), encoding='utf-8')
-    code, text = _check(tmp_path, '--static')
-    assert code == 0 and _block(text)[1:] == [] and _leads(tmp_path) == [], text
-
-
-def test_a_copies_decision_holds_for_the_family_the_owner_decided_on(tmp_path):
-    # Round 25 check of ondelete-1: the decided family was read from the edited code, so an edit that moved a member
-    # away from the other brought back the lead the decision had closed, while an exact copy the decided problem
-    # left out joined the family once its twin was edited and lost the lead the guide promises it.
-    body = ("export function save(items: number[], rate: number): number {{\n  let sum = 0;\n"
-            "  for (const item of items) {{\n    if (item > {limit}) {{ sum += item * rate; }} else {{ sum += item; }}\n  }}\n"
-            "  return Math.round(sum * 100) / 100;\n}}\n")
-    decided = {'.flowguard/ledger.toml': '[structure."copies:save"]\n' + DECIDED, RULE_FILE[0]: RULE_FILE[1]}
-    moved = tmp_path / 'moved'
-    _project(moved, {'src/a.ts': body.format(limit=10), 'src/b.ts': body.format(limit=20), **decided})
-    edited = (body.format(limit=10)
-              .replace('sum += item * rate; }', 'sum += item * rate; } else if (item < 0) { throw new Error("negative " + item); }')
-              .replace('  return Math.round', '  if (sum > 1e9) { return -1; }\n  return Math.round'))
-    (moved / 'src/a.ts').write_text(edited, encoding='utf-8')
-    code, text = _check(moved, '--static')
-    assert code == 0 and _block(text)[1:] == [] and _leads(moved) == [], text
-    # an exact copy of a member that the decided problem does not list (src/c.ts beside src/a.ts) keeps its lead
-    exact = tmp_path / 'exact'
-    _project(exact, {'src/a.ts': body.format(limit=10), 'src/b.ts': body.format(limit=20), 'src/c.ts': body.format(limit=10)})
-    code, text = _check(exact, '--static', '--all')
-    assert _block(text)[1:] == [f'before: copies save at {name}.ts:save was broken at task start -> leave it unless your task is about it'
-                                for name in ('a', 'b')], text
-    for name, content in decided.items():
-        (exact / name).parent.mkdir(exist_ok=True)
-        (exact / name).write_text(content, encoding='utf-8')
-    _git(exact, 'add', '.')
-    _git(exact, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'decided')
-    (exact / 'src/a.ts').write_text(body.format(limit=10).replace('* 100) / 100', '* 1000) / 1000'), encoding='utf-8')
-    code, text = _check(exact, '--static')
-    assert code == 0 and _block(text)[1:] == [], text
-    assert _leads(exact) == [
-        'similar-implementation leads: save(src/a.ts:1) changed; previously identical copies: 1 unchanged: src/c.ts:1(update them together '
-        'when required; to lock them, write above the reference: // flowguard: same SAVE ref, above the copy: // flowguard: same SAVE)'], text
 
 
 def test_a_copies_problem_lists_the_same_functions_after_a_file_is_mapped_again(tmp_path):
@@ -1121,23 +1056,25 @@ def test_a_copies_problem_lists_the_same_functions_after_a_file_is_mapped_again(
     assert _block(text)[1:] == listed, text
 
 
-def test_a_copies_decision_on_a_problem_this_task_made_quiets_its_changed_alone_lead(tmp_path):
+def test_a_copies_problem_this_task_made_is_impact_and_known_add_with_act_ignore_counts_it(tmp_path):
     # Final check of r25-init: two identical save functions at the baseline are no copies problem; the task edits
-    # one, the owner decides the copies problem that appears, and the changed-alone lead about the pair stayed.
+    # one, and the copies problem that appears is impact. 4.3 let the owner decide it in [structure]; 5.0 records it
+    # with known add --act ignore, which counts it without a line.
     body = ("export function save(items: number[], rate: number): number {{\n  let sum = 0;\n"
             "  for (const item of items) {{\n    if (item > 10) {{ sum += item * rate; }} else {{ sum += item; }}\n  }}\n"
             "  return Math.round(sum * {scale}) / {scale};\n}}\n")
-    _project(tmp_path, {'src/a.ts': body.format(scale=100), 'src/b.ts': body.format(scale=100), RULE_FILE[0]: RULE_FILE[1]})
+    _project(tmp_path, {'src/a.ts': body.format(scale=100), 'src/b.ts': body.format(scale=100)})
     (tmp_path / 'src/a.ts').write_text(body.format(scale=1000), encoding='utf-8')
     code, text = _check(tmp_path, '--static')
     assert code == 0 and any(lead.startswith('similar-implementation leads: save(src/a.ts:1) changed;') for lead in _leads(tmp_path)), text
     assert _block(text)[1:] == [
         f'impact: copies save: {name}.ts:save has another body than the same-named save in src/{other}.ts -> fix it, or say why in your report'
         for name, other in (('a', 'b'), ('b', 'a'))], text
-    (tmp_path / '.flowguard').mkdir(exist_ok=True)
-    (tmp_path / '.flowguard/ledger.toml').write_text('[structure."copies:save"]\n' + DECIDED, encoding='utf-8')
+    _known_ignore(tmp_path, 'copies:save', 'the two save functions round to different units on purpose')
     code, text = _check(tmp_path, '--static')
-    assert code == 0 and _block(text)[1:] == [] and _leads(tmp_path) == [], text
+    assert code == 0 and _block(text)[1:] == ['loosened: known.copies-save added with act = "ignore" -> name it in your report; '
+                                              "loosening an agreement is the owner's decision"], text
+    assert 'ignored: 2 (act = "ignore")' in _cli_fixture.last(tmp_path).splitlines(), _cli_fixture.last(tmp_path)
 
 
 def test_two_declarations_of_one_name_with_different_members_are_a_lead(tmp_path):

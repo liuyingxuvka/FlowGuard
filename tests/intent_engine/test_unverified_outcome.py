@@ -3,9 +3,9 @@
 - A grey intent item has its own pytest outcome: `U` with -q, `UNVERIFIED` with -v, `N unverified` in the
   summary; the exit status does not change, and no warning, skip or xfail is involved.
 - A changed function that can no longer be compared in the sealed environment is `not compared` with its
-  reason, never a failure (design 4.5, 6.4); an `[unverified]` reason in `.flowguard/ledger.toml` is
-  still checked.
-- `check --all`: a grey rule that quotes the owner's words fails unless `[unverified]` lists it.
+  reason, never a failure (design 4.5, 6.4).
+- `check --all`: a grey rule that quotes the owner's words fails; nothing exempts it (the `[unverified]` section of
+  `.flowguard/ledger.toml` that did was removed in 5.0 and is a red input line of its own).
 """
 from pathlib import Path
 import subprocess
@@ -19,6 +19,8 @@ from tests.intent_engine._cli_fixture import block, display_text, last, unchecke
 
 SOURCE = str(Path(__file__).resolve().parents[2])
 REASON = '这个判断现在会写审计文件，回放会被拦住；它由 test_standing 的断言守住，不再回放比较'
+UNVERIFIED_SECTION = ("red: ledger.toml: [unverified] was removed in 5.0 -> delete the section; nothing replaces it: restore each "
+                      "rule's observability so it is checked again")
 
 
 def _git(root, *arguments):
@@ -119,7 +121,7 @@ STANDING = {
 }
 
 
-def test_a_new_write_is_not_compared_and_an_unverified_reason_is_still_checked(tmp_path):
+def test_a_new_write_is_not_compared_and_an_unverified_section_is_red_whatever_its_reason(tmp_path):
     root = _project(tmp_path / 'p', STANDING)
     policy = root / 'policy.py'
     policy.write_text(policy.read_text(encoding='utf-8').replace('    return days <= 3', '    open("audit.log", "a").close()\n    return days <= 3'), encoding='utf-8')
@@ -128,14 +130,14 @@ def test_a_new_write_is_not_compared_and_an_unverified_reason_is_still_checked(t
     assert result.returncode == 0 and '2 passed' in text and not re.search(r'^red: ', text, re.M), text
     assert block(result)[1:] == [STANDING_UNCHECKED], text
     assert not (root / 'audit.log').exists()
-    # A reason too short is red in the ledger's own check; a real reason is accepted.
+    # 5.0 removed the [unverified] section: a short reason and a real one are the same red input line, and the
+    # function stays not compared.
     (root / ledger.LEDGER).parent.mkdir(exist_ok=True)
-    (root / ledger.LEDGER).write_text('[unverified]\nSTANDING = "不再回放"\n', encoding='utf-8')
-    short, text = _pytest(root, '-q')
-    assert short.returncode == 1 and '[unverified] item "STANDING": reason has' in text, text
-    (root / ledger.LEDGER).write_text('[unverified]\nSTANDING = ' + ledger._quote(REASON) + '\n', encoding='utf-8')
-    listed, text = _pytest(root, '-q')
-    assert listed.returncode == 0 and not re.search(r'^red: ', text, re.M), text
+    for reason in ('"不再回放"', ledger._quote(REASON)):
+        (root / ledger.LEDGER).write_text('[unverified]\nSTANDING = ' + reason + '\n', encoding='utf-8')
+        listed, text = _pytest(root, '-q')
+        assert listed.returncode == 1 and re.findall(r'^red: .*', text, re.M) == [UNVERIFIED_SECTION], text
+        assert STANDING_UNCHECKED in block(listed)[1:], text
 
 
 def test_a_grey_that_the_baseline_shares_is_not_a_lost_observation(tmp_path):
@@ -149,7 +151,7 @@ def test_a_grey_that_the_baseline_shares_is_not_a_lost_observation(tmp_path):
     assert block(result)[1:] == [STANDING_UNCHECKED], text
 
 
-def test_check_all_fails_a_grey_rule_quoting_the_owner_unless_it_is_listed(tmp_path):
+def test_check_all_fails_a_grey_rule_quoting_the_owner_and_an_unverified_section_no_longer_exempts_it(tmp_path):
     files = {
         'policy.py': '''
             import json
@@ -182,15 +184,15 @@ def test_check_all_fails_a_grey_rule_quoting_the_owner_unless_it_is_listed(tmp_p
     assert checked.returncode == 1, text
     assert ('red: rule LIMIT_RULE: cites original words from the owner (R1), but is now grey (unverified): module initialization of json '
             'is not proved pure -> restore observability so the rule is checked again') in text.splitlines(), text
-    # the owner's alternative is no way out the red line names: show --last gives it, as ledger check does
-    assert any(line.startswith("    a reason in the [unverified] section of .flowguard/ledger.toml stops this check, which is the owner's decision: LIMIT_RULE = ")
-               for line in last(root).splitlines()), last(root)
+    # the line names no way out, and neither does its detail in show --last: the grey reasons alone
+    assert not [line for line in last(root).splitlines() if '[unverified]' in line], last(root)
     (root / ledger.LEDGER).parent.mkdir(exist_ok=True)
     (root / ledger.LEDGER).write_text('[unverified]\nLIMIT_RULE = ' + ledger._quote(
         '这个判断读 json 配置，模块导入证明不了纯；由 test_limit 和回归行守住') + '\n', encoding='utf-8')
     listed, text = _cli(root, 'check', '--all')
-    assert listed.returncode == 0, text
-    assert 'cites original words from the owner' not in text, text
+    # 5.0: the section exempts nothing; it is a red input line beside the rule's own
+    assert listed.returncode == 1 and UNVERIFIED_SECTION in text.splitlines(), text
+    assert any(line.startswith('red: rule LIMIT_RULE: cites original words from the owner (R1)') for line in text.splitlines()), text
 
 
 def test_a_grey_mutation_probe_alone_does_not_make_an_owner_rule_unverified(tmp_path):
@@ -488,8 +490,7 @@ def test_check_all_fails_a_grey_flow_quoting_the_owner(tmp_path):
     assert checked.returncode == 1, text
     assert any(line.startswith('red: rule STORE_THEN_SHIP: cites original words from the owner (R1), but is now grey (unverified): ')
                for line in text.splitlines()), text
-    assert any(line.startswith("    a reason in the [unverified] section of .flowguard/ledger.toml stops this check, which is the owner's decision: "
-                               'STORE_THEN_SHIP = ') for line in last(root).splitlines()), last(root)
+    assert not [line for line in last(root).splitlines() if '[unverified]' in line], last(root)
     brief, text = _cli(root)
     # The brief (design 4.7) lists the rules of rules.toml, not an unfinished intent item: check --all lists that.
     assert brief.returncode == 0 and text.startswith('FlowGuard ') and 'STORE_THEN_SHIP' not in text, text
@@ -497,4 +498,6 @@ def test_check_all_fails_a_grey_flow_quoting_the_owner(tmp_path):
     (root / ledger.LEDGER).write_text('[unverified]\nSTORE_THEN_SHIP = ' + ledger._quote(
         '测试还没有走到存和发这两步，顺序由 test_docs 之外的集成检查守住') + '\n', encoding='utf-8')
     listed, text = _cli(root, 'check', '--all')
-    assert listed.returncode == 0 and 'cites original words from the owner' not in text, text
+    # 5.0: listing the Flow in the removed [unverified] section exempts nothing
+    assert listed.returncode == 1 and UNVERIFIED_SECTION in text.splitlines(), text
+    assert any(line.startswith('red: rule STORE_THEN_SHIP: cites original words from the owner (R1)') for line in text.splitlines()), text

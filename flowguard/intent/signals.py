@@ -491,7 +491,7 @@ def collect(deliveries, found=None, *, everything=False):
     """(lines, ignored) of the deliveries of a run and its static findings (`owners.static_findings`, or None when the
     map checks did not run): every finding, the lines of their kind, the known entries, the families that ran and
     what the change touches, through `deliver`; the families and names that ran are those of the deliveries and the
-    static findings together. `ignored` adds the issues a `[structure]` decision closed."""
+    static findings together."""
     issues, extra, functions, files, ran = [], [], set(), set(), set()
     for part in deliveries:
         issues += part['issues']
@@ -499,17 +499,17 @@ def collect(deliveries, found=None, *, everything=False):
         functions |= part['touched_functions']
         files |= part['touched_files']
         ran |= part['ran']
-    known, decided = (), 0
+    known = ()
     if found is not None:
         issues += found.issues
         extra += found.lines
         functions |= found.touched_functions
         files |= found.touched_files
-        known, decided = found.known, len(found.decided)
+        known = found.known
         ran |= found.ran
     lines, ignored = deliver(issues, touched_functions=functions, touched_files=files, known=known, ran=ran,
                              everything=everything, extra=extra)
-    return lines, ignored + decided
+    return lines, ignored
 
 
 def last_run(lines, ignored, *, run, stamp, baseline, kind, title, seconds, deprecated=(), hidden=(), compared=()):
