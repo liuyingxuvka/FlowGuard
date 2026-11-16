@@ -28,57 +28,6 @@ def test_relational_boundary_stays_a_relation_between_inputs():
     assert report['changes'][0]['region'] in ('stock=reserved', 'reserved=stock')
 
 
-def test_tuple_readings_print_interval_minimal_example_and_exact_cause():
-    item = dict(name='STANDING', file='shop/policy.py', line=8, comparison_status='ok', complete=True,
-                rows=[({'days': day}, day <= 7) for day in range(12)],
-                changed=[({'days': day}, False, True) for day in (7, 6, 4, 5)],
-                cause=dict(name='GRACE_DAYS', before=3, after=7, file='shop/policy.py', line=1))
-    lines = signals.render(dict(items=[item], source_changed=True)).splitlines()
-    assert len(lines) == 3
-    assert 'days=4..7' in lines[1] and 'example: days=4' in lines[1]
-    assert '; function result False -> True(example: ' in lines[1]
-    assert lines[2] == 'cause: GRACE_DAYS 3 -> 7 (shop/policy.py:1)'
-
-
-def test_correlated_or_disconnected_samples_do_not_become_a_cartesian_interval():
-    for inputs in ([{'x': 4}, {'x': 6}], [{'x': 0, 'y': 1}, {'x': 1, 'y': 0}]):
-        text = signals.render(dict(name='point', rows=[(row, False) for row in inputs],
-                                   changed=[(row, False, True) for row in inputs], comparison_status='ok'))
-        assert 'x=4..6' not in text and 'x=0..1, y=0..1' not in text
-
-
-def test_a_quiet_comparison_prints_nothing_and_a_complete_one_its_count():
-    assert signals.render(dict(source_changed=False, changes=[], complete=True, total=0, changed=0)) == ''
-    assert signals.render(dict(source_changed=True, changes=[], complete=True, total=12, changed=0)) == 'total 12 classes, changed 0 classes'
-
-
-def test_old_code_unavailable_never_becomes_a_verified_zero_change():
-    text = signals.render(dict(name='check', comparison_status='unavailable', comparison_reasons=['旧函数不可读取'],
-                               status='ok', rows=[({'x': 1}, True)], changed=[]))
-    assert 'comparison incomplete' in text and 'uncovered: 旧函数不可读取' in text
-    assert 'total 1 classes, changed 0 classes' not in text
-
-
-def test_red_constraints_cannot_be_crowded_out_by_information():
-    report = dict(red=['违反规矩：days=4，出处：“最多三天。”'],
-                  items=[dict(name='x'*200, total=10, changed=0, complete=True) for _ in range(20)],
-                  leads=['more information'] * 10)
-    lines = signals.render(report, limit=100).splitlines()
-    assert lines[0] == 'red: 违反规矩：days=4，出处：“最多三天。”'
-    assert len(lines) <= 10 and all(len(line) <= 100 for line in lines)
-    crowded = signals.render(dict(red=[f'违反 {i}' for i in range(20)], items=[])).splitlines()
-    assert len(crowded) == 10 and 'plus 11 constraint violations' in crowded[-1]
-
-
-def test_same_name_disagreement_is_red_but_source_copies_are_only_leads():
-    report = dict(comparison=True, same_name=True, status='red', complete=True, total=1, changed=1,
-                  changes=[dict(anchor='STANDING', region='days=4–7', witness={'days': '4'},
-                                before='F', after='T', before_target='policy:one', after_target='preview:two')])
-    text = signals.render(report)
-    assert text.startswith('red same-name anchor STANDING') and 'policy:one <-> preview:two' in text
-    assert len(text.splitlines()) <= 3
-
-
 def test_same_name_lines_name_each_copy_where_it_first_differs_and_keep_it_apart_from_the_owner():
     # Round 22 F1, second review: only the first input where a copy differed was reported.
     inputs = [('days=3', [('a', True), ('b', True), ('c', False)]),
@@ -150,29 +99,6 @@ def standing(days):
         assert text.startswith('old values 14 remain in 6 decisions: ') and len(text.splitlines()) == 1
         assert all(f"{row['file']}:{row['line']}" in text for row in report['locations'])
         assert '…' not in text and '...' not in text
-
-
-def test_successful_comparison_grid_is_not_a_claim_of_complete_partition():
-    text = signals.render(dict(name='point', comparison_status='ok', status='ok',
-                               rows=[({'x': 1}, True)], changed=[],
-                               reasons=['comparison grid is not a proof of partition completeness'],
-                               comparison_reasons=[]))
-    assert 'candidate classes: 1; compared: 1; comparison incomplete; proven changed classes: 0' in text
-    assert 'not a proof of partition completeness' in text
-    assert 'total 1 classes, changed 0 classes' not in text
-
-
-def test_constraint_red_remains_visible_without_source_changes():
-    text = signals.render(dict(source_changed=False, items=[dict(status='red', name='rule',
-                                red=['例：days=4；出处：“最多三天。”'], changes=[], changed=0)]))
-    assert text.startswith('red: 例：days=4；出处：“最多三天。”')
-
-
-def test_explicit_comparison_does_not_invent_same_named_anchors():
-    report = dict(comparison=True, status='red', complete=True, total=1, changed=1,
-                  changes=[dict(anchor='other', region='days=4–7', witness={'days': '4'}, before='F', after='T')])
-    text = signals.render(report)
-    assert text.startswith('red comparison ') and 'same-name anchor' not in text
 
 
 def test_readable_labels_do_not_mutate_the_source_constant_environment():
@@ -515,7 +441,7 @@ def test_a_changed_line_shows_the_smallest_changed_input_and_how_many_differ():
     assert signals.changed_line('late', 'm:late', 'm.py', 0, [({}, 1, 2)], 1).detail == ('() was 1, now 2',)    # a comment
 
 
-def test_a_changed_line_and_the_check_view_take_list_and_dict_inputs():
+def test_a_changed_line_takes_list_and_dict_inputs():
     """A recorded input is any JSON value: lists and dicts are compared by their JSON (equal JSON is one value),
     never hashed."""
     rows = [({'items': [5], 'order': {'b': 1, 'a': 2}}, 5, 6), ({'items': [1, 2], 'order': {'a': 2, 'b': 1}}, 3, 4),
@@ -523,11 +449,6 @@ def test_a_changed_line_and_the_check_view_take_list_and_dict_inputs():
     line = signals.changed_line('TOTAL', 'calc:total', 'calc.py', 2, rows, 3)
     assert line.text == 'TOTAL (calc.py:2): (items=[1, 2], order={"a": 1}) was 3, now 5; 3/3 inputs differ', line
     assert line.detail[0] == '(items=[5], order={"a": 2, "b": 1}) was 5, now 6', line
-    # the comparison view (`compare`) reads them as well
-    item = dict(name='TOTAL', file='calc.py', line=2, status='ok', complete=True, total=3, changed=rows,
-                rows=[(inputs, new) for inputs, _, new in rows])
-    text = signals.render(dict(items=[item], source_changed=True))
-    assert text.startswith('TOTAL') and 'items=[5]' in text, text
 
 
 def test_a_pytest_run_whose_changed_function_takes_a_list_prints_and_keeps_its_changed_line(tmp_path):

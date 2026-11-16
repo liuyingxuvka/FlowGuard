@@ -294,23 +294,6 @@ def _compare_pairs(root, pairs, *, answers=False, witnesses=False):
                 phases={'partition_and_selection': partition_seconds, 'execution': time.perf_counter() - start})
 
 
-def compare(root, left, right, *, graph=None):
-    """K5 uses the same partition/execution core for two present source anchors."""
-    root = Path(root).resolve()
-    index = _source_index(root, graph)
-    def resolve(value):
-        matches = [a for a in index.entries if a.kind == 'sensor' and (a.name == value or a.target == value)]
-        if len(matches) != 1:
-            raise ValueError(f'{value}: name must identify one sensor; use module:qual for a copy')
-        return matches[0]
-    return _compare_pairs(root, [(resolve(left), resolve(right))])
-
-
-def render(report, limit=10):
-    from .signals import render as render_signals
-    return render_signals(report, limit)
-
-
 def display(text, *, file=None):
     """Write human comparison text, escaping only an unrepresentable display.
 

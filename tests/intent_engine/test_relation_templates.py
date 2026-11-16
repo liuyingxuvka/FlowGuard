@@ -7,7 +7,7 @@ import pytest
 
 from flowguard.intent import api, checks, guarded_by, precedes, transitions
 from flowguard.intent.anchors import collect_sources
-from flowguard.intent.flow import Capture, Event, Flow, check_flow, runtime_check, template_lines, template_text
+from flowguard.intent.flow import Capture, Flow, check_flow, runtime_check
 
 
 SOURCE = '''# flowguard: states Job.status = new | saved | published
@@ -142,27 +142,6 @@ def test_without_a_test_entry_every_event_that_read_a_declared_state_is_kept(tmp
         for _ in range(30):
             m.permitted(job)
     assert [event.phase for event in captured.events] == ['call', 'return'], captured.events
-
-
-def test_model_draft_writes_template_lines_grouped_by_flow(tmp_path):
-    index, m = _source(tmp_path)
-    job = m.Job()
-    events = _events(tmp_path, index, ('a', lambda: (m.save(job), m.publish(job))),
-                     ('b', lambda: (m.permitted(job), m.update(job))))
-    rows = template_lines(events)
-    assert [(row['flow'], row['text']) for row in rows] == [
-        ('PERMISSION_OK', 'precedes("PERMISSION_OK", "UPDATE_RECORD")'),
-        ('SAVED', 'precedes("SAVED", "PUBLISHED")'),
-        ('SAVED', 'transitions("Job.status", new={"saved"}, saved={"published"})')]
-    assert rows[2]['kind'] == 'transitions' and rows[2]['kwargs'] == {'new': {'saved'}, 'saved': {'published'}}
-    assert template_text(rows[2]['kind'], rows[2]['args'], rows[2]['kwargs']) == rows[2]['text']
-    assert template_text('transitions', ('Job.status',), {'in progress': {'done'}}) == \
-        'transitions("Job.status", **{"in progress": {"done"}})'
-    assert template_text('checks', ('FEE', 'FEE_CASE'), {'days': 'arg.days'}) == 'checks("FEE", "FEE_CASE", days="arg.days")'
-    exec(compile('\n'.join(row['text'] for row in rows), '<draft>', 'exec'),
-         dict(precedes=precedes, transitions=transitions))
-    assert len(api.DECLARED) == 3 and all(isinstance(item, Flow) for item in api.DECLARED)
-    assert all(isinstance(event, Event) for event in events)
 
 
 def test_the_static_scan_names_each_template_flow_as_the_loader_does(tmp_path):

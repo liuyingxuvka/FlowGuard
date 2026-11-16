@@ -34,7 +34,6 @@ FLOW_STEP = 'make the observed path follow flow {id}'
 NO_SKIP = 'this suite allows no skip, expected failure or early exit: a check that did not run is never reported as fine'
 _CURRENT = None
 _SIGNALS = ContextVar('flowguard_signals', default=None)
-_TRY = ContextVar('flowguard_try', default=None)
 # the finding family of a declaration's intent items by their kind (a rule's are `rule:`)
 ITEM_KINDS = {'flow': 'flow', 'states': 'states', 'structure': 'structure', 'anchor_distinct': 'distinct'}
 SCHEMA = '''
@@ -63,17 +62,6 @@ def collect_signals(*, everything=False):
         yield reports
     finally:
         _SIGNALS.reset(token)
-
-
-@contextmanager
-def try_reading(target, name, values, grid=False):
-    """Add requested input points to the normal runtime, never narrow its model."""
-    request = dict(target=target, name=name, values=dict(values), grid=grid, readings=[], reasons=[], partition_reasons=[], actual_inputs={})
-    token = _TRY.set(request)
-    try:
-        yield request
-    finally:
-        _TRY.reset(token)
 
 
 def observation_payload(value, seen=frozenset()):
@@ -573,7 +561,7 @@ class Observations:
         self.metadata, self.bound, self.event_codes, self.payload = {}, {}, {}, None
         self.structure = None
         self.event_record = self.capture = None
-        self.request, self.text = _TRY.get(), ''
+        self.text = ''
         self.final = None           # FlowGuard's own seconds in the session, taken once after all its work (`_final`)
         self.session_red = []       # set by report(): the reds no failed test carries
         # The 4.3 lines (`signals.collect`): findings by (name, member), what was not compared and why, the changed
@@ -1024,9 +1012,6 @@ class Observations:
         self._rule_signals()
         self._flow_signals()
         items = self._compare()
-        for _, point, _, _, _ in self.records:
-            if self.request and self.request['target'] == point['target']:
-                self.request['readings'].extend(reading for reading in self.runtime.readings if reading.target == point['target'])
         # Only a call due for a comparison is `not compared`: a function that changed itself, or one of two or
         # more same-name copies. A lone unchanged `same` function has nothing to compare it with.
         copies = Counter(point['name'] for point in self.points.values() if point['anchor'] and point['kind'] == 'sensor')
@@ -1669,7 +1654,7 @@ def pytest_runtest_protocol(item, nextitem):
                 scopes.enter_context(state.observations.scope(item))
             from .calibration import probe_context
             # Anchor events are always recorded (local events on anchored code only), so
-            # show NAME and model draft have data after a plain pytest run. A source change keeps the
+            # show NAME has data after a plain pytest run. A source change keeps the
             # Flows' test-entry filter: no old-code rerun reads the other events (design 6.5). Without
             # one (no Flows, or a Flow that starts in production code) an anchor no Flow reads is sampled.
             if (not isinstance(item, IntentItem) and item.name != SENTINEL and state.model is not None

@@ -1,4 +1,4 @@
-"""Observed drafts do not assert requirements; finite models exhaust their real domain."""
+"""An observed path does not assert a requirement; finite models exhaust their real domain."""
 from dataclasses import replace
 import importlib.util
 from pathlib import Path
@@ -8,9 +8,7 @@ import uuid
 import pytest
 
 from flowguard.intent.anchors import collect_sources
-from flowguard.intent.flow import Capture, Flow, Node, Transition, check_flow, draft_model, finite_check
-from flowguard.intent.sources import Archive, authority, parse
-from flowguard.intent.config import load_config
+from flowguard.intent.flow import Capture, Flow, Node, Transition, check_flow, finite_check, validate
 
 
 def project(tmp_path, body):
@@ -99,45 +97,35 @@ def recorded(tmp_path):
     return index, captured.events
 
 
-def test_draft_uses_real_order_and_completion_phases_and_never_forges_authority(tmp_path):
+# The path `entry(3)` takes, call and completion phases in the order they happened, as a Flow whose source is an
+# assumption (an observation is no requirement).
+OBSERVED = [('ENTRY', 'call'), ('SAVED', 'call'), ('SAVED', 'return'), ('PUBLISHED', 'call'), ('PUBLISHED', 'return'),
+            ('ENTRY', 'return')]
+
+
+def observed_flow(name, steps=OBSERVED, extra=()):
+    nodes = tuple(Node(f'n{number}', anchor, phase=phase, start=number == 1, end=number == len(steps))
+                  for number, (anchor, phase) in enumerate(steps, 1))
+    return Flow(name, 'assumed: observed paths only; confirm required paths and relations', nodes,
+                (*((f'n{number}', f'n{number + 1}') for number in range(1, len(steps))), *extra))
+
+
+def test_a_flow_of_the_observed_path_holds_and_an_unwalked_edge_stays_grey(tmp_path):
     index, events = recorded(tmp_path)
-    draft = draft_model('PUBLISH', index, events)
-    assert draft.status == 'grey'
-    assert [(n.reference, n.phase) for n in draft.model.nodes] == [
-        ('ENTRY', 'call'), ('SAVED', 'call'), ('SAVED', 'return'),
-        ('PUBLISHED', 'call'), ('PUBLISHED', 'return'), ('ENTRY', 'return')]
-    result = check_flow(draft.model, index, events)
+    model = observed_flow('PUBLISH')
+    result = check_flow(model, index, events)
     assert result['verdict'] == 'ok', result
-    assert result['runtime']['observed_edges'] == list(draft.model.edges)
-    valid, why = authority(parse(draft.model.source), None, load_config(tmp_path), Archive(tmp_path))
-    assert not valid and why.startswith('assumed')
-    assert any('Observed paths only' in note for note in draft.notes)
-    assert draft.model.transitions == () and draft.model.relations == ()
-
-
-def test_draft_preserves_test_case_boundaries_and_unwalked_edges_stay_grey(tmp_path):
-    index, events = recorded(tmp_path)
-    first = [e for e in events if e.anchor != 'PUBLISHED']
-    second = [replace(e, case='second') for e in events if e.anchor == 'PUBLISHED']
-    draft = draft_model('TWO_CASES', index, [*first, *second])
-    nodes = {n.name: n for n in draft.model.nodes}
-    assert not any(nodes[a].reference == 'SAVED' and nodes[b].reference == 'PUBLISHED'
-                   for a, b in draft.model.edges)
-    good = draft_model('PUBLISH', index, events)
-    skip = (good.model.nodes[0].name, good.model.nodes[3].name)
-    extended = replace(good.model, edges=(*good.model.edges, skip))
+    assert result['runtime']['observed_edges'] == list(model.edges)
+    extended = observed_flow('PUBLISH', extra=[('n1', 'n4')])
     result = check_flow(extended, index, events)
     assert result['verdict'] == 'grey' and not result['red'], result
     assert any('unobserved edge' in why for why in result['grey'])
 
 
-def test_missing_source_identity_is_not_silently_licensed_by_the_draft(tmp_path):
+def test_missing_source_identity_is_not_silently_licensed(tmp_path):
     index, events = recorded(tmp_path)
     events = [replace(e, source_digest='') for e in events]
-    draft = draft_model('UNVERIFIED', index, events)
-    assert draft.status == 'grey'
-    assert any('source identity' in why for why in draft.notes)
-    result = check_flow(draft.model, index, events)
+    result = check_flow(observed_flow('UNVERIFIED'), index, events)
     assert result['verdict'] == 'grey' and not result['red'], result
 
 
@@ -147,20 +135,14 @@ def test_large_observed_layer_is_preserved_and_requests_hierarchy(tmp_path):
     with Capture(tmp_path, index, 'ordinary') as captured:
         for n in range(6):
             getattr(obj, f'e{n}')()
-    draft = draft_model('LARGE', index, captured.events)
-    assert len(draft.model.nodes) == 12
-    assert any('10' in why and 'split' in why for why in draft.notes)
-    assert check_flow(draft.model, index, captured.events)['verdict'] == 'ok'
+    model = observed_flow('LARGE', [(f'E{n}', phase) for n in range(6) for phase in ('call', 'return')])
+    assert len(model.nodes) == 12
+    checked = validate(model, index)
+    assert any('10' in why and 'split' in why for why in [*checked['red'], *checked['grey'], *checked['info']]), checked
+    assert check_flow(model, index, captured.events)['verdict'] == 'ok'
 
 
-def test_empty_events_do_not_create_a_model_or_a_semantic_source(tmp_path):
-    index, _ = project(tmp_path, '# flowguard: event A()\ndef a(): pass\n')
-    draft = draft_model('EMPTY', index, [])
-    assert draft.model is None and draft.status == 'grey'
-    assert any('No observed anchor paths' in why for why in draft.notes)
-
-
-def test_existing_engine_keeps_observed_draft_grey_until_its_requirement_is_sourced(tmp_path):
+def test_existing_engine_keeps_an_observed_flow_grey_until_its_requirement_is_sourced(tmp_path):
     import importlib
     from flowguard.intent.engine import Engine
     from flowguard.intent.loader import load
@@ -172,9 +154,9 @@ def test_existing_engine_keeps_observed_draft_grey_until_its_requirement_is_sour
     obj = importlib.import_module(name)
     with Capture(tmp_path, index, 'ordinary') as captured:
         obj.entry(3)
-    draft = draft_model('PUBLISH', index, captured.events)
+    observed = observed_flow('PUBLISH')
     model.anchor_index = index
-    model.flows[draft.model.id] = draft.model
-    result = Engine(model).run_flow(draft.model, captured.events)
+    model.flows[observed.id] = observed
+    result = Engine(model).run_flow(observed, captured.events)
     assert result['verdict'] == 'grey' and not result['red'], result
     assert any(why.startswith('assumed') for why in result['grey'])

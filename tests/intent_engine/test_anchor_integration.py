@@ -39,15 +39,6 @@ def accept(days: int) -> bool:
 '''
 
 
-def test_draft_reads_source_without_importing_the_target(tmp_path, capsys):
-    from flowguard.intent import cli
-    project(tmp_path, 'raise RuntimeError("must not be imported")\n' + SOURCE, RULE)
-    assert cli.main(['--root', str(tmp_path), 'anchor', 'draft', 'app:accept']) == 0
-    text = capsys.readouterr().out
-    assert text.splitlines()[0] == '# flowguard: same accept'
-    assert 'range days:' in text and '3' in text
-
-
 def test_tool_type_failure_is_not_an_expected_business_refusal(tmp_path):
     intent = '''from flowguard.intent import rule,row,Refused
 @rule('LIMIT',decides='grace',fields={'days':int},source='assumed: reject input',anchor='GRACE')

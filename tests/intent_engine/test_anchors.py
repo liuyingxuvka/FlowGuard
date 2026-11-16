@@ -9,7 +9,7 @@ import types
 
 import pytest
 
-from flowguard.intent import anchors as A
+from flowguard.intent import anchors as A, cells
 from flowguard.intent.cells import Raised
 from flowguard.structure import build
 
@@ -128,16 +128,24 @@ def test_duplicate_name_role_mismatch_red_but_same_role_two_sites_remain(tmp_pat
     assert any(i.code == 'identity' for i in wrong.issues)
 
 
-def test_draft_uses_existing_cells_and_missing_numeric_bounds_stays_grey(tmp_path):
-    root, _ = source(tmp_path, GOOD + '\ndef raw(x: int) -> int: return x\n')
-    with closing(build(root, tmp_path / 'map.sqlite', workers=1)) as graph:
-        target = next(n['id'] for n in graph.nodes() if n['qual'] == 'eligible')
-        draft = A.draft(graph, target)
-        assert draft.text == '# flowguard: same eligible' and draft.status == 'ok'
-        assert {17, 18, 19} <= set(draft.ranges['points']['age'])
-        assert draft.ranges['points']['active'] == [False, True]
-        unknown = A.draft(graph, next(n['id'] for n in graph.nodes() if n['qual'] == 'raw'))
-        assert not unknown.ranges['complete'] and any('no readable comparison' in i.message for i in unknown.issues)
+def _domain(root, anchor):
+    """The input points of an anchor's declared domain as a comparison reads them (`decision_reading`,
+    `cells.build_space`), and the reading's issues."""
+    decision = A.decision_reading(root, anchor)
+    reading = decision.reading
+    return cells.build_space(decision.kinds, reading.consts, reading.planes, reading.links, reading.reasons,
+                             reading.hints), decision.issues
+
+
+def test_the_declared_domain_uses_existing_cells_and_missing_numeric_bounds_stays_grey(tmp_path):
+    root, index = source(tmp_path, GOOD + '# flowguard: same raw\ndef raw(x: int) -> int: return x\n')
+    eligible, raw = sorted(index.entries, key=lambda anchor: anchor.qual)
+    space, issues = _domain(root, eligible)
+    assert space.complete and not issues
+    assert {17, 18, 19} <= set(space.pts['age'])
+    assert space.pts['active'] == [False, True]
+    space, issues = _domain(root, raw)
+    assert not space.complete and any('no readable comparison' in issue.message for issue in issues)
 
 
 def test_decision_reading_keeps_source_ast_and_local_dependency_signature(tmp_path):
@@ -350,9 +358,9 @@ def test_literal_domain_uses_declared_values_and_missing_type_reading_is_grey(tm
 def access(role: Literal['admin', 'member']) -> bool: return role == 'admin'
 def untyped(x): return x == 1
 ''')
-    with closing(build(root, tmp_path / 'map.sqlite', workers=1)) as graph:
-        proposed = A.draft(graph, index.entries[0].target)
-        assert set(proposed.ranges['points']['role']) == {'admin', 'member'}
+    space, _ = _domain(root, index.entries[0])
+    role = A.decision_reading(root, index.entries[0]).kinds['role']
+    assert role.name == 'enum' and set(role.literals) == {'admin', 'member'} <= set(space.pts['role'])
     with session(root):
         assert A.observe(root, index.entries[0], {'role': 'admin'}).value is True
         assert A.observe(root, index.entries[0], {'role': 'outside'}).status == 'red'
@@ -378,14 +386,11 @@ def test_parser_owner_digest_invalidates_existing_map(tmp_path, monkeypatch):
         assert graph.stats['parsed'] == 1 and A.collect(graph).status == 'ok'
 
 
-def test_annotated_parameter_is_observed_and_drafted_without_guessing_unit(tmp_path):
+def test_annotated_parameter_is_observed_without_guessing_unit(tmp_path):
     root, index = source(tmp_path, '''from typing import Annotated
 # flowguard: sensor length(x: m) -> positive: bool
 def positive(x: Annotated[int, 'm']) -> bool: return x >= 1
 ''')
-    with closing(build(root, tmp_path / 'map.sqlite', workers=1)) as graph:
-        proposed = A.draft(graph, index.entries[0].target)
-        assert proposed.status == 'ok' and 'x: m' in proposed.text
     with session(root):
         result = A.observe(root, index.entries[0], {'x': 2})
     assert result.status == 'ok' and result.value is True
@@ -396,8 +401,6 @@ def test_none_only_input_is_grey_for_enumeration_not_a_crash(tmp_path):
 def empty(x: None) -> bool: return x is None
 ''')
     assert A.decision_reading(root, index.entries[0]).issues
-    with closing(build(root, tmp_path / 'map.sqlite', workers=1)) as graph:
-        assert A.draft(graph, index.entries[0].target).ranges == {}
 
 
 def test_calibration_cannot_escape_source_comment_identity(tmp_path):

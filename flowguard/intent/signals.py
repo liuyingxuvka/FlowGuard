@@ -10,45 +10,8 @@ from . import cells as C
 from .sources import ACTS, SHA
 
 
-def _short(text, width=100):
-    text = ' '.join(str(text).split())
-    return text if len(text) <= width else text[:width - 3] + '...'
-
-
 def _shown(value):
     return C.show(value)
-
-
-def _example(row):
-    if 'witness' in row:
-        return ', '.join(f'{name}={value}' for name, value in row['witness'].items())
-    return ', '.join(f'{name}={_shown(value)}' for name, value in row.get('inputs', {}).items()) or 'no record'
-
-
-def _changes(item):
-    records = item.get('changes', item.get('changed', ()))
-    for change in records if isinstance(records, (list, tuple)) else ():
-        if isinstance(change, dict):
-            yield change
-        else:
-            inputs, before, after = change
-            yield dict(inputs=inputs, before=before, after=after)
-
-
-def _points(values):
-    """Exact finite values only; gaps never become asserted continuous intervals."""
-    if values and all(type(value) is int for value in values):
-        ordered, spans = sorted(set(values)), []
-        first = last = ordered[0]
-        for value in ordered[1:]:
-            if value == last + 1:
-                last = value
-            else:
-                spans.append(str(first) if first == last else f'{first}..{last}')
-                first = last = value
-        spans.append(str(first) if first == last else f'{first}..{last}')
-        return ','.join(spans)
-    return ','.join(dict.fromkeys(_shown(value) for value in values))
 
 
 def _distinct(values):
@@ -67,115 +30,6 @@ def _ordered(values):
     import json
     return sorted(_distinct(values), key=lambda value: (type(value).__name__, json.dumps(value, sort_keys=True))
                   if type(value) in (dict, list) else C._k(value))
-
-
-def _region(rows):
-    if rows[0].get('region'):
-        labels = list(dict.fromkeys(row.get('region', '') for row in rows))
-        return labels[0] + (f' and {len(labels)} classes' if len(labels) > 1 else '')
-    names = tuple(rows[0].get('inputs', {}))
-    values = {name: _distinct(row['inputs'][name] for row in rows) for name in names}
-    combinations = 1
-    for choices in values.values():
-        combinations *= len(choices)
-    actual = {tuple(_shown(row['inputs'][name]) for name in names) for row in rows}
-    if combinations != len(actual):
-        # Correlated axes must not be presented as their Cartesian product. Two integer inputs equal in
-        # every row are one relation, when the rows are exactly that relation times the other values.
-        equal = [(left, right) for index, left in enumerate(names) for right in names[index + 1:]
-                 if all(type(row['inputs'][left]) is int and row['inputs'][left] == row['inputs'][right] for row in rows)]
-        if len(equal) == 1:
-            left, right = equal[0]
-            rest = [name for name in names if name not in equal[0]]
-            product = len(values[left])
-            for name in rest:
-                product *= len(values[name])
-            if product == len(actual):
-                return ', '.join([f'{left}={right} ({_points(values[left])})', *(f'{name}={_points(values[name])}' for name in rest)])
-        return _example(rows[0])
-    return ', '.join(f'{name}={_points(choices)}' for name, choices in values.items())
-
-
-def _cause(cause):
-    if not cause:
-        return ''
-    if isinstance(cause, str):
-        return 'cause: ' + cause
-    return (f'cause: {cause.get("name", "code")} {_shown(cause.get("before"))} -> {_shown(cause.get("after"))}'
-            f' ({cause["file"]}:{cause["line"]})')
-
-
-def _unknown(item):
-    status = item.get('comparison_status', item.get('status'))
-    return (not item.get('complete', False) or status not in (None, 'ok', 'red')
-            or bool(item.get('comparison_reasons') or item.get('reasons')))
-
-
-def _facts(item, *, comparison=False):
-    """The parts every view of one observed point shares: name, place, counts, first change, cause."""
-    changes = list(_changes(item))
-    total = item.get('total', len(item.get('rows', ())))
-    count = item.get('changed', len(changes))
-    count = len(count) if isinstance(count, (list, tuple)) else count
-    name = item.get('name', item.get('anchor', changes[0].get('anchor', '') if changes else ''))
-    if item.get('unanchored'):
-        name += '(unanchored, automatic)'
-    location = f' ({item["file"]}:{item["line"]})' if item.get('file') and item.get('line') else ''
-    if comparison:
-        first = changes[0] if changes else item
-        left, right = first.get('before_target'), first.get('after_target')
-        location = f' ({left} <-> {right})' if left and right else location
-    status = item.get('comparison_status', item.get('status'))
-    reasons = list(dict.fromkeys([*item.get('comparison_reasons', ()), *item.get('reasons', ())]))
-    unknown = not item.get('complete', False) or status not in (None, 'ok', 'red') or bool(reasons)
-    checked = item.get('checked', len(item.get('rows', ())) if status == 'ok' else len(changes))
-    summary = (f'candidate classes: {total}; compared: {checked}; comparison incomplete; proven changed classes: {count}' if unknown
-               else f'total {total} classes, changed {count} classes')
-    change = overall = ''
-    if changes:
-        groups = defaultdict(list)
-        for row in changes:
-            groups[(str(row['before']), str(row['after']))].append(row)
-
-        def smallest(members):
-            row = members[0]
-            if row.get('inputs'):
-                points = {key: _ordered(entry['inputs'][key] for entry in members) for key in row['inputs']}
-                least = C.smallest([entry['inputs'] for entry in members], points)
-                row = next(entry for entry in members if entry['inputs'] == least)
-            return row
-        members = next(iter(groups.values()))
-        row = smallest(members)
-        change = (f'{_region(members)}; function result {row["before"]} -> {row["after"]}(example: {_example(row)})'
-                  + (f'; plus {len(groups) - 1} outcome-change groups' if len(groups) > 1 else ''))
-        overall = change
-        if len(groups) > 1:
-            row = smallest(changes)
-            overall = (f'{_region(changes)}; function result has {len(groups)} kinds of change (example: {_example(row)}: '
-                       f'{row["before"]} -> {row["after"]})')
-    return dict(name=name, location=location, count=count, total=total, checked=checked, unknown=unknown,
-                summary=summary, change=change, overall=overall, cause=_cause(item.get('cause')), reasons=reasons, status=status)
-
-
-def _block(item, *, comparison=False, same_name=False):
-    facts = _facts(item, comparison=comparison)
-    title = f'{facts["name"]}{facts["location"]}: ' if facts['name'] or facts['location'] else ''
-    if comparison and facts['count']:
-        title = ('red same-name anchor ' if same_name else 'red comparison ') + title
-    lines = [title + facts['summary']]
-    if facts['change']:
-        lines.append(facts['change'])
-    if facts['cause']:
-        lines.append(facts['cause'])
-    if facts['reasons'] and len(lines) < 3:
-        lines.append('uncovered: ' + '; '.join(facts['reasons']))
-    return lines[:3]
-
-
-def render(report, limit=10):
-    """The bounded text of one source comparison (`differences._compare_pairs`, the deprecated `compare` command):
-    its red, then each compared pair's block, then what stayed incomplete. Full facts remain in the report."""
-    return _render(report, limit)
 
 
 # ---- the nine kinds of line (4.3) ------------------------------------------------------------------
@@ -1011,39 +865,6 @@ def missing_start(commit):
     """The one line of a run whose recorded task start this repository lacks (a shallow clone, collected history,
     another clone's cache): it compares nothing, and new-task records HEAD."""
     return f'FlowGuard(recorded task baseline {commit[:7]} is not in this repository: old/new comparison is off; first run python -m flowguard new-task)'
-
-
-def _render(report, limit):
-    budget = min(10, max(1, limit))
-    items = report.get('items')
-    items = [report] if items is None else items
-    red = list(report.get('red', ()))
-    red.extend(message for item in items if item is not report for message in item.get('red', ()))
-    comparison = report.get('comparison', False)
-    if comparison and report.get('status') == 'red' and not report.get('changes'):
-        red += report.get('reasons', ())
-    if not red and report.get('status') != 'red' and not any(item.get('status') == 'red' for item in items) and not report.get('comparison_requested') and (report.get('source_changed') is False
-                    or report.get('snapshot', {}).get('kind') == 'no-source-change'):
-        return ''
-    lines = ['red: ' + str(message) for message in red[:budget]]
-    if len(red) > budget:
-        lines[-1] = f'red: plus {len(red) - budget + 1} constraint violations; complete results retained in the report'
-    items = sorted(items, key=lambda item: item.get('status') != 'red')
-    # Design order: red, changes, then what stayed unverified.
-    unverified = [item for item in items if item.get('status') != 'red' and _unknown(item)]
-    def blocks(selected):
-        for item in selected:
-            if len(lines) >= budget:
-                break
-            lines.extend(_block(item, comparison=comparison or item.get('comparison', False),
-                                same_name=report.get('same_name', False) or item.get('same_name', False))[:budget - len(lines)])
-    blocks([item for item in items if not any(item is other for other in unverified)])
-    blocks(unverified)
-    if not lines:
-        lines.append(f'total {report.get("total", 0)} classes, changed {report.get("changed", 0)} classes'
-                     if report.get('complete') else 'not compared: no observations available')
-    # Red lines carry full names, places and the next step to copy: never shortened.
-    return '\n'.join(line if line.startswith('red') else _short(line) for line in lines)
 
 
 def stale_copies(graph, changes):

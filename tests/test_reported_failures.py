@@ -92,12 +92,6 @@ def test_commit_citations_in_a_repository_without_commits_are_known_to_be_none(t
     _git(root, 'init', '-q')
     assert request_citations(root) == ({}, True)
 
-def test_a_malformed_glossary_is_rejected_before_storage(tmp_path):
-    from flowguard.map.requests import store_request
-    with pytest.raises(MapError, match='glossary_syntax'):
-        store_request(tmp_path, b'owner word without a mapping', identifier='G1', kind='glossary')
-    assert not (tmp_path / '.flowguard/requests/G1.json').exists()
-    assert not (tmp_path / '.flowguard/requests/G1.md').exists()
 
 
 

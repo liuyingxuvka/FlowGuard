@@ -905,7 +905,7 @@ class Engine:
         info += [f"{s['new']} supersedes {s['old']}: {s['n']} of {s['of']} cells change, smallest {s['cell']} "
                  f"({s['old_v']} -> {s['new_v']})" for s in k["superseded"] if rule.id in (s["new"], s["old"])]
         if g and not rule.total:
-            info.append(f"{g['n']} cells of {rule.decides} have no rule (python -m flowguard show --gaps {rule.decides})")
+            info.append(f"{g['n']} cells of {rule.decides} have no rule (python -m flowguard show {rule.id} lists them)")
         rr = self._rr_info[rule.decides]
         if k["label"] != "complete":
             grey.append(f"not exhaustively checked ({k['label']}): "

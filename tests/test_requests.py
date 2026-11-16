@@ -147,7 +147,7 @@ def test_unclaimed_owner_words_are_listed_by_req_list(tmp_path, capsys):
     assert code == 0 and (not errors) and ('requests:' not in output)
     assert not (root / '.flowguard/requests/index.json').exists()
 
-def test_final_request_ids_stdin_and_kinds_keep_utc_time(tmp_path, capsys, monkeypatch):
+def test_final_request_ids_and_stdin_keep_utc_time(tmp_path, capsys, monkeypatch):
     import io
     import sys
     root = _project(tmp_path / 'project', capsys)
@@ -163,16 +163,58 @@ def test_final_request_ids_stdin_and_kinds_keep_utc_time(tmp_path, capsys, monke
         identifiers.append(identifier)
     assert identifiers[1].startswith(identifiers[0]) and identifiers[0] != identifiers[1]
     assert _call(root, capsys, 'req', 'add', str(source), '--id', '9bad')[0] == 2
-    assert _call(root, capsys, 'req', 'add', str(source), '--kind', 'glossary')[0] == 2
-    glossary = '续借 = renew, renewal\r\n'.encode()
+    words = '续借 = renew, renewal\r\n'.encode()
     with monkeypatch.context() as scoped:
-        scoped.setattr(sys, 'stdin', io.TextIOWrapper(io.BytesIO(glossary), encoding='utf-8'))
-        assert _call(root, capsys, 'req', 'add', '-', '--id', 'G1', '--kind', 'glossary')[0] == 0
-    assert (root / '.flowguard/requests/G1.md').read_bytes() == glossary
-    assert _call(root, capsys, 'req', 'add', str(source), '--id', 'R0', '--kind', 'adoption')[0] == 0
-    item = json.loads((root / '.flowguard/requests/R0.json').read_bytes())
-    assert item['kind'] == 'adoption'
+        scoped.setattr(sys, 'stdin', io.TextIOWrapper(io.BytesIO(words), encoding='utf-8'))
+        assert _call(root, capsys, 'req', 'add', '-', '--id', 'G1')[0] == 0
+    assert (root / '.flowguard/requests/G1.md').read_bytes() == words
+    item = json.loads((root / '.flowguard/requests/G1.json').read_bytes())
+    assert item['kind'] == 'request'
     assert 'stored_during' not in item and datetime.fromisoformat(item['received']).utcoffset().total_seconds() == 0
+    # 5.0 stores no glossary or adoption record: the option that wrote one is refused and nothing is stored
+    for kind in ('glossary', 'adoption'):
+        code, output, errors = _call(root, capsys, 'req', 'add', str(source), '--id', 'R0', '--kind', kind)
+        assert (code, output, errors) == (2, '', f'flowguard: req add --kind {kind} was removed in 5.0 -> '
+                                                 'python -m flowguard req add FILE --id R<n>\n')
+        assert not (root / '.flowguard/requests/R0.md').exists() and not (root / '.flowguard/requests/R0.json').exists()
+
+
+def _stored_before_5(root, identifier, kind, raw):
+    """A glossary or adoption record exactly as FlowGuard 4.3 stored it: the owner's bytes and the sidecar, each
+    written once by the archive's own writer."""
+    from flowguard.map.records import prepare_directory, write_once
+    from flowguard.map.requests import REQUEST_DIR
+    item = dict(id=identifier, kind=kind, sha256=hashlib.sha256(raw).hexdigest(), received='2026-11-01T08:00:00+00:00',
+                bytes=len(raw))
+    prepare_directory(root, REQUEST_DIR, ('.md', '.json'))
+    write_once(root, REQUEST_DIR / (identifier + '.md'), raw)
+    write_once(root, REQUEST_DIR / (identifier + '.json'),
+               (json.dumps(item, ensure_ascii=False, sort_keys=True) + '\n').encode('utf-8'))
+    return item
+
+
+def test_glossary_and_adoption_records_stored_before_5_0_still_load_list_and_show(tmp_path, capsys):
+    """The owner-word archive is a public saved input: records of the kinds 5.0 no longer writes keep loading,
+    listing, showing and serving as a link, byte for byte."""
+    from flowguard.map.requests import owner_words, read_request_bytes, request_state, validate_request_links
+    root = _project(tmp_path / 'project', capsys)
+    glossary = '续借次数 = availability_ceiling\r\n'.encode()
+    adoption = b'We adopt FlowGuard for the loan rules.\n'
+    stored = {'G1': _stored_before_5(root, 'G1', 'glossary', glossary), 'A1': _stored_before_5(root, 'A1', 'adoption', adoption)}
+    rows = {row['id']: row for row in owner_words(root)['rows']}
+    assert {identifier: (row['kind'], row['edited'], row['invalid']) for identifier, row in rows.items()} == {
+        'G1': ('glossary', None, None), 'A1': ('adoption', None, None)}
+    for identifier, raw in (('G1', glossary), ('A1', adoption)):
+        assert read_request_bytes(root, identifier) == raw
+        assert hashlib.sha256(raw).hexdigest() == stored[identifier]['sha256']
+        assert request_state(root, identifier)['kind'] == stored[identifier]['kind']
+    validate_request_links(root, [dict(id='G1', part=False), dict(id='A1', part=False)])
+    code, output, errors = _call(root, capsys, 'req', 'list')
+    assert code == 0 and not errors
+    assert output.splitlines()[1:] == ['  G1 glossary 2026-11-01T08:00:00+00:00 stored',
+                                       '  A1 adoption 2026-11-01T08:00:00+00:00 stored'], output
+    code, output, errors = _call(root, capsys, 'show', 'G1')
+    assert (code, errors) == (0, '') and output == 'OWNER G1\n' + glossary.decode('utf-8') + '\n', output
 
 def test_written_protection_distinguishes_linked_worktrees(tmp_path, capsys):
     root = _project(tmp_path / 'main', capsys)
@@ -217,15 +259,11 @@ def test_sidecar_attribute_conflict_leaves_no_half_request(tmp_path, capsys):
     assert not (root / '.flowguard/requests/R9.json').exists()
 
 
-def test_request_and_glossary_readers_preserve_stored_bytes_and_digests(tmp_path):
-    from flowguard.map.requests import store_request, read_request_bytes, glossary_entries
+def test_request_readers_preserve_stored_bytes_and_digests(tmp_path):
+    from flowguard.map.requests import store_request, read_request_bytes
     raw = '续借次数保持为1。\nOwner original second line.\n'.encode()
     request = store_request(tmp_path, raw, identifier='RDuring')
-    glossary = store_request(tmp_path, '续借次数 = availability_ceiling\n'.encode(), identifier='GDuring', kind='glossary')
     assert hashlib.sha256(read_request_bytes(tmp_path, 'RDuring')).hexdigest() == request['sha256']
-    glossary_raw = read_request_bytes(tmp_path, 'GDuring')
-    assert hashlib.sha256(glossary_raw).hexdigest() == glossary['sha256']
-    assert glossary_entries(glossary_raw) == [('续借次数', ('availability_ceiling',))]
     assert (tmp_path / '.flowguard/requests/RDuring.md').read_bytes() == raw
 
 @pytest.mark.parametrize('partial', [False, True])
@@ -259,16 +297,15 @@ def test_stored_links_refuse_unknown_and_edited_requests(tmp_path):
     assert not (root / '.flowguard/changes').exists()
 
 
-@pytest.mark.parametrize("kind", ["request", "adoption", "glossary"])
-def test_empty_request_bytes_do_not_create_records_or_reserve_the_id(tmp_path, kind):
+def test_empty_request_bytes_do_not_create_records_or_reserve_the_id(tmp_path):
     from flowguard.map.common import MapError
     from flowguard.map.requests import store_request
 
     with pytest.raises(MapError, match="request_empty"):
-        store_request(tmp_path, b"", identifier="REmpty", kind=kind)
+        store_request(tmp_path, b"", identifier="REmpty")
     assert not (tmp_path / ".flowguard").exists()
-    raw = b"limit = loan_limit\r\n" if kind == "glossary" else b" \t\r\n"
-    item = store_request(tmp_path, raw, identifier="REmpty", kind=kind)
+    raw = b" \t\r\n"
+    item = store_request(tmp_path, raw, identifier="REmpty")
     assert item["bytes"] == len(raw)
     assert (tmp_path / ".flowguard/requests/REmpty.md").read_bytes() == raw
 

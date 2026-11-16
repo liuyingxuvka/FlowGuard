@@ -125,100 +125,6 @@ class Event:
     source_digest: str = ''
 
 
-@dataclass(frozen=True)
-class ModelDraft:
-    model: Flow | None
-    notes: tuple[str, ...]
-
-    @property
-    def status(self):
-        return 'grey'  # Observations do not license a requirement or close unobserved paths.
-
-
-def draft_model(name, index, events):
-    """Draft the existing Flow data from actual paths, without inventing semantics."""
-    notes = ['Observed paths only; required paths, state transitions and relations need review.']
-    cases, identities, order, edges, starts, ends, cache = {}, {}, [], set(), set(), set(), {}
-    for event in events:
-        case = cases.setdefault(event.case, [])
-        case.append(event)
-        key = event.anchor, event.phase
-        if key not in identities:
-            identities[key] = f'n{len(identities) + 1}'
-            order.append(key)
-        try:
-            _reading_source(event, index, Read(identities[key]), cache)
-        except Unverified as error:
-            notes.append(str(error))
-    for case, observations in cases.items():
-        notes.extend(_event_integrity(case, observations))
-        path = [identities[event.anchor, event.phase] for event in observations]
-        starts.add(path[0]); ends.add(path[-1])
-        edges.update(zip(path, path[1:]))
-    if not order:
-        return ModelDraft(None, (*notes, 'No observed anchor paths; no model was drafted.'))
-    model = Flow(name, 'assumed: observed paths only; confirm required paths and relations',
-                 tuple(Node(identities[key], key[0], phase=key[1], start=identities[key] in starts,
-                            end=identities[key] in ends) for key in order), tuple(sorted(edges)))
-    checked = validate(model, index)
-    notes.extend(checked['red'] + checked['grey'] + checked['info'])
-    return ModelDraft(model, tuple(dict.fromkeys(notes)))
-
-
-def template_text(kind, args, kwargs=None):
-    """One template line, exactly as a program writes it: precedes("A", "B"), transitions("Job.status", new={"saved"})."""
-    def literal(value):
-        if isinstance(value, (set, frozenset)):
-            return '{' + ', '.join(literal(item) for item in sorted(value, key=repr)) + '}'
-        return '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"' if isinstance(value, str) else repr(value)
-    parts = [literal(value) for value in args]
-    kwargs = kwargs or {}
-    if all(isinstance(key, str) and key.isidentifier() and key not in ('source', 'actual') for key in kwargs):
-        parts += [f'{key}={literal(value)}' for key, value in kwargs.items()]
-    elif kwargs:
-        parts.append('**{' + ', '.join(f'{literal(key)}: {literal(value)}' for key, value in kwargs.items()) + '}')
-    return f'{kind}(' + ', '.join(parts) + ')'
-
-
-def template_lines(events):
-    """Template proposals from observed paths, grouped by flow: the entry anchor that starts each test's
-    path. `precedes` where every observed later anchor followed the earlier one; `transitions` for the
-    state changes actually read. Observations only: review, delete or tighten (guarded_by, checks) each
-    line. Rows are data (kind, args, kwargs, text) so another tool can generate the same lines."""
-    cases = {}
-    for event in events:
-        cases.setdefault(event.case, []).append(event)
-    flows = {}
-    for observed in cases.values():
-        calls = [event for event in observed if event.phase == 'call']
-        if calls:
-            flows.setdefault(calls[0].anchor, []).append(observed)
-    out = []
-    for entry, group in sorted(flows.items()):
-        def row(kind, args, kwargs=None):
-            out.append(dict(flow=entry, tests=len(group), kind=kind, args=tuple(args), kwargs=dict(kwargs or {}),
-                            text=template_text(kind, args, kwargs)))
-        order = list(dict.fromkeys(event.anchor for observed in group for event in observed if event.phase == 'call'))
-        for first, then in zip(order, order[1:]):
-            def holds(observed):
-                calls = [event.anchor for event in observed if event.phase == 'call']
-                return then not in calls or first in calls[:calls.index(then)]
-            if all(holds(observed) for observed in group) and any(then in [e.anchor for e in observed] for observed in group):
-                row('precedes', (first, then))
-        changes = {}
-        for observed in group:
-            for event in observed:
-                if event.phase != 'return':
-                    continue
-                for name, after in event.states.items():
-                    before = event.before_states.get(name, _MISSING)
-                    if before is not _MISSING and before != after and all(type(v) in (str, int, bool) for v in (before, after)):
-                        changes.setdefault(name, {}).setdefault(before, set()).add(after)
-        for name, allowed in sorted(changes.items()):
-            row('transitions', (name,), {before: allowed[before] for before in sorted(allowed, key=repr)})
-    return out
-
-
 class Unverified(ValueError):
     pass
 
@@ -1129,9 +1035,8 @@ class Capture:
     or turn an interrupted test into a pass. Values never survive this scope by
     themselves. Unsupported async/generator frames remain explicit unknowns.
     """
-    def __init__(self, root, index, case, *, models=None, _ordinary=False, on_event=None, discover=False):
+    def __init__(self, root, index, case, *, models=None, _ordinary=False, on_event=None):
         self.root, self.index, self.case = Path(root).resolve(), index, str(case)
-        self._discover = discover
         self.on_event, self.diagnostic_issues = on_event, []
         self._ordinary = _ordinary
         self._model_scopes = self._read = None
@@ -1174,19 +1079,14 @@ class Capture:
 
     def loaded(self, module):
         """A module imported during the case adds its anchored code objects."""
-        if self._active and self._scope.codes is not None:
+        if self._active:
             for code, name in self._codes(module):
                 self._scope._record.add_code(code, name)
 
     def __enter__(self):
         # Only the anchored functions' code objects are observed, with local events.
-        # `discover` keeps the process-wide search for code that is not a loaded
-        # module yet, such as a script that watch runs as __main__.
-        codes = None
-        if not self._discover:
-            codes = [pair for module in list(sys.modules.values()) for pair in self._codes(module)]
-        predicate = lambda code: (code.co_filename, code.co_qualname.replace('.<locals>.', '.')) in self._sites
-        self._scope = _TraceScope(self._trace, ordinary=self if self._ordinary else None, predicate=predicate, codes=codes)
+        codes = [pair for module in list(sys.modules.values()) for pair in self._codes(module)]
+        self._scope = _TraceScope(self._trace, ordinary=self if self._ordinary else None, codes=codes)
         try:
             self._scope.__enter__()
         except _TraceUnavailable as error:

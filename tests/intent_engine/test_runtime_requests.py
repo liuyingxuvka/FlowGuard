@@ -1,4 +1,4 @@
-"""Optional views borrow real tests and cannot replace their inputs or verdicts."""
+"""A session's options and its display cannot replace a real test's inputs or verdicts."""
 import json
 from pathlib import Path
 import sqlite3
@@ -17,33 +17,6 @@ def _embedded(root, script, *options):
     return subprocess.run([sys.executable, '-c', boot, SOURCE, '-q', '-p',
                            'flowguard.intent.plugin', *options], cwd=root,
                           capture_output=True, text=True, timeout=30)
-
-
-@pytest.mark.parametrize('values', [{'x': 4}, {'label': 'wrong'}])
-def test_requested_points_do_not_replace_the_real_test_context(tmp_path, values):
-    _project(tmp_path, '''
-        # flowguard: sensor PERMIT(x: count; label) -> answer: bool
-        def permit(x: int, label: str) -> bool:
-            return label == 'ok' and x <= 3
-    ''', '''
-        from policy import permit
-        def test_native():
-            assert permit(0, 'ok') is True
-    ''')
-    result = _embedded(tmp_path, '''import pytest,json
-from flowguard.intent.plugin import try_reading
-with try_reading('policy:permit','PERMIT',VALUES) as request:
-    result=pytest.main(sys.argv[1:])
-print('REQUEST='+json.dumps(dict(reasons=request['reasons'],rows=[row for reading in request['readings'] for row in reading.rows],
-                                 actual=[reading.actual for reading in request['readings']])))
-raise SystemExit(result)
-'''.replace('VALUES', repr(values)))
-    assert result.returncode == 0, _text(result)
-    assert '1 passed' in result.stdout, _text(result)
-    request = json.loads(result.stdout.split('REQUEST=', 1)[1])
-    # The session only records the real call; the requested values are evaluated sealed after it
-    # (debug.try_in_test), never replayed inside the test.
-    assert request == dict(reasons=[], rows=[], actual=[[{'x': 0, 'label': 'ok'}, True]]), request
 
 
 def test_explicit_bad_base_is_rejected_before_any_business_test(tmp_path):

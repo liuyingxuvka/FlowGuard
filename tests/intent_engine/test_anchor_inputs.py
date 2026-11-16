@@ -1,11 +1,9 @@
 """Round 19: short comments classify only primitive inputs and keep context intact."""
 import ast
-from contextlib import closing
 from decimal import Decimal
 
 from flowguard.intent import anchors as A
 from flowguard.intent import cells
-from flowguard.structure import build
 
 
 def source(tmp_path, text):
@@ -85,17 +83,19 @@ def mixed(age: int, unknown) -> bool:
     assert not any(i.code == 'range-missing' and i.message.startswith('age:') for i in reading.issues)
 
 
-def test_short_draft_has_real_inputs_context_and_relational_cells(tmp_path):
-    source(tmp_path, '''def can_hire(db: object, stock: int, reserved: int) -> bool:
+def test_short_same_comment_has_real_inputs_context_and_relational_cells(tmp_path):
+    index = source(tmp_path, '''# flowguard: same can_hire
+def can_hire(db: object, stock: int, reserved: int) -> bool:
     return stock > reserved
 ''')
-    with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
-        draft = A.draft(graph, 'app:can_hire')
-    assert draft.text == '# flowguard: same can_hire'
-    assert draft.status == 'ok'
-    assert draft.ranges['inputs'] == ['stock', 'reserved']
-    assert draft.ranges['context'] == ['db']
-    assert draft.ranges['complete']
+    assert index.status == 'ok'
+    anchor, = index.entries
+    assert [p.name for p in anchor.inputs] == ['stock', 'reserved']
+    assert [p.name for p in anchor.contexts] == ['db']
+    reading = A.decision_reading(tmp_path, anchor)
+    space = cells.build_space(reading.kinds, reading.reading.consts, reading.reading.planes, reading.reading.links,
+                              reading.reading.reasons, reading.reading.hints)
+    assert space.complete and not reading.issues
 
 
 def test_annotation_calls_and_rebound_constructors_are_never_executed(tmp_path):

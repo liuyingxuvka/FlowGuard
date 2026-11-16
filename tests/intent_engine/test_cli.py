@@ -2,6 +2,7 @@
 import ast
 import os
 from pathlib import Path
+import re
 import uuid
 import tomllib
 
@@ -96,14 +97,44 @@ def test_every_command_has_a_description_in_the_help(capsys, monkeypatch):
         assert re.search(rf'^    {re.escape(command)} +\w', text, re.M), (command, text)
 
 
-@pytest.mark.parametrize('command', ['anchor', 'model', 'try', 'watch', 'compare'])
-def test_deprecated_commands_stay_callable_but_out_of_the_top_level_help(command, capsys):
+NEW_COMMANDS = 'python -m flowguard new-task, check or show NAME'
+
+
+@pytest.mark.parametrize('arguments, line', [
+    (['anchor', 'draft', 'app:accept'], f'anchor draft was removed in 5.0 -> {NEW_COMMANDS}'),
+    (['anchor', '--help'], f'anchor draft was removed in 5.0 -> {NEW_COMMANDS}'),
+    (['model', 'draft', 'PUBLISH'], f'model draft was removed in 5.0 -> {NEW_COMMANDS}'),
+    (['try', 'LIMIT', 'days=4', '--grid'], f'try was removed in 5.0 -> {NEW_COMMANDS}'),
+    (['watch', '--', 'python', 'app.py'], f'watch was removed in 5.0 -> {NEW_COMMANDS}'),
+    (['compare', 'app:accept', 'app:other'], f'compare was removed in 5.0 -> {NEW_COMMANDS}'),
+    (['show', '--draft', 'app:accept'], 'show --draft was removed in 5.0 -> python -m flowguard show NAME'),
+    (['show', 'LIMIT', '--gaps=acceptance'], 'show --gaps was removed in 5.0 -> python -m flowguard show NAME'),
+    (['check', '--since', 'HEAD~1'], 'check --since was removed in 5.0 -> python -m flowguard check --base REV'),
+    (['check', '--static', '--since=HEAD'], 'check --since was removed in 5.0 -> python -m flowguard check --base REV'),
+    (['check', '--leads'], 'check --leads was removed in 5.0 -> python -m flowguard show --last'),
+    (['check', '--static', '--all', '--leads'], 'check --leads was removed in 5.0 -> python -m flowguard show --last'),
+    (['req', 'add', 'owner.md', '--kind', 'glossary'],
+     'req add --kind glossary was removed in 5.0 -> python -m flowguard req add FILE --id R<n>'),
+    (['req', 'add', '-', '--id', 'R1', '--kind', 'adoption'],
+     'req add --kind adoption was removed in 5.0 -> python -m flowguard req add FILE --id R<n>'),
+])
+def test_a_command_or_option_removed_in_5_0_exits_2_and_names_its_replacement(tmp_path, capsys, monkeypatch, arguments, line):
+    """Each command and option 4.3 announced for 5.0 is refused with one line on stderr: it never runs, writes nothing,
+    and is neither ignored nor read as another command; --help lists none of them."""
+    for name in ('show', 'check', 'static_check', 'requests', 'screen'):
+        monkeypatch.setattr(cli, name, lambda *args, **kwargs: pytest.fail('a removed command or option ran'))
+    assert cli.main(['--root', str(tmp_path), *arguments]) == 2
+    assert capsys.readouterr() == ('', f'flowguard: {line}\n')
+    assert not (tmp_path / '.flowguard').exists()
+
+
+@pytest.mark.parametrize('command', [['show'], ['check'], ['req', 'add']])
+def test_the_help_of_a_command_names_no_option_removed_in_5_0(command, capsys):
     with pytest.raises(SystemExit) as stopped:
-        cli.main([command, '--help'])
-    text = capsys.readouterr()
-    assert stopped.value.code == 0
-    assert 'usage: flowguard ' + command in text.out
-    assert 'deprecated:' in text.err and '5.0' in text.err
+        cli.main([*command, '--help'])
+    text = capsys.readouterr().out
+    assert stopped.value.code == 0 and text.startswith('usage: flowguard ' + ' '.join(command)), text
+    assert not re.search(r'--(draft|gaps|since|leads|kind)\b', text), text
 
 
 @pytest.mark.parametrize('command', ['status', 'where'])
@@ -554,7 +585,3 @@ def test_foreign_source_navigation_displays_static_coverage_and_execution_bounda
     text = capsys.readouterr().out
     assert 'typescript 1/1 parsed' in text
     assert 'static facts' in text and 'execution not verified' in text
-    assert cli.show(cfg, draft='typescript/service.ts:accept') == 0
-    text = capsys.readouterr().out
-    assert 'no verified native-home execution adapter' in text
-    assert 'build inputs and read the real result' not in text

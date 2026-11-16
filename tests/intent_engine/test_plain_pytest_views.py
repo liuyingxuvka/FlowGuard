@@ -1,8 +1,8 @@
-"""show NAME and model draft read what an ordinary pytest run just observed.
+"""show NAME reads what an ordinary pytest run just observed.
 
 In 4.0 a plain pytest run recorded no anchor events unless the project had flow
-models, a working-tree change, or ran under check; show and model draft were
-empty until check had run once.
+models, a working-tree change, or ran under check; show was empty until check
+had run once.
 """
 from pathlib import Path
 import subprocess
@@ -56,7 +56,7 @@ def project(root):
     return root
 
 
-def test_show_and_model_draft_have_data_after_plain_pytest(tmp_path, capsys):
+def test_show_has_data_after_plain_pytest(tmp_path, capsys):
     root = project(tmp_path / 'views')
     assert not (root / '.flowguard').exists(), 'no check and no earlier run'
     bootstrap = 'import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; raise SystemExit(pytest.main(sys.argv[1:]))'
@@ -70,8 +70,3 @@ def test_show_and_model_draft_have_data_after_plain_pytest(tmp_path, capsys):
     assert cli.main(['--root', str(root), 'show', 'LIMIT']) == 0
     text = capsys.readouterr().out
     assert "results: {'True': 1}" in text, text
-    assert cli.main(['--root', str(root), 'model', 'draft', 'OBSERVED']) == 0
-    text = capsys.readouterr().out
-    assert "MODEL = flow('OBSERVED'" in text and "anchor='PUBLISH'" in text and "anchor='ENTER'" in text, text
-    assert "anchor='SAVE'" not in text, 'only the observed path is drafted'
-    compile(text, '<draft>', 'exec')

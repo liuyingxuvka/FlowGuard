@@ -54,7 +54,30 @@ COMMANDS = {
     'known': 'Record an open matter in .flowguard/known.toml: known add FINDING --act ACT --why TEXT',
 }
 
-DEPRECATED_COMMANDS = {'anchor', 'try', 'watch', 'model', 'compare'}
+# The commands 5.0 removed, by their first word, each with the name its usage line gave it; what a project used them
+# for is done by NEW_COMMANDS (`Removed`). The removed options are `_RemovedOption`s of their command's parser.
+NEW_COMMANDS = 'python -m flowguard new-task, check or show NAME'
+REMOVED_COMMANDS = {'anchor': 'anchor draft', 'model': 'model draft', 'try': 'try', 'watch': 'watch',
+                    'compare': 'compare'}
+
+
+class Removed(ValueError):
+    """A command or option FlowGuard 5.0 removed: `main` exits 2 with the one line
+    `flowguard: <what> was removed in 5.0 -> <replacement>` on stderr. The removed command never runs: its use is
+    neither ignored nor read as another command."""
+    def __init__(self, what, replacement):
+        super().__init__(f'{what} was removed in 5.0 -> {replacement}')
+
+
+class _RemovedOption(argparse.Action):
+    """An option 5.0 removed (hidden from --help): naming it, with or without a value, raises `Removed`, whatever
+    else the command line holds. `what` may hold `{value}`, the value given."""
+    def __init__(self, option_strings, dest, *, what, replacement, nargs='?', **options):
+        super().__init__(option_strings, dest, nargs=nargs, help=argparse.SUPPRESS, **options)
+        self.what, self.replacement = what, replacement
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        raise Removed(self.what.format(value=values if isinstance(values, str) else '').strip(), self.replacement)
 
 
 def _spelled(word):
@@ -330,10 +353,6 @@ def _unmodelled(index, summary, *, root=None):
     return sorted({a.name for a in index.entries if a.source_role == 'production' and identity(a) not in used})
 
 
-def _observation_lines(cfg, graph, data, node):
-    return ['source navigation: current Map identity; runtime readings are historical and available for declared anchors']
-
-
 def _silent_lines(cfg, index, rid, full, limit=10):
     """The case classes a rule gives no result for, from the current rules (never the code). Where no rule
     of its decision decides and a rule there says total=True, they are red."""
@@ -456,16 +475,15 @@ def show_catalog(cfg, query, full=False):
     return int(bool(problems))
 
 
-def show(cfg, query=None, *, draft=None, gaps=None, full=False, last=False):
+def show(cfg, query=None, *, full=False, last=False):
     if last:
-        if query or draft or gaps:
+        if query:
             raise ValueError('show --last takes no NAME: python -m flowguard show --last')
         return show_last(cfg, full)
     from .sources import catalog_files
-    if query and not draft and not gaps and (query == 'rules' or query.startswith(('rule.', 'known.'))) and catalog_files(cfg):
+    if query and (query == 'rules' or query.startswith(('rule.', 'known.'))) and catalog_files(cfg):
         return show_catalog(cfg, query, full)      # without a catalog file these names are looked up as before
-    query = draft or query
-    if not gaps and query:
+    if query:
         request = cfg.root / '.flowguard/requests' / (query + '.md')
         if request.is_file():
             row = owner_word(cfg.root, query)
@@ -478,15 +496,6 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False, last=False):
             raise ValueError(f'{query}: stored original is not verified')
     data = cache.read(cfg)
     rules = data['summary']['rules']
-    if gaps:
-        from .engine import Engine
-        from .loader import load
-        model = load(cfg)
-        if gaps not in model.keys():
-            raise ValueError(f'unknown decision key {gaps}')
-        result = Engine(model).check_key(gaps)
-        print(json.dumps(result.get('gaps') or {'gaps': 0}, ensure_ascii=False))
-        return 0
     if not query:
         raise ValueError('show needs a rule, function, request id or words')
     errors = [e for e in data['summary']['errors']
@@ -500,7 +509,7 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False, last=False):
         from .anchors import collect
         index = collect(graph)
         notice = _map_notice(graph)
-        if query in rules and rules[query].get('kind') == 'flow' and not draft:
+        if query in rules and rules[query].get('kind') == 'flow':
             from .debug import show_observation
             _, pointers = _source_pointers(index, rules[query].get('anchors', ()), graph, full=full)
             view = show_observation(cfg, query, index, cache.observations(cfg).get('events', ()))
@@ -551,13 +560,6 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False, last=False):
                                          for rid, value in rules.items()})
             view = show_observation(cfg, query, index, cache.observations(cfg).get('events', ()), model=model)
             print('\n'.join(view['lines']))
-            if draft:
-                seen = set()
-                for anchor in anchors:
-                    node = graph.node(graph.canonical(anchor.target) or anchor.target)
-                    if node and node['id'] not in seen:
-                        seen.add(node['id'])
-                        print('\n'.join(_observation_lines(cfg, graph, data, node)))
             unused = set(_unmodelled(index, data['summary'], root=cfg.root)) & {a.name for a in anchors}
             if unused:print('info: not referenced by a current model: ' + ', '.join(sorted(unused)))
             from .differences import display
@@ -575,17 +577,10 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False, last=False):
             print(f'{query} {node["file"]}:{node["line"]}\n{node["sig"]}\n{node["doc"]}')
             if notice:
                 print(notice)
-            if draft and node.get('language', 'python') != 'python':
-                print('Static source only: this language has no verified native-home execution adapter.')
-                return 0
-            if draft:
-                print('use anchor draft for a source comment; impure code needs an ordinary calibration test')
-                print('\n'.join(_observation_lines(cfg, graph, data, node)))
-            else:
-                found = graph.search_homes(query, k=None)
-                if not found['searched']:
-                    print('not searched: ' + found.get('reason', '') + ' -> bind the real decision site')
-                print('\n'.join(_candidate_lines(found, full, 'candidate ')))
+            found = graph.search_homes(query, k=None)
+            if not found['searched']:
+                print('not searched: ' + found.get('reason', '') + ' -> bind the real decision site')
+            print('\n'.join(_candidate_lines(found, full, 'candidate ')))
             return 0
         words = tokens(query)
         from .owners import declaration_lines       # what the map already read about the name comes first
@@ -666,74 +661,6 @@ def add_known_entry(cfg, options):
     if entry.act != 'ask':
         print('the next run lists it as loosened, as every new entry whose act is not ask')
     return 0
-
-
-def draft_anchor(cfg, target):
-    from .anchors import draft
-    with closing(build(cfg.root, roots=cfg.roots)) as graph:
-        result = draft(graph, graph.canonical(target) or target)
-    if result.text:
-        print(result.text)
-    for name, points in result.ranges.get('points', {}).items():
-        print(f'range {name}: {points!r}')
-    if result.ranges:
-        print(f'{result.ranges["total"]} representative cells; complete={result.ranges["complete"]}')
-    for issue in result.issues:
-        print(f'{issue.level} {issue.file}:{issue.line}: {issue.message}')
-    return int(result.status == 'red')
-
-
-def draft_model(cfg, name):
-    from .debug import _events, _index
-    from .flow import draft_model as from_events, template_lines
-    events = _events(cache.observations(cfg).get('events', ()))
-    result = from_events(name, _index(cfg), events)
-    for note in result.notes:
-        print('# grey: ' + note)
-    if result.model is not None:
-        model = result.model
-        print('from flowguard.intent import flow, Node')
-        print(f'MODEL = flow({model.id!r}, source={model.source!r}, nodes={model.nodes!r}, edges={model.edges!r})')
-    lines = template_lines(events)
-    if lines:
-        print('# one-line templates from observed paths, grouped by flow; keep, tighten (guarded_by, checks) or delete each')
-        print('from flowguard.intent import precedes, transitions')
-        for flow in dict.fromkeys(row['flow'] for row in lines):
-            members = [row for row in lines if row['flow'] == flow]
-            print(f'# flow {flow} ({members[0]["tests"]} tests)')
-            print('\n'.join(row['text'] for row in members))
-    return 0
-
-
-def try_anchor(cfg, name, assignments, *, grid=False):
-    import ast
-    from . import debug
-    values = {}
-    for assignment in assignments:
-        key, separator, value = assignment.partition('=')
-        if not separator or not key.isidentifier() or key in values:
-            raise ValueError('try inputs must be unique name=literal assignments')
-        try:
-            values[key] = ast.literal_eval(value)
-        except (ValueError, SyntaxError) as error:
-            raise ValueError(f'{key}: use a Python literal value') from error
-    result = debug.try_anchor(cfg, name, values, grid=grid, runner=debug.try_in_test)
-    print('\n'.join(result['lines']))
-    return {'ok': 0, 'red': 1, 'grey': 2}[result['status']]
-
-
-def watch(cfg, command):
-    from . import debug
-    command = command[1:] if command[:1] == ['--'] else command
-    result = debug.watch(cfg, command)
-    if result.get('executed'):
-        debug.save_observation(cfg, result['events'])
-    print('\n'.join(result['lines']))
-    return result['exit_code'] or int(result['status'] == 'red')
-
-
-
-
 
 
 class _Own:
@@ -1069,12 +996,12 @@ def _keep_last(cfg, payload):
             cache.save_last(con, payload)
 
 
-def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=False):
+def check(cfg, *, everything=False, deep=False, base=None):
     """Run the one ordinary pytest route; source validation executes no code. The 4.3 block at the end: the findings
     of its pytest batch (`plugin.collect_signals().deliveries`), its own (the intent results, the comments, the
     same-name copies no batch compared) and the static ones with copy discovery (`_owner_findings`), through one
     `signals.collect`, one line per (kind, name, function); `everything` (`--all`) lists every old finding and has no
-    budget, as `leads` (`--leads`, deprecated) has none. The first line counts FlowGuard's own seconds: its batch's
+    budget. The first line counts FlowGuard's own seconds: its batch's
     and check's own work besides pytest; the lines are kept for `show --last` with that first line, and a place is
     named by the shortest end of its path that no other file of the repository has. Exit 1 for a red line only.
     Without `base` the first check of a task records HEAD as its baseline when none is recorded; a recorded one
@@ -1084,12 +1011,10 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=Fal
     from .differences import _source_index
     from .plugin import collect_signals
     mark = deprecation.mark()
-    if leads:
-        deprecation.warn('check --leads', 'python -m flowguard show --last')
     start = cache.task_start(cfg, record=True) if base is None else (base, 'base', None)
     own = _Own()
     with collect_signals(everything=everything) as reports:
-        _check(cfg, everything=everything, since=since, deep=deep, base=base, reports=reports, own=own)
+        _check(cfg, everything=everything, deep=deep, base=base, reports=reports, own=own)
     index = _source_index(cfg.root)
     issues, lines = _index_findings(index)
     own.issues += issues
@@ -1126,7 +1051,7 @@ def check(cfg, *, everything=False, since=None, deep=False, base=None, leads=Fal
     _keep_last(cfg, signals.last_run(lines, ignored, run='check', stamp=started, baseline=baseline, kind=kind, title=heading,
                                      seconds=seconds, deprecated=deprecation.used(mark), hidden=found.hidden))
     status = int(any(line.kind == 'red' for line in lines))
-    _show_signals(signals.render_block(lines, title=heading, everything=everything or leads, files=files), status)
+    _show_signals(signals.render_block(lines, title=heading, everything=everything, files=files), status)
     return status
 
 
@@ -1145,12 +1070,12 @@ def _show_signals(text, status):
                 pass
 
 
-def static_check(cfg, *, everything=False, base=None, leads=False):
+def static_check(cfg, *, everything=False, base=None):
     """`check --static`: the map checks alone, without pytest: the fallback ledger, owner writes and pairs,
     values outside declared sets, new spellings, unchanged copies, deletes that leave children, missing columns,
     the catalog and touched structure problems (`owners.static_findings`), with the flowguard comments, as the 4.3
     block (`signals.collect`, `render_block`). Only what this change adds is red; `everything` (`--all`) lists every
-    old finding as before and has no budget, as `leads` (`--leads`, deprecated) has none. The first line always
+    old finding as before and has no budget. The first line always
     prints, with the whole command's seconds; the lines are kept for `show --last`, and a place is named by the
     shortest end of its path that no other file of the repository has. With FLOWGUARD_LINES set (the static test
     inside a vitest run, `NPM_CHECK`) the payload `show --last` keeps (`signals.last_run`) and the parts of its first
@@ -1160,18 +1085,16 @@ def static_check(cfg, *, everything=False, base=None, leads=False):
     recorded; a recorded one stays, as in pytest (`cache.task_start`); the title names it as pytest does."""
     from . import deprecation
     if not os.environ.get('FLOWGUARD_LINES'):
-        return _static_check(cfg, everything=everything, base=base, leads=leads, notices=())
+        return _static_check(cfg, everything=everything, base=base, notices=())
     with deprecation.held() as notices:
-        return _static_check(cfg, everything=everything, base=base, leads=leads, notices=notices)
+        return _static_check(cfg, everything=everything, base=base, notices=notices)
 
 
-def _static_check(cfg, *, everything, base, leads, notices):
+def _static_check(cfg, *, everything, base, notices):
     """`static_check`, with the deprecation notices it holds for static.json (`notices`)."""
     started, timing = time.time(), time.perf_counter()
     from . import anchors, deprecation, ledger as fallbacks, owners, signals
     mark = deprecation.mark()
-    if leads:
-        deprecation.warn('check --leads', 'python -m flowguard show --last')
     start = cache.task_start(cfg, record=True) if base is None else (base, 'base', None)
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
         index = anchors.collect(graph)
@@ -1203,7 +1126,7 @@ def _static_check(cfg, *, everything, base, leads, notices):
         target.write_text(json.dumps(dict(payload, title_parts=parts, notices=list(notices)), ensure_ascii=False, sort_keys=True),
                           encoding='utf-8')
     else:
-        _show_signals(signals.render_block(lines, title=heading, everything=everything or leads, files=files), status)
+        _show_signals(signals.render_block(lines, title=heading, everything=everything, files=files), status)
     return status
 
 
@@ -1233,8 +1156,7 @@ def _owner_findings(cfg, *, everything=False, base=None, static=None):
         return found
 
 
-def _check_selection(cfg: Config, model: object, data: dict, everything: bool, since: str | None, sentinel: Path,
-                     base: str | None = None):
+def _check_selection(cfg: Config, model: object, data: dict, everything: bool, sentinel: Path, base: str | None = None):
     import ast
     from flowguard.map.common import git_run
     from . import deps, history
@@ -1269,14 +1191,6 @@ def _check_selection(cfg: Config, model: object, data: dict, everything: bool, s
             ordinary.update(file for file in records if ordinary_file(file))
             selected.update(model.rules)
             flows.update([*model.flows, *model.states, *model.structures, *model.anchor_distincts])
-        if since:
-            impact = graph.impact(since=since)
-            ordinary.update(file for file in impact['tests'] if ordinary_file(file))
-            files, dirty = set(impact['files']), set(impact['dirty'])
-            selected.update(identifier for identifier, saved in data['deps'].items() if identifier in model.rules and any(
-                key.startswith('node:') and key[5:] in dirty
-                or key.startswith(('file:', 'module:')) and key.partition(':')[2] in files
-                for key in saved.get('dependencies', {})))
         # A `fields` anchor's rule is checked on the calls its tests reach: rerun the tests that reached
         # it last time, every test while that is unknown.
         for identifier in selected:
@@ -1336,7 +1250,7 @@ def _run_check_pytest(command: list, root: Path, output: Path, stream: bool):
         _INSERTED_PATHS.update(owned)
 
 
-def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=None, own=None):
+def _check(cfg, *, everything=False, deep=False, base=None, reports=None, own=None):
     """The pytest part of `check`: select the affected rules and tests, run them in one pytest batch (its findings
     reach `reports`, `plugin.collect_signals`) and add check's own findings to `own` (`_Own`): the intent results it
     ran or reused (`_cache_findings`), the history of the intent rules, the ledger when no intent item runs, and an
@@ -1377,7 +1291,7 @@ def _check(cfg, *, everything=False, since=None, deep=False, base=None, reports=
     if stream_all:
         print('FlowGuard check --all: preparing source dependencies before pytest.', flush=True)
     selected, flows, ordinary, test_records, guards, rule_markers = _check_selection(
-        cfg, model, data, everything, since, sentinel, base)
+        cfg, model, data, everything, sentinel, base)
     extras = flows
     attempt = data.get('attempt') or {}
     failed_collection = (attempt.get('sentinel') is not None or attempt.get('collected')) and (
@@ -2294,8 +2208,7 @@ def _ledger_result(cfg, baseline):
 def requests(cfg, options):
     if options.operation == 'add':
         raw = sys.stdin.buffer.read() if options.file == '-' else Path(options.file).read_bytes()
-        item = store_request(cfg.root, raw, identifier=options.identifier, kind=options.kind,
-                             supersedes=options.supersedes)
+        item = store_request(cfg.root, raw, identifier=options.identifier, supersedes=options.supersedes)
         print(f'stored {item["id"]} ({item["kind"]}, sha {item["sha256"][:12]}, {item["bytes"]} bytes)')
         from .differences import display
         display(f'if these words set a continuing rule, add it to .flowguard/rules.toml: [rule.<id>] text = "..." '
@@ -2326,47 +2239,28 @@ def main(argv=None):
     if argv and argv[0] in {'status', 'where'}:
         print('this is a FlowGuard 0.7x command; here run python -m flowguard new-task')
         return 0
-    from .deprecation import warn as deprecated
-    if argv and argv[0] in DEPRECATED_COMMANDS:
-        deprecated(argv[0], 'python -m flowguard new-task, check or show NAME')
     parser = argparse.ArgumentParser(prog='flowguard')
     parser.add_argument('--version', action='version', version=__version__)
     commands = parser.add_subparsers(dest='command', metavar='{' + ','.join(COMMANDS) + '}')
     def add_parser(name):
         return commands.add_parser(name, **({'help': COMMANDS[name]} if name in COMMANDS else {}))
-    anchor_parser = add_parser('anchor')
-    anchor_operations = anchor_parser.add_subparsers(dest='operation', required=True)
-    anchor_draft = anchor_operations.add_parser('draft')
-    anchor_draft.add_argument('target')
     show_parser = add_parser('show')
     show_parser.add_argument('query', nargs='?')
-    show_parser.add_argument('--draft', help=argparse.SUPPRESS)
-    show_parser.add_argument('--gaps', help=argparse.SUPPRESS)
+    show_parser.add_argument('--draft', action=_RemovedOption, what='show --draft', replacement='python -m flowguard show NAME')
+    show_parser.add_argument('--gaps', action=_RemovedOption, what='show --gaps', replacement='python -m flowguard show NAME')
     show_parser.add_argument('--full', action='store_true', help='Include decision sites and full candidate metadata')
     show_parser.add_argument('--last', action='store_true', help='Every line of the last run, with its details')
-    try_parser = add_parser('try')
-    try_parser.add_argument('anchor')
-    try_parser.add_argument('inputs', nargs='*')
-    try_parser.add_argument('--grid', action='store_true')
-    watch_parser = add_parser('watch')
-    watch_parser.add_argument('arguments', nargs=argparse.REMAINDER)
-    model_parser = add_parser('model')
-    model_operations = model_parser.add_subparsers(dest='operation', required=True)
-    model_draft = model_operations.add_parser('draft')
-    model_draft.add_argument('name')
     check_parser = add_parser('check')
     check_parser.add_argument('--all', action='store_true')
     check_parser.add_argument('--deep', action='store_true', help='Run decision probes and mutation-survival checks')
-    check_parser.add_argument('--since', help=argparse.SUPPRESS)
+    check_parser.add_argument('--since', action=_RemovedOption, what='check --since',
+                              replacement='python -m flowguard check --base REV')
     check_parser.add_argument('--base', type=cache.base_commit,
                               help='Compare behavior with this commit instead of the remembered session baseline')
     check_parser.add_argument('--static', action='store_true',
                               help='Map checks only, without pytest (any language FlowGuard reads, e.g. TS/JS, Prisma, SQL)')
-    check_parser.add_argument('--leads', action='store_true',
-                              help='Deprecated: every line without the budget; show --last lists them all')
-    compare_parser = add_parser('compare')
-    compare_parser.add_argument('left')
-    compare_parser.add_argument('right')
+    check_parser.add_argument('--leads', action=_RemovedOption, nargs=0, what='check --leads',
+                              replacement='python -m flowguard show --last')
     add_parser('init')
     add_parser('new-task')
     add_parser('docs')
@@ -2389,44 +2283,27 @@ def main(argv=None):
     add = operations.add_parser('add')
     add.add_argument('file')
     add.add_argument('--id', dest='identifier')
-    add.add_argument('--kind', choices=('request', 'glossary', 'adoption'), metavar='request', default='request')
+    add.add_argument('--kind', action=_RemovedOption, what='req add --kind {value}',
+                     replacement='python -m flowguard req add FILE --id R<n>')
     add.add_argument('--supersedes', action='append', default=[])
     operations.add_parser('list')
     retire = operations.add_parser('retire')
     retire.add_argument('identifier')
     retire.add_argument('--not-owner', action='store_true', required=True)
     retire.add_argument('--note')
-    options = parser.parse_args(argv)
-    if options.command == 'show' and (options.draft is not None or options.gaps is not None):
-        deprecated('show --draft/--gaps', 'python -m flowguard show NAME')
-    if options.command == 'check' and options.since is not None:
-        deprecated('check --since', 'python -m flowguard check --base REV')
-    if options.command == 'req' and options.operation == 'add' and options.kind != 'request':
-        deprecated('req --kind ' + options.kind, 'req add FILE --id R<n>')
     try:
+        if argv and argv[0] in REMOVED_COMMANDS:
+            raise Removed(REMOVED_COMMANDS[argv[0]], NEW_COMMANDS)
+        options = parser.parse_args(argv)
         cfg = load_config(root or find_root())
-        if options.command == 'anchor':
-            return draft_anchor(cfg, options.target)
-        if options.command == 'model':
-            return draft_model(cfg, options.name)
-        if options.command == 'try':
-            return try_anchor(cfg, options.anchor, options.inputs, grid=options.grid)
-        if options.command == 'watch':
-            return watch(cfg, options.arguments)
-        if options.command == 'compare':
-            from .differences import compare, display, render as render_comparison
-            result = compare(cfg.root, options.left, options.right)
-            display(render_comparison(result))
-            return int(result['status'] == 'red')
         if options.command == 'show':
-            return show(cfg, options.query, draft=options.draft, gaps=options.gaps, full=options.full, last=options.last)
+            return show(cfg, options.query, full=options.full, last=options.last)
         if options.command == 'check' and options.static:
-            if options.deep or options.since:
-                raise ValueError('check --static runs no tests: --deep and --since need the pytest check')
-            return static_check(cfg, everything=options.all, base=options.base, leads=options.leads)
+            if options.deep:
+                raise ValueError('check --static runs no tests: --deep needs the pytest check')
+            return static_check(cfg, everything=options.all, base=options.base)
         if options.command == 'check':
-            return check(cfg, everything=options.all, since=options.since, deep=options.deep, base=options.base,
-                         leads=options.leads)
+            return check(cfg, everything=options.all, deep=options.deep, base=options.base)
         if options.command == 'init':
             return init(cfg)
         if options.command == 'docs':

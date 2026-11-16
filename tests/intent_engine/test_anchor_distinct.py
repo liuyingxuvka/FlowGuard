@@ -1,6 +1,7 @@
 """Named anchor distinctions use existing declarations and real source observations."""
 from flowguard.intent import calibration, differences
 from flowguard.intent.api import Distinct
+from tests.intent_engine.test_anchor_differences import compare_sensors
 
 
 POLICY = 'The two eligibility decisions must remain separate.'
@@ -95,7 +96,7 @@ def test_real_targets_do_not_let_same_named_copies_escape_agreements(tmp_path):
     report = differences.anchor_distinct(root, declaration)
     assert report['status'] == 'red' and not report['behavior_checked'], report
     assert 'same sensor name cannot be distinct' in ' '.join(report['reasons'])
-    agreement = differences.compare(root, 'decision:first', 'decision:second')
+    agreement = compare_sensors(root, 'decision:first', 'decision:second')
     assert agreement['status'] == 'red' and agreement['changed'] == 1
 
 

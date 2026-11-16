@@ -130,14 +130,26 @@ def test_readme_no_rule_output_and_two_real_homes(tmp_path, capsys):
     assert any(item['verdict'] == 'red' for item in cache.read(cfg)['results']['WINDOW']['items'].values())
 
 
-def test_documented_commands_use_the_real_current_parser(tmp_path, monkeypatch):
-    for name in ('show', 'check', 'static_check', 'ledger', 'init', 'requests', 'screen', 'draft_anchor', 'draft_model',
-                 'try_anchor', 'watch', 'write_docs', 'add_known_entry'):
+# The commands of the historical upgrade guides that 5.0 removed, with the line each gives instead of running.
+REMOVED_IN_5 = {
+    ('docs/upgrade-4.0.md', 'try ACCEPT days=4'): 'try was removed in 5.0 -> python -m flowguard new-task, check or show NAME',
+    ('docs/upgrade-4.0.md', 'watch -- python app.py'):
+        'watch was removed in 5.0 -> python -m flowguard new-task, check or show NAME',
+    ('docs/upgrade-4.0.md', 'model draft PUBLISH'):
+        'model draft was removed in 5.0 -> python -m flowguard new-task, check or show NAME',
+}
+
+
+def test_documented_commands_use_the_real_current_parser(tmp_path, monkeypatch, capsys):
+    """Every documented command parses as it is written. A historical upgrade guide's command that 5.0 removed is
+    refused with its removal line and exit 2; a current document names none."""
+    for name in ('show', 'check', 'static_check', 'ledger', 'init', 'requests', 'screen', 'write_docs', 'add_known_entry'):
         monkeypatch.setattr(cli, name, lambda *args, **kwargs: 0)
     docs = [ROOT / 'README.md', ROOT / 'README.zh-CN.md', ROOT / 'AGENTS.md', SKILL / 'SKILL.md',
             ROOT / 'docs/intent-guide.md', ROOT / 'docs/upgrade-2.0.md', ROOT / 'docs/upgrade-4.0.md', ROOT / 'docs/upgrade-4.1.md', ROOT / 'docs/upgrade-4.2.md',
             ROOT / 'docs/upgrade-4.3.md',
             SKILL / 'reference.md']
+    removed = {}
     for path in docs:
         text = path.read_text(encoding='utf-8')
         commands = re.findall(r'`python -m flowguard([^`\n]*)`', text)
@@ -145,7 +157,15 @@ def test_documented_commands_use_the_real_current_parser(tmp_path, monkeypatch):
         for command in commands:
             command = re.sub(r'<file\|->', 'owner.txt', command)
             command = re.sub(r'<[^>]+>', 'R1', command)
-            assert cli.main(['--root', str(tmp_path), *shlex.split(command)]) == 0, (path, command)
+            code = cli.main(['--root', str(tmp_path), *shlex.split(command)])
+            errors = capsys.readouterr().err
+            key = (path.relative_to(ROOT).as_posix(), command.strip())
+            if key in REMOVED_IN_5:
+                assert (code, errors) == (2, f'flowguard: {REMOVED_IN_5[key]}\n'), (path, command, errors)
+                removed[key] = REMOVED_IN_5[key]
+            else:
+                assert code == 0, (path, command, errors)
+    assert removed == REMOVED_IN_5
 
 
 def _publish_gate():

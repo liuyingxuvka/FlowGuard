@@ -65,14 +65,12 @@ def main(argv, *, cwd=None, before_main='', timeout=120):
     return result.returncode
 
 
-def check(cfg, *, everything=False, since=None, deep=False, base=None, before_main='', timeout=120):
+def check(cfg, *, everything=False, deep=False, base=None, before_main='', timeout=120):
     arguments = ['--root', str(cfg.root), 'check']
     if everything:
         arguments.append('--all')
     if deep:
         arguments.append('--deep')
-    if since is not None:
-        arguments += ['--since', str(since)]
     if base is not None:
         arguments += ['--base', str(base)]
     return main(arguments, cwd=cfg.root, before_main=before_main, timeout=timeout)

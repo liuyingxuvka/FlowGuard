@@ -14,43 +14,20 @@ from .records import (NO_ORIGINAL_FACT, Unverifiable, integrity_problem, prepare
 REQUEST_DIR = Path('.flowguard/requests')
 RETIRED_DIR = REQUEST_DIR / 'retired'
 REQUEST_ID = re.compile(r'[A-Za-z][A-Za-z0-9_-]*\Z')
+# Every stored kind: a FlowGuard before 5.0 also stored glossary and adoption records, which stay part of the archive
+# and keep loading; 5.0 stores requests only (`store_request`).
 KINDS = ('request', 'glossary', 'adoption')
 RETIRE_FIELDS = {'id', 'kind', 'not_owner', 'request_sha256', 'retired'}
 
 
-def glossary_entries(raw: bytes) -> list[tuple[str, tuple[str, ...]]]:
-    """Parse the owner's confirmed word mappings; never rewrite their text."""
-    try:
-        text = raw.decode('utf-8-sig')
-    except UnicodeError as error:
-        raise MapError('glossary_syntax: glossary text must be UTF-8') from error
-    entries = []
-    for number, line in enumerate(text.splitlines(), 1):
-        if not line.strip():
-            continue
-        word, separator, terms = line.partition('=')
-        identifiers = tuple(value.strip() for value in terms.split(','))
-        if (not separator or not word.strip() or not identifiers
-                or any(not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', term) for term in identifiers)):
-            raise MapError(f'glossary_syntax: line {number}: expected owner word = term, term')
-        entries.append((word.strip(), identifiers))
-    if not entries:
-        raise MapError('glossary_syntax: name at least one owner word = term')
-    return entries
-
-
-# flowguard: event REQUEST_STORE(root: Path, raw: bytes, identifier: str | None, kind: str, supersedes: tuple | list)
-def store_request(root: Path, raw: bytes, *, identifier: str | None = None, kind: str = 'request',
-                  supersedes: tuple | list = ()) -> dict:
+# flowguard: event REQUEST_STORE(root: Path, raw: bytes, identifier: str | None, supersedes: tuple | list)
+def store_request(root: Path, raw: bytes, *, identifier: str | None = None, supersedes: tuple | list = ()) -> dict:
+    """Store the owner's words `raw` once, byte for byte, as a request record (kind `request`)."""
     root = Path(root).resolve()
     if not raw:
         raise MapError('request_empty: no owner words received; pass a nonempty file or pipe the request text to stdin')
-    if kind not in KINDS:
-        raise MapError('request_kind_invalid: expected request, glossary or adoption')
     supersedes = list(dict.fromkeys(supersedes))
     validate_request_links(root, [dict(id=value, part=False) for value in supersedes])
-    if kind == 'glossary':
-        glossary_entries(raw)
     received = datetime.now(timezone.utc).isoformat()
     digest = sha256_bytes(raw)
     directory = root / REQUEST_DIR
@@ -65,7 +42,7 @@ def store_request(root: Path, raw: bytes, *, identifier: str | None = None, kind
         raise MapError('request_id_invalid: use [A-Za-z][A-Za-z0-9_-]*, for example R9 or Owner_note')
     if exists(identifier):
         raise MapError(f'request_exists: {identifier} is stored; a correction from the owner is a new request')
-    item = dict(id=identifier, kind=kind, sha256=digest, received=received, bytes=len(raw))
+    item = dict(id=identifier, kind='request', sha256=digest, received=received, bytes=len(raw))
     if supersedes:
         item['supersedes'] = supersedes
     prepare_directory(root, REQUEST_DIR, ('.md', '.json'))

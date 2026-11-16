@@ -1,7 +1,6 @@
 """Legacy console encoding changes display only, never a rendered report or data."""
 from contextlib import redirect_stdout
 import io
-import json
 from pathlib import Path
 import subprocess
 import sys
@@ -41,10 +40,8 @@ with redirect_stdout(stream):
     if mode=='pytest':
         import pytest
         status=int(pytest.main(['-q','-p','flowguard.intent.plugin','tests']))
-    elif mode=='check':
-        status=cli.main(['--root',root,'check','--all'])
     else:
-        status=cli.main(['--root',root,'compare','app:accept','app:other'])
+        status=cli.main(['--root',root,'check','--all'])
     print('AFTER_GRACE_DISPLAY')
 stream.flush()
 assert stream.encoding=='cp1252' and stream.errors=='strict'
@@ -61,31 +58,22 @@ def test_real_comparison_displays_survive_cp1252_and_keep_unicode_data(tmp_path)
     other=SOURCE.replace('def accept(', 'def other(').replace('<= 3','<= 7')
     project(root,SOURCE+'\n'+other,'',
             'from app import accept, other\ndef test_actual():\n    assert accept(0) is other(0) is True\n')
-    report=D.compare(root, 'app:accept', 'app:other')
-    assert report['status']=='red'and report['changed']==1
-    rendered=D.render(report)
-    assert 'GRACE'in rendered and '<->'in rendered and '->'in rendered and 'total 3 classes'in rendered
-    original_json=json.dumps(report,ensure_ascii=False,sort_keys=True).encode('utf-8')
-    for name in ('pytest','check','compare'):
+    for name in ('pytest','check'):
         result=run_public_entry(root,name)
         shown=result.stdout.decode('cp1252')
         (tmp_path/(name+'.stdout.txt')).write_text(shown,encoding='utf-8')
         assert result.returncode==1,(name,result.returncode,shown,result.stderr)
         assert 'GRACE'in shown and 'AFTER_GRACE_DISPLAY'in shown,(name,shown)
-        if name=='compare':
-            # FlowGuard's own words are ASCII (D18): the comparison prints without an escape
-            assert '<->'in shown and '->'in shown and '\\u'not in shown,(name,shown)
-            assert 'total 3 classes'in shown,(name,shown)
-        else:
-            # The 4.3 block of pytest and check reports the actual same-name contradiction: what each copy answered on
-            # the input; check's red is pytest's own.
-            assert 'red: same GRACE: on ' in shown and ' returns ' in shown,(name,shown)
-            assert [line for line in shown.splitlines() if line.startswith('red: ')] == [
-                'red: same GRACE: on days=7: app.py:accept returns False, app.py:other returns True '
-                '-> decide which copy is right, then make the other agree'],(name,shown)
+        # The 4.3 block of pytest and check reports the actual same-name contradiction: what each copy answered on
+        # the input; check's red is pytest's own.
+        assert 'red: same GRACE: on ' in shown and ' returns ' in shown,(name,shown)
+        assert [line for line in shown.splitlines() if line.startswith('red: ')] == [
+            'red: same GRACE: on days=7: app.py:accept returns False, app.py:other returns True '
+            '-> decide which copy is right, then make the other agree'],(name,shown)
         assert 'UnicodeEncodeError'not in shown,(name,shown)
     # Retain literals and a final LF, including a backslash that looks like an
     # escape and non-LF separators. The fallback must be reversible display.
+    rendered='same GRACE: on days=7 \u2192 the copies differ (\u6700\u591a\u4e09\u5929)'
     text=rendered+'\nliteral '+r'\u5171'+'\v\f\u2028\n'
     for encoding in ('cp1252','utf-8'):
         buffer=io.BytesIO();stream=io.TextIOWrapper(buffer,encoding=encoding,newline='')
@@ -100,8 +88,6 @@ def test_real_comparison_displays_survive_cp1252_and_keep_unicode_data(tmp_path)
             assert shown.endswith('\n')
             restored='\n'.join(line.encode('ascii').decode('unicode_escape')for line in shown[:-1].split('\n'))
             assert restored==text
-    assert D.render(report)==rendered
-    assert json.dumps(report,ensure_ascii=False,sort_keys=True).encode('utf-8')==original_json
     class BrokenWrite:
         encoding='cp1252'
         def write(self,text):raise OSError('existing write failure')

@@ -46,34 +46,13 @@ def test_unchanged_check_runs_zero_rules_and_preserves_a_cached_red(tmp_path, mo
     assert len(reds) == 1 if wrong else cli_fixture.block(text)[1:] == [], text
 
 
-def test_since_selects_real_git_changes_even_after_current_cache_is_fresh(tmp_path, monkeypatch, capsys):
-    root, cfg = project(tmp_path)
-    cli.init(cfg)
-    git(root, 'init', '-q')
-    git(root, 'add', '.')
-    git(root, 'commit', '-qm', 'existing decision')
-    base = git(root, 'rev-parse', 'HEAD')
-    source = root / (root.name + '.py')
-    source.write_text(source.read_text().replace('days <= 3', 'not days > 3'))
-    assert cli_fixture.check(cfg) == 0
-    before = cache.read(cfg)['attempt']['stamp']
-    capsys.readouterr()
-    observed = calls(monkeypatch)
-    assert cli_fixture.check(cfg, since=base) == 0
-    assert len(observed) == 1 and '--flowguard-rules=LIMIT' in observed[0]
-    checked = cache.read(cfg)['attempt']
-    assert checked['stamp'] > before and checked['sentinel'] == 'ok' and checked['missing'] == []
-    assert len(capsys.readouterr().out.splitlines()) <= 10
-    assert cli_fixture.main(['--root', str(root), 'check', '--since', 'missing-control-revision']) == 2
-
-
 def test_removing_the_last_rule_cannot_bypass_the_history_check(tmp_path, capsys):
     root, cfg = project(tmp_path)
     git(root, 'init', '-q')
     git(root, 'add', '.')
     git(root, 'commit', '-qm', 'rule to preserve')
     (cfg.intent / 'policy.py').unlink()
-    assert cli_fixture.check(cfg, since='HEAD') == 1
+    assert cli_fixture.check(cfg) == 1
     assert 'rule removed without' in capsys.readouterr().out
 
 
@@ -135,9 +114,8 @@ def test_a_new_corrected_row_attaches_real_old_code_proof_to_existing_result(tmp
     assert len(capsys.readouterr().out.splitlines()) <= 10
 
 
-@pytest.mark.parametrize('since', [None, 'HEAD'])
 @pytest.mark.parametrize('added', [1, 2])
-def test_new_passing_rows_do_not_lock_check_against_its_own_map(tmp_path, capsys, since, added):
+def test_new_passing_rows_do_not_lock_check_against_its_own_map(tmp_path, capsys, added):
     """Old-code proofs run before check writes them; one new row or several never waits on itself."""
     root, cfg = project(tmp_path)
     cli.init(cfg)
@@ -149,7 +127,7 @@ def test_new_passing_rows_do_not_lock_check_against_its_own_map(tmp_path, capsys
     intent.write_text(intent.read_text() + ''.join(
         f"LIMIT.rows(row(days={days},expect=True,why={why!r}))\n" for days, why in rows))
     started = time.perf_counter()
-    status = cli_fixture.check(cfg, since=since)
+    status = cli_fixture.check(cfg)
     elapsed = time.perf_counter() - started
     text = capsys.readouterr()
     assert 'database is locked' not in text.out + text.err
@@ -366,7 +344,7 @@ def test_states_are_rechecked_even_without_any_decision_rules(tmp_path):
 
 
 @pytest.mark.parametrize('changed', ['source', 'helper', 'test'])
-def test_draft_navigation_does_not_claim_an_ordinary_trace_is_a_current_reading(tmp_path, capsys, changed):
+def test_navigation_does_not_claim_an_ordinary_trace_is_a_current_reading(tmp_path, capsys, changed):
     root, cfg = project(tmp_path)
     cli.init(cfg)
     helper = root / 'support.py'
@@ -376,21 +354,19 @@ def test_draft_navigation_does_not_claim_an_ordinary_trace_is_a_current_reading(
     assert cli_fixture.check(cfg, everything=True) == 0
     capsys.readouterr()
     target = root.name + ':accept'
-    assert cli.show(cfg, draft=target) == 0
+    assert cli.show(cfg, target) == 0
     current = capsys.readouterr().out
-    assert 'source navigation: current Map identity' in current
     assert 'inputs: last observed' not in current
     assert not cache.read(cfg)['traces']
     path = root / (root.name + '.py') if changed == 'source' else helper if changed == 'helper' else test
     path.write_text(path.read_text() + '\n# changed version\n')
-    assert cli.show(cfg, draft=target) == 0
+    assert cli.show(cfg, target) == 0
     stale = capsys.readouterr().out
-    assert 'source navigation: current Map identity' in stale
     assert 'inputs: last observed' not in stale
     assert not cache.read(cfg)['traces']
 
 
-def test_direct_pytest_preserves_its_real_reading_without_a_draft_footprint(tmp_path, capsys):
+def test_direct_pytest_preserves_its_real_reading_and_show_leaves_no_footprint(tmp_path, capsys):
     root, cfg = project(tmp_path)
     cli.init(cfg)
     test = root / 'tests/test_actual.py'
@@ -409,7 +385,7 @@ def test_direct_pytest_preserves_its_real_reading_without_a_draft_footprint(tmp_
     assert after['tests'][nodeid]['outcome'] == 'passed'
     assert after['tests'][nodeid]['stamp'] > before['tests'][nodeid]['stamp']
     assert not after['traces']
-    assert cli.show(cfg, draft=root.name + ':accept') == 0
+    assert cli.show(cfg, root.name + ':accept') == 0
     output = capsys.readouterr().out
-    assert 'source navigation: current Map identity' in output
     assert 'inputs: last observed' not in output
+    assert not cache.read(cfg)['traces']

@@ -220,21 +220,6 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
-["flowguard/intent/debug.py:try_anchor:(OSError, ValueError, TypeError, ImportError, AttributeError)"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/debug.py:watch:Exception"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/debug.py:watch:SystemExit"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
 ["flowguard/intent/deps.py:_environment:OSError"]
 count = 1
 reason = "目录里的 pyvenv.cfg 或 conda-meta/history 看不了（没有权限进入这个目录）时，这里看不到里面有没有项目测试，就不往里走，按没有项目测试处理；pytest 自己进这个目录时会在收集阶段报错，不会悄悄跳过。这里只决定 init 写哪种 CI 片段和 new-task 的提示，不会把任何检查算成通过"
@@ -446,11 +431,6 @@ reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；�
 rule = "旧账"
 
 ["flowguard/intent/flow.py:_source_digest:FileNotFoundError"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/flow.py:draft_model:Unverified"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
@@ -1013,16 +993,6 @@ rule = { file = "AGENTS.md", text = "One route per function: when a step fails, 
 ["flowguard/intent/runtime.py:Runtime.register:(Refused, ValueError, TypeError, OSError)"]
 count = 1
 reason = "Keeps the historical qualification error in unavailable, so callers cannot treat missing baseline code as verified previous behavior."
-rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
-
-["flowguard/intent/debug.py:try_in_test:(OSError, ValueError, TypeError, AttributeError, sites.NotMutable)"]
-count = 1
-reason = "Reports the exact source, binding or input error as not compared; an unavailable reading never supplies a guessed answer."
-rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
-
-["flowguard/intent/debug.py:_evaluate:(ValueError, SyntaxError)"]
-count = 1
-reason = "Uses the existing parameter-kind parser when the source annotation cannot be directly parsed; an unrecognised type still rejects the input."
 rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
 ["flowguard/intent/runtime.py:Runtime.guarded:(Refused, ValueError, TypeError, OSError)"]

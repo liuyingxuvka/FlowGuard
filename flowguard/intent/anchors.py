@@ -121,17 +121,6 @@ class Index:
 
 
 @dataclass(frozen=True)
-class Draft:
-    text: str
-    ranges: dict
-    issues: tuple[Issue, ...]
-
-    @property
-    def status(self):
-        return _status(self.issues)
-
-
-@dataclass(frozen=True)
 class Observation:
     status: str
     value: object = None
@@ -1241,46 +1230,6 @@ def _declared_names(function, parameters):
             node.arg = renamed.get(node.arg, node.arg)
             return node
     return Rename().visit(copy.deepcopy(function)), ''
-
-
-def draft(graph, target):
-    """Suggest a source comment and the existing cells/linear partitions; no project import."""
-    node = graph.node(target)
-    if node is None and ':' in target:
-        file, _, qual = target.partition(':')
-        node = next((n for n in graph.nodes(file=file) if n['qual'] == qual), None)
-    if node is None or node['kind'] not in ('function', 'method', 'test'):
-        return Draft('', {}, (Issue('red', 'target-missing', f'function {target} is not in the map'),))
-    file, module, qual = node['file'], node['module'], node['qual']
-    raw = (graph.root / file).read_bytes()
-    text = read_source(graph.root / file, data=raw)
-    tree = ast.parse(text)
-    function, cls = _definitions(tree)[qual]
-    args = [*function.args.posonlyargs, *function.args.args, *function.args.kwonlyargs]
-    if cls and args and args[0].arg in ('self', 'cls'):
-        args.pop(0)
-    annotation, enum_names = _source_types(tree), _enum_names(tree)
-    parameters = tuple(Parameter(a.arg, _unit(annotation(a.annotation)), annotation(a.annotation), _parameter_role(annotation(a.annotation), enum_names), True) for a in args)
-    kinds, reading, issues = _read_decision(function, parameters, _literal_globals(tree), file, function.lineno, qual)
-    ranges = {}
-    if kinds:
-        space = cells.build_space(kinds, reading.consts, reading.planes, reading.links, reading.reasons, reading.hints)
-        rows = [row for row in space.cells if all(k.name != 'enum' or row[n] in k.literals for n, k in kinds.items())]
-        ranges = {'points': {n: [v for v in values if kinds[n].name != 'enum' or v in kinds[n].literals]
-                             for n, values in space.pts.items()},
-                  'cells': rows, 'complete': space.complete and not issues,
-                  'reasons': list(space.reasons), 'total': len(rows),
-                  'inputs': [p.name for p in parameters if p.role == 'input'],
-                  'context': [p.name for p in parameters if p.role == 'context']}
-        issues.extend(Issue('grey', 'range-incomplete', reason, file, function.lineno) for reason in space.reasons
-                      if not any(i.code == 'range-incomplete' and i.message == reason for i in issues))
-    name = qual.replace('.', '_')
-    comment = f'# flowguard: same {name}'
-    if any(p.unit for p in parameters):
-        inputs = ', '.join(p.name + (': ' + p.unit if p.unit else '') for p in parameters if p.role == 'input')
-        context = ', '.join(p.name for p in parameters if p.role == 'context')
-        comment += '(' + inputs + ('; ' + context if context else '') + ')'
-    return Draft(comment, ranges, tuple(issues))
 
 
 @contextmanager

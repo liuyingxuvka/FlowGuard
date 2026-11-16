@@ -81,7 +81,7 @@ def test_retired_shard_argument_is_rejected_instead_of_running_a_partial_check(t
     assert 'unrecognized arguments' in result.stderr and '--shard' in result.stderr
 
 
-@pytest.mark.parametrize('args', [('--shard', '1/2'), ('--all', '--since', 'HEAD', '--shard', '1/2'),
+@pytest.mark.parametrize('args', [('--shard', '1/2'), ('--all', '--base', 'HEAD', '--shard', '1/2'),
                                   ('--all', '--shard-report', 'receipt.json')])
 def test_retired_shard_modes_cannot_claim_a_full_collection(tmp_path, args):
     root = project(tmp_path)

@@ -945,12 +945,11 @@ def test_archived_prisma_files_take_no_part_in_two_declarations_differ(tmp_path)
         'src/kinds.ts': "export const KINDS = ['A', 'B', 'C'] as const;\nexport type Kind = (typeof KINDS)[number];\n",
     })
     _write(tmp_path, {'prisma/schema.prisma': item % '  A\n  B\n  C\n  D\n'})
-    code, text = _flowguard(tmp_path, 'check', '--static', '--leads')
-    # --leads (deprecated) lists every line without the budget; the release snapshot keeps prisma/ in the live path
+    code, text = _flowguard(tmp_path, 'check', '--static')
+    # the release snapshot keeps prisma/ in the live path
     assert code == 0 and _block(text) == [
         "impact: declarations Item.kind: prisma/schema.prisma:1 declares 'A' | 'B' | 'C' | 'D'; src/kinds.ts:2 declares 'A' | 'B' | 'C' "
         '-> fix it, or say why in your report'], text
-    assert 'deprecated: check --leads goes in 5.0 -> write python -m flowguard show --last' in text.splitlines(), text
 
 
 def test_a_prisma_client_type_under_an_alias_a_namespace_or_a_generator_output_is_gated_by_its_model(tmp_path):
@@ -2316,8 +2315,7 @@ def test_check_static_all_puts_the_new_lead_first_and_names_the_command_that_lis
     })
     # a label spelled another way ('Gamma ray'), not a key ('gamma-ray' is of another kind: literal_shape)
     _write(tmp_path, {'src/ray.ts': "export function isRay(x: string) { return x === 'Gamma ray'; }\n"})
-    # 4.3: label spellings are a 5.0-deprecated heuristic, leads of show --last, which lists every one of them; --leads
-    # is deprecated and lists the same.
+    # 4.3: label spellings are a 5.0-deprecated heuristic, leads of show --last, which lists every one of them.
     code, text = _static(tmp_path, '--all')
     leads = _leads(tmp_path)
     new = ["label-spelling leads: label spellings differ: 'Gamma Ray'(src/gamma.ts:1) and 'Gamma ray'(src/ray.ts:1, spelling added in this "
@@ -2325,9 +2323,6 @@ def test_check_static_all_puts_the_new_lead_first_and_names_the_command_that_lis
     assert code == 0 and _block(text, everything=True) == [] and len(leads) == 13, text
     assert [lead for lead in leads if 'spelling added in this task' in lead] == new, leads
     assert all(lead.startswith('label-spelling leads: before: label spellings differ: ') for lead in leads if lead not in new), leads
-    code, text = _static(tmp_path, '--all', '--leads')
-    assert code == 0 and _leads(tmp_path) == leads, text
-    assert 'deprecated: check --leads goes in 5.0 -> write python -m flowguard show --last' in text.splitlines(), text
     code, text = _static(tmp_path)
     assert code == 0 and _block(text) == [] and _leads(tmp_path) == new, text
 
@@ -2345,8 +2340,6 @@ def test_the_overflow_of_a_run_against_base_names_that_base_in_the_command_that_
     leads = _leads(tmp_path)                # show --last lists every lead, against that base
     assert len(leads) == 12 and all(lead.endswith(', spelling added in this task) -> use one spelling, or read both from one reference')
                                     for lead in leads), leads
-    code, text = _static(tmp_path, '--base', 'HEAD~1', '--leads')
-    assert code == 0 and _leads(tmp_path) == leads, text
     code, text = _static(tmp_path)
     assert code == 0 and _leads(tmp_path) == [], text
 

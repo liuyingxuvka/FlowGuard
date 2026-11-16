@@ -96,13 +96,11 @@ def test_union_boundary_runs_one_representative_for_four_to_seven():
     assert result['changed'] == 1
     assert result['changes'] == [dict(anchor='grace', region='days=4..7',
                                       witness={'days': '4'}, before='F', after='T')]
-    assert D.render(result) == 'grace: total 3 classes, changed 1 classes\ndays=4..7; function result F -> T(example: days=4)'
 
 
 def test_pure_refactor_has_zero_behavior_changes():
     _, result = compare(before, refactored, {'days': int})
-    assert result['complete'] and result['changed'] == 0
-    assert D.render(result) == 'total 2 classes, changed 0 classes'
+    assert result['complete'] and result['changed'] == 0 and result['total'] == 2
 
 
 def test_old_numeric_truth_test_is_part_of_the_joint_partition():
@@ -160,9 +158,7 @@ def test_observation_unknown_does_not_turn_into_zero_verified_changes():
     assert result['status'] == 'grey' and not result['complete']
     assert result['changed'] == 0
     assert result['checked'] == 0 and result['unknown'] == 3
-    assert 'test never entered' in D.render(result)
-    assert 'comparison incomplete; proven changed classes: 0' in D.render(result)
-    assert 'total 3 classes, changed 0 classes' not in D.render(result)
+    assert result['reasons'] == ['test never entered the sensor']
 
 
 def test_partial_observations_keep_a_proven_change_and_unknown_classes():
@@ -172,19 +168,20 @@ def test_partial_observations_keep_a_proven_change_and_unknown_classes():
                        [observation(True), observation(True), observation(True)])
     assert result['status'] == 'grey' and not result['complete']
     assert (result['total'], result['checked'], result['unknown'], result['changed']) == (3, 2, 1, 1)
-    assert 'candidate classes: 3; compared: 2; comparison incomplete; proven changed classes: 1' in D.render(result)
-
-
-def test_short_output_caps_changed_lines_without_losing_the_total():
-    report = dict(changes=[dict(anchor='point', region=f'n={i}', before='F', after='T') for i in range(30)],
-                  total=31, changed=30, complete=True, reasons=[])
-    lines = D.render(report, limit=100).splitlines()
-    assert len(lines) <= 10 and 'total 31 classes, changed 30 classes' in lines[0]
-    assert all(len(line) <= 100 for line in lines)
+    assert result['reasons'] == ['native case unavailable']
 
 
 def git(root, *args):
     return subprocess.run(['git', '-C', str(root), *args], check=True, capture_output=True, text=True).stdout
+
+
+def compare_sensors(root, left, right):
+    """`differences._compare_pairs` of the two current sensors named `left` and `right` (a name, or module:qual for a
+    copy), as the source index of the project reads them."""
+    index = D._source_index(root)
+    pair = [[a for a in index.entries if a.kind == 'sensor' and value in (a.name, a.target)] for value in (left, right)]
+    assert [len(matches) for matches in pair] == [1, 1], pair
+    return D._compare_pairs(root, [(pair[0][0], pair[1][0])])
 
 
 def repository(root, source):
@@ -266,18 +263,18 @@ def test_sealed_comparison_runs_old_and_current_same_file_helper_bodies(tmp_path
 def test_same_present_anchors_compare_through_the_same_executor(tmp_path):
     root = tmp_path/'project'
     repository(root, GRACE+GRACE.replace('sensor grace', 'sensor other').replace('def allowed', 'def other').replace('<= 3', '<= 7'))
-    report = D.compare(root, 'grace', 'other')
+    report = compare_sensors(root, 'grace', 'other')
     assert report['status'] == 'red' and report['changed'] == 1 and report['total'] == 3, report
 
 
 def test_same_name_copies_compare_actual_callables_without_any_intent_rule(tmp_path):
     root = tmp_path/'project'
     repository(root, GRACE+GRACE.replace('def allowed', 'def copy').replace('<= 3', '<= 7'))
-    report = D.compare(root, 'decision:allowed', 'decision:copy')
+    report = compare_sensors(root, 'decision:allowed', 'decision:copy')
     assert report['status'] == 'red' and report['selected'] == 1, report
     assert report['changed'] == 1 and report['total'] == 3
     assert report['changes'][0]['witness'] == {'days': '4'}
-    assert 'decision:allowed <-> decision:copy' in D.render(report)
+    assert (report['changes'][0]['before_target'], report['changes'][0]['after_target']) == ('decision:allowed', 'decision:copy')
 
 
 def test_differently_named_sensors_keep_separate_identity_until_an_explicit_comparison(tmp_path):
@@ -288,7 +285,7 @@ def test_differently_named_sensors_keep_separate_identity_until_an_explicit_comp
     assert not index.issues
     runtime, readings = historical(root, [{'days': 0}, {'days': 4}])
     assert not recorded_changes(root, runtime, readings)
-    explicit = D.compare(root, 'grace', 'different')
+    explicit = compare_sensors(root, 'grace', 'different')
     assert explicit['status'] == 'red' and explicit['changed'] == 1, explicit
 
 
@@ -310,7 +307,7 @@ def test_same_sensor_schema_conflict_is_red_without_inventing_an_input_mapping(t
     def forbidden(*args, **kwargs):
         raise AssertionError('conflicting units must not execute or invent a conversion')
     monkeypatch.setattr(calibration, 'execute_many', forbidden)
-    report = D.compare(root, 'decision:allowed', 'decision:copy')
+    report = compare_sensors(root, 'decision:allowed', 'decision:copy')
     assert report['status'] == 'red' and report['selected'] == 0 and not report['complete'], report
     assert 'signature or units' in ' '.join(report['reasons'])
 
@@ -349,7 +346,7 @@ def test_foreign_project_named_flowguard_cannot_replace_the_active_sdk_or_claim_
     (root/'flowguard/decision.py').write_text(GRACE+GRACE.replace('sensor grace', 'sensor copy').replace('def allowed', 'def copy').replace('<= 3', '<= 7'))
     sdk = sys.modules['flowguard']
     assert 'flowguard.decision' not in sys.modules
-    report = D.compare(root, 'grace', 'copy')
+    report = compare_sensors(root, 'grace', 'copy')
     assert report['status'] == 'grey' and not report['complete'] and report['reasons'], report
     assert sys.modules['flowguard'] is sdk and 'flowguard.decision' not in sys.modules
 
@@ -376,7 +373,7 @@ def test_current_context_comparison_does_not_invent_an_independent_test_session(
         raise AssertionError('debug comparison cannot create a fresh or nested test session')
     monkeypatch.setattr(pytest, 'main', forbidden)
     assert not hasattr(Runtime, 'replay')           # no test is run again anywhere (design 4.5, 8)
-    report = D.compare(root, 'grace', 'copy')
+    report = compare_sensors(root, 'grace', 'copy')
     assert report['status'] == 'grey' and not report['complete'], report
     assert 'same actual call context' in ' '.join(report['reasons'])
 
@@ -452,7 +449,7 @@ def test_current_short_and_full_same_name_comments_share_one_actual_domain(tmp_p
     root = tmp_path/'project'
     repository(root, GRACE.replace('# flowguard: sensor grace(days: day) -> allowed: bool', '# flowguard: sensor grace')
                + GRACE.replace('def allowed', 'def copy').replace('<= 3', '<= 7'))
-    report = D.compare(root, 'decision:allowed', 'decision:copy')
+    report = compare_sensors(root, 'decision:allowed', 'decision:copy')
     assert report['status'] == 'red' and report['complete'], report
     assert report['total'] == 3 and report['changed'] == 1
     assert report['changes'][0]['region'] == 'days=4..7'
@@ -467,6 +464,6 @@ def test_current_exception_message_difference_uses_real_native_outcomes(tmp_path
      return False
 '''.replace('\n ', '\n')
     repository(root, source + source.replace('sensor first', 'sensor second').replace('def first', 'def second').replace("'before'", "'after'"))
-    report = D.compare(root, 'first', 'second')
+    report = compare_sensors(root, 'first', 'second')
     assert report['status'] == 'red' and report['complete'] and report['changed'] == 1, report
     assert 'before' in report['changes'][0]['before'] and 'after' in report['changes'][0]['after']
