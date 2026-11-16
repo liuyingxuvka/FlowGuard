@@ -244,8 +244,9 @@ def _declares(graph, facts, argument, names, enums):
 # ---- modules: their contracts and connections (R98) ---------------------------------------------------------------
 
 def module_files(graph, site):
-    """The mapped files a module site covers: a file's path, that file; a folder's (`path/`), every mapped file under
-    it. Empty when there is none."""
+    """The files a module site covers: a file's path, that file when it exists (an `about` marker may describe a file
+    the map does not read, `docker-compose.yml`); a folder's (`path/`), every mapped file under it. Empty when there
+    is none."""
     if site.endswith('/'):
         return {path for (path,) in graph.con.execute('SELECT path FROM file') if path.startswith(site)}
     return {site} if (graph.root / site).is_file() else set()
@@ -282,14 +283,27 @@ def _linked(graph, touched):
 
 
 def module_lines(graph, site):
-    """`show PATH` of a file or folder (R98): the texts that describe it, then each module (file) it calls or is
-    called by, with the number of calls and the texts that describe that module; [] when no mapped file is there.
-    The calls are those the map resolved (`MapHandle.resolved_calls`): a JS/TS member call matched by its name alone
-    (`rows.find`, `days.get`, `logger.warn` on an imported object) is not counted. A Markdown file is no module that a
-    text describes: its view puts no about marker for itself."""
-    files = module_files(graph, site)
-    if not files:
-        return []
+    """`show PATH` of an existing file or folder (R98): the texts that describe it, then each module (file) it calls
+    or is called by, with the number of calls and the texts that describe that module. The calls are those the map
+    resolved (`MapHandle.resolved_calls`): a JS/TS member call matched by its name alone (`rows.find`, `days.get`,
+    `logger.warn` on an imported object) is not counted. What is no module says so in one line: a Markdown file is a
+    document (`document docs/notes/roles.md`), a file the map does not read is no source file (`pyproject.toml`), a
+    folder without a file the map reads has none, with the number of Markdown documents under it. The repository's
+    root folder `./` holds every mapped file; no about marker names it."""
+    if site.endswith('.md'):
+        return [f'document {site}']
+    if site.endswith('/'):          # the repository's root folder `./` holds every mapped file
+        files = module_files(graph, site) if site != './' else {path for (path,) in graph.con.execute('SELECT path FROM file')}
+        if not files:
+            listed = git_run(graph.root, 'ls-files', '-z', '--cached', '--others', '--exclude-standard', '--',
+                             site + '*.md').stdout
+            count = len({item for item in listed.split(b'\0') if item})
+            return [f'folder {site}: no source file the map reads'
+                    + (f'; {count} Markdown document{"s" * (count != 1)}' if count else '')]
+    elif not graph.con.execute('SELECT 1 FROM file WHERE path = ?', (site,)).fetchone():
+        return [f'{site}: no source file the map reads, and no Markdown document']
+    else:
+        files = {site}
     contracts = {}          # file -> the places of the markers whose file or folder site covers it
     for document in documents(graph.root):
         for marked, line, _ in markers(read_source(graph.root / document)):
@@ -311,7 +325,7 @@ def module_lines(graph, site):
         return f'; described by {", ".join(dict.fromkeys(places))}' if places else ''
     own = list(dict.fromkeys(place for path in sorted(files) for place in contracts.get(path, [])))
     lines = [f'module {site}: {len(files)} file{"s" * (len(files) != 1)}, {len(mine)} function{"s" * (len(mine) != 1)}']
-    lines += [f'described by {place}' for place in own] or ([] if site.endswith('.md') else [   # a document is no module
+    lines += [f'described by {place}' for place in own] or ([] if site == './' else [    # no marker names the root
         f'described by no text: put <!-- flowguard: about {site} --> above the Markdown text that is its contract'])
     lines += [f'calls {path} ({count} call{"s" * (count != 1)}{described(path)})' for path, count in sorted(outward.items())]
     lines += [f'called by {path} ({count} call{"s" * (count != 1)}{described(path)})' for path, count in sorted(inward.items())]

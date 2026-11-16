@@ -247,7 +247,8 @@ def _brief(cfg, data, baseline, note='', *, structure=()):
     ask, asked; fix; leave; never ignore); the last check's lines (`health.brief_lines`: one count of the open
     structure problems, one of the generated regions out of date); and what
     the last run left: the reds new-task's moved baseline turned into before, the reds that still stand, and invalid
-    entries of the two files."""
+    entries of the two files; then one line when AGENTS.md or CLAUDE.md holds a FlowGuard rules block other than
+    the one `init` writes now (`_stale_rules`), never a line of the block."""
     from .sources import catalog
     version = '.'.join(__version__.split('.')[:2])
     first = f'FlowGuard {version} brief, baseline {baseline[:12] if baseline else "none (no Git commit)"}'
@@ -261,7 +262,11 @@ def _brief(cfg, data, baseline, note='', *, structure=()):
         tail.append(f'{still} still red: python -m flowguard show --last')
     if found.issues:
         tail.append(f'{len(found.issues)} invalid entries in .flowguard/rules.toml or known.toml: python -m flowguard show rules')
-    fixed = [*structure, *(['; '.join(tail)] if tail else [])]
+    stale = _stale_rules(cfg)       # the project's copy of the rules may still say what this FlowGuard no longer does
+    fixed = [*structure, *(['; '.join(tail)] if tail else []),
+             *([f'{" and ".join(stale)} {"hold FlowGuard rules blocks" if len(stale) > 1 else "holds a FlowGuard rules block"} '
+                f'that differ{"s" * (len(stale) == 1)} from the one FlowGuard {version} writes: python -m flowguard init '
+                f'rewrites {"them" if len(stale) > 1 else "it"}'] if stale else [])]
     known = [_brief_line(_known_brief(entry), len(waiting) - BRIEF_KNOWN if index == BRIEF_KNOWN - 1 else 0)
              for index, entry in enumerate(waiting[:BRIEF_KNOWN])]
     slots = min(BRIEF_RULES, BRIEF_LINES - len(head) - len(fixed) - len(known))
@@ -484,16 +489,26 @@ def _named(symbol, query, spellings):
     `ProjectRequest` and `project_requests`; `ProjectMember.*` names every field of `ProjectMember`), 'part' when
     only its last dotted part is the query (`capacityService.updateCalendarEntry` for `updatecalendarentry`), else ''.
     Names compare casefolded, as the facts branch of `show` ranks them."""
-    names = spellings.get(symbol.casefold()) or {symbol.casefold()}
+    names = {name.casefold() for name in spellings.get(symbol.casefold(), ())} or {symbol.casefold()}
     if any(name == query or name.startswith(query + '.') or name.endswith('.*') and query.startswith(name[:-1])
            and '.' not in query[len(name) - 1:] for name in names):
         return 'exact'
     return 'part' if any('.' in name and name.rpartition('.')[2] == query for name in names) else ''
 
 
-def _concerning(cfg, data, graph, index, query, *, path, node=None, anchored=False):
+FINDINGS_SHOWN = 5          # the last run's lines the first block of `show` lists without --full
+
+
+def _known_line(entry):
+    """A known.toml entry as `show` lists it: the brief's line with the command that prints the whole entry."""
+    return _brief_line(_known_brief(entry), tail=f' (python -m flowguard show known.{entry.id})')
+
+
+def _concerning(cfg, data, graph, index, query, *, path, node=None, anchored=(), symbol=None, also=(), full=False):
     """The first lines of `show NAME` and `show PATH` (`path` is the query's file or folder when it names one, else
-    None; `node` the map node of a site query `path:symbol`), and the ids of the intent rules among them.
+    None; `node` the map node of a site query `path:symbol`, `symbol` the symbol of one that names no node, compared
+    in its place; `also` a rule's anchors, whose known entries its view lists too), the ids of the intent rules
+    among them and the ids of the known entries among them.
 
     First the `.flowguard/known.toml` entries that concern the query, in the brief's order and words (`_known_order`,
     `_known_brief`), each with the command that prints it whole: an entry concerns it when one of its sites names it,
@@ -502,31 +517,43 @@ def _concerning(cfg, data, graph, index, query, *, path, node=None, anchored=Fal
     names it (`_named`), its path and symbol are those of the query's map node (`module:qual`, a class's methods too)
     or, for a PATH query, its path is that file or lies under that folder. An entry named only through the last dotted
     part of a site or its finding says which, besides the brief's words: `known.raw-sql (site backend/src/services/
-    employee.service.ts:employeeService.findAll): ...`. After those, for an exact `Model.field` or `table.column`
-    (`owners.model_known`) or a constant (a constant node of the map), the entries whose why or ask names it as a
-    whole token, in any of its spellings. The sites are read as written, not resolved on the map.
+    employee.service.ts:employeeService.findAll): ...`. After those, the entries whose why or ask holds the query
+    as a whole token, case and spelling as the production code declares it: an exact `Model.field` or `table.column`
+    (`owners.model_known`, in each spelling of a Prisma field), a constant a file other than a test file declares, or
+    for a PATH query the path as written (a path under a folder too). The sites are read as written, not resolved on
+    the map.
 
     Then the intent rules (the static scan's) whose homes or anchors name it, `rule ID: decides`; a rule's home
     `module:Class.field` is read as the site of its module's file, an anchor by its name or by the site of a source
     anchor of that name (its file and target function). Then the `.flowguard/rules.toml` rules those cite and, for a
     PATH query, those whose source quotes a document there, in file order. Then the flowguard comment agreements
     (`owners.agreement_heads`) as `show_lines` spells them: for a PATH query those written there, otherwise those
-    that name the query as a field or partner, as a writers or except= function, or as the function they mark;
-    `anchored` leaves out the agreements of the query's own name, which the ANCHOR view lists whole."""
+    that name the query as a field or partner, as a writers or except= function, or as the function they mark, one
+    named only through the last dotted part of such a function with that function (`(site path:symbol)`); the
+    agreements of the names in `anchored` (the query's own, which the ANCHOR or rule view lists whole) are left out.
+    Last the lines of the last run (`cache.read_last`) placed at the query's function (its node, the functions its
+    name names) or file, one each with its kind, at most FINDINGS_SHOWN without `full` and a count of the others;
+    a known line of that run is left out, its entry being listed by its own words."""
+    from flowguard.map.common import is_test_file
     from .owners import agreement_heads, field_spellings, model_known
     from .signals import family_of
     from .sources import RULE_FORM, catalog, parse
     node = node or (graph.node(graph.canonical(query) or query) if ':' in query else None)
     folder = path                   # `_repository_path`: './app/' is 'app'
-    folded, spellings = query.casefold(), field_spellings(graph)
+    name = symbol or query          # what a site's symbol, a finding or an agreement's name is compared with
+    folded, spellings = name.casefold(), field_spellings(graph)
+    every = (folded, *(item.casefold() for item in also))
 
     def under(file):
         return folder is not None and (folder == '.' or file == folder or file.startswith(folder + '/'))
 
-    def named(symbol):
-        return '' if folder is not None else _named(symbol, folded, spellings)
+    def named(symbol, names=(folded,)):
+        if folder is not None:
+            return ''
+        found = {_named(symbol, item, spellings) for item in names}
+        return 'exact' if 'exact' in found else 'part' if 'part' in found else ''
 
-    def site_names(site):
+    def site_names(site, names=(folded,)):
         spot, colon, symbol = site.rpartition(':')
         file = spot if colon else site          # a document site is its path alone
         if site == query or under(file):
@@ -534,23 +561,29 @@ def _concerning(cfg, data, graph, index, query, *, path, node=None, anchored=Fal
         if node is not None and colon and file == node['file'] and (symbol == node['qual'] or symbol.startswith(
                 node['qual'] + '.') or symbol.rpartition('.')[2] == node['qual']):
             return 'exact'
-        return named(symbol) if colon else ''
+        return named(symbol, names) if colon else ''
 
     def quoted(source):         # a known entry's or a rules.toml rule's source quotes a document of the PATH query
         cited = parse(source, strict=True) if folder is not None and source else None
         return cited is not None and cited.kind == 'doc' and under(posixpath.normpath(cited.path))
 
-    exact = folder is None and bool(FIELD_QUERY.fullmatch(query) and model_known(graph, query.partition('.')[0]) or
-                                    graph.con.execute("SELECT 1 FROM node WHERE kind = 'const' AND qual = ? LIMIT 1",
-                                                      (query,)).fetchone())
-    token = re.compile('|'.join(r'(?<![\w$.])' + re.escape(name) + r'(?![\w$]|\.[\w$])'
-                                for name in sorted(spellings.get(folded) or {folded})), re.IGNORECASE) if exact else None
+    # What a why or ask must hold as a whole token, in the case the code declares it (H2-0: an everyday word that only
+    # a test declares as a constant is no exact name; `STATUS` is not `status`).
+    if folder is not None:
+        texts, after = ([folder] if folder != '.' else []), (r'(?![\w$-]|\.[\w$])' if (cfg.root / folder).is_dir()
+                                                              else r'(?![\w$/-]|\.[\w$])')
+    elif FIELD_QUERY.fullmatch(name) and model_known(graph, name.partition('.')[0]):
+        texts, after = sorted(spellings.get(folded) or {name}), r'(?![\w$]|\.[\w$])'
+    else:
+        declared = graph.con.execute("SELECT file FROM node WHERE kind = 'const' AND qual = ?", (name,)).fetchall()
+        texts, after = ([name] if any(not is_test_file(file) for (file,) in declared) else []), r'(?![\w$]|\.[\w$])'
+    token = re.compile('|'.join(r'(?<![\w$./-])' + re.escape(text) + after for text in texts)) if texts else None
     found = catalog(cfg)
     by_site, by_text, through = [], [], {}
     for entry in found.known.values():
-        sites = {site: site_names(site) for site in entry.sites}
+        sites = {site: site_names(site, every) for site in entry.sites}
         family = family_of(entry.finding) if entry.finding else ''
-        finding = named(entry.finding[len(family) + 1:]) if family else ''
+        finding = named(entry.finding[len(family) + 1:], every) if family else ''
         if 'exact' in sites.values() or finding == 'exact' or quoted(entry.source):
             by_site.append(entry)
         elif 'part' in sites.values() or finding == 'part':
@@ -562,10 +595,11 @@ def _concerning(cfg, data, graph, index, query, *, path, node=None, anchored=Fal
             by_text.append(entry)
 
     def known_line(entry):          # the brief's line; one named through a last part says which site, kept whole
-        line = _brief_line(_known_brief(entry), tail=f' (python -m flowguard show known.{entry.id})')
+        line = _known_line(entry)
         head, _, rest = line.partition(': ')
         return f'{head} ({through[entry.id]}): {rest}' if entry.id in through else line
-    lines = [known_line(entry) for entry in [*_known_order(by_site), *_known_order(by_text)]]
+    listed = [*_known_order(by_site), *_known_order(by_text)]
+    lines = [known_line(entry) for entry in listed]
     modules = dict(graph.con.execute('SELECT module, path FROM file'))
     rules, cited = [], set()
     for rid, item in data['summary']['rules'].items():
@@ -581,11 +615,39 @@ def _concerning(cfg, data, graph, index, query, *, path, node=None, anchored=Fal
     lines += [f'rule {rid}: {data["summary"]["rules"][rid]["decides"]}' for rid in rules]
     lines += [_brief_line(f'rule.{rule.id}: {rule.text}', tail=f' (python -m flowguard show rule.{rule.id})')
               for rule in found.rules.values() if rule.id in cited or quoted(rule.source)]
-    for name, line, file, names in agreement_heads(graph, index):
-        if not (anchored and name == query) and (under(file) if folder is not None else any(
-                site_names(item) if ':' in item else named(item) for item in names)):
+    for agreement, line, file, names in agreement_heads(graph, index):
+        if agreement in anchored:
+            continue
+        how = {item: site_names(item) if ':' in item else named(item) for item in names}
+        if under(file) if folder is not None else 'exact' in how.values():
             lines.append(line)
-    return list(dict.fromkeys(lines)), set(rules)
+        elif folder is None and 'part' in how.values():     # a generic name (`show create`): which function it is
+            parts = [item for item, said in how.items() if said == 'part']
+            lines.append(f'{line} (site{"s" * (len(parts) > 1)} {", ".join(parts)})')
+    if folder is None or (cfg.root / folder).is_file():         # a function or a file; never a folder
+        lines += _last_run_lines(cfg, graph, query, name, site_names, held=node is None and folder is None, full=full)
+    return list(dict.fromkeys(lines)), set(rules), {entry.id for entry in listed}
+
+
+def _last_run_lines(cfg, graph, query, name, site_names, *, held, full):
+    """The lines of the last run (`cache.read_last`) placed at the function of a `show` query or at its file, as
+    `_concerning` lists them last: `before (last run): together Project.leaderId at backend/src/services/project.
+    service.ts:create was broken at task start -> leave it unless your task is about it`. A line is placed there when
+    one of its places names the query (`site_names`: the node's file and symbol, the file, a symbol the name names)
+    or, with `held`, its member is a function that the query `object.method` names (`_held_methods`). None without
+    a recorded run."""
+    last = cache.read_last(cfg)
+    if last is None:
+        return []
+    methods = _held_methods(graph, name) if held else set()
+    found = [line for line in last['lines'] if not line['name'].startswith('known.')
+             and (line['function'] in methods or any(site_names(place) for place in line['places']))]
+    shown = found if full else found[:FINDINGS_SHOWN]
+    lines = [f'{line["kind"]} (last run): {line["text"]}' + (f' -> {line["step"]}' if line['step'] else '') for line in shown]
+    if len(shown) < len(found):
+        lines.append(f'... {len(found) - len(shown)} more lines of the last run there: '
+                     f'python -m flowguard show {_spelled(query)} --full lists them all')
+    return lines
 
 
 FIELD_QUERY = re.compile(r'[A-Za-z_]\w*\.[A-Za-z_]\w*')     # Model.field or table.column
@@ -660,7 +722,7 @@ def show(cfg, query=None, *, full=False, last=False):
         if query:
             raise ValueError('show --last takes no NAME: python -m flowguard show --last')
         return show_last(cfg, full)
-    from .sources import catalog_files
+    from .sources import catalog, catalog_files
     if query and (query == 'rules' or query.startswith(('rule.', 'known.'))) and catalog_files(cfg):
         return show_catalog(cfg, query, full)      # without a catalog file these names are looked up as before
     if query:
@@ -678,6 +740,8 @@ def show(cfg, query=None, *, full=False, last=False):
     rules = data['summary']['rules']
     if not query:
         raise ValueError('show needs a rule, function, request id or words')
+    if query not in rules and catalog_files(cfg) and query in catalog(cfg).known:
+        return show_catalog(cfg, 'known.' + query, full)        # a known entry's bare id: `show known.<id>`
     errors = [e for e in data['summary']['errors']
               if (query in rules and e['file'] == rules[query]['file'])
               or query in (cfg.root / e['file']).read_text(encoding='utf-8-sig')]
@@ -689,16 +753,19 @@ def show(cfg, query=None, *, full=False, last=False):
         from .anchors import collect
         index = collect(graph)
         notice = _map_notice(graph)
-        if query in rules:          # a rule's or a flow's view begins with what concerns its id, its own line left out
-            concerning = [line for line in _concerning(cfg, data, graph, index, query, path=None,     # and the copies
-                                                       anchored=query in rules[query].get('anchors', ()))[0]   # it lists
+        if query in rules:          # a rule's or a flow's view begins with what concerns its id and its anchors, its
+            anchored = rules[query].get('anchors', ())      # own line and the copies of its anchors (listed below) left out
+            concerning = [line for line in _concerning(cfg, data, graph, index, query, path=None, anchored=set(anchored),
+                                                       also=[name for name in anchored if name != query], full=full)[0]
                           if line != f'rule {query}: {rules[query]["decides"]}']
         if query in rules and rules[query].get('kind') == 'flow':
             from .debug import show_observation
             from .differences import display
-            _, pointers = _source_pointers(index, rules[query].get('anchors', ()), graph, full=full)
+            item = rules[query]
+            _, pointers = _source_pointers(index, item.get('anchors', ()), graph, full=full)
             view = show_observation(cfg, query, index, cache.observations(cfg).get('events', ()))
-            display('\n'.join([*concerning, *pointers, *view['lines']]))
+            display('\n'.join([f'FLOW {query}', *([notice] if notice else []), *concerning, f'source: {item["source"]}',
+                               f'{item["file"]}:{item["line"]}', *pointers, *view['lines']]))
             return int(view['status'] == 'red')
         if query in rules:
             item = rules[query]
@@ -745,7 +812,9 @@ def show(cfg, query=None, *, full=False, last=False):
         else:
             name = query
         anchors, pointers = _source_pointers(index, [query], graph, full=full)
-        concerning, listed = _concerning(cfg, data, graph, index, query, path=path, node=target, anchored=bool(anchors))
+        concerning, listed, known = _concerning(cfg, data, graph, index, query, path=path, node=target,
+                                                anchored={query} if anchors else (),
+                                                symbol=name if site and target is None else None, full=full)
         from .differences import display        # a known entry's words may hold what the console cannot show
         if anchors:
             print('ANCHOR ' + query)
@@ -816,6 +885,10 @@ def show(cfg, query=None, *, full=False, last=False):
             score += 4 * len(words & tokens(rule['decides'] + ' ' + rule.get('doc', '')))
             if score and rid not in listed:        # a rule that concerns the query is listed first already
                 ranked.append((score, f'rule {rid}: {rule["decides"]} {rule.get("doc", "")}'))
+        if re.search(r'\s', name.strip()):        # words: the known entries whose why or ask shares one, after the names
+            for entry in catalog(cfg).known.values():
+                if entry.id not in known and (shared := words & tokens(f'{entry.why} {entry.ask}')):
+                    ranked.append((900 + len(shared), _known_line(entry)))
         owners = graph.outline(('function', 'method', 'class'))
         held = _held_methods(graph, name)
         decided = {}
@@ -2300,6 +2373,50 @@ CI_STATIC = '''# Merge these steps into the project CI after installing FlowGuar
 '''
 
 
+# The owner's repositories carry a level-one block whose commands 4.x no longer has.
+OWNER_BLOCK = re.compile(r'^# FlowGuard rules for the project agent[ \t]*\r?\n.*?(?=^#{1,6} |^<!-- flowguard:start -->|\Z)',
+                         re.M | re.S)
+RULES_HEADING = re.compile(r'^## FlowGuard rules for the project agent\s*$', re.M)
+RULES_FILES = ('AGENTS.md', 'CLAUDE.md')
+
+
+def _rules_rewritten(content, rules, newline):
+    """(content, held): `content` with its FlowGuard rules block replaced by `rules`, as init writes AGENTS.md and
+    CLAUDE.md, and whether it held one: the block between `<!-- flowguard:start -->` and `<!-- flowguard:end -->` (an
+    owner's level-one block beside it is removed), a `## FlowGuard rules for the project agent` section or the
+    owner's level-one block."""
+    if '<!-- flowguard:start -->' in content:
+        before, _, rest = content.partition('<!-- flowguard:start -->')
+        _, _, after = rest.partition('<!-- flowguard:end -->')
+        content = before + rules + (newline + after.lstrip('\r\n') if after.strip() else '')
+        return OWNER_BLOCK.sub('', content, count=1), True
+    if RULES_HEADING.search(content):
+        return re.sub(r'^## FlowGuard rules for the project agent\s*\n.*?(?=^## |\Z)', lambda _: rules + newline,
+                      content, count=1, flags=re.M | re.S), True
+    if OWNER_BLOCK.search(content):
+        return OWNER_BLOCK.sub(lambda match: rules + (newline if match.end() < len(content) else ''), content, count=1), True
+    return content, False
+
+
+def _stale_rules(cfg):
+    """The files of RULES_FILES whose FlowGuard rules block is not the one init writes now: the marked block with
+    other words (newlines compared normalized, `normalize_newlines`), or a block written without the markers, or an
+    owner's level-one block beside it."""
+    from flowguard.map.common import normalize_newlines
+    stale = []
+    for name in RULES_FILES:
+        path = cfg.root / name
+        text = normalize_newlines(path.read_bytes()).decode('utf-8') if path.is_file() else ''
+        if '<!-- flowguard:start -->' in text:
+            block = '<!-- flowguard:start -->' + text.partition('<!-- flowguard:start -->')[2].partition(
+                '<!-- flowguard:end -->')[0] + '<!-- flowguard:end -->'
+            if block != PROJECT_RULES.rstrip('\n') or OWNER_BLOCK.search(text):
+                stale.append(name)
+        elif RULES_HEADING.search(text) or OWNER_BLOCK.search(text):
+            stale.append(name)
+    return stale
+
+
 def init(cfg):
     pyproject = cfg.root / 'pyproject.toml'
     text = pyproject.read_text(encoding='utf-8') if pyproject.is_file() else ''
@@ -2323,23 +2440,19 @@ def init(cfg):
     rules = PROJECT_RULES.replace('\n', newline)
     packages = npm_packages(cfg.root)
     content, notes = _legacy_agents(content, rules, newline, bool(packages))
-    # The owner's repositories carry a level-one block whose commands 4.x no longer has.
-    owner_block = re.compile(r'^# FlowGuard rules for the project agent[ \t]*\r?\n.*?(?=^#{1,6} |^<!-- flowguard:start -->|\Z)',
-                             re.M | re.S)
-    if '<!-- flowguard:start -->' in content:
-        before, _, rest = content.partition('<!-- flowguard:start -->')
-        _, _, after = rest.partition('<!-- flowguard:end -->')
-        content = before + rules + (newline + after.lstrip('\r\n') if after.strip() else '')
-        content = owner_block.sub('', content, count=1)
-    elif re.search(r'^## FlowGuard rules for the project agent\s*$', content, re.M):
-        content = re.sub(r'^## FlowGuard rules for the project agent\s*\n.*?(?=^## |\Z)', lambda _: rules + newline,
-                         content, count=1, flags=re.M | re.S)
-    elif owner_block.search(content):
-        content = owner_block.sub(lambda match: rules + (newline if match.end() < len(content) else ''), content, count=1)
-    else:
+    content, held = _rules_rewritten(content, rules, newline)
+    if not held:
         content = content.rstrip() + newline + newline + rules
     agents.write_bytes(content.encode('utf-8'))
     notes += _legacy_instructions(content)
+    claude = cfg.root / 'CLAUDE.md'         # a block there is rewritten too; init writes none into it
+    if claude.is_file():
+        instructions = claude.read_bytes().decode('utf-8')
+        ending = '\r\n' if '\r\n' in instructions else '\n'
+        rewritten, held = _rules_rewritten(instructions, PROJECT_RULES.replace('\n', ending), ending)
+        if held and rewritten != instructions:
+            claude.write_bytes(rewritten.encode('utf-8'))
+            notes.append('CLAUDE.md: its FlowGuard rules block is rewritten')
     print('Initialized intent sentinel, pytest plugin, CI fragment and seven project rules.')
     for line in [*notes, *_legacy_binding_lines(cfg, text)]:
         print(line)

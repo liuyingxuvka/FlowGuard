@@ -385,7 +385,7 @@ def test_a_constant_site_is_touched_when_this_change_edits_its_declaration(tmp_p
     assert known_lines(ts.replace('port: 3000', 'port: 3001'), py.replace('limit = 2', 'limit = 3')) == []
     # Each site's own declaration edited: its entry's line, as for a function site.
     assert known_lines(ts.replace("'USER'", "'GUEST'"), py.replace('"grace_days": 3', '"grace_days": 4')) == [
-        'known.roles at web/c.ts:APPLICATION_ROLES', 'known.grace at src/settings.py:defaults']
+        'known.roles at web/c.ts:APPLICATION_ROLES: Which roles exist?', 'known.grace at src/settings.py:defaults']
 
 
 def test_static_findings_carry_the_resolved_entries_input_findings_and_sources_that_do_not_hold(tmp_path):
@@ -783,12 +783,13 @@ def test_show_of_a_name_or_path_begins_with_the_known_entries_and_rules_that_con
     assert lines[:4] == ['ANCHOR ISO_WEEKS_IN_YEAR', LEAVE, RULE, CITED] and lines[4].startswith('anchor ISO_WEEKS_IN_YEAR -> '), lines
     assert SAME not in lines
     # The module branch (a file, a folder, a document): every entry with a site there, the rules anchored there and the
-    # flowguard comments written there; a document also lists the entries and rules.toml rules that quote it, and puts
-    # no about marker for itself.
-    assert shown('docs/requests.md') == ['module docs/requests.md: 1 file, 0 functions', OPEN]
-    assert shown('docs/requirements.md') == ['module docs/requirements.md: 1 file, 0 functions', OPEN, ASKED, LEAVE, CITED,
-                                             HOURS]
-    assert shown('docs')[:7] == ['show docs', NOTICE, OPEN, ASKED, LEAVE, CITED, HOURS]     # no mapped file there
+    # flowguard comments written there; a document, which its header calls one, also lists the entries and rules.toml
+    # rules that quote it, and puts no about marker for itself. A folder without a file the map reads says so instead
+    # of a module view, and lists no word look-alikes (Planning Tool's docs/requirements gave render_collectors.cjs).
+    assert shown('docs/requests.md') == ['document docs/requests.md', OPEN]
+    assert shown('docs/requirements.md') == ['document docs/requirements.md', OPEN, ASKED, LEAVE, CITED, HOURS]
+    assert shown('docs') == ['folder docs/: no source file the map reads; 2 Markdown documents', OPEN, ASKED, LEAVE, CITED,
+                             HOURS]
     assert shown('backend/prisma/schema.prisma')[:3] == ['module backend/prisma/schema.prisma: 1 file, 0 functions', OPEN,
                                                          IGNORE]
     lines = shown('backend/src/utils/capacity-conversion.ts')
@@ -973,7 +974,10 @@ def test_show_lists_the_flowguard_comment_agreements_that_concern_a_function_fil
     _, shown = _shown(tmp_path, capsys, AGREEMENTS)
     # A function: the agreements that name it (a writers function, its last part too) or that sit right above it.
     assert shown('projectService.create')[:3] == ['show projectService.create', AGREED_NOTICE, WRITERS]
-    assert shown('create')[:4] == ['show create', AGREED_NOTICE, WRITERS, PSP]
+    # A function named only through its last part says which function it is, as a known line says its site.
+    assert shown('create')[:4] == ['show create', AGREED_NOTICE,
+                                   WRITERS + ' (site backend/src/services/project.service.ts:projectService.create)',
+                                   PSP + ' (site backend/src/services/psp-element.service.ts:pspElementService.create)']
     lines = shown('typescript/backend/src/services/project.service.ts:create')
     assert lines[lines.index(AGREED_NOTICE) + 1] == WRITERS, lines
     assert shown('changeEmployeeHomeUnit')[:4] == ['show changeEmployeeHomeUnit', AGREED_NOTICE, HOME_KNOWN, HOME]
@@ -1101,9 +1105,12 @@ def test_a_rule_or_flow_view_and_a_python_rule_home_begin_with_what_concerns_the
         line for line in lines if line.startswith('same FEE')], lines
     assert shown('late_fee')[:6] == ['show late_fee', FEE_COPIES, INVOICE, 'rule FEE: late fee', 'rule INVOICE: flow',
                                      'same FEE app/fees.py:2']
-    # A flow's view begins with the entry whose finding names it, its own line left out.
+    # A flow's view begins after its header with the entries of its anchor and the one whose finding names it, its own
+    # line left out.
     lines = shown('INVOICE')
-    assert lines[0] == INVOICE and lines[1].startswith('anchor FEE -> ') and 'rule INVOICE: flow' not in lines, lines
+    assert lines[:5] == ['FLOW INVOICE', FEE_COPIES, INVOICE, 'source: assumed: an invoice charges the late fee',
+                         'tests/intent/policies.py:15'] and lines[5].startswith('anchor FEE -> ') and \
+        'rule INVOICE: flow' not in lines, lines
     # A states rule is listed by its home `module:Class.field`, read as its file's site, once and without the word
     # look-alike's trailing space.
     lines = shown('Hire.status')
@@ -1117,6 +1124,189 @@ def test_a_rule_or_flow_view_and_a_python_rule_home_begin_with_what_concerns_the
     (tmp_path / 'fees.py').write_text('# flowguard: same FEE\ndef old_fee(days):\n    return 2 * days\n', encoding='utf-8')
     assert shown('fees.py')[:4] == ['module fees.py: 1 file, 1 function', 'rule FEE: late fee', 'rule INVOICE: flow',
                                     'same FEE fees.py:2']
+
+
+def test_a_why_or_ask_names_only_what_the_production_code_declares_in_that_case(tmp_path, capsys):
+    # Planning Tool's tests declare SAP, EMPLOYEE_ID and ROUTE: `show SAP` listed the renumbering entry (its why says
+    # "awaits the SAP renumbering"), `show EMPLOYEE_ID` the unique-key entry ("employee_id") and `show ROUTE` the
+    # project-request entry ("No route approves"), each first, without saying it came from the text.
+    known = CAPACITY['.flowguard/known.toml'].replace(
+        'why   = "employeeService.update hands the employee it loaded before the renumbering to the home-unit change"',
+        'why   = "employeeService.update awaits the SAP renumbering and then hands the employee it loaded before the '
+        'renumbering to the home-unit change"') + '''
+        [known.member-key]
+        sites = ["backend/src/services/employee-utilization.service.ts:updateAssignmentPsp"]
+        why   = "The unique key of project_members (project_id, employee_id, role) does not include status"
+        act   = "leave"
+    '''
+    files = dict(CAPACITY, **{'.flowguard/known.toml': known, 'backend/tests/unit/report.test.ts': (
+        "const SAP = 'S-1';\nconst EMPLOYEE_ID = 'e-1';\nconst ROUTE = '/api/x';\n\n"
+        "test('report', () => {\n  expect([SAP, EMPLOYEE_ID, ROUTE]).toHaveLength(3);\n});\n")})
+    _, shown = _shown(tmp_path, capsys, files)
+    for query in ('SAP', 'EMPLOYEE_ID', 'ROUTE'):
+        lines = shown(query)
+        assert lines[0] == f'show {query}' and not [line for line in lines if line.startswith('known.')], lines
+    # A constant the production code declares is matched as it is spelled, and only so.
+    _commit(tmp_path, {'backend/src/config/keys.ts': "export const SAP = 'SAP';\nexport const EMPLOYEE_ID = 'employee_id';\n"})
+    lines = shown('SAP')
+    assert lines[2].startswith('known.renumber-order: left as it is: employeeService.update awaits the SAP renumbering'), lines
+    for query in ('EMPLOYEE_ID', 'sap', 'ROUTE'):
+        assert not [line for line in shown(query) if line.startswith('known.')], query
+
+
+def test_show_of_a_field_site_as_known_toml_writes_it_lists_what_the_field_s_own_query_lists(tmp_path, capsys):
+    # On Planning Tool `show backend/prisma/schema.prisma:PspElement.hierarchyLevel` printed the field's facts without
+    # the together agreement on it, and `show backend/prisma/schema.prisma:CapacityCalendarEntry.value` no percent-scale
+    # line, while `show PspElement.hierarchyLevel` and `show CapacityCalendarEntry.value` printed them.
+    _, shown = _shown(tmp_path, capsys, AGREEMENTS)
+    for field, agreement in (('PspElement.hierarchyLevel', PSP), ('Employee.organizationalUnitId', HOME)):
+        query = f'backend/prisma/schema.prisma:{field}'
+        lines = shown(query)
+        assert lines[:3] == [f'show {query}', AGREED_NOTICE, agreement], lines
+        assert lines[3].startswith(f'declared {field}: '), lines
+    # The pair the agreement holds is no candidate here either.
+    lines = shown('backend/prisma/schema.prisma:PspElement.hierarchyLevel')
+    assert not [line for line in lines if line.startswith('together candidate') and 'PspElement.parentPspId' in line], lines
+    _, shown = _shown(tmp_path / 'capacity', capsys, CAPACITY)
+    query = 'backend/prisma/schema.prisma:CapacityCalendarEntry.value'
+    assert shown(query)[:4] == [f'show {query}', NOTICE, IGNORE, ASKED]
+
+
+# Planning Tool's `together Project.leaderId ProjectMember.*` sits right above assignProjectManager; projectService.create
+# sets a project's leader without a membership, and pspElementService.move changes the parent but not the level.
+MEMBERS = dict(AGREEMENTS, **{
+    'backend/prisma/schema.prisma': AGREEMENTS['backend/prisma/schema.prisma'].replace(
+        '          lifecycleStatusId String @map("lifecycle_status_id")\n',
+        '          lifecycleStatusId String @map("lifecycle_status_id")\n          leaderId          String? @map("leader_id")\n')
+    + '''
+        model ProjectMember {
+          id         String @id
+          projectId  String @map("project_id")
+          employeeId String @map("employee_id")
+          role       String
+          @@map("project_members")
+        }
+    ''',
+    'backend/src/services/project.service.ts': AGREEMENTS['backend/src/services/project.service.ts'].replace(
+        'async create(name: string, lifecycleStatusId: string) {\n            return prisma.project.create({ data: { name, lifecycleStatusId } });',
+        'async create(name: string, lifecycleStatusId: string, leaderId: string) {\n'
+        '            return prisma.project.create({ data: { name, lifecycleStatusId, leaderId } });'),
+    'backend/src/services/project-member.service.ts': '''
+        import { prisma } from '../lib/prisma';
+
+        // flowguard: together Project.leaderId ProjectMember.*
+        export async function assignProjectManager(projectId: string, employeeId: string) {
+          await prisma.project.update({ where: { id: projectId }, data: { leaderId: employeeId } });
+          return prisma.projectMember.create({ data: { projectId, employeeId, role: 'PM' } });
+        }
+    ''',
+    'backend/src/services/psp-element.service.ts': AGREEMENTS['backend/src/services/psp-element.service.ts'].replace(
+        'data: { title, parentPspId, hierarchyLevel } });\n          },\n        };',
+        'data: { title, parentPspId } });\n          },\n        };'),
+})
+LEADER = 'together Project.leaderId ProjectMember.* backend/src/services/project-member.service.ts:3'
+MEMBERS_NOTICE = AGREED_NOTICE.replace('typescript 5/5', 'typescript 6/6')
+
+
+def test_an_agreement_on_every_field_of_a_model_concerns_its_table_and_columns_too(tmp_path, capsys):
+    # On Planning Tool `show ProjectMember` listed the together line; `show project_members` and
+    # `show project_members.employee_id` printed none.
+    _, shown = _shown(tmp_path, capsys, MEMBERS)
+    for query in ('ProjectMember', 'ProjectMember.employeeId', 'project_members', 'project_members.employee_id',
+                  'projects.leader_id'):
+        assert shown(query)[1:3] == [MEMBERS_NOTICE, LEADER], query
+    assert LEADER not in shown('Employee.organizationalUnitId')
+
+
+def test_show_of_a_function_or_file_lists_the_last_run_s_lines_placed_there(tmp_path, capsys):
+    # On Planning Tool the block called together Project.leaderId at projectService.create and together
+    # PspElement.parentPspId at move broken at task start; `show projectService.create`, its map node and `show move`
+    # did not say so.
+    cfg, shown = _shown(tmp_path, capsys, MEMBERS)
+    node = 'typescript/backend/src/services/project.service.ts:create'
+    assert not [line for line in shown(node) if '(last run)' in line]          # no run recorded yet
+    assert cli.static_check(cfg, everything=True) == 0
+    block = capsys.readouterr().out.splitlines()
+    leader = ('before (last run): together Project.leaderId at backend/src/services/project.service.ts:create was broken '
+              'at task start -> leave it unless your task is about it')
+    move = ('before (last run): together PspElement.parentPspId at backend/src/services/psp-element.service.ts:move was '
+            'broken at task start -> leave it unless your task is about it')
+    assert leader.replace(' (last run)', '').replace('backend/src/services/', '') in block, block
+    # After the agreements, one line each with its kind: the node, the object.method, the bare name and the file.
+    lines = shown(node)
+    assert lines[lines.index(MEMBERS_NOTICE) + 1:lines.index(MEMBERS_NOTICE) + 3] == [WRITERS, leader], lines
+    for query in ('projectService.create', 'backend/src/services/project.service.ts'):
+        assert leader in shown(query), query
+    lines = shown('move')
+    assert lines[:3] == ['show move', MEMBERS_NOTICE, move], lines
+    assert leader not in shown('pspElementService.create') and move not in shown('update')
+    # A folder lists none: the agreements written there, not every old finding under it.
+    assert not [line for line in shown('backend/src/services') if '(last run)' in line]
+
+
+def test_a_rule_s_view_lists_the_entries_of_its_anchors_and_a_class_lists_its_methods_entries(tmp_path, capsys):
+    # A rule whose id differs from its anchor (ISO_WEEKS on ISO_WEEKS_IN_YEAR) listed none of the anchor's entries.
+    _, shown = _shown(tmp_path, capsys, CAPACITY)
+    lines = shown('ISO_WEEKS')
+    assert lines[:3] == ['RULE ISO_WEEKS: iso weeks in a year', NOTICE, LEAVE], lines
+    # A Python class's map node lists the entries with a site on its methods.
+    files = dict(LIMITS, **{'.flowguard/known.toml': LIMITS['.flowguard/known.toml'] + '''
+        [known.hire-hold]
+        sites = ["app/decision.py:Hire.hold"]
+        why   = "A hold keeps the hire open until it is returned"
+        act   = "leave"
+    '''})
+    _, shown = _shown(tmp_path / 'limits', capsys, files)
+    hold = ('known.hire-hold: left as it is: A hold keeps the hire open until it is returned '
+            '(python -m flowguard show known.hire-hold)')
+    lines = shown('app.decision:Hire')
+    assert lines[0].startswith('app.decision:Hire app/decision.py:1') and hold in lines, lines
+    assert hold not in shown('app.limits:share_ok')
+
+
+ROLES = ('known.roles: asked the owner on 2026-11-15, no answer yet: Are the four admin roles of docs/notes/admin_roles.md '
+         'planned work, or dropped? (python -m flowguard show known.roles)')
+
+
+def test_a_document_or_a_path_the_map_does_not_read_says_what_it_is_and_lists_the_entries_naming_it(tmp_path, capsys):
+    # On Planning Tool `show docs/notes/admin_roles.md` printed `module docs/notes/admin_roles.md: 1 file, 0 functions`
+    # only, although known.roles asks about that document, and `show pyproject.toml` told the agent to put an about
+    # marker above the text that is its contract.
+    files = dict(CAPACITY, **{
+        'docs/notes/admin_roles.md': '# Admin roles\n\nHR Admin, Controlling Admin, Project Planning Admin, Self-Planning.\n',
+        'frontend/src/types/permissions.ts': "export const APPLICATION_ROLES = ['SYSTEM_ADMIN', 'MANAGEMENT'] as const;\n",
+        'docker-compose.yml': 'services:\n  db:\n    image: postgres\n',
+        '.flowguard/known.toml': CAPACITY['.flowguard/known.toml'] + '''
+        [known.roles]
+        sites = ["frontend/src/types/permissions.ts:APPLICATION_ROLES"]
+        why   = "The requirements list the roles R1 to R10; docs/notes/admin_roles.md, added later, names HR Admin, Controlling Admin, Project Planning Admin and Self-Planning, which the code's role lists do not have"
+        act   = "ask"
+        asked = "2026-11-15"
+        ask   = "Are the four admin roles of docs/notes/admin_roles.md planned work, or dropped?"
+    '''})
+    _, shown = _shown(tmp_path, capsys, files)
+    assert shown('docs/notes/admin_roles.md') == ['document docs/notes/admin_roles.md', ROLES]
+    assert shown('docs/notes') == ['folder docs/notes/: no source file the map reads; 1 Markdown document', ROLES]
+    assert ROLES not in shown('docs/requests.md')
+    for path in ('pyproject.toml', 'docker-compose.yml'):
+        assert shown(path) == [f'{path}: no source file the map reads, and no Markdown document'], path
+    # The repository's root holds every mapped file, and no about marker can name it.
+    lines = shown('.')
+    assert lines[0].startswith('module ./: ') and ROLES in lines and not [line for line in lines if 'about ./' in line], lines
+
+
+def test_a_known_entry_s_bare_id_is_that_entry_and_words_find_the_entries_sharing_them(tmp_path, capsys):
+    # On Planning Tool `show percent-scale`, `show "percent scale"` and `show "ISO weeks in a year"` printed no known line.
+    cfg, shown = _shown(tmp_path, capsys, CAPACITY)
+    assert cli.show(cfg, 'known.percent-scale') == 0
+    whole = capsys.readouterr().out.splitlines()
+    assert shown('percent-scale') == whole and whole[0] == 'known.percent-scale: act ask, asked on 2026-11-15', whole
+    assert shown('percent scale')[:3] == ['show percent scale', NOTICE, ASKED]
+    # After the exact matches: here the intent rule that decides 'iso weeks in a year'.
+    assert shown('ISO weeks in a year')[:4] == ['show ISO weeks in a year', NOTICE, RULE + ' A year has 53 ISO weeks when its '
+                                                '28 December falls in week 53.', LEAVE]
+    # Words that no entry's why or ask holds list none.
+    assert not [line for line in shown('widget colour') if line.startswith('known.')]
 
 
 def test_the_repository_keeps_its_rules_in_force_each_quoting_stored_owner_words(capsys):
@@ -1182,7 +1372,10 @@ def test_copies_that_disagreed_at_task_start_are_the_known_entry_s_in_pytest_che
     root = _project(tmp_path / 'p', FEES)
     path = root / 'fees.py'
     path.write_text(path.read_text(encoding='utf-8').replace(old, new), encoding='utf-8')
-    known = 'known: known.fee-copies at fees.py:late_fee, fees.py:preview_fee -> an open question for the owner, not asked yet'
+    # The finding's two copies, then the entry's question (Planning Tool's known line gave neither its touched site nor
+    # its question).
+    known = ('known: known.fee-copies at fees.py:late_fee, fees.py:preview_fee: Which daily late fee is right, 2 or 3? '
+             '-> an open question for the owner, not asked yet')
     for run, (result, _) in (('pytest', _pytest(root, '-q')), ('check', _cli(root, 'check')),
                              ('check --static', _cli(root, 'check', '--static'))):
         shown = block(result)
@@ -1265,7 +1458,7 @@ def test_copies_that_agree_again_make_their_known_entry_known_fixed_in_pytest_an
     """A real fix: the change makes the copies the entry names agree. pytest compares them sealed on its recorded
     inputs and check on every input it makes for them (which, not a proof, it says in a not compared line); both find
     them agreeing, so the entry may be fixed: `known fixed?`, never `known`. check --static compares no copies: the
-    change touches the entry's sites, `known`."""
+    change touches one of the entry's sites, `known`, naming that site, how many the entry has and its question."""
     from tests.intent_engine.test_unverified_outcome import _cli, _project, _pytest
     from tests.intent_engine._cli_fixture import block
     root = _project(tmp_path / 'p', FEES)
@@ -1280,4 +1473,5 @@ def test_copies_that_agree_again_make_their_known_entry_known_fixed_in_pytest_an
         assert result.returncode == 0 and block(result)[1:] == expected, (run, result.stdout + result.stderr)
     result, _ = _cli(root, 'check', '--static')
     assert result.returncode == 0 and block(result)[1:] == [
-        'known: known.fee-copies at fees.py:late_fee, fees.py:preview_fee -> an open question for the owner, not asked yet'], result.stdout
+        'known: known.fee-copies at fees.py:preview_fee (1 of 2 sites): Which daily late fee is right, 2 or 3? -> an open '
+        'question for the owner, not asked yet'], result.stdout

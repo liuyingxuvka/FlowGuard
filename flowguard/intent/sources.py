@@ -207,7 +207,8 @@ class CatalogRule:
 @dataclass(frozen=True)
 class Known:
     """`[known.<id>]` of known.toml: an open matter, its sites (`path:symbol`) and what to do about it; `nodes`
-    and `files` are the sites resolved on the map."""
+    and `files` are the sites resolved on the map, `resolved` the (nodes, files) of each site in the order of
+    `sites`."""
     id: str
     sites: tuple
     why: str
@@ -220,6 +221,7 @@ class Known:
     line: int = 0
     nodes: frozenset = frozenset()
     files: frozenset = frozenset()
+    resolved: tuple = ()
 
 
 @dataclass
@@ -728,18 +730,19 @@ def known_sites(graph, entries, change=None):
     resolve = site_resolver(graph, change)
     resolved, issues = [], []
     for entry in entries:
-        nodes, files, problems = set(), set(), []
+        nodes, files, problems, each = set(), set(), [], []
         for site in entry.sites:
             found, held, problem = resolve(site)
             if problem:
                 problems.append(problem)
             nodes.update(found)
             files.update(held)
+            each.append((frozenset(found), frozenset(held)))
         if problems:
             issues.append(_input(f'known-entry:known.{entry.id}', f'known.{entry.id}', f'{KNOWN}:known.{entry.id}', problems,
                                  f'correct the sites of [known.{entry.id}] in {KNOWN}', [KNOWN]))
         else:
-            resolved.append(replace(entry, nodes=frozenset(nodes), files=frozenset(files)))
+            resolved.append(replace(entry, nodes=frozenset(nodes), files=frozenset(files), resolved=tuple(each)))
     return resolved, issues
 
 

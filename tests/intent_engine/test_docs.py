@@ -120,7 +120,8 @@ def test_a_known_entry_may_name_a_whole_document(tmp_path):
     _commit(tmp_path, {'app/a.ts': CODE, 'docs/rates.md': DOC, '.flowguard/known.toml': known})
     _write(tmp_path, {'docs/rates.md': DOC.replace('Nothing here', 'Nothing yet')})
     code, text = _static(tmp_path)
-    assert code == 0 and any(line.startswith('known: known.stale-pointers at rates.md -> an open question for the owner') for line in _block(text)), text
+    assert code == 0 and any(line.startswith('known: known.stale-pointers at rates.md: Should the pointers be removed? -> an open '
+                                             'question for the owner') for line in _block(text)), text
     # A document site that is not there is an invalid entry, red.
     _write(tmp_path, {'.flowguard/known.toml': known.replace('docs/rates.md', 'docs/gone.md')})
     code, text = _static(tmp_path)

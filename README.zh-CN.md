@@ -20,7 +20,7 @@ python -m flowguard new-task
 python -m pytest
 ```
 
-`init` 接好项目测试，写入 FlowGuard 规则块并生成 CI 片段。Vitest 或 Jest 项目还会生成静态检查测试，说明哪个 npm 脚本会跑它；Vitest 会接上执行侧。接好以后，使用项目平时的测试命令。
+`init` 接好项目测试，写入 FlowGuard 规则块并生成 CI 片段。`AGENTS.md` 或 `CLAUDE.md` 里的规则块与当前版本写的不同时，简报会指出；再运行一次 `init` 即可改写。Vitest 或 Jest 项目还会生成静态检查测试，说明哪个 npm 脚本会跑它；Vitest 会接上执行侧。接好以后，使用项目平时的测试命令。
 
 `new-task` 记下任务起点。任务中途提交不会移动这个基准；没有基准时，第一次测试也会记下。没有意图规则时，检查输出：
 

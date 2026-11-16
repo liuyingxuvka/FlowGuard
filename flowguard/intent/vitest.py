@@ -610,7 +610,8 @@ def _catalog(cfg, graph):
         return [], []
     found = sources.catalog(cfg)
     entries, unresolved = sources.known_sites(graph, found.known.values())
-    known = [dict(asdict(entry), sites=list(entry.sites), nodes=sorted(entry.nodes), files=sorted(entry.files)) for entry in entries]
+    known = [dict(asdict(entry), sites=list(entry.sites), nodes=sorted(entry.nodes), files=sorted(entry.files),
+                  resolved=[[sorted(nodes), sorted(files)] for nodes, files in entry.resolved]) for entry in entries]
     inputs = [dict(asdict(issue), nodes=sorted(issue.nodes), files=sorted(issue.files), fresh=sorted(issue.fresh))
               for issue in [*found.issues, *unresolved]]
     return known, inputs
@@ -619,7 +620,8 @@ def _catalog(cfg, graph):
 def _known(fields):
     """A known entry of the plan (`_catalog`) as `sources.Known`."""
     from .sources import Known
-    return Known(**dict(fields, sites=tuple(fields['sites']), nodes=frozenset(fields['nodes']), files=frozenset(fields['files'])))
+    return Known(**dict(fields, sites=tuple(fields['sites']), nodes=frozenset(fields['nodes']), files=frozenset(fields['files']),
+                        resolved=tuple((frozenset(nodes), frozenset(files)) for nodes, files in fields['resolved'])))
 
 
 def _issue(fields):

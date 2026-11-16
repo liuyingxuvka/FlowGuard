@@ -20,7 +20,7 @@ python -m flowguard new-task
 python -m pytest
 ```
 
-`init` connects the project's tests, writes its FlowGuard rules block and adds a CI fragment. For a Vitest or Jest project, it also writes a static check test and reports which npm script runs it; Vitest gets the execution adapter. Use the project's ordinary test command after setup.
+`init` connects the project's tests, writes its FlowGuard rules block and adds a CI fragment. When the block in `AGENTS.md` or `CLAUDE.md` differs from the one this version writes, the brief says so; running `init` again rewrites it. For a Vitest or Jest project, it also writes a static check test and reports which npm script runs it; Vitest gets the execution adapter. Use the project's ordinary test command after setup.
 
 `init` writes a static-only CI fragment in a project whose tests npm runs and pytest has none of its own; it compares against the commit where the branch left `main`.
 

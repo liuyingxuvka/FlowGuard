@@ -97,6 +97,22 @@ def _known_step(entry):
     return KNOWN_STEPS[entry.act]
 
 
+def _asked(entry):
+    """What a known line says after its places: an ask entry's question (`: Which scale ...?`), else nothing."""
+    return f': {entry.ask}' if entry.act == 'ask' and entry.ask else ''
+
+
+def _known_sites(entry, touched_functions, touched_files):
+    """(text, places) of a known line of `entry` itself: the sites this change touches (`Known.resolved`), with how
+    many sites the entry has when it has others (`at capacity.service.ts:capacityService.updateCalendarEntry (1 of
+    12 sites)`); every site when it touches none (`--all`)."""
+    touched = [site for site, (nodes, files) in zip(entry.sites, entry.resolved)
+               if nodes & touched_functions or files & touched_files]
+    named = touched or list(entry.sites)
+    counted = f' ({len(named)} of {len(entry.sites)} sites)' if len(named) < len(entry.sites) else ''
+    return f'known.{entry.id} at {", ".join(named)}{counted}{_asked(entry)}', tuple(named)
+
+
 def _known_detail(entry):
     return tuple(f'{key}: {getattr(entry, key)}' for key in ('why', 'ask', 'fix', 'source') if getattr(entry, key))
 
@@ -118,7 +134,9 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
     session's sealed comparison of the copies of one same name) and is not among the findings is `known fixed?`
     (`copies of NAME now agree` for same-name copies); any other entry, except an ignore entry, whose
     sites this change touches (`Known.nodes` in `touched_functions` or `Known.files` in `touched_files`, every
-    entry with `everything`) and that has no line yet is `known`. `extra` are lines already of their kind
+    entry with `everything`) and that has no line yet is `known`, naming the sites this change touches (every site
+    when it touches none) and how many sites the entry has. A known line of an ask entry gives its question after
+    its places. `extra` are lines already of their kind
     (changed, impact, loosened, not compared). Lines are unique by (kind, name, function), the first one kept.
     A part's place is one 'path:symbol' (the line reads `{subject}: {place} {what}`, before `{subject} at {place} was
     broken at task start`) or a tuple of them that `what` names itself (`{subject}: {what}`; before: `{subject}
@@ -167,8 +185,8 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
             elif shown and (everything or (function in touched_functions if function else bool(issue.files & touched_files))):
                 for entry in speaking:
                     if everything or entry.nodes & touched_functions or entry.files & touched_files:
-                        lines.append(Line('known', f'known.{entry.id}', function, f'known.{entry.id}' + (f' at {where}' if where else ''),
-                                          _known_step(entry), places, _known_detail(entry)))
+                        lines.append(Line('known', f'known.{entry.id}', function, f'known.{entry.id}' + (f' at {where}' if where else '')
+                                          + _asked(entry), _known_step(entry), places, _known_detail(entry)))
                         said.add(entry.id)
                 if not speaking:
                     lines.append(Line('before', issue.name, function,
@@ -184,8 +202,8 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
             lines.append(Line('known fixed?', f'known.{entry.id}', '', f'known.{entry.id}: {gone}',
                               FIXED_STEPS[entry.act].format(id=entry.id), (), _known_detail(entry)))
         elif entry.act != 'ignore' and (everything or entry.nodes & touched_functions or entry.files & touched_files):
-            lines.append(Line('known', f'known.{entry.id}', '', f'known.{entry.id} at {", ".join(entry.sites)}',
-                              _known_step(entry), tuple(entry.sites), _known_detail(entry)))
+            text, places = _known_sites(entry, touched_functions, touched_files)
+            lines.append(Line('known', f'known.{entry.id}', '', text, _known_step(entry), places, _known_detail(entry)))
     for line in extra:
         if line.kind not in KINDS:
             raise ValueError(f'{line.name}: kind {line.kind!r} is not one of signals.KINDS')

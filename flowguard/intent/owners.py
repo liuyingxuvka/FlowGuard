@@ -2084,18 +2084,20 @@ def agreement_heads(graph, index):
 
 
 def field_spellings(graph):
-    """{casefolded spelling: its casefolded spellings} of each Prisma model field: `Model.field` and the
-    `table.column` of its `@@map` and `@map` name the same column, so `show project_requests.status` finds what a
-    known site or an agreement writes as `ProjectRequest.status`, and the other way round."""
+    """{casefolded spelling: its spellings as the schema declares them} of each Prisma model field and of each
+    model's every field: `Model.field` and the `table.column` of its `@@map` and `@map` name the same column, and
+    `Model.*` and `table.*` every column of that table, so `show project_requests.status` finds what a known site or
+    an agreement writes as `ProjectRequest.status` (and `ProjectMember.*` for `show project_members`), and the
+    other way round."""
     found = {}
     for schema in graph.schemas():
         for item in schema.get('models', ()) if schema['kind'] == 'prisma' else ():
             table = item.get('table') or item['name']
-            for column in item.get('fields', ()):
-                names = {f'{item["name"]}.{column["name"]}'.casefold(),
-                         f'{table}.{column.get("column") or column["name"]}'.casefold()}
+            pairs = [({f'{item["name"]}.{column["name"]}', f'{table}.{column.get("column") or column["name"]}'})
+                     for column in item.get('fields', ())] + [{f'{item["name"]}.*', f'{table}.*'}]
+            for names in pairs:
                 for name in names:
-                    found.setdefault(name, set()).update(names)
+                    found.setdefault(name.casefold(), set()).update(names)
     return found
 
 

@@ -745,3 +745,48 @@ def test_new_task_keeps_every_red_no_baseline_moves_and_one_without_places(tmp_p
     # red. The rule's red, the invalid entry and the load error are counted where they are read now (none here).
     assert capsys.readouterr().out.splitlines()[-1] == (
         '1 red from the previous task are now before; 2 still red: python -m flowguard show --last')
+
+
+# FlowGuard 4.3's rules block, as Planning Tool's AGENTS.md still holds it: its rule 4 tells the agent to tell the owner
+# when a line says `ask owner`, which 5.0 never prints.
+RULES_43 = '''<!-- flowguard:start -->
+## FlowGuard rules for the project agent
+1. Start each task with `python -m flowguard new-task`; read its brief (owner rules, open items) before you change code.
+2. Run the project's tests. FlowGuard prints last; its first line counts each kind. `python -m flowguard show NAME` explains any name.
+3. `red` means your change broke a recorded agreement: fix the code. Never add `except=`, remove a flowguard comment or edit `.flowguard/known.toml` to clear it without the owner's yes.
+4. `known` and `before` were there before your task: do what the line says after `->`. Tell the owner only when it says `ask owner`.
+5. `changed` means a function returns something else for the input shown: if you meant it, say so in your report; if not, fix it. `impact` and `not compared` are not failures.
+6. When you find two places that must agree, mark each with `flowguard: same NAME` in the same change; when you find a problem only the owner can decide, add it to `.flowguard/known.toml` with `act = "ask"`.
+7. Store the owner's own words once with `python -m flowguard req add - --id R<n>`, never your own text, and keep `.flowguard/rules.toml` current, each rule's source quoting those words.
+<!-- flowguard:end -->
+'''
+
+
+def test_the_brief_says_when_a_rules_block_differs_from_this_version_s_and_init_rewrites_it(tmp_path, capsys):
+    # Planning Tool's AGENTS.md kept 4.3's block; no run said so, and `show AGENTS.md` printed only a module line.
+    root, cfg = project(tmp_path, rules=0)
+
+    def brief():
+        assert cli.screen(cfg) == 0
+        return capsys.readouterr().out.splitlines()
+    assert len(brief()) == 1                     # no block anywhere: nothing to say
+    agents = '# Planning Tool\n\nRead the README.\n\n' + RULES_43 + '\n## Project-specific limits\n\nNo database.\n'
+    (root / 'AGENTS.md').write_text(agents, encoding='utf-8')
+    (root / 'CLAUDE.md').write_text('@AGENTS.md\n', encoding='utf-8')
+    assert brief()[1:] == [f'AGENTS.md holds a FlowGuard rules block that differs from the one FlowGuard {VERSION} writes: '
+                           'python -m flowguard init rewrites it']
+    # A block in CLAUDE.md too, and one written without the markers (WorldGuard's layout), CRLF as written on Windows.
+    (root / 'CLAUDE.md').write_bytes(('@AGENTS.md\n\n' + RULES_43.split('\n', 1)[1].rsplit('<!--', 1)[0]
+                                      + '\n## Other\n').replace('\n', '\r\n').encode())
+    assert brief()[1:] == [f'AGENTS.md and CLAUDE.md hold FlowGuard rules blocks that differ from the one FlowGuard '
+                           f'{VERSION} writes: python -m flowguard init rewrites them']
+    assert cli.init(cfg) == 0
+    capsys.readouterr()
+    assert len(brief()) == 1
+    claude = (root / 'CLAUDE.md').read_bytes().decode()
+    assert claude == ('@AGENTS.md\n\n' + cli.PROJECT_RULES + '\n## Other\n').replace('\n', '\r\n'), claude
+    text = (root / 'AGENTS.md').read_text(encoding='utf-8')
+    assert text == agents.replace(RULES_43, cli.PROJECT_RULES), text
+    # The current block with CRLF line endings is the same block.
+    (root / 'AGENTS.md').write_bytes(text.replace('\n', '\r\n').encode())
+    assert len(brief()) == 1

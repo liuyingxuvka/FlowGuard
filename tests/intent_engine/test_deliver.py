@@ -102,7 +102,9 @@ def test_a_touched_old_member_named_by_a_known_entry_is_a_known_line_with_the_st
     known = [entry('k', act, 'pair:A>B', asked=asked, nodes={'m:g'})]
     lines, _ = deliver([PAIR], touched_functions={'m:g'}, touched_files=(), known=known)
     assert kinds(lines) == [('red', 'pair:A>B', 'm:f'), ('known', 'known.k', 'm:g')]
-    assert (lines[1].text, lines[1].step, lines[1].places) == ('known.k at src/b.py:g', step, ('src/b.py:g',))
+    # An ask entry's line gives its question after the place.
+    said = 'known.k at src/b.py:g' + (': which one?' if act == 'ask' else '')
+    assert (lines[1].text, lines[1].step, lines[1].places) == (said, step, ('src/b.py:g',))
     assert 'why: why k' in lines[1].detail
     # A site of the entry in a file the change touches counts as well.
     by_file = [entry('k', act, 'pair:A>B', asked=asked, files={'src/b.py'})]
@@ -172,7 +174,8 @@ def test_an_entry_whose_sites_the_change_touches_is_known_once_and_never_for_ign
              entry('quiet', 'ignore', nodes={'m:f'}), entry('away', 'fix', nodes={'m:x'})]
     lines, ignored = deliver([], touched_functions={'m:f'}, touched_files={'prisma/schema.prisma'}, known=known)
     assert kinds(lines) == [('known', 'known.fn', ''), ('known', 'known.file', '')] and ignored == 0
-    assert (lines[0].text, lines[0].step, lines[0].places) == ('known.fn at src/a.py:f, src/b.py:g', 'an open question for the owner, not asked yet',
+    assert (lines[0].text, lines[0].step, lines[0].places) == ('known.fn at src/a.py:f, src/b.py:g: which one?',
+                                                               'an open question for the owner, not asked yet',
                                                                ('src/a.py:f', 'src/b.py:g'))
     assert 'ask: which one?' in lines[0].detail
     # With everything, every entry but the ignore one is listed.
@@ -182,6 +185,47 @@ def test_an_entry_whose_sites_the_change_touches_is_known_once_and_never_for_ign
     named = [entry('k', 'leave', 'pair:A>B', nodes={'m:g'})]
     assert kinds(deliver([PAIR], touched_functions={'m:g'}, touched_files=(), known=named)[0]) == [
         ('red', 'pair:A>B', 'm:f'), ('known', 'known.k', 'm:g')]
+
+
+# Planning Tool's percent-scale entry, its twelve sites in known.toml's order.
+PERCENT_SITES = ('backend/src/api/schemas/personnel-mvp.schemas.ts:MAX_CAPACITY_PERCENT',
+                 'backend/src/utils/capacity-conversion.ts:convertPercentToHours',
+                 'backend/src/services/report.service.ts:toDailyHours',
+                 'backend/src/services/migration.service.ts:getCapacityHoursForEntry',
+                 'backend/src/services/capacity.service.ts:capacityService.updateCalendarEntry',
+                 'backend/src/services/capacity.service.ts:capacityService.getHolidayOverlap',
+                 'backend/src/services/employee-utilization.service.ts:buildResourceLimitationRows',
+                 'backend/src/services/org-unit-summary.service.ts:orgUnitSummaryService.computeFteUtilization',
+                 'backend/src/services/absence.service.ts:computeAbsenceDays',
+                 'frontend/src/utils/planning-period-edit.ts:buildLimitationPeriodEdit',
+                 'frontend/src/components/employee-utilization/AbsenceSyncDialog.tsx:buildSyncEntries',
+                 'frontend/src/components/employee-utilization/AbsenceSyncDialog.tsx:computeEndDate')
+
+
+def test_a_known_line_names_the_sites_this_change_touches_and_an_ask_entry_s_question():
+    # On Planning Tool a change to capacityService.updateCalendarEntry, the fifth site, gave `known.percent-scale at
+    # personnel-mvp.schemas.ts:MAX_CAPACITY_PERCENT, capacity-conversion.ts:convertPercentToHours, report.service.ts:
+    # toDailyHours (+9 places) -> asked the owner on 2026-11-15; no answer yet`: neither the touched site nor the question.
+    resolved = tuple((frozenset({f'node{number}'}), frozenset()) for number in range(len(PERCENT_SITES)))
+    percent = Known('percent-scale', PERCENT_SITES, 'why', 'ask', ask='Which scale does the database store for PERCENT rows, '
+                    '0..1 or 0..100?', asked='2026-11-15', nodes=frozenset(node for nodes, _ in resolved for node in nodes),
+                    resolved=resolved)
+    lines, _ = deliver([], touched_functions={'node4'}, touched_files=(), known=[percent])
+    assert (lines[0].text, lines[0].places) == (
+        'known.percent-scale at backend/src/services/capacity.service.ts:capacityService.updateCalendarEntry (1 of 12 sites): '
+        'Which scale does the database store for PERCENT rows, 0..1 or 0..100?', (PERCENT_SITES[4],))
+    assert signals.render_block(lines, title='FlowGuard').splitlines()[1] == (
+        'known: known.percent-scale at capacity.service.ts:capacityService.updateCalendarEntry (1 of 12 sites): Which scale '
+        'does the database store for PERCENT rows, 0..1 or 0..100? -> asked the owner on 2026-11-15; no answer yet')
+    # A site whose file the change touches (a Model.field's schema), two touched sites, and --all, which touches none.
+    field = Known('scale', ('prisma/schema.prisma:Entry.value', 'src/a.ts:read', 'src/b.ts:write'), 'why', 'leave',
+                  nodes=frozenset({'a', 'b'}), files=frozenset({'prisma/schema.prisma'}),
+                  resolved=((frozenset(), frozenset({'prisma/schema.prisma'})), (frozenset({'a'}), frozenset()),
+                            (frozenset({'b'}), frozenset())))
+    assert deliver([], touched_functions={'b'}, touched_files={'prisma/schema.prisma'}, known=[field])[0][0].text == \
+        'known.scale at prisma/schema.prisma:Entry.value, src/b.ts:write (2 of 3 sites)'
+    assert deliver([], touched_functions=(), touched_files=(), known=[field], everything=True)[0][0].text == \
+        'known.scale at prisma/schema.prisma:Entry.value, src/a.ts:read, src/b.ts:write'
 
 
 def test_a_file_level_member_is_touched_through_the_findings_files():

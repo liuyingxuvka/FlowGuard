@@ -1631,7 +1631,11 @@ def test_a_known_site_is_touched_by_an_edit_of_its_text_and_not_by_an_edit_besid
     code, text = _vitest(root, vitest_home)       # beside it: nothing
     assert code == 0 and not [line for line in _block(text) if 'known.' in line], text
     fee.write_text('export function fee(days: number): number {\n  return days * 2;\n}\n', encoding='utf-8', newline='\n')
-    known = 'known: known.limit at a.ts:over, b.ts:enough -> an open question for the owner, not asked yet'
+    # The edited site of the two, then the entry's question; once the copies are compared, the two copies of the
+    # finding the entry names.
+    known = ('known: known.limit at a.ts:over (1 of 2 sites): which limit is right? -> an open question for the owner, '
+             'not asked yet')
+    compared = known.replace('a.ts:over (1 of 2 sites)', 'a.ts:over, b.ts:enough')
     first = root / 'src/a.ts'
     original = first.read_text(encoding='utf-8')
     first.write_text(original + '\n// a note beside the copies\n', encoding='utf-8', newline='\n')
@@ -1642,7 +1646,7 @@ def test_a_known_site_is_touched_by_an_edit_of_its_text_and_not_by_an_edit_besid
     assert code == 0 and known in _block(text), text
     first.write_text(original.replace('return x > 3;', 'return 3 < x;'), encoding='utf-8', newline='\n')
     code, text = _vitest(root, vitest_home)       # its code
-    assert code == 0 and known in _block(text), text
+    assert code == 0 and compared in _block(text), text
 
 
 def test_init_says_npm_test_runs_the_static_test_only_when_the_vitest_config_includes_it(vitest_home):
@@ -2495,7 +2499,8 @@ def test_a_known_entry_naming_same_name_copies_speaks_for_their_old_difference_a
     other.write_text(other.read_text().replace('days <= 3 || days === 91', 'days === 91 || days <= 3'))   # g's code, not its answers
     result, lines = _judged(tmp_path, records)
     assert [(line.kind, line.name, line.text, line.step) for line in lines if line.kind != 'not compared'] == [
-        ('known', 'known.limit', 'known.limit at src/a.ts:f, src/b.ts:g', 'an open question for the owner, not asked yet')], lines
+        ('known', 'known.limit', 'known.limit at src/a.ts:f, src/b.ts:g: which limit is right?',
+         'an open question for the owner, not asked yet')], lines
     path = tmp_path / 'src/a.ts'
     path.write_text(path.read_text().replace('<= 3', '<= 4'))
     result, lines = _judged(tmp_path, records)
