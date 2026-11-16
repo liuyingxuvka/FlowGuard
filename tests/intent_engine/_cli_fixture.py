@@ -114,6 +114,8 @@ def unchecked(root):
     for line in last(root).splitlines():
         if line.startswith('not compared: '):
             current = found.setdefault(line.removeprefix('not compared: ').rsplit(' -> ', 1)[0], [])
+        elif line.startswith('    finding '):           # the name known add takes, no reason
+            continue
         elif line.startswith('    ') and current is not None:
             current.append(line.strip())
         else:

@@ -99,13 +99,14 @@ def _block(text, *, everything=False):
 
 def _reds(root, text, prefix='red: '):
     """[(line, detail)] of each line of the block in `text` that starts with `prefix`, with the detail `show --last`
-    prints under the same line of that run in `root`."""
+    prints under the same line of that run in `root` (not the `finding NAME` line it adds for `known add`)."""
     shown = _cli_fixture.last(root).splitlines()
     starts = [index for index, line in enumerate(shown) if line.startswith(prefix)]
     lines = [line for line in _block(text, everything=True) if line.startswith(prefix)]
     assert len(starts) == len(lines), (lines, shown)
     return [(line, [said.strip() for said in shown[start + 1:next((index for index, said in enumerate(shown[start + 1:], start + 1)
-                                                                  if not said.startswith('    ')), len(shown))]])
+                                                                  if not said.startswith('    ')), len(shown))]
+                    if not said.startswith('    finding ')])
             for line, start in zip(lines, starts)]
 
 
@@ -114,7 +115,8 @@ def _last(root, prefix):
     line uncut, its paths in full, with the detail under it."""
     shown = _cli_fixture.last(root).splitlines()
     return [(line, [said.strip() for said in shown[index + 1:next((later for later, said in enumerate(shown[index + 1:], index + 1)
-                                                                  if not said.startswith('    ')), len(shown))]])
+                                                                  if not said.startswith('    ')), len(shown))]
+                    if not said.startswith('    finding ')])
             for index, line in enumerate(shown) if line.startswith(prefix)]
 
 

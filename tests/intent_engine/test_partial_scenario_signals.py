@@ -103,6 +103,8 @@ def reds(root):
     """Each red line of the last run as `show --last` prints it, its detail joined to it."""
     found, current = [], None
     for line in last(root).splitlines():
+        if line.startswith('    finding '):           # the name known add takes, no detail
+            continue
         if line.startswith('    ') and current is not None:
             found[current] += ' ' + line.strip()
         else:
