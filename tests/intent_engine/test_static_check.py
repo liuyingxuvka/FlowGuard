@@ -130,11 +130,13 @@ def _names(root):
 
 
 def _detail(root, line):
-    """The detail `show --last` prints under the last run's line that starts with `line` (its paths in full)."""
+    """The detail `show --last` prints under the last run's line that starts with `line` (its paths in full), without
+    the `finding NAME` line it adds for `known add`."""
     shown = _cli_fixture.last(root).splitlines()
     start = next(index for index, said in enumerate(shown) if said.startswith(line))
     return [said.strip() for said in shown[start + 1:next((index for index, said in enumerate(shown[start + 1:], start + 1)
-                                                          if not said.startswith('    ')), len(shown))]]
+                                                          if not said.startswith('    ')), len(shown))]
+            if not said.startswith('    finding ')]
 
 
 # ---- check --static: only what the change adds; exit 1 on red --------------------------------------
