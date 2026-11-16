@@ -41,7 +41,7 @@ def work(n):
 POLICY = '''from shop.settings import GRACE
 
 
-# flowguard: sensor STANDING(days: day) -> allowed: bool
+# flowguard: same STANDING(days: day) -> allowed: bool
 def standing(days: int) -> bool:
     return days <= GRACE
 

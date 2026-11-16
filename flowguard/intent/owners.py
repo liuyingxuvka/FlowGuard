@@ -1,9 +1,9 @@
 """Owners and copies: one owner per judgment or field, and what this change does to the rest.
 
-A function owner (`# flowguard: owner NAME`) is the reference its same-name sensors follow; the
+A reference (`# flowguard: same NAME ref`) is the function its same-name copies (`same NAME`) follow; the
 existing same-name comparison checks those. Copy discovery runs unregistered look-alikes on the
-owner's case classes, through the runtime's source-only sealed executor, only in
-`check`. A data owner (`owner Table.column writers=...`) makes a write outside its writers a finding.
+reference's case classes, through the runtime's source-only sealed executor, only in
+`check`. A writers agreement (`writers Table.column f,g`) makes a write outside its writers a finding.
 Every finding names its members, those this change added fresh (`signals.deliver` gives each its line).
 Grouping is a finite sample of representative values, never a proof of equal behavior.
 """
@@ -319,16 +319,9 @@ def baseline(cfg, base=None):
 # ---- data owners --------------------------------------------------------------------------------------
 
 def _allowed(row, writers):
-    """Whether one of `writers` (a position `module:function`, or a bare name of the old owner spelling, which any
-    file's function of that name satisfies) wrote `row`: its own code or a callback inside it (a transaction's
-    arrow function writes for the method that passes it, as a bare name always allowed)."""
-    for writer in writers:
-        if ':' in writer:
-            if named(row['node']) == writer:
-                return True
-        elif row['function'] == writer or row['function'].endswith('.' + writer):
-            return True
-    return False
+    """Whether one of `writers` (positions `module:function`) wrote `row`: its own code or a callback inside it (a
+    transaction's arrow function writes for the method that passes it)."""
+    return named(row['node']) in writers
 
 
 def _write_key(row):
@@ -379,7 +372,7 @@ def _member(ident):
 
 def _writer_name(writer):
     """A writers entry as the agreement names it: its function, without the module a position resolves to."""
-    return writer.rpartition(':')[2] if ':' in writer else writer
+    return writer.rpartition(':')[2]
 
 
 def _writer_issue(change, owner, outside, where):
@@ -886,9 +879,9 @@ def _pair_step(row, partner):
 
 
 def owner_pairs(change, index):
-    """`with=` (`together A B`): each write of a registered field also writes its partner in the same operation
+    """`together A B`: each write of a registered field also writes its partner in the same operation
     (`operation`: callers three levels up, then three levels down from them; a JS/TS module-level callback is an
-    operation of its own), unless its function is listed in `alone=`; `on=update` holds only the writes that change
+    operation of its own), unless its function is listed in `except=` (`alone`); `on=update` holds only the writes that change
     a row (`on=create` only those that make one, `creates`). A partner of the trigger's own function holds it only
     for the same record (`_same_record`), and a conditional partner field only under the trigger's own condition
     (`_unconditional`). A test's fixture write is not held to the pair.
@@ -1113,16 +1106,15 @@ def _counted(number, noun, plural=None):
 
 def _agreements(rows, moved=None):
     """The agreements of these `anchors` fact rows: {field: {'writers': {writer: row}, 'pairs': {partner: row},
-    'alone': {function: row}, 'on': {on: row}}} of the data agreements (writers, together; the old owner spellings
-    are the same rows), and {(name, function): [rows]} of the same-name copies (`same`, `same NAME ref`, a function
-    owner). A position is the function it resolves to (`module:function`; a bare name of the old owner spelling,
-    which any file's function of that name satisfies, stays bare), so a comment moved to another file means the
-    function of that file it now names; `moved` maps the module of a file renamed away to its new module."""
+    'alone': {function: row}, 'on': {on: row}}} of the data agreements (writers, together), and {(name, function):
+    [rows]} of the same-name copies (`same`, `same NAME ref`). A position is the function it resolves to
+    (`module:function`), so a comment moved to another file means the function of that file it now names; `moved`
+    maps the module of a file renamed away to its new module."""
     moved = moved or {}
 
     def resolved(position):
-        target, colon, qual = position.rpartition(':')
-        return moved.get(target, target) + colon + qual if colon else position
+        target, _, qual = position.rpartition(':')
+        return moved.get(target, target) + ':' + qual
     data, same = {}, {}
     for row in rows:
         if row['kind'] == 'owner' and not row.get('qual'):
@@ -1135,7 +1127,7 @@ def _agreements(rows, moved=None):
                 item['alone'].setdefault(resolved(exception.partition('(')[0]), row)
             if row.get('pairs'):
                 item['on'].setdefault(row.get('on') or '', row)
-        elif row['kind'] in ('sensor', 'owner'):
+        elif row['kind'] == 'sensor':
             same.setdefault((row['name'], resolved(row['module'] + ':' + row['qual'])), []).append(row)
     return data, same
 
@@ -1171,12 +1163,12 @@ def _moved_modules(change, paths, current):
 
 def loosened(change, index):
     """What this change loosened in the agreements of its `flowguard:` comments (D9), each a `loosened` line: an
-    `except=` (`alone=`) added, also in a new together; a together partner removed (the whole agreement too); an
+    `except=` added, also in a new together; a together partner removed (the whole agreement too); an
     `on=` added to or changed in a together that stays; a writer added to a writers agreement that stays; a writers
-    agreement removed; a `same NAME` removed from a function. A 4.2 bare name in `alone=` or `writers=` rewritten as
-    one function of that name (`except=path:f`, `writers A f`) narrows what it allowed and loosens nothing. The
-    baseline's comments are the old `anchors` facts of
-    the files this change edits, deletes or renames away, beside the map's for every other file. Positions compare
+    agreement removed; a `same NAME` removed from a function. A 4.2 spelling is no agreement in 5.0 (it is red at its
+    line, `anchors._removed`), at the baseline too, so its 4.3 rewrite loosens nothing. The baseline's comments are
+    the old `anchors` facts of the files this change edits, deletes or renames away, beside the map's for every other
+    file. Positions compare
     as the functions they resolve to, a renamed file's by its new module (`_moved_modules`): a comment moved beside
     another function of the name it spells now names that function. A file moved without Git and edited in its
     comments too is a file deleted and one added."""
@@ -1199,23 +1191,16 @@ def loosened(change, index):
 
     def spelled(position, row):
         """A position as the comment at `row` spells it: a function of its own file bare, another's path:function."""
-        target, colon, qual = position.rpartition(':')
-        return qual if not colon or target == row['module'] else f'{files.get(target, target)}:{qual}'
+        target, _, qual = position.rpartition(':')
+        return qual if target == row['module'] else f'{files.get(target, target)}:{qual}'
 
     def line(key, text, row, function=''):
         place = f'{row["file"]}:{row["line"]}'
         found.lines.append(Line('loosened', f'loosened:{key}', function, text, LOOSENED_STEP, (place,), (f'comment at {place}',)))
 
     def added(new, old):
-        """The positions of `new` the baseline's `old` did not allow: a bare name of the old owner spelling allowed
-        the function of that name in every file (`_allowed`), so the same name with a path, or the 4.3 bare name
-        of the comment's own file, is no more than it allowed."""
-        bare = [was for was in old if ':' not in was]
-
-        def allowed(position):
-            qual = position.rpartition(':')[2]
-            return any(qual == was or qual.endswith('.' + was) for was in bare)
-        return sorted(position for position in new.keys() - old.keys() if not allowed(position))
+        """The positions of `new` the baseline's `old` did not allow."""
+        return sorted(new.keys() - old.keys())
 
     for name in sorted(then.keys() | now.keys()):
         old, new = then.get(name), now.get(name)
@@ -1459,7 +1444,7 @@ def _kind_of(value):
     return Kind({float: 'float', int: 'int'}.get(type(value), 'dec' if type(value).__name__ == 'Decimal' else 'other'))
 
 
-# ---- copy discovery against a registered function owner ----------------------------------------------
+# ---- copy discovery against a registered reference ----------------------------------------------------
 
 def _functions(graph, cfg):
     """Callable module-level production functions, with their body shape, numeric constants and sizes."""
@@ -1616,7 +1601,7 @@ def _category(same, total, shape):
 
 
 def discover(cfg, graph, index, change, *, everything=False):
-    """Unregistered look-alikes of each function owner, grouped by their results on its classes: a `copies:` finding
+    """Unregistered look-alikes of each reference (`same NAME ref`), grouped by their results on its classes: a `copies:` finding
     of each diverged copy and each copy this change adds beside a reference the baseline had. A reference whose
     classes cannot be built or that cannot run itself, and a look-alike that cannot run or has no comparable input,
     leave copy discovery incomplete (`COPY_DISCOVERY` is not in `found.ran`)."""
@@ -1890,8 +1875,10 @@ def check_findings(cfg, graph, index, base=None, *, everything=False, static=Non
 
 
 def show_lines(cfg, graph, index, name):
-    """`show NAME` of an owner: its writers and the writes outside them, or its unregistered look-alikes; and for
-    a writers or together agreement the fix the red line leaves out (4.7: a red line names no way to silence it)."""
+    """`show NAME` of an owner, each agreement in its 4.3 spelling with its place: a writers agreement with the writes
+    outside it, a together agreement with its except= functions, a reference (`same NAME ref`) with its unregistered
+    look-alikes; and for a writers or together agreement the fix the red line leaves out (4.7: a red line names no
+    way to silence it)."""
     lines = []
     for owner in index.named(name):
         if owner.kind == 'owner' and owner.writers:
@@ -1901,36 +1888,47 @@ def show_lines(cfg, graph, index, name):
             outside = [row for row in rows if not row.get('unclear') and not _allowed(row, owner.writers)
                        and row not in fixtures]
             where = _agreement_place(graph, owner, "writers")
-            lines.append(f'owner {owner.name} {where}; writers={",".join(owner.writers)}')
+            lines.append(f'writers {owner.name} {",".join(_spelled(graph, owner.module, writer) for writer in owner.writers)} {where}')
             def plain(row):
                 value = f', value {row["value"]!r}' if 'value' in row else ''
                 return f'{row["file"]}:{row["line"]} {row["function"]} ({row["kind"]}{value})'
             lines.extend('outside writers: ' + plain(row) for row in outside)
             lines.extend('test fixture (not held): ' + plain(row) for row in fixtures if not _allowed(row, owner.writers))
             lines.extend('unclear: ' + plain(row) + f' {row.get("reason", "")}' for row in rows if row.get('unclear'))
-            lines.extend(f'with {pair}' for pair in owner.pairs)
-            lines.extend(f'alone {item}' for item in owner.alone)
             if outside:
                 lines.append(f'fix: call {" or ".join(dict.fromkeys(map(_writer_name, owner.writers)))} instead; adding a '
                              f"function to the writers agreement ({where}) loosens it, which is the owner's decision")
-            if owner.pairs:
-                lines.append(_pair_fix(graph, owner))
-        elif owner.kind == 'owner' and owner.pairs:
+        if owner.kind == 'owner' and owner.pairs:
+            exceptions = ','.join(_spelled(graph, owner.module, item.partition('(')[0], path=True) + '(' + item.partition('(')[2]
+                                  for item in owner.alone)
             lines.append(f'together {owner.name} {",".join(owner.pairs)}' + (f' on={owner.on}' if owner.on else '')
-                         + f' {_agreement_place(graph, owner, "pairs")}')
-            lines.extend(f'except {item}' for item in owner.alone)
+                         + (f' except={exceptions}' if exceptions else '') + f' {_agreement_place(graph, owner, "pairs")}')
             lines.append(_pair_fix(graph, owner))
-        elif owner.owner:
+        if owner.owner:
             functions = _functions(graph, cfg)
             home = next((row for row in functions if row['id'] == owner.target), None)
             registered = {a.target for a in index.entries if a.kind == 'sensor'}
             if home is None:
                 continue
             similar = _look_alikes(functions, home, registered)
-            lines.append(f'owner {owner.name} {owner.file}:{owner.target_line}; {len(similar)} unregistered look-alikes '
+            lines.append(f'same {owner.name} ref {owner.file}:{owner.target_line}; {len(similar)} unregistered look-alikes '
                          '(not run here; check --all compares them)')
             lines.extend(f'look-alike {row["file"]}:{row["line"]} {row["qual"]}' for row in similar)
     return lines
+
+
+def _spelled(graph, module, position, *, path=False):
+    """A writers or except= position (`module:function`) as a 4.3 comment in `module` spells it: a function of that
+    file bare (except= needs its path, `path`), another file's path:function, a JS/TS function by its declared name
+    (`anchors._declared_name`); a position the map does not hold as it is (its comment's line is red)."""
+    from flowguard.structure import store
+    from .anchors import _declared_name
+    row = graph.con.execute('SELECT file, module, qual, raw FROM node WHERE id = ?', (position,)).fetchone()
+    if row is None:
+        return position
+    file, own, qual, raw = row
+    declared = _declared_name(file, qual, store.unpack(raw) if raw else {})
+    return declared if own == module and not path else f'{file}:{declared}'
 
 
 def _pair_fix(graph, owner):

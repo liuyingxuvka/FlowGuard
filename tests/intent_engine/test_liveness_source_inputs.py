@@ -13,7 +13,7 @@ from tests.intent_engine.test_guard_regressions import make
 
 def tuple_case(root, *, explicit_context=False, mapped=True):
     (root / 'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath=["."]\n')
-    (root / 'tuple_business.py').write_text('''# flowguard: sensor CHECK(values: tuple) -> accepted: bool
+    (root / 'tuple_business.py').write_text('''# flowguard: same CHECK(values: tuple) -> accepted: bool
 def choice(values: tuple) -> bool:
     return values == ('red',)
 ''')

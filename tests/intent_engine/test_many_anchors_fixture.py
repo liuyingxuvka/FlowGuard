@@ -80,8 +80,8 @@ def test_the_fixture_has_its_anchors_rules_and_copies(template):
     sources = [path.read_text(encoding='utf-8') for path in (template / 'shop').glob('*.py')]
     comments = [line.strip() for text in sources for line in text.splitlines() if line.strip().startswith('# flowguard: ')]
     assert len(comments) == 30, comments
-    assert sum('owner STANDING' in line or 'sensor STANDING' in line for line in comments) == 3
-    assert sum('owner ROUND_HALF' in line or 'sensor ROUND_HALF' in line for line in comments) == 3
+    assert sum(line.startswith('# flowguard: same STANDING') for line in comments) == 3
+    assert sum(line.startswith('# flowguard: same ROUND_HALF') for line in comments) == 3
     rules = (template / 'tests/intent/rules.py').read_text(encoding='utf-8')
     assert rules.count('@rule(') == 10
     result, text = _pytest(template, '-o', 'addopts=', '-p', 'no:flowguard.intent.plugin',

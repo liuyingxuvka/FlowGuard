@@ -8,13 +8,13 @@ def connect(path):
     return db
 
 
-# flowguard: sensor AVAILABLE
+# flowguard: same AVAILABLE
 def can_hire(db: sqlite3.Connection, item_id: int, stock: int, reserved: int) -> bool:
     row = db.execute("select stock, reserved from items where id=?", (item_id,)).fetchone()
     return stock > reserved and row is not None
 
 
-# flowguard: sensor HIRES
+# flowguard: same HIRES
 def hire_count(db: sqlite3.Connection, item_id: int, stock: int, reserved: int) -> int:
     db.execute("insert into hires(item_id) values (?)", (item_id,))
     (count,) = db.execute("select count(*) from hires").fetchone()

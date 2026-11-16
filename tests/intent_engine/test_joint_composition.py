@@ -45,7 +45,7 @@ def project(tmp_path, children=2, *, coupled=False, detail_enum=False, unreadabl
     testnode = 'tests/test_native_' + module + '.py::test_case'
     for name in names:
         identifier = name.upper()
-        source += f'''# flowguard: sensor gate_{name}(flag: flag, detail: detail) -> accepted: bool
+        source += f'''# flowguard: same gate_{name}(flag: flag, detail: detail) -> accepted: bool
  def {name}_gate(flag: bool, detail: {detail_type}) -> bool:
     if flag:
         return True
@@ -61,7 +61,7 @@ def {identifier}(flag,detail): return {predicate}
     if nested:
         levels = ['first', 'second']
         for leaf, middle in zip(names, levels):
-            source += f'''# flowguard: sensor gate_{middle}(flag: flag, detail: detail, spare: spare) -> accepted: bool calibrated_by={testnode}
+            source += f'''# flowguard: same gate_{middle}(flag: flag, detail: detail, spare: spare) -> accepted: bool calibrated_by={testnode}
 def {middle}(flag: bool, detail: {detail_type}, spare: bool) -> bool:
     if {leaf}_gate(flag, detail):
         return True
@@ -76,7 +76,7 @@ def {middle.upper()}({leaf}_ok,spare): return {leaf}_ok
     hidden = ' + '.join(f'int({name}.detail)' for name in names)
     limit = children * (2 if detail_enum else 1)
     answer = f'({hidden} != {limit})' if coupled else 'True'
-    source += f'''# flowguard: sensor approve({', '.join(name + ': data' for name in names)}) -> approved: bool calibrated_by={testnode}
+    source += f'''# flowguard: same approve({', '.join(name + ': data' for name in names)}) -> approved: bool calibrated_by={testnode}
 def approve({', '.join(name + ': object' for name in names)}) -> bool:
     approved = {gates}
     if not approved:

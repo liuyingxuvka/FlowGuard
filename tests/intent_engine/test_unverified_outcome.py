@@ -60,7 +60,7 @@ def _cli(root, *arguments):
 
 ASSUMED = {
     'policy.py': '''
-        # flowguard: sensor LIMIT
+        # flowguard: same LIMIT
         def limit(days: int) -> bool:
             return days <= 3
     ''',
@@ -108,7 +108,7 @@ def test_the_session_names_an_unverified_item_and_its_reason_with_an_ascii_colon
 
 STANDING = {
     'policy.py': '''
-        # flowguard: sensor STANDING
+        # flowguard: same STANDING
         def standing(days: int) -> bool:
             return days <= 3
     ''',
@@ -155,7 +155,7 @@ def test_check_all_fails_a_grey_rule_quoting_the_owner_and_an_unverified_section
     files = {
         'policy.py': '''
             import json
-            # flowguard: sensor LIMIT
+            # flowguard: same LIMIT
             def limit(days: int) -> bool:
                 return days <= json.loads("3")
         ''',
@@ -396,7 +396,7 @@ GATE = {
             def __bool__(self):
                 return self.ok
 
-        # flowguard: sensor GATE
+        # flowguard: same GATE
         def gate(age: int):
             return age >= 18
     ''',

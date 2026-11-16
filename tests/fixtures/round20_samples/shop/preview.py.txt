@@ -1,4 +1,4 @@
-# flowguard: sensor STANDING
+# flowguard: same STANDING
 def preview_allows(days_after_expiry: int, suspended: bool, owed: int) -> bool:
     if suspended:
         return False

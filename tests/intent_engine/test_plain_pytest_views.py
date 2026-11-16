@@ -23,7 +23,7 @@ def _git(root, *arguments):
 def project(root):
     (root / 'tests').mkdir(parents=True)
     (root / 'app.py').write_text(textwrap.dedent('''
-        # flowguard: sensor LIMIT
+        # flowguard: same LIMIT
         def limit(days: int) -> bool:
             return days <= 3
 

@@ -59,7 +59,7 @@ Data agreements have separate comments:
 
 `together A B,C` is directional: an operation writing A must also write B and C. `on=` limits it to `create` or `update`; `B=value` requires that value. Bare writer names refer only to the comment's file; another file uses a repository-relative position such as `src/store.py:reserve`. Exceptions use `except=path:function(reason)` and need the owner's agreement. Do not weaken an agreement to clear a finding.
 
-The old comment spellings remain accepted with a deprecation notice. The internal registration and saved inputs keep their existing meaning.
+FlowGuard 5.0 removed the 4.2 comment spellings (`sensor NAME`, `owner NAME`, `owner A with=...`, `alone=`, `owner A writers=...`): each is red at its line, and the red names the 4.3 comment to write instead.
 
 ## Rules and fallback reasons
 
@@ -81,7 +81,7 @@ FlowGuard acts only inside test runs. It never runs a function a second time ins
 
 ## Compatibility and repository
 
-Retained older inputs and APIs continue to work; deprecated features give a removal notice rather than silently changing their meaning. See the [4.1 notes](./docs/upgrade-4.1.md), [4.2 notes](./docs/upgrade-4.2.md), [4.3 notes](./docs/upgrade-4.3.md) and [intent guide](./docs/intent-guide.md) for existing contracts.
+Retained older inputs and APIs continue to work; a feature 5.0 removed is refused with the step to its replacement rather than silently changing its meaning. See the [4.1 notes](./docs/upgrade-4.1.md), [4.2 notes](./docs/upgrade-4.2.md), [4.3 notes](./docs/upgrade-4.3.md) and [intent guide](./docs/intent-guide.md) for existing contracts.
 
 - `flowguard/structure/`: source facts and fixed queries.
 - `flowguard/intent/`: agreements, intent rules, the ledger and test adapters.

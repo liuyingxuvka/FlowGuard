@@ -51,7 +51,7 @@ def _git(root, *arguments):
 def project(root):
     (root / 'tests/intent').mkdir(parents=True)
     (root / 'policy.py').write_text(textwrap.dedent('''
-        # flowguard: sensor FEE(days: day, member: bool) -> fee: int
+        # flowguard: same FEE(days: day, member: bool) -> fee: int
         def fee(days: int, member: bool) -> int:
             if days <= 2:
                 return 0

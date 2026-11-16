@@ -192,7 +192,7 @@ def repository(root, source):
     git(root, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'initial')
 
 
-GRACE = '''# flowguard: sensor grace(days: day) -> allowed: bool
+GRACE = '''# flowguard: same grace(days: day) -> allowed: bool
 def allowed(days: int) -> bool:
     return days <= 3
 '''
@@ -262,7 +262,7 @@ def test_sealed_comparison_runs_old_and_current_same_file_helper_bodies(tmp_path
 
 def test_same_present_anchors_compare_through_the_same_executor(tmp_path):
     root = tmp_path/'project'
-    repository(root, GRACE+GRACE.replace('sensor grace', 'sensor other').replace('def allowed', 'def other').replace('<= 3', '<= 7'))
+    repository(root, GRACE+GRACE.replace('same grace', 'same other').replace('def allowed', 'def other').replace('<= 3', '<= 7'))
     report = compare_sensors(root, 'grace', 'other')
     assert report['status'] == 'red' and report['changed'] == 1 and report['total'] == 3, report
 
@@ -279,7 +279,7 @@ def test_same_name_copies_compare_actual_callables_without_any_intent_rule(tmp_p
 
 def test_differently_named_sensors_keep_separate_identity_until_an_explicit_comparison(tmp_path):
     root = tmp_path/'project'
-    repository(root, GRACE+GRACE.replace('sensor grace', 'sensor different').replace('def allowed', 'def copy').replace('<= 3', '<= 7'))
+    repository(root, GRACE+GRACE.replace('same grace', 'same different').replace('def allowed', 'def copy').replace('<= 3', '<= 7'))
     index = D._source_index(root)
     assert set(index.by_name) == {'grace', 'different'}
     assert not index.issues
@@ -343,7 +343,7 @@ def test_foreign_project_named_flowguard_cannot_replace_the_active_sdk_or_claim_
     (root/'flowguard').mkdir()
     (root/'flowguard/__init__.py').write_text('')
     (root/'decision.py').rename(root/'flowguard/decision.py')
-    (root/'flowguard/decision.py').write_text(GRACE+GRACE.replace('sensor grace', 'sensor copy').replace('def allowed', 'def copy').replace('<= 3', '<= 7'))
+    (root/'flowguard/decision.py').write_text(GRACE+GRACE.replace('same grace', 'same copy').replace('def allowed', 'def copy').replace('<= 3', '<= 7'))
     sdk = sys.modules['flowguard']
     assert 'flowguard.decision' not in sys.modules
     report = compare_sensors(root, 'grace', 'copy')
@@ -368,7 +368,7 @@ def test_current_context_comparison_does_not_invent_an_independent_test_session(
     from flowguard.intent.runtime import Runtime
     root = tmp_path/'project'
     source = GRACE.replace('-> allowed: bool', '-> allowed: bool calibrated_by=tests/test_actual.py::test_saved')
-    repository(root, source+source.replace('sensor grace', 'sensor copy').replace('def allowed', 'def copy'))
+    repository(root, source+source.replace('same grace', 'same copy').replace('def allowed', 'def copy'))
     def forbidden(*args, **kwargs):
         raise AssertionError('debug comparison cannot create a fresh or nested test session')
     monkeypatch.setattr(pytest, 'main', forbidden)
@@ -447,7 +447,7 @@ def historical_result(root, runtime, readings, partition):
 
 def test_current_short_and_full_same_name_comments_share_one_actual_domain(tmp_path):
     root = tmp_path/'project'
-    repository(root, GRACE.replace('# flowguard: sensor grace(days: day) -> allowed: bool', '# flowguard: sensor grace')
+    repository(root, GRACE.replace('# flowguard: same grace(days: day) -> allowed: bool', '# flowguard: same grace')
                + GRACE.replace('def allowed', 'def copy').replace('<= 3', '<= 7'))
     report = compare_sensors(root, 'decision:allowed', 'decision:copy')
     assert report['status'] == 'red' and report['complete'], report
@@ -457,13 +457,13 @@ def test_current_short_and_full_same_name_comments_share_one_actual_domain(tmp_p
 
 def test_current_exception_message_difference_uses_real_native_outcomes(tmp_path):
     root = tmp_path/'project'
-    source = '''# flowguard: sensor first(active: 1) -> allowed: bool
+    source = '''# flowguard: same first(active: 1) -> allowed: bool
  def first(active: bool) -> bool:
      if active:
          raise ValueError('before')
      return False
 '''.replace('\n ', '\n')
-    repository(root, source + source.replace('sensor first', 'sensor second').replace('def first', 'def second').replace("'before'", "'after'"))
+    repository(root, source + source.replace('same first', 'same second').replace('def first', 'def second').replace("'before'", "'after'"))
     report = compare_sensors(root, 'first', 'second')
     assert report['status'] == 'red' and report['complete'] and report['changed'] == 1, report
     assert 'before' in report['changes'][0]['before'] and 'after' in report['changes'][0]['after']

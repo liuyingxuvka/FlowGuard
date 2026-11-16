@@ -25,7 +25,7 @@ def _git(root, *arguments):
 def _project(root, *, exclude=False, rule=False):
     (root / 'tests').mkdir(parents=True)
     (root / 'policy.py').write_text(textwrap.dedent('''
-        # flowguard: sensor LIMIT(days: day) -> allowed: bool
+        # flowguard: same LIMIT(days: day) -> allowed: bool
         def accept(days: int) -> bool:
             return days <= 3
     ''').lstrip())

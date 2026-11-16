@@ -97,7 +97,7 @@ def test_inert_container_and_simple_local_arithmetic_are_replayed(tmp_path):
 def test_body_import_is_rejected_before_it_can_load_a_dependency(tmp_path, monkeypatch):
     from flowguard.intent import anchors
     from tests.intent_engine.test_anchors import source
-    root, index = source(tmp_path, '# flowguard: sensor decision(x: count) -> allowed: bool\ndef decision(x: int) -> bool:\n    import r19_side_effect\n    return x > 0\n')
+    root, index = source(tmp_path, '# flowguard: same decision(x: count) -> allowed: bool\ndef decision(x: int) -> bool:\n    import r19_side_effect\n    return x > 0\n')
     (root / 'r19_side_effect.py').write_text('from pathlib import Path\nPath("dependency.marker").write_text("bad")\n')
     monkeypatch.chdir(root)
     observed = anchors.observe(root, index.entries[0], {'x': 1})

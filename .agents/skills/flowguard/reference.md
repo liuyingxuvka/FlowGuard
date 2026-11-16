@@ -72,7 +72,7 @@ A Python reference can retain its parameter declaration, as in `same ACCEPT ref(
 
 Python copies with different parameter names make the correspondence explicit: `same ACCEPT(days=overdue_days)`. Nothing is matched by position or type. A return projection is written without a colon, such as `-> result[0]` or `-> result.ok`; `-> allowed: bool` remains an output declaration.
 
-Older comments remain readable and give a deprecation notice. Existing input meanings are retained; the new comments are the recommended spelling.
+FlowGuard 5.0 removed the 4.2 spellings (`sensor`, `owner`): each is red at its line, and its step is the 4.3 comment to write.
 
 ## Intent rules and real context
 

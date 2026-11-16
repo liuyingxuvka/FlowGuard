@@ -34,7 +34,7 @@ def test_explicit_bad_base_is_rejected_before_any_business_test(tmp_path):
 
 @pytest.mark.parametrize('error', ['OSError', 'ValueError'])
 def test_optional_display_failure_preserves_a_committed_real_rule_failure(tmp_path, error):
-    policy = _project(tmp_path, '# flowguard: sensor STANDING\ndef standing(days: int) -> bool:\n    return days <= 3\n',
+    policy = _project(tmp_path, '# flowguard: same STANDING\ndef standing(days: int) -> bool:\n    return days <= 3\n',
                       'from policy import standing\ndef test_native():\n    assert standing(0) is True\n', rule='''
         from flowguard.intent import rule, row
         @rule('STANDING_RULE', decides='standing', fields={'days': int}, anchor='STANDING',

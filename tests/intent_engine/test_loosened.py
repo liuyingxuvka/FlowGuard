@@ -80,23 +80,24 @@ def test_a_new_agreement_with_an_exception_is_loosened_and_tightening_is_not(tmp
     assert _loosened(tmp_path)[0] == ['on=create replaces on=update in together Item.state']
 
 
-def test_the_old_comment_spellings_and_python_are_read_the_same_way(tmp_path):
-    source = '''# flowguard: owner Order.status writers=close with=Order.reason,Order.at
+def test_the_python_comment_spellings_are_read_the_same_way(tmp_path):
+    source = '''# flowguard: writers Order.status close
+# flowguard: together Order.status Order.reason,Order.at
 class Order:
     status: str
     reason: str
     at: str
 
 
-# flowguard: sensor LIMIT
+# flowguard: same LIMIT
 def close(order: Order):
     order.status = "x"
     order.reason = "y"
     order.at = "z"
 '''
     _commit(tmp_path, {'app/__init__.py': '', 'app/order.py': source})
-    _write(tmp_path, {'app/order.py': source.replace('with=Order.reason,Order.at', 'with=Order.reason alone=reopen(legacy)')
-                      .replace('writers=close', 'writers=close,reopen').replace('# flowguard: sensor LIMIT\n', '')})
+    _write(tmp_path, {'app/order.py': source.replace('Order.reason,Order.at', 'Order.reason except=app/order.py:reopen(legacy)')
+                      .replace('writers Order.status close', 'writers Order.status close,reopen').replace('# flowguard: same LIMIT\n', '')})
     assert sorted(_loosened(tmp_path)[0]) == sorted([
         'Order.at removed from together Order.status', 'except=reopen added to together Order.status',
         'reopen added to writers Order.status', 'same LIMIT removed from app/order.py:close'])
@@ -111,20 +112,33 @@ export async function other(prisma: any) {
 """
 
 
-def test_rewriting_the_old_spellings_as_the_upgrade_notes_say_loosens_nothing(tmp_path):
-    # A 4.2 bare name in alone= or writers= is the function of that name in any file; the 4.3 spelling of one of
-    # them, with its path or bare in its own file, is no more than that (Planning Tool's upgrade showed two lines).
+def test_rewriting_the_old_spellings_as_their_red_says_makes_new_agreements(tmp_path):
+    # 5.0 reads no 4.2 spelling, at the baseline either: each is red at its line, its step the 4.3 comment, which names
+    # each function a 4.2 bare name meant (the function of that name in any file) by its path, or bare in its own file.
+    # Written as the steps say, they are agreements this change adds: a new writers agreement loosens nothing, a new
+    # together with an exception is loosened, as every new one is.
     _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'app/s.ts': SCRIPT,
                        'app/a.ts': _app('// flowguard: owner Item.state with=Item.note alone=main(app/s.ts fills it)',
                                         '// flowguard: owner Item.kind writers=setState,main')})
-    _write(tmp_path, {'app/a.ts': _app('// flowguard: together Item.state Item.note except=app/s.ts:main(fills it)',
-                                       '// flowguard: writers Item.kind setState,app/s.ts:main')})
-    assert _loosened(tmp_path)[0] == []
-    # Another function than the old name allowed is still loosened, with a path or bare.
-    _write(tmp_path, {'app/a.ts': _app('// flowguard: together Item.state Item.note except=app/s.ts:other(fills it)',
-                                       '// flowguard: writers Item.kind setState,app/s.ts:main,legacy')})
-    assert sorted(_loosened(tmp_path)[0]) == ['except=app/s.ts:other added to together Item.state',
-                                              'legacy added to writers Item.kind']
+    cfg = load_config(tmp_path)
+    with closing(build(tmp_path, roots=cfg.roots)) as graph:
+        index = anchors.collect(graph)
+    assert not index.named('Item.state') and not index.named('Item.kind')
+    removed = [(issue.file, issue.line, issue.message) for issue in index.issues if issue.code == 'removed']
+    assert removed == [
+        ('app/a.ts', 1, 'owner with= and alone= were removed in 5.0 -> write // flowguard: together Item.state Item.note '
+                        'except=app/s.ts:main(app/s.ts fills it)'),
+        ('app/a.ts', 2, 'owner writers= was removed in 5.0 -> write // flowguard: writers Item.kind setState,app/s.ts:main')]
+    _write(tmp_path, {'app/a.ts': _app(*(message.partition(' -> write ')[2] for _, _, message in removed))})
+    assert _loosened(tmp_path)[0] == ['except=app/s.ts:main added to together Item.state']
+    cfg = load_config(tmp_path)
+    with closing(build(tmp_path, roots=cfg.roots)) as graph:
+        index = anchors.collect(graph)
+    assert not index.issues
+    assert [(agreement.writers, agreement.pairs, agreement.alone) for agreement in index.named('Item.state')] == [
+        ((), ('Item.note',), ('typescript/app/s.ts:main(app/s.ts fills it)',))]
+    assert [agreement.writers for agreement in index.named('Item.kind')] == [
+        ('typescript/app/a.ts:setState', 'typescript/app/s.ts:main')]
 
 
 def test_moving_a_comment_between_files_or_renaming_a_file_loosens_nothing_and_no_baseline_compares_nothing(tmp_path):

@@ -42,7 +42,7 @@ def test_unrelated_file_is_reused_but_new_same_name_site_cannot_borrow_green(tmp
     # This file already existed in the refreshed baseline. Only its binding is
     # new; discovery must collect its actual code, not borrow the older home.
     observed.clear()
-    copy.write_text('# flowguard: sensor LIMIT(days: days) -> answer: bool\n' + copy.read_text())
+    copy.write_text('# flowguard: same LIMIT(days: days) -> answer: bool\n' + copy.read_text())
     with closing(build(root)) as graph:
         assert graph.node('another:accept')['fp'] == old_copy_fp
     assert cli_fixture.check(cfg) == 1

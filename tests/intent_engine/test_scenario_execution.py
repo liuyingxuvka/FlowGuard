@@ -18,13 +18,13 @@ def scenario(tmp_path, *, enum=False, refusal=False, extra='', value=2, call=Non
     if enum:
         (tmp_path/'kinds.py').write_text('from enum import Enum\nclass QuoteCase(Enum):\n    EXACT="exact"\n    CHANGED="changed"\n')
         (tmp_path/'policy.py').write_text('''from kinds import QuoteCase
-# flowguard: sensor choice(quote: kind) -> allowed: bool
+# flowguard: same choice(quote: kind) -> allowed: bool
 def choice(quote: QuoteCase) -> bool:
     return quote is QuoteCase.EXACT
 ''')
         declaration='quote: QuoteCase'; values='QuoteCase.EXACT'; imports='from kinds import QuoteCase\n'; call='choice(quote)'; field='quote'
     else:
-        (tmp_path/'policy.py').write_text(code or '''# flowguard: sensor choice(x: count) -> allowed: bool
+        (tmp_path/'policy.py').write_text(code or '''# flowguard: same choice(x: count) -> allowed: bool
 def choice(x: int) -> bool:
     if x < 0: raise ValueError('native negative refusal')
     return x <= 3
@@ -65,7 +65,7 @@ def test_scenario_gets_actual_production_result_not_test_none_or_predicate(tmp_p
     ('choice(x + 0)', None, 'not compared: the scenario test computes the x argument of choice from x; '
                             'the sealed environment does not run the test'),
     # The production function reads a binding the sealed environment does not have (design 4.5 whitelist).
-    ('choice(x)', 'LIMIT = int("3")\n# flowguard: sensor choice(x: count) -> allowed: bool\n'
+    ('choice(x)', 'LIMIT = int("3")\n# flowguard: same choice(x: count) -> allowed: bool\n'
                   'def choice(x: int) -> bool:\n    return x <= LIMIT\n', 'uses unavailable binding LIMIT'),
 ])
 def test_another_scenario_input_is_not_compared_when_the_sealed_call_cannot_take_it(tmp_path, call, code, reason):
@@ -138,7 +138,7 @@ def test_a_call_the_changed_input_may_steer_is_not_compared_at_another_input(tmp
     assert actual.status == 'grey' and actual.value is None and actual.reasons == (reason,), actual.reasons
 
 
-TWO = """# flowguard: sensor choice(x: count, y: count) -> allowed: bool
+TWO = """# flowguard: same choice(x: count, y: count) -> allowed: bool
 def choice(x: int, y: int = 0) -> bool:
     return x <= y
 """
@@ -308,7 +308,7 @@ def test_same_sdk_mutant_is_applied_after_real_collection_and_restored(tmp_path)
     with tempfile.TemporaryDirectory(prefix='native-sdk-', dir=root / '.pytest_cache') as folder:
         native = Path(folder) / 'test_native_sdk.py'
         projection = Path(folder) / 'sdk_projection.py'
-        projection.write_text('# flowguard: sensor PROJECTION(answer: bool) -> accepted: bool\ndef projected(answer: bool) -> bool:\n    return answer\n')
+        projection.write_text('# flowguard: same PROJECTION(answer: bool) -> accepted: bool\ndef projected(answer: bool) -> bool:\n    return answer\n')
         native.write_text('''import ast
 import pytest
 from flowguard.intent import loader
@@ -384,7 +384,7 @@ def test_super_method_mutant_keeps_the_actual_anchor_code_identity(tmp_path):
     (tmp_path/'policy.py').write_text('''class Base:
     def offset(self): return 0
 class Policy(Base):
-    # flowguard: sensor choice(x: count) -> allowed: bool
+    # flowguard: same choice(x: count) -> allowed: bool
     def choice(self, x: int) -> bool:
         return x + super().offset() <= 3
 ''')

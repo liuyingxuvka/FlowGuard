@@ -2,7 +2,7 @@ from shop.cart import discount, shipping_fee
 from shop.money import round_half
 
 
-# flowguard: sensor FREE_SHIPPING
+# flowguard: same FREE_SHIPPING
 def checkout_free_shipping(subtotal: int) -> bool:
     return subtotal > 50
 

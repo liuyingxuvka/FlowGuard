@@ -1,4 +1,4 @@
-# flowguard: sensor ROUND_HALF
+# flowguard: same ROUND_HALF
 def legacy_round(tenths: int) -> int:
     sign = -1 if tenths < 0 else 1
     whole, rest = divmod(abs(tenths), 10)

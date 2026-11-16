@@ -18,7 +18,7 @@ def make_case(root):
     module = 'pure_boundary_' + uuid.uuid4().hex
     (root / 'pyproject.toml').write_text('[tool.flowguard]\n')
     (root / (module + '.py')).write_text(
-        '# flowguard: sensor FLAG(flag: bool) -> answer: bool\n'
+        '# flowguard: same FLAG(flag: bool) -> answer: bool\n'
         'def accept(flag: bool) -> bool:\n    return flag\n')
     index = anchors.collect_sources(root, [(module + '.py', module)])
     assert not index.issues, index.issues

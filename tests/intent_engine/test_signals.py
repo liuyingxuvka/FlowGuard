@@ -451,13 +451,13 @@ def _entry_point(root, *arguments, vitest=None):
 def _shaped(stdout, stderr):
     """The block a run printed last on stdout, after asserting design 4.7's shapes over a real run: every line is the
     first line, one of the kinds or `+N more:`, with at most one ` -> ` (before its step); nothing follows it on
-    stdout; `deprecated:` is said on stderr only."""
+    stdout; no `deprecated:` notice is said (5.0 removed what 4.3 announced: a removed spelling is a red line)."""
     lines = stdout.splitlines()
     start = max(index for index, line in enumerate(lines) if _re.match(r'FlowGuard \d+\.\d+ \(', line))
     block = lines[start:]
     assert all(SHAPE.match(line) and line.count(' -> ') <= 1 for line in block), block
     assert not any('deprecated' in line for line in lines), lines
-    assert any(line.startswith('deprecated: ') for line in stderr.splitlines()), stderr
+    assert not any(line.startswith('deprecated: ') for line in stderr.splitlines()), stderr
     return block
 
 
@@ -486,10 +486,11 @@ def _alike(seen, situations):
 
 def test_every_block_line_has_one_shape_and_each_entry_point_counts_a_situation_alike(tmp_path):
     """Design 4.7 over real runs of one change through pytest, check and check --static: every line of each block
-    has one of the shapes and at most one ` -> `; the block is the last thing on stdout and `deprecated:` goes to
-    stderr only; the first line counts each kind of the run's lines; and a situation each of them can see (a pair
-    this change broke, the field impact of that write: all three; copies this change made disagree and a function
-    whose recorded call now answers otherwise: the two that run the tests) is the same kind, as often, in each."""
+    has one of the shapes and at most one ` -> `; the block is the last thing on stdout and no `deprecated:` notice
+    is said; the first line counts each kind of the run's lines; and a situation each of them can see (a pair this
+    change broke, the field impact of that write, a 4.2 spelling 5.0 removed: all three; copies this change made
+    disagree and a function whose recorded call now answers otherwise: the two that run the tests) is the same kind,
+    as often, in each."""
     from tests.intent_engine.test_default_runtime_signals import _project
     root = tmp_path / 'copies'
     policy = _project(root, """
@@ -530,15 +531,13 @@ def test_every_block_line_has_one_shape_and_each_entry_point_counts_a_situation_
         code, stdout, stderr = _entry_point(root, *([] if run == 'pytest' else run.split()))
         block = _shaped(stdout, stderr)
         assert code == 1, (run, stdout, stderr)
-        # stderr says the one deprecated spelling the project uses (`sensor`), once; the old-value lead FlowGuard
-        # makes itself says none
-        assert [line for line in stderr.splitlines() if 'deprecated' in line] == [
-            'deprecated: sensor goes in 5.0 -> write same NAME'], (run, stderr)
+        # the 4.2 spelling the project uses (`sensor`) is red at its line with its rewrite, in each entry point
+        assert 'red: comment policy.py:10: sensor was removed in 5.0 -> write # flowguard: same AVAILABLE' in block, (run, block)
         seen[run] = _counted(root, block)
     assert {'red', 'changed', 'impact', 'not compared'} <= {kind for kind, _ in seen['pytest']}, seen
     every, tests = ('pytest', 'check', 'check --static'), ('pytest', 'check')
     _alike(seen, {'pair:account.status>account.changed': every, 'impact:policy:close': every,
-                  'same:STANDING': tests, 'changed:policy:late_fee': tests})
+                  'comment:policy.py:10:removed': every, 'same:STANDING': tests, 'changed:policy:late_fee': tests})
 
 
 def test_a_vitest_block_has_the_shapes_and_counts_the_map_checks_as_check_and_check_static_do(vitest_home):
@@ -550,8 +549,8 @@ def test_a_vitest_block_has_the_shapes_and_counts_the_map_checks_as_check_and_ch
     _commit(root, {
         'package.json': '{"name":"shapes","private":true,"type":"module","scripts":{"test":"vitest run"},'
                         '"devDependencies":{"vitest":"' + VITEST + '"}}',
-        'src/a.ts': "export type Kind = 'a' | 'b';\n// flowguard: sensor LIMIT\nexport function over(x: number): boolean {\n  return x > 3;\n}\n",
-        'src/b.ts': "export type Kind = 'a' | 'b';\n// flowguard: sensor LIMIT\nexport const enough = (x: number): boolean => x > 3;\n",
+        'src/a.ts': "export type Kind = 'a' | 'b';\n// flowguard: same LIMIT\nexport function over(x: number): boolean {\n  return x > 3;\n}\n",
+        'src/b.ts': "export type Kind = 'a' | 'b';\n// flowguard: same LIMIT\nexport const enough = (x: number): boolean => x > 3;\n",
         'tests/app.test.ts': ("import { it, expect } from 'vitest';\nimport { over } from '../src/a';\nimport { enough } from '../src/b';\n"
                               "it('real', () => { expect(over(4)).toBe(true); expect(typeof enough(4)).toBe('boolean'); });\n"),
     })
@@ -693,7 +692,7 @@ def test_a_known_entry_naming_a_rule_whose_items_all_pass_in_the_session_is_know
     from tests.intent_engine.test_default_runtime_signals import _git, _project, _run
     from tests.intent_engine._cli_fixture import block
     root = tmp_path / 'days'
-    policy = _project(root, '# flowguard: sensor STANDING\ndef standing(days: int) -> bool:\n    return days <= 3\n',
+    policy = _project(root, '# flowguard: same STANDING\ndef standing(days: int) -> bool:\n    return days <= 3\n',
                       'from policy import standing\ndef test_native():\n    assert standing(0) is True\n', rule='''
         from flowguard.intent import rule, row
         @rule('STANDING_RULE', decides='standing', fields={'days': int}, anchor='STANDING',
@@ -724,7 +723,7 @@ def test_an_intent_item_failing_only_on_a_source_broken_at_task_start_passes_and
     from tests.intent_engine.test_default_runtime_signals import _git, _project, _run
     from tests.intent_engine._cli_fixture import block
     root = tmp_path / 'gone'
-    _project(root, '# flowguard: sensor STANDING\ndef standing(days: int) -> bool:\n    return days <= 3\n',
+    _project(root, '# flowguard: same STANDING\ndef standing(days: int) -> bool:\n    return days <= 3\n',
              'from policy import standing\ndef test_native():\n    assert standing(0) is True\n', rule='''
         from flowguard.intent import rule, row
         @rule('STANDING_RULE', decides='standing', fields={'days': int}, anchor='STANDING',
@@ -753,7 +752,7 @@ def test_a_rule_whose_source_does_not_parse_is_a_red_input_line_of_the_session_n
     while it still prints, keeps and judges everything else; an item of the rule that ran keeps its own red."""
     from tests.intent_engine.test_default_runtime_signals import _project, _run
     from tests.intent_engine._cli_fixture import block, last
-    policy = _project(tmp_path, '# flowguard: sensor STANDING\ndef standing(days: int) -> bool:\n    return days <= 3\n',
+    policy = _project(tmp_path, '# flowguard: same STANDING\ndef standing(days: int) -> bool:\n    return days <= 3\n',
                       'from policy import standing\ndef test_native():\n    assert standing(4) in (True, False)\n', rule='''
         from flowguard.intent import rule
         @rule('STANDING_RULE', decides='standing', fields={'days': int}, anchor='STANDING', source='At most three days.')

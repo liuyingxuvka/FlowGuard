@@ -88,13 +88,13 @@ def test_point_shapes_never_become_cells_kinds(annotation):
 
 
 def test_point_containers_do_not_expand_direct_pure_observation(tmp_path):
-    root, index = source(tmp_path, '''# flowguard: sensor check(values: 1) -> positive: bool
+    root, index = source(tmp_path, '''# flowguard: same check(values: 1) -> positive: bool
 def check(values: list[int]) -> bool: return values[0] > 0
 ''')
     with session(root):
         result = A.observe(root, index.entries[0], {'values': [1]})
     assert result.status == 'grey'
-    root2, index2 = source(tmp_path, '''# flowguard: sensor check(active: 1) -> output: dict[str, Any]
+    root2, index2 = source(tmp_path, '''# flowguard: same check(active: 1) -> output: dict[str, Any]
 def check(active: bool) -> dict[str, Any]: return {'active': active}
 ''', name='result')
     with session(root2):

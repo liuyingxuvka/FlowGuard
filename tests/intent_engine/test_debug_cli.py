@@ -12,7 +12,7 @@ SOURCE = Path(__file__).resolve().parents[2]
 def project(root):
     (root / 'tests/intent').mkdir(parents=True)
     (root / 'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath=["."]\naddopts = "-p flowguard.intent.plugin"\n')
-    (root / 'app.py').write_text('''# flowguard: sensor LIMIT
+    (root / 'app.py').write_text('''# flowguard: same LIMIT
 def limit(days: int) -> bool:
     return days <= 3
 # flowguard: event ENTER

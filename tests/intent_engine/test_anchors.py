@@ -35,7 +35,7 @@ def session(root):
         A._SESSION.reset(token)
 
 
-GOOD = '''# flowguard: sensor eligibility(age: years, active: 1) -> allowed: bool
+GOOD = '''# flowguard: same eligibility(age: years, active: 1) -> allowed: bool
 def eligible(age: int, active: bool) -> bool:
     return age >= 18 and active
 '''
@@ -67,7 +67,7 @@ class Order:
 # flowguard: event saved(document: str)
 def save(document: str) -> None: pass
 
-# flowguard: sensor permit(active: 1) -> allowed: bool
+# flowguard: same permit(active: 1) -> allowed: bool
 def check(active: bool) -> bool: return active
 '''
     root, index = source(tmp_path, text)
@@ -95,7 +95,7 @@ def test_signature_and_return_counterexamples(tmp_path, old, new, code):
 
 def test_annotated_units_are_checked_without_importing_project(tmp_path):
     text = '''from typing import Annotated
-# flowguard: sensor length(x: seconds) -> positive: bool
+# flowguard: same length(x: seconds) -> positive: bool
 def positive(x: Annotated[float, 'm']) -> bool: return x > 0
 '''
     _, index = source(tmp_path, text)
@@ -103,8 +103,8 @@ def positive(x: Annotated[float, 'm']) -> bool: return x > 0
 
 
 def test_missing_function_and_field_are_red_and_strings_are_not_comments(tmp_path):
-    _, index = source(tmp_path, '''words = "# flowguard: sensor ignored() -> out: bool"
-# flowguard: sensor gone(x: 1) -> out: bool
+    _, index = source(tmp_path, '''words = "# flowguard: same ignored() -> out: bool"
+# flowguard: same gone(x: 1) -> out: bool
 OTHER = 1
 def unrelated(x: int) -> bool: return x > 0
 # flowguard: states Missing.value = a | b
@@ -124,7 +124,7 @@ def test_duplicate_name_role_mismatch_red_but_same_role_two_sites_remain(tmp_pat
     text = GOOD + '\n' + GOOD.replace('eligible(', 'again(')
     _, index = source(tmp_path, text)
     assert index.status == 'ok' and len(index.named('eligibility')) == 2
-    _, wrong = source(tmp_path, text.replace('def again(age: int, active: bool)', 'def again(age: int, active: bool)').replace('sensor eligibility(age: years', 'sensor eligibility(age: seconds', 1), name='wrong')
+    _, wrong = source(tmp_path, text.replace('def again(age: int, active: bool)', 'def again(age: int, active: bool)').replace('same eligibility(age: years', 'same eligibility(age: seconds', 1), name='wrong')
     assert any(i.code == 'identity' for i in wrong.issues)
 
 
@@ -175,7 +175,7 @@ def test_true_source_call_and_mutated_same_object_stays_observed(tmp_path):
 
 def test_direct_sensor_without_git_checks_all_eight_flags_and_live_identity(tmp_path, monkeypatch):
     names = tuple('abcdefgh')
-    text = '# flowguard: sensor flags(' + ', '.join(f'{name}: {name}' for name in names) + ') -> allowed: bool\n'
+    text = '# flowguard: same flags(' + ', '.join(f'{name}: {name}' for name in names) + ') -> allowed: bool\n'
     text += 'def accept(' + ', '.join(f'{name}: bool' for name in names) + ') -> bool:\n'
     text += '    return ' + ' and '.join(names) + '\n'
     root, index = source(tmp_path, text)
@@ -210,7 +210,7 @@ def test_direct_sensor_without_git_checks_all_eight_flags_and_live_identity(tmp_
 
 
 def test_real_runtime_exception_retains_type_and_message(tmp_path):
-    text = '''# flowguard: sensor valid(x: 1) -> allowed: bool
+    text = '''# flowguard: same valid(x: 1) -> allowed: bool
 def valid(x: int) -> bool:
     if x < 0: raise ValueError('actual negative input')
     return True
@@ -233,7 +233,7 @@ def valid(x: int) -> bool:
     ('import os\n', 'return x > 0'),
 ])
 def test_unproved_calls_state_imports_and_initialization_are_grey_without_execution(tmp_path, monkeypatch, prefix, body):
-    root, index = source(tmp_path, prefix + '# flowguard: sensor check(x: 1) -> allowed: bool\ndef check(x: int) -> bool:\n    ' + body + '\n')
+    root, index = source(tmp_path, prefix + '# flowguard: same check(x: 1) -> allowed: bool\ndef check(x: int) -> bool:\n    ' + body + '\n')
     monkeypatch.chdir(root)  # Catch the real relative writes, not a different marker path.
     with session(root):
         result = A.observe(root, index.entries[0], {'x': 1})
@@ -275,7 +275,7 @@ def test_stale_identity_and_wrong_runtime_return_are_red(tmp_path):
 
 def test_closed_typed_same_module_helper_preserves_real_changes(tmp_path):
     text = '''def helper(active: bool) -> bool: return active
-# flowguard: sensor allowed(active: 1) -> result: bool
+# flowguard: same allowed(active: 1) -> result: bool
 def allowed(active: bool) -> bool: return helper(active)
 '''
     root, index = source(tmp_path, text)
@@ -292,7 +292,7 @@ def allowed(active: bool) -> bool: return helper(active)
     def __class_getitem__(cls, key):
         open('marker', 'w').write('bad')
         return True
-# flowguard: sensor check(x: 1) -> result: bool
+# flowguard: same check(x: 1) -> result: bool
 def check(x: int) -> bool:
     x = C
     return x[0]
@@ -303,13 +303,13 @@ def check(x: int) -> bool:
         return True
 def hidden(active: bool) -> bool: return C
 def use(value: bool) -> bool: return value[0]
-# flowguard: sensor check(active: 1) -> result: bool
+# flowguard: same check(active: 1) -> result: bool
 def check(active: bool) -> bool: return use(hidden(active))
 ''',
     '''def hidden(value: bool) -> bool:
     open('marker', 'w').write('bad')
     return value
-# flowguard: sensor check(value: 1) -> result: bool
+# flowguard: same check(value: 1) -> result: bool
 def check(value: bool) -> bool: return hidden(value)
 ''',
 ])
@@ -354,7 +354,7 @@ def received(value: int | None) -> None: pass
 
 def test_literal_domain_uses_declared_values_and_missing_type_reading_is_grey(tmp_path):
     root, index = source(tmp_path, '''from typing import Literal
-# flowguard: sensor access(role: 1) -> allowed: bool
+# flowguard: same access(role: 1) -> allowed: bool
 def access(role: Literal['admin', 'member']) -> bool: return role == 'admin'
 def untyped(x): return x == 1
 ''')
@@ -388,7 +388,7 @@ def test_parser_owner_digest_invalidates_existing_map(tmp_path, monkeypatch):
 
 def test_annotated_parameter_is_observed_without_guessing_unit(tmp_path):
     root, index = source(tmp_path, '''from typing import Annotated
-# flowguard: sensor length(x: m) -> positive: bool
+# flowguard: same length(x: m) -> positive: bool
 def positive(x: Annotated[int, 'm']) -> bool: return x >= 1
 ''')
     with session(root):
@@ -397,7 +397,7 @@ def positive(x: Annotated[int, 'm']) -> bool: return x >= 1
 
 
 def test_none_only_input_is_grey_for_enumeration_not_a_crash(tmp_path):
-    root, index = source(tmp_path, '''# flowguard: sensor empty(x: 1) -> result: bool
+    root, index = source(tmp_path, '''# flowguard: same empty(x: 1) -> result: bool
 def empty(x: None) -> bool: return x is None
 ''')
     assert A.decision_reading(root, index.entries[0]).issues

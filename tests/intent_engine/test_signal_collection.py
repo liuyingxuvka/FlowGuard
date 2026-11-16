@@ -14,7 +14,7 @@ SOURCE = str(Path(__file__).resolve().parents[2])
 
 def test_signal_collector_suppresses_only_the_product_view_and_honors_explicit_base(tmp_path):
     policy = _project(tmp_path, '''
-        # flowguard: sensor PERMIT
+        # flowguard: same PERMIT
         def permit(x: int) -> bool:
             return x <= 3
     ''', '''
@@ -53,7 +53,7 @@ raise SystemExit(result)
 
 def test_the_bound_rule_counterexample_is_reported_by_its_intent_items_not_an_ordinary_selection(tmp_path):
     policy = _project(tmp_path, '''
-        # flowguard: sensor STANDING
+        # flowguard: same STANDING
         def standing(days: int) -> bool:
             return days <= 3
     ''', '''
@@ -139,7 +139,7 @@ def test_changed_global_constant_selects_an_unchanged_unanchored_function(tmp_pa
 
 
 def test_unchanged_source_bound_rule_is_checked_by_its_intent_items(tmp_path):
-    _project(tmp_path, '\n# flowguard: sensor STANDING\ndef standing(days: int) -> bool:\n    return True\n',
+    _project(tmp_path, '\n# flowguard: same STANDING\ndef standing(days: int) -> bool:\n    return True\n',
              '\nfrom policy import standing\ndef test_native():\n    assert standing(0) is True\n', rule='''
         from flowguard.intent import rule, row
         @rule('STANDING_RULE', decides='standing', fields={'days': int}, anchor='STANDING',
@@ -153,7 +153,7 @@ def test_unchanged_source_bound_rule_is_checked_by_its_intent_items(tmp_path):
 
 def test_no_git_baseline_cannot_turn_an_ordinary_call_into_a_source_lookup_error(tmp_path):
     _project(tmp_path, '''
-        # flowguard: sensor STANDING
+        # flowguard: same STANDING
         def standing(days: int) -> bool:
             return days <= 3
     ''', '''

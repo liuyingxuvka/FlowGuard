@@ -6,13 +6,13 @@ from flowguard.intent.config import load_config
 from flowguard.structure import build
 
 
-APP = '''# flowguard: sensor grace(days: day) -> allowed: bool calibrated_by=tests/test_app.py::test_allowed
+APP = '''# flowguard: same grace(days: day) -> allowed: bool calibrated_by=tests/test_app.py::test_allowed
 def owner(days: int) -> bool:
     return days <= 3
-# flowguard: sensor grace(days: day) -> allowed: bool
+# flowguard: same grace(days: day) -> allowed: bool
 def declared_copy(days: int) -> bool:
     return days <= 3
-# flowguard: sensor preview(days: day) -> visible: bool
+# flowguard: same preview(days: day) -> visible: bool
 def declared_separate(days: int) -> bool:
     return days <= 3
 def missed_payment_copy(days: int) -> bool:
@@ -129,7 +129,7 @@ def test_unresolved_flow_navigation_is_information_not_a_new_load_gate(tmp_path)
 
 def test_short_source_hints_are_globally_capped_and_full_keeps_all(tmp_path,capsys):
     root,cfg=project(tmp_path)
-    (root/'app.py').write_text(APP[:APP.index('# flowguard: sensor grace',1)] +
+    (root/'app.py').write_text(APP[:APP.index('# flowguard: same grace',1)] +
         ''.join(f'def copy_{i}(days: int)->bool:\n    return days <= 3\n'for i in range(7)))
     path=cfg.intent/'policy.py';path.write_text(RULE)
     assert cli.show(cfg,'GRACE')==0
@@ -152,7 +152,7 @@ def test_red_and_grey_cached_findings_remain_in_short_show(tmp_path,capsys,monke
 
 
 def test_unmodelled_anchor_is_an_information_pointer_not_a_failure(tmp_path,capsys):
-    root=tmp_path/'project';root.mkdir();(root/'app.py').write_text(APP[:APP.index('# flowguard: sensor grace',1)])
+    root=tmp_path/'project';root.mkdir();(root/'app.py').write_text(APP[:APP.index('# flowguard: same grace',1)])
     cfg=load_config(root)
     assert cli.show(cfg,'grace')==0
     assert 'info: not referenced by a current model: grace' in capsys.readouterr().out
@@ -206,7 +206,7 @@ def test_show_never_marks_a_look_alike_of_another_field_or_boundary_as_the_same_
     root = tmp_path / 'grace'
     root.mkdir()
     (root / 'pyproject.toml').write_text('[tool.flowguard]\n', encoding='utf-8')
-    (root / 'app.py').write_text('# flowguard: sensor GRACE\n'
+    (root / 'app.py').write_text('# flowguard: same GRACE\n'
                                  'def owner(days: int) -> bool: return days <= 3\n'
                                  'def copy(days): return days <= 3\n'
                                  'def other_field(hours): return hours <= 72\n'

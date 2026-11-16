@@ -12,7 +12,7 @@ from tests.intent_engine._source_fixture import source_sessions
 
 def native_project(tmp_path, extra='', body='assert limit(2) is True', *, refusal=False):
     (tmp_path/'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath=["."]\n')
-    source = '''# flowguard: sensor REPORT_LIMIT(x: count) -> allowed: bool calibrated_by=test_native_stop.py::test_native
+    source = '''# flowguard: same REPORT_LIMIT(x: count) -> allowed: bool calibrated_by=test_native_stop.py::test_native
 def limit(x: int) -> bool:
 '''
     if refusal:

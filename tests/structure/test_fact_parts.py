@@ -22,7 +22,7 @@ FILES = {
     'shop/__init__.py': '',
     'shop/policy.py': ('from enum import Enum\nfrom shop.store import save as keep\n\n\nclass Status(Enum):\n    OPEN = "open"\n'
                        '    SHUT = "shut"\n\n\nclass Order:\n    status: Status\n\n\n'
-                       '# flowguard: sensor GRACE\ndef grace(days: int) -> bool:\n    """grace days after expiry"""\n'
+                       '# flowguard: same GRACE\ndef grace(days: int) -> bool:\n    """grace days after expiry"""\n'
                        '    return days <= 3\n\n\ndef close(order: Order):\n    order.status = "gone"\n    keep(order)\n'),
     'shop/store.py': 'ROWS = []\n\n\ndef save(order):\n    ROWS.append(order)\n    return order\n',
     'web/app.ts': ("import { api } from './client';\nexport function countWorkingDays(a: number): number {\n"

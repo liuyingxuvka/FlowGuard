@@ -14,7 +14,7 @@ QUOTE = 'At most three is allowed.'
 def project(root, *, projection=False, missing_read=False, skip_sensor=False,
             lower=False, broken_rule=False, forbid_contracts=False):
     (root / 'tests/intent').mkdir(parents=True)
-    source = '''# flowguard: sensor OUTCOME(x: count) -> accepted: bool
+    source = '''# flowguard: same OUTCOME(x: count) -> accepted: bool
 def decide(x: int) -> bool:
     return x <= 4
 '''
@@ -24,7 +24,7 @@ def decide(x: int) -> bool:
     actual = "Read('answer')"
     reading = "Read('case','arg.missing')" if missing_read else "Read('case','arg.x')"
     if projection:
-        source = '''# flowguard: sensor OUTCOME(flag: bool) -> refusal: str | None
+        source = '''# flowguard: same OUTCOME(flag: bool) -> refusal: str | None
 def decide(flag: bool) -> str | None:
     return None if flag else 'blocked'
 '''

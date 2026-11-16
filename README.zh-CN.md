@@ -57,7 +57,7 @@ def preview_amount(value: float) -> int:
 
 `together A B,C` 是单向约定：写 A 的操作也必须写 B、C。`on=` 只取 `create` 或 `update`；`B=值` 要求写成该值。裸函数名只指注释所在文件；别的文件写仓库相对位置，例如 `src/store.py:reserve`。例外写成 `except=路径:函数(理由)`，需要主人同意。不要为了消掉发现而放宽约定。
 
-旧注释写法继续接受并提示弃用；内部登记和保存输入仍按原义读取。
+FlowGuard 5.0 删除了 4.2 的注释写法（`sensor NAME`、`owner NAME`、`owner A with=...`、`alone=`、`owner A writers=...`）：每一处都在所在行报 red，并给出应改写成的 4.3 注释。
 
 ## 规则与兜底理由
 
@@ -79,7 +79,7 @@ FlowGuard 只在测试运行里起作用。它从不在测试里把函数再跑�
 
 ## 兼容与仓库
 
-保留的旧输入和 API 继续支持；弃用功能会提示删除计划，不会悄悄改变旧输入的含义。现有契约见 [4.1 说明](./docs/upgrade-4.1.md)、[4.2 说明](./docs/upgrade-4.2.md)、[4.3 说明](./docs/upgrade-4.3.md) 和 [intent guide](./docs/intent-guide.md)。
+保留的旧输入和 API 继续支持；5.0 删除的功能会被拒绝并给出替代写法，不会悄悄改变旧输入的含义。现有契约见 [4.1 说明](./docs/upgrade-4.1.md)、[4.2 说明](./docs/upgrade-4.2.md)、[4.3 说明](./docs/upgrade-4.3.md) 和 [intent guide](./docs/intent-guide.md)。
 
 - `flowguard/structure/`：源码事实与固定查询。
 - `flowguard/intent/`：约定、意图规则、账本和测试适配器。

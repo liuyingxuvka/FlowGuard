@@ -901,7 +901,7 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
         return all(value is None or type(value) in (bool, int, str) or type(value) is float and math.isfinite(value)
                    for value in row.values())
     for name in sorted({anchor.name for anchor in index.entries if anchor.kind == 'sensor'} - compared):
-        # A function owner is the reference its same-name copies are compared with.
+        # A reference (`same NAME ref`) is the function its same-name copies are compared with.
         copies = sorted((anchor for anchor in index.named(name, 'sensor') if anchor.source_role == 'production'),
                         key=lambda anchor: not anchor.owner)
         if len(copies) < 2:

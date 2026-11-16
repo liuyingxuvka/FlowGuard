@@ -19,7 +19,7 @@ def project(tmp_path, *, refused=False, branches=False, repeated=False):
     name = 'app_' + uuid.uuid4().hex
     (root / 'tests/intent').mkdir(parents=True)
     (root / 'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath=["."]\n')
-    code = '''# flowguard: sensor ACCEPT(days: days) -> accepted: bool calibrated_by=tests/test_case.py::test_case
+    code = '''# flowguard: same ACCEPT(days: days) -> accepted: bool calibrated_by=tests/test_case.py::test_case
 def accept(days: int) -> bool:
     return days <= 3
 '''
@@ -159,7 +159,7 @@ def joint_project(tmp_path, children=2, *, coupled=False):
     intent = 'from flowguard.intent import rule,row,flow,Node,Read,Relation\n'
     native = f'import pytest\nfrom types import SimpleNamespace\nimport {name} as app\n'
     for part in members:
-        source += f'# flowguard: sensor {part.upper()}(flag: flag, detail: detail) -> accepted: bool\ndef {part}_gate(flag: bool, detail: bool) -> bool:\n    if flag:\n        return True\n    return False\n'
+        source += f'# flowguard: same {part.upper()}(flag: flag, detail: detail) -> accepted: bool\ndef {part}_gate(flag: bool, detail: bool) -> bool:\n    if flag:\n        return True\n    return False\n'
         identifier = part.upper()
         intent += f'''@rule('{identifier}',decides='{part}_ok',fields={{'flag':bool,'detail':bool}},anchor='{identifier}',source='doc SPEC.txt "Gates return flag, detail is incidental."')
 def {identifier}(flag,detail): return flag
@@ -168,7 +168,7 @@ def {identifier}(flag,detail): return flag
     gates = ' and '.join(f'{part}_gate({part}.flag,{part}.detail)' for part in members)
     details = ' and '.join(part + '.detail' for part in members)
     value = 'not (' + details + ')' if coupled else 'True'
-    source += '# flowguard: sensor APPROVAL(' + ', '.join(part + ': data' for part in members) + ') -> approved: bool calibrated_by=tests/test_case.py::test_case\n'
+    source += '# flowguard: same APPROVAL(' + ', '.join(part + ': data' for part in members) + ') -> approved: bool calibrated_by=tests/test_case.py::test_case\n'
     source += 'def approve(' + ', '.join(part + ': object' for part in members) + ') -> bool:\n'
     source += f'    if not ({gates}):\n        return False\n    return {value}\n'
     for field in fields:

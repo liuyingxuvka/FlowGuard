@@ -21,7 +21,7 @@ def is_member(db, customer):
     return bool(row and row[0])
 
 
-# flowguard: sensor MAY_BORROW fields days=(today - hire.due).days member=is_member(db, hire.customer)
+# flowguard: same MAY_BORROW fields days=(today - hire.due).days member=is_member(db, hire.customer)
 def may_borrow(db: sqlite3.Connection, hire: Hire, today: date) -> bool:
     if (today - hire.due).days <= 10:
         return True

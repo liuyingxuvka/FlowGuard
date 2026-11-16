@@ -23,12 +23,12 @@ def project(tmp_path, *, supersedes=False):
     testnode = 'tests/' + native + '.py::test_case'
     (root / 'pyproject.toml').write_text('[tool.flowguard]\nauthority_docs=["SPEC.txt"]\n')
     (root / 'SPEC.txt').write_text('Lower allows flag, detail is incidental.\nUpper requires lower and stock.\n')
-    (root / (module + '.py')).write_text('''# flowguard: sensor LOWER_CALL(flag: bool, detail: bool) -> refusal: str | None
+    (root / (module + '.py')).write_text('''# flowguard: same LOWER_CALL(flag: bool, detail: bool) -> refusal: str | None
 def lower(flag: bool, detail: bool) -> str | None:
     if flag:
         return None
     return 'blocked'
-# flowguard: sensor UPPER_CALL(flag: bool, detail: bool, stock: bool) -> accepted: bool
+# flowguard: same UPPER_CALL(flag: bool, detail: bool, stock: bool) -> accepted: bool
 def upper(flag: bool, detail: bool, stock: bool) -> bool:
     reason = lower(flag, detail)
     return reason is None and stock

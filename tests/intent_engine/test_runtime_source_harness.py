@@ -11,7 +11,7 @@ def test_same_session_harness_does_not_borrow_the_outer_tmp_path(tmp_path):
     root=tmp_path/'native-project'
     (root/'tests/intent').mkdir(parents=True)
     module='fresh_native_'+uuid.uuid4().hex
-    (root/(module+'.py')).write_text('''# flowguard: sensor LIMIT(x: count) -> allowed: bool calibrated_by=tests/test_native.py::test_case
+    (root/(module+'.py')).write_text('''# flowguard: same LIMIT(x: count) -> allowed: bool calibrated_by=tests/test_native.py::test_case
 def limit(x: int) -> bool:
     return x <= 3
 ''')

@@ -11,7 +11,7 @@ from tests.intent_engine.test_calibration import project
 
 
 def test_bootstrap_is_private_but_real_project_boundary_call_remains_ordinary(tmp_path):
-    anchor = project(tmp_path, '''# flowguard: sensor LIMIT(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
+    anchor = project(tmp_path, '''# flowguard: same LIMIT(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
 def limit(x: int) -> bool:
     return x <= 3
 ''', 'from policy import limit\ndef test_native(): assert limit(2) is True\n')

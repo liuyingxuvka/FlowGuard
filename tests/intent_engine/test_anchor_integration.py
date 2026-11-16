@@ -33,7 +33,7 @@ RULE = '''from flowguard.intent import rule,row
 def LIMIT(days): return days <= 3
 LIMIT.rows(row(days=4,expect=False,why='the fourth day remains refused'))
 '''
-SOURCE = '''# flowguard: sensor GRACE(days: days) -> allowed: bool
+SOURCE = '''# flowguard: same GRACE(days: days) -> allowed: bool
 def accept(days: int) -> bool:
     return days <= 3
 '''
@@ -69,7 +69,7 @@ def test_rule_uses_real_anchor_without_a_call_adapter(tmp_path, mode):
     if mode == 'wrong':
         code = code.replace('<= 3', '<= 4')
     if mode == 'missing':
-        code = code.replace('# flowguard: sensor GRACE(days: days) -> allowed: bool\n', '')
+        code = code.replace('# flowguard: same GRACE(days: days) -> allowed: bool\n', '')
     if mode == 'signature':
         code = code.replace('GRACE(days:', 'GRACE(expired:')
     project(tmp_path, code, RULE)

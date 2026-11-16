@@ -605,7 +605,7 @@ PARTNERS_SHOWN = 5
 
 def co_written(change, name):
     """Lines for `show Model.field`: other fields most of its production writers also write in the same
-    function, each with the writers that leave it out and the `owner ... with=` line to copy. Reference
+    function, each with the writers that leave it out and the `together FIELD PARTNER` line to copy. Reference
     only: writing two fields together often is no rule until the owner says so."""
     from .owners import row_function
     tests = {path for (path,) in change.graph.con.execute('SELECT path FROM file WHERE is_test = 1')}

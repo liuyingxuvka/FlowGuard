@@ -282,7 +282,7 @@ def _plain(tmp_path):
     root = tmp_path / 'plain'
     root.mkdir()
     (root / 'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath = ["."]\ntestpaths = ["tests"]\n')
-    (root / 'app.py').write_text('# flowguard: sensor LIMIT\ndef eligible(days: int):\n    return days <= 3\n')
+    (root / 'app.py').write_text('# flowguard: same LIMIT\ndef eligible(days: int):\n    return days <= 3\n')
     (root / 'tests').mkdir()
     (root / 'tests/test_app.py').write_text('from app import eligible\n\n\ndef test_limit():\n'
                                            '    assert eligible(3) in (True, False) and eligible(4) in (True, False)\n')
@@ -320,7 +320,7 @@ def test_the_first_pytest_run_records_the_task_baseline_and_commits_during_the_t
     assert code == 0, text
     _reported_title(text, f'since {start[:7]}')
     assert cache.task_baseline(cfg) == (start, 'task')
-    (root / 'app.py').write_text('# flowguard: sensor LIMIT\ndef eligible(days: int):\n    return days <= 4\n')
+    (root / 'app.py').write_text('# flowguard: same LIMIT\ndef eligible(days: int):\n    return days <= 4\n')
     git(root, 'commit', '--quiet', '-am', 'fixture change committed during the task')
     code, text = _run(root, pytest_run=True)
     assert code == 0, text
@@ -375,7 +375,7 @@ def test_a_detached_head_or_a_collect_only_session_records_no_task_baseline(tmp_
     run: recording there would make every later commit on the branch this task's change."""
     root, cfg = _plain(tmp_path)
     older = git(root, 'rev-parse', 'HEAD')
-    (root / 'app.py').write_text('# flowguard: sensor LIMIT\ndef eligible(days: int):\n    return days <= 4\n')
+    (root / 'app.py').write_text('# flowguard: same LIMIT\ndef eligible(days: int):\n    return days <= 4\n')
     git(root, 'commit', '--quiet', '-am', 'fixture change on main')
     head = git(root, 'rev-parse', 'HEAD')
     git(root, 'checkout', '--quiet', '--detach', older)
@@ -402,12 +402,12 @@ def test_runs_on_a_commit_outside_the_task_never_move_its_baseline(tmp_path):
     git(root, 'add', 'RELEASE.txt')
     git(root, 'commit', '--quiet', '-m', 'fixture release commit')
     git(root, 'checkout', '--quiet', 'main')
-    (root / 'app.py').write_text('# flowguard: sensor LIMIT\ndef eligible(days: int):\n    return days <= 5\n')
+    (root / 'app.py').write_text('# flowguard: same LIMIT\ndef eligible(days: int):\n    return days <= 5\n')
     git(root, 'commit', '--quiet', '-am', 'fixture change of the previous task')
     code, text = _run(root, 'new-task')
     assert code == 0, text
     start = git(root, 'rev-parse', 'HEAD')
-    (root / 'app.py').write_text('# flowguard: sensor LIMIT\ndef eligible(days: int):\n    return days <= 4\n')
+    (root / 'app.py').write_text('# flowguard: same LIMIT\ndef eligible(days: int):\n    return days <= 4\n')
     git(root, 'commit', '--quiet', '-am', 'fixture change committed during the task')
 
     def reported_against_the_task_start():
@@ -512,7 +512,7 @@ def test_the_title_of_every_run_says_how_far_the_task_start_lies_before_head(tmp
     code, text = _run(root, 'check', '--static')
     assert code == 0 and cache.task_baseline(cfg) == (start, 'task'), text
     for days in (4, 5):
-        (root / 'app.py').write_text(f'# flowguard: sensor LIMIT\ndef eligible(days: int):\n    return days <= {days}\n')
+        (root / 'app.py').write_text(f'# flowguard: same LIMIT\ndef eligible(days: int):\n    return days <= {days}\n')
         git(root, 'commit', '--quiet', '-am', f'fixture task {days}')
     (root / 'parse.py').write_text(_HANDLER)
     for arguments, pytest_run in _RUNS:
@@ -549,7 +549,7 @@ def test_a_recorded_task_start_this_repository_lacks_is_named_and_compares_nothi
     assert code == 0 and cache.task_baseline(cfg)[1] == 'task', text
     gone = 'b' * 40
     cache._record_baseline(cfg, gone)
-    (root / 'app.py').write_text('# flowguard: sensor LIMIT\ndef eligible(days: int):\n    return days <= 4\n')
+    (root / 'app.py').write_text('# flowguard: same LIMIT\ndef eligible(days: int):\n    return days <= 4\n')
     for arguments, pytest_run in _RUNS:
         code, text = _run(root, *arguments, pytest_run=pytest_run)
         assert code == 0 and 'changed: ' not in text, (arguments, text)

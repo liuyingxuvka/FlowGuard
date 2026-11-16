@@ -17,7 +17,7 @@ def test_native_io_finally_and_fresh_fixtures_keep_real_positive_and_negative_re
     (tmp_path/'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath=["."]\n')
     (tmp_path/'tests/intent').mkdir(parents=True)
     (tmp_path/(module+'.py')).write_text('''from pathlib import Path
-# flowguard: sensor LIMIT(x: count, filename: path) -> allowed: bool
+# flowguard: same LIMIT(x: count, filename: path) -> allowed: bool
 def limit(x: int, filename: str) -> bool:
     try:
         return x <= int(Path(filename).read_text())

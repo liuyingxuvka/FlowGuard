@@ -12,7 +12,7 @@ from tests.intent_engine._source_fixture import source_sessions
 def native_project(root):
     tests = root / 'tests'
     tests.mkdir()
-    (root / 'policy_paths.py').write_text('''# flowguard: sensor limit(x: count) -> allowed: bool calibrated_by=tests/test_path_policy.py::test_native
+    (root / 'policy_paths.py').write_text('''# flowguard: same limit(x: count) -> allowed: bool calibrated_by=tests/test_path_policy.py::test_native
 def limit(x: int) -> bool:
     return x <= 3
 ''')

@@ -1142,7 +1142,7 @@ def test_a_registered_typescript_pair_follows_calls_resolved_by_name(tmp_path):
         ''',
     }
     _commit(tmp_path, files)
-    _write(tmp_path, {'src/owners.ts': '// flowguard: owner Central.orgUnitId with=Local.unitId\nexport {};\n'})
+    _write(tmp_path, {'src/owners.ts': '// flowguard: together Central.orgUnitId Local.unitId\nexport {};\n'})
     code, text = _static(tmp_path)
     assert code == 0 and _block(text) == [], text            # move writes Local.unitId through this.mirror()
     _write(tmp_path, {'src/admin.ts': '''
@@ -1195,10 +1195,10 @@ E1_SCHEMA = '''
       hierarchyLevel Int
     }
 '''
-E1_OWNERS = ('// flowguard: owner CentralEmployee.orgUnitId with=Employee.organizationalUnitId\n'
-             '// flowguard: owner Project.leaderId with=ProjectMember.*\n'
-             '// flowguard: owner CentralOrgUnit.managerEmployeeId with=CentralOrgUnit.managerSapNumber\n'
-             '// flowguard: owner PspElement.parentPspId with=PspElement.hierarchyLevel\nexport {};\n')
+E1_OWNERS = ('// flowguard: together CentralEmployee.orgUnitId Employee.organizationalUnitId\n'
+             '// flowguard: together Project.leaderId ProjectMember.*\n'
+             '// flowguard: together CentralOrgUnit.managerEmployeeId CentralOrgUnit.managerSapNumber\n'
+             '// flowguard: together PspElement.parentPspId PspElement.hierarchyLevel\nexport {};\n')
 E1_WRONG_FIXES = {
     'CentralEmployee.orgUnitId': '''
         export async function reassignHomeUnit(prisma: any, id: string, orgUnitId: string) {
@@ -1283,7 +1283,7 @@ def test_the_pair_reds_of_two_owners_are_two_lines(tmp_path):
               role String
             }
         ''',
-        'src/owners.ts': '// flowguard: owner Central.orgUnitId with=Local.unitId\n// flowguard: owner Project.leaderId with=Member.*\nexport {};\n',
+        'src/owners.ts': '// flowguard: together Central.orgUnitId Local.unitId\n// flowguard: together Project.leaderId Member.*\nexport {};\n',
     })
     _write(tmp_path, {'src/admin.ts': '''
         export async function editCentral(prisma: any, id: string, unit: string) {
@@ -1315,7 +1315,7 @@ def test_pytest_reports_a_pair_that_a_typescript_change_breaks(tmp_path):
               unitId String
             }
         ''',
-        'src/owners.ts': '// flowguard: owner Central.orgUnitId with=Local.unitId\nexport {};\n',
+        'src/owners.ts': '// flowguard: together Central.orgUnitId Local.unitId\nexport {};\n',
         'tests/test_ok.py': 'def test_ok():\n    assert True\n',
         'pyproject.toml': '[tool.pytest.ini_options]\ntestpaths = ["tests"]\n',
     })
@@ -1366,7 +1366,7 @@ def test_the_value_gate_reads_the_fallback_of_a_nullish_default(tmp_path):
 def test_a_pair_limited_to_updates_does_not_hold_the_writes_that_make_a_row(tmp_path):
     # Planning Tool 0.6.28 (round 21, V4): the business references follow a SAP number when it changes; with
     # with= alone every function that creates an employee was red.
-    owner = '// flowguard: owner Employee.sapRef with=Opportunity.responsibleNo on=update\nexport {};\n'
+    owner = '// flowguard: together Employee.sapRef Opportunity.responsibleNo on=update\nexport {};\n'
     # The agreement holds at the baseline; the functions are this change's (a new agreement over old code is judged
     # against the baseline code: what it finds there was there before the change).
     _commit(tmp_path, {
@@ -1407,28 +1407,33 @@ def test_a_pair_limited_to_updates_does_not_hold_the_writes_that_make_a_row(tmp_
                                                    'Opportunity.responsibleNo (creates only) -> also write Opportunity.responsibleNo in hire'], text
     _write(tmp_path, {'src/owners.ts': owner.replace('on=update', 'on=later')})
     code, text = _static(tmp_path)
-    assert code == 1 and 'on= is update or create and limits with=: owner Model.field with=Other.field on=update' in text, text
+    assert code == 1 and 'on= is update or create and follows the partners: together Model.field Other.field on=update' in text, text
 
 
 def test_an_owner_line_with_on_out_of_place_names_the_on_form():
     # Round 21 verification of V4: on= after alone=, or on= without with=, got only the general owner form,
-    # which says nothing about on= and claims with= is missing.
-    message = ('on= is update or create and limits with=: owner Model.field with=Other.field on=update '
-               '(alone=function(reason) after it)')
-    for line in ('// flowguard: owner A.b with=C.d alone=f(why) on=update\n', '// flowguard: owner A.b on=update\n',
-                 '// flowguard: owner A.b writers=f on=create\n'):
+    # which says nothing about on= and claims with= is missing. In the 4.3 spelling on= follows the partners and
+    # comes before except=; a together without partners says so, a writers line takes no on=.
+    message = ('on= is update or create and follows the partners: together Model.field Other.field on=update '
+               '(except=path:function(reason) after it)')
+    for line in ('// flowguard: together A.b C.d except=a.ts:f(why) on=update\n', '// flowguard: together A.b C.d on=later\n'):
         facts = anchors.foreign_owners(line, 'typescript/a.ts', 'a.ts')
         assert [issue['message'] for issue in facts['anchor_issues']] == [message], (line, facts)
-    facts = anchors.foreign_owners('// flowguard: owner A.b with=C.d on=update alone=f(why)\n', 'typescript/a.ts', 'a.ts')
+    for line, wanted in (('// flowguard: together A.b on=update\n', 'together needs Table.column (or Model.field) and its partners '
+                          'Model.field[=value],..., then on= and except=path:function(reason)'),
+                         ('// flowguard: writers A.b f on=create\n', 'writers needs a comma-separated list of functions')):
+        facts = anchors.foreign_owners(line, 'typescript/a.ts', 'a.ts')
+        assert [issue['message'] for issue in facts['anchor_issues']] == [wanted], (line, facts)
+    facts = anchors.foreign_owners('// flowguard: together A.b C.d on=update except=a.ts:f(why)\n', 'typescript/a.ts', 'a.ts')
     assert [(row['on'], tuple(row['pairs']), tuple(row['alone'])) for row in facts['anchors']] == [
-        ('update', ('C.d',), ('f(why)',))], facts
+        ('update', ('C.d',), ('typescript/a.ts:f(why)',))], facts
 
 
 def test_a_pair_is_one_operation_when_a_caller_writes_both_fields_through_two_helpers(tmp_path):
     files = {
         'shop/__init__.py': '',
         'shop/store.py': '''
-            # flowguard: owner hires.reserved with=hires.state=held
+            # flowguard: together hires.reserved hires.state=held
             def _reserve_row(db, hire_id):
                 db.execute("UPDATE hires SET reserved = 1 WHERE id = ?", (hire_id,))
 
@@ -1497,7 +1502,7 @@ def test_a_pair_operation_stays_in_production_code_and_in_its_own_package(tmp_pa
     # The agreement holds at the baseline; the service is this change's (a new agreement over old code is judged
     # against the baseline code).
     _commit(tmp_path, {
-        'backend/src/owners.ts': '// flowguard: owner Unit.managerId with=Unit.managerSap\nexport {};\n',
+        'backend/src/owners.ts': '// flowguard: together Unit.managerId Unit.managerSap\nexport {};\n',
         'backend/package.json': '{"name": "backend"}\n',
         'frontend/package.json': '{"name": "frontend"}\n',
         'backend/prisma/schema.prisma': '''
@@ -2232,7 +2237,7 @@ def test_check_and_check_static_name_a_file_by_an_end_no_other_file_of_the_repos
     for command in (('check', '--static'), ('check',)):
         code, text = _flowguard(tmp_path, *command)
         assert code == 1 and _block(text) == [
-            'red: comment pkg/policy.py:1: invalid sensor anchor syntax -> correct this flowguard comment'], (command, text)
+            'red: comment pkg/policy.py:1: invalid same anchor syntax -> correct this flowguard comment'], (command, text)
 
 
 @pytest.mark.parametrize('state', ['outside Git', 'unborn branch'])
@@ -2444,7 +2449,7 @@ def test_a_comment_above_a_function_with_callbacks_does_not_touch_its_structure_
     # Fields several files write without an agreement get no line of their own (--all lists them): what this change
     # touches decides their impact and before lines, `owners.touched_functions`.
     hold = tmp_path / 'src/hold.ts'
-    hold.write_text('// flowguard: sensor HOLD_JOBS\n' + hold.read_text(encoding='utf-8'), encoding='utf-8')
+    hold.write_text('// flowguard: same HOLD_JOBS\n' + hold.read_text(encoding='utf-8'), encoding='utf-8')
     code, text = _static(tmp_path)
     assert code == 0 and _block(text) == [] and touched() == [], text      # the callback only moved one line down
     hold.write_text(hold.read_text(encoding='utf-8').replace("'held'", "'paused'"), encoding='utf-8')
@@ -2484,13 +2489,13 @@ def test_the_session_brief_names_the_heaviest_open_structure_problems_in_one_lin
 
 def test_check_static_reports_a_new_typescript_fallback_and_a_write_outside_its_owner(tmp_path):
     _planning(tmp_path)
-    _commit(tmp_path, {'backend/src/owners.ts': '// flowguard: owner Employee.organizationalUnitId writers=transferEmployee\nexport {};\n'})
+    _commit(tmp_path, {'backend/src/owners.ts': '// flowguard: writers Employee.organizationalUnitId transferEmployee\n'
+                                                'export function transferEmployee() {}\n'})
     code, text = _flowguard(tmp_path, 'ledger', 'init')
     assert code == 0, text
     _commit(tmp_path, message='ledger')
     code, text = _static(tmp_path)
-    assert code == 0 and _block(text) == [] and text.splitlines()[1:] == [
-        'deprecated: owner writers= goes in 5.0 -> write writers FIELD FUNCTIONS'], text
+    assert code == 0 and _block(text) == [] and text.splitlines()[1:] == [], text     # the 4.3 spelling: no notice
     _write(tmp_path, {'backend/src/services/rogue.ts': '''
         export async function moveEmployee(prisma: any, id: string, unit: string, next: any) {
           try {

@@ -24,7 +24,7 @@ def project(root, outer_body=None):
     outer = ('    return runner()\n' if outer_body is None else
              ''.join('    '+line+'\n' for line in outer_body.splitlines()))
     (root/(module+'.py')).write_text(
-        '# flowguard: sensor LIMIT(x: count) -> allowed: bool calibrated_by='+test+'::test_native\n'
+        '# flowguard: same LIMIT(x: count) -> allowed: bool calibrated_by='+test+'::test_native\n'
         'def limit(x: int) -> bool:\n    return x <= 3\n'
         '# flowguard: event OUTER()\ndef outer():\n'+outer)
     (root/test).write_text('import pytest\nfrom '+module+' import limit\n@pytest.fixture\ndef x(): return 2\n# flowguard: event CASE(x: int)\ndef test_native(x: int):\n    assert type(limit(x)) is bool\n')

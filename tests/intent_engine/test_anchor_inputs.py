@@ -13,7 +13,7 @@ def source(tmp_path, text):
 
 
 def test_short_sensor_classifies_connection_and_preserves_full_real_signature(tmp_path):
-    index = source(tmp_path, '''# flowguard: sensor AVAILABLE
+    index = source(tmp_path, '''# flowguard: same AVAILABLE
 def can_hire(db: sqlite3.Connection, item_id: int, stock: int, reserved: int) -> bool:
     return stock > reserved
 ''')
@@ -26,7 +26,7 @@ def can_hire(db: sqlite3.Connection, item_id: int, stock: int, reserved: int) ->
 
 
 def test_semicolon_overrides_primitive_context_and_optional_units(tmp_path):
-    index = source(tmp_path, '''# flowguard: sensor AVAILABLE(stock: count, reserved; db, item_id)
+    index = source(tmp_path, '''# flowguard: same AVAILABLE(stock: count, reserved; db, item_id)
 def can_hire(db, item_id: int, stock: int, reserved: int) -> bool:
     return stock > reserved
 ''')
@@ -56,7 +56,7 @@ def test_short_event_keeps_object_context_without_return_contract(tmp_path):
 def test_decimal_constructor_and_module_constants_feed_existing_linear_reader(tmp_path):
     index = source(tmp_path, '''from decimal import Decimal
 LIMIT = Decimal("20")
-# flowguard: sensor STANDING
+# flowguard: same STANDING
 def standing(owed: Decimal, stock: int, reserved: int) -> bool:
     return owed <= Decimal("20") and stock > reserved + 2
 ''')
@@ -72,7 +72,7 @@ def standing(owed: Decimal, stock: int, reserved: int) -> bool:
 
 
 def test_unknown_parameter_keeps_other_parameter_bounds_and_is_named(tmp_path):
-    index = source(tmp_path, '''# flowguard: sensor MIXED
+    index = source(tmp_path, '''# flowguard: same MIXED
 def mixed(age: int, unknown) -> bool:
     return age >= 18 and unknown
 ''')
@@ -102,7 +102,7 @@ def test_annotation_calls_and_rebound_constructors_are_never_executed(tmp_path):
     source(tmp_path, '''from decimal import Decimal
 def Decimal(text):
     open("marker", "w").write(text)
-# flowguard: sensor DANGER
+# flowguard: same DANGER
 def danger(x: leak()) -> bool:
     return x > Decimal("20")
 ''')
@@ -115,7 +115,7 @@ def danger(x: leak()) -> bool:
 
 def test_semicolon_cannot_silently_drop_or_duplicate_real_parameters(tmp_path):
     for comment in ('X(x; x)', 'X(x; missing)', 'X(x;)', 'X(; x) -> out: bool'):
-        index = source(tmp_path, '# flowguard: sensor ' + comment + '\ndef f(x: int, y: bool) -> bool: return y\n')
+        index = source(tmp_path, '# flowguard: same ' + comment + '\ndef f(x: int, y: bool) -> bool: return y\n')
         assert index.status == 'red'
 
 
@@ -134,7 +134,7 @@ def test_project_enum_is_an_input_without_importing_its_annotation(tmp_path):
 class Role(E):
     MEMBER = 'member'
     ADMIN = 'admin'
-# flowguard: sensor ACCESS
+# flowguard: same ACCESS
 def access(role: Role) -> bool: return role == Role.ADMIN
 ''')
     anchor, = index.entries
@@ -148,9 +148,9 @@ def access(role: Role) -> bool: return role == Role.ADMIN
 
 
 def test_same_name_contexts_can_differ_but_input_roles_are_still_checked(tmp_path):
-    index = source(tmp_path, '''# flowguard: sensor SAME(x; db)
+    index = source(tmp_path, '''# flowguard: same SAME(x; db)
 def check(x: int, db: object) -> bool: return x > 1
-# flowguard: sensor SAME(x; cache)
+# flowguard: same SAME(x; cache)
 def other(x: int, cache: dict) -> bool: return x > 1
 ''')
     assert index.status == 'ok'
@@ -162,7 +162,7 @@ def other(x: int, cache: dict) -> bool: return x > 1
 def test_stdlib_type_aliases_are_read_without_evaluating_annotations(tmp_path):
     index = source(tmp_path, '''from decimal import Decimal as D
 from typing import Literal as L
-# flowguard: sensor FEE
+# flowguard: same FEE
 def fee(owed: D, role: L['member', 'admin']) -> bool:
     return owed <= D("20") and role == 'admin'
 ''')
@@ -178,7 +178,7 @@ def test_qualified_stdlib_type_annotations_are_simple_inputs(tmp_path):
     index = source(tmp_path, '''import decimal as dec
 import datetime as dates
 import typing as t
-# flowguard: sensor QUALIFIED
+# flowguard: same QUALIFIED
 def check(owed: dec.Decimal, day: dates.date, role: t.Literal['a', 'b']) -> bool:
     return owed > 0
 ''')
@@ -187,13 +187,13 @@ def check(owed: dec.Decimal, day: dates.date, role: t.Literal['a', 'b']) -> bool
 
 
 def test_short_and_old_full_copy_are_compatible_without_inventing_units(tmp_path):
-    text = """# flowguard: sensor SAME
+    text = """# flowguard: same SAME
 def short(age: int) -> bool: return age > 18
 """
     text += """
-# flowguard: sensor SAME(age: years) -> allowed: bool
+# flowguard: same SAME(age: years) -> allowed: bool
 def full(age: int) -> bool: return age > 18
-# flowguard: sensor SAME(age: years) -> allowed: bool
+# flowguard: same SAME(age: years) -> allowed: bool
 def other(age: int) -> bool: return age > 18
 """
     assert source(tmp_path, text).status == 'ok'
@@ -204,7 +204,7 @@ def other(age: int) -> bool: return age > 18
 
 
 def test_old_full_connection_parameter_is_context_without_rewriting_the_comment(tmp_path):
-    index = source(tmp_path, """# flowguard: sensor AVAILABLE(db: connection, stock: count, reserved: count) -> ok: bool calibrated_by=tests/test_app.py::test_can_hire
+    index = source(tmp_path, """# flowguard: same AVAILABLE(db: connection, stock: count, reserved: count) -> ok: bool calibrated_by=tests/test_app.py::test_can_hire
 def can_hire(db: sqlite3.Connection, stock: int, reserved: int) -> bool:
     return stock > reserved
 """)
@@ -218,9 +218,9 @@ def can_hire(db: sqlite3.Connection, stock: int, reserved: int) -> bool:
 
 def test_real_values_resolve_only_automatically_classified_unknown_parameters(tmp_path):
     import pytest
-    index = source(tmp_path, """# flowguard: sensor AUTO
+    index = source(tmp_path, """# flowguard: same AUTO
 def automatic(db, stock) -> bool: return stock > 0
-# flowguard: sensor EXPLICIT(stock; db)
+# flowguard: same EXPLICIT(stock; db)
 def explicit(db, stock) -> bool: return stock > 0
 """)
     automatic, explicit = index.entries
@@ -236,9 +236,9 @@ def explicit(db, stock) -> bool: return stock > 0
 
 
 def test_untyped_short_copy_can_match_explicit_context_without_false_identity_red(tmp_path):
-    index = source(tmp_path, """# flowguard: sensor SAME
+    index = source(tmp_path, """# flowguard: same SAME
 def automatic(db, stock: int) -> bool: return stock > 0
-# flowguard: sensor SAME(stock; db)
+# flowguard: same SAME(stock; db)
 def explicit(db, stock: int) -> bool: return stock > 0
 """)
     assert index.status == 'ok'
@@ -248,9 +248,9 @@ def explicit(db, stock: int) -> bool: return stock > 0
 def test_imported_enum_uses_actual_value_but_explicit_context_stays_context(tmp_path):
     import enum
     index = source(tmp_path, """from unimported_dependency import QuoteCase
-# flowguard: sensor INFERRED
+# flowguard: same INFERRED
 def inferred(quote: QuoteCase) -> bool: return True
-# flowguard: sensor EXPLICIT(; quote)
+# flowguard: same EXPLICIT(; quote)
 def explicit(quote: QuoteCase) -> bool: return True
 """)
     inferred, explicit = index.entries

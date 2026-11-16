@@ -2,6 +2,7 @@
 from contextlib import closing
 import ast
 from pathlib import Path
+import re
 import textwrap
 
 import pytest
@@ -284,17 +285,29 @@ def test_a_historical_slice_keeps_positions_without_claiming_to_resolve_other_so
 @pytest.mark.parametrize('suffix', ['py', 'ts'])
 @pytest.mark.parametrize('reverse', [False, True])
 def test_splitting_a_mixed_agreement_keeps_one_registration_with_both_constraints(tmp_path, suffix, reverse):
+    # 5.0: the 4.2 line with writers= and with= is red at its line, no agreement, and its step is the two 4.3 lines;
+    # written as the step says, in either order, they are the registration the hand-split comments make
     marker = '#' if suffix == 'py' else '//'
     module = 'policy' if suffix == 'py' else 'typescript/policy.ts'
     function = 'def save(): pass\n' if suffix == 'py' else 'export function save() {}\n'
     old = f'{marker} flowguard: owner Account.status writers={module}:save with=Account.changed on=update\n'
+    _files(tmp_path, {f'policy.{suffix}': old + function})
+    with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
+        index = anchors.collect(graph)
+    assert not index.named('Account.status')
+    issue, = index.issues
+    assert (issue.level, issue.code, issue.file, issue.line, issue.name) == ('red', 'removed', f'policy.{suffix}', 1, 'Account.status')
+    assert issue.message == (f'owner writers= and with= were removed in 5.0 -> write {marker} flowguard: together Account.status '
+                             f'Account.changed on=update and, on its own line, {marker} flowguard: writers Account.status save')
+    rewrite = [line + '\n' for line in issue.message.partition(' -> write ')[2].split(' and, on its own line, ')]
     separate = [f'{marker} flowguard: writers Account.status save\n',
                 f'{marker} flowguard: together Account.status Account.changed on=update\n']
     if reverse:
+        rewrite.reverse()
         separate.reverse()
     registrations = []
-    for comments in (old, ''.join(separate)):
-        _files(tmp_path, {f'policy.{suffix}': comments + function})
+    for comments in (rewrite, separate):
+        _files(tmp_path, {f'policy.{suffix}': ''.join(comments) + function})
         with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
             index = anchors.collect(graph)
         agreement, = index.named('Account.status')
@@ -366,7 +379,8 @@ def test_split_agreements_point_to_each_roles_own_comment(tmp_path, suffix, reve
     writer_line, pair_line = (9, 1) if reverse else (1, 9)
     assert len(writers.issues) == 1 and writers.issues[0].detail[0] == f'agreement: policy.{suffix}:{writer_line}'
     assert len(pairs.issues) == 1 and f'comment at policy.{suffix}:{pair_line}' in pairs.issues[0].step
-    assert shown[0].startswith(f'owner {field} policy.{suffix}:{writer_line}; writers=')
+    assert shown[0] == f'writers {field} save policy.{suffix}:{writer_line}'          # show spells them as 4.3 does
+    assert f'together {field} {partner} policy.{suffix}:{pair_line}' in shown
 
 
 def test_ambiguous_role_locations_are_labelled_as_canonical_registration(tmp_path):
@@ -413,8 +427,12 @@ def test_data_constraints_in_different_files_are_not_combined(tmp_path):
     assert any(issue.code == 'owner' and 'same file' in issue.message for issue in index.issues)
 
 
-def test_old_spellings_keep_their_bindings_and_every_warm_index_read_uses_them(tmp_path, capsys):
-    _files(tmp_path, {'policy.py': '''
+def test_old_spellings_are_red_at_their_line_with_their_rewrite_on_every_index_read(tmp_path, capsys):
+    """5.0 removed the 4.2 spellings: each is red at its line, on a warm read of the index as on the cold one, without a
+    notice, and binds nothing. Its step is the 4.3 comment that says the same; a 4.2 bare name in writers= or alone=
+    meant the function of that name in every file, so the rewrite names each by its path. Written as the steps say,
+    the comments bind what the 4.2 ones did."""
+    policy = textwrap.dedent('''
         # flowguard: owner ROUND
         def reference(value: int) -> int:
             return value
@@ -425,37 +443,110 @@ def test_old_spellings_keep_their_bindings_and_every_warm_index_read_uses_them(t
         def second(value: int) -> int:
             return value
         # flowguard: owner account.status writers=save with=account.changed alone=save(owner approved)
-    '''})
+    ''').lstrip()
+    _files(tmp_path, {'policy.py': policy, 'store.py': 'def save(db):\n    db.execute("UPDATE account SET status = 1")\n',
+                      'archive.py': 'class Archive:\n    def save(self, db):\n        db.execute("UPDATE account SET status = 2")\n'})
     database = tmp_path / 'map.sqlite'
-    from flowguard.intent import deprecation
     for warm in (False, True):
-        start = deprecation.mark()
         with closing(build(tmp_path, database, workers=1)) as graph:
             if warm:
                 assert graph.stats['parsed'] == 0
             index = anchors.collect(graph)
-        agreement, = index.named('account.status')
-        assert agreement.writers == ('save',)
-        assert agreement.pairs == ('account.changed',)
-        assert agreement.alone == ('save(owner approved)',)
-        assert [(a.qual, a.owner) for a in index.named('ROUND')] == [
-            ('reference', True), ('first', False), ('second', False)]
-        # The warm read uses the old spellings as the cold one did; their notices print once in the process.
-        assert set(deprecation.used(start)) == {'sensor', 'function owner', 'owner with writers= and with=', 'alone='}
-        notices = capsys.readouterr().err
-        if warm:
-            assert notices == '', notices
-            continue
-        assert notices.count('deprecated: sensor ') == 1
-        assert 'same NAME ref' in notices
-        assert 'separate writers and together comments' in notices
-        assert 'except=path:function(reason)' in notices
+        assert not index.named('ROUND') and not index.named('account.status')
+        assert [(issue.level, issue.code, issue.line, issue.name, issue.message) for issue in index.issues] == [
+            ('red', 'removed', 1, 'ROUND', 'owner NAME above a function was removed in 5.0 -> write # flowguard: same ROUND ref'),
+            ('red', 'removed', 4, 'ROUND', 'sensor was removed in 5.0 -> write # flowguard: same ROUND'),
+            ('red', 'removed', 7, 'ROUND', 'sensor was removed in 5.0 -> write # flowguard: same ROUND'),
+            ('red', 'removed', 10, 'account.status', 'owner writers=, with= and alone= were removed in 5.0 -> write # flowguard: '
+             'together account.status account.changed except=archive.py:Archive.save(owner approved),store.py:save(owner approved) '
+             'and, on its own line, # flowguard: writers account.status archive.py:Archive.save,store.py:save')]
+        assert capsys.readouterr().err == ''
+    lines = policy.splitlines()
+    for issue in index.issues:
+        lines[issue.line - 1] = '\n'.join(issue.message.partition(' -> write ')[2].split(' and, on its own line, '))
+    _files(tmp_path, {'policy.py': '\n'.join(lines) + '\n'})
+    with closing(build(tmp_path, database, workers=1)) as graph:
+        index = anchors.collect(graph)
+    assert not index.issues
+    agreement, = index.named('account.status')
+    assert agreement.writers == ('archive:Archive.save', 'store:save')
+    assert agreement.pairs == ('account.changed',)
+    assert agreement.alone == ('archive:Archive.save(owner approved)', 'store:save(owner approved)')
+    assert [(a.kind, a.qual, a.owner) for a in index.named('ROUND')] == [
+        ('sensor', 'reference', True), ('sensor', 'first', False), ('sensor', 'second', False)]
 
 
-def test_old_foreign_function_owner_keeps_its_navigation_binding():
-    facts = anchors.foreign_owners('// flowguard: owner ROUND\n', 'typescript/policy.ts', 'policy.ts')
-    agreement, = facts['anchors']
-    assert (agreement['kind'], agreement['qual'], agreement['owner']) == ('owner', '', False)
+@pytest.mark.parametrize('comment, wanted', [
+    ('sensor LIMIT(days: day) -> allowed: bool calibrated_by=tests/test_a.py::test_a',
+     'sensor was removed in 5.0 -> write # flowguard: same LIMIT(days: day)->allowed: bool calibrated_by=tests/test_a.py::test_a'),
+    ('owner LIMIT fields days=1', 'owner NAME above a function was removed in 5.0 -> write # flowguard: same LIMIT ref fields days=1'),
+    ('owner Job.phase with=Job.state=READY,Job.owner on=update',
+     'owner with= was removed in 5.0 -> write # flowguard: together Job.phase Job.state=READY,Job.owner on=update'),
+    ('owner Job.phase with=Job.state alone=reserve(bulk import)',
+     'owner with= and alone= were removed in 5.0 -> write # flowguard: together Job.phase Job.state '
+     'except=policy.py:reserve(bulk import)'),
+    ('owner Job.phase writers=reserve,policy:Desk.book,pkg.cache:put_meta',
+     'owner writers= was removed in 5.0 -> write # flowguard: writers Job.phase reserve,Desk.book,pkg.cache:put_meta'),
+    ('owner Job.phase writers=reserve with=Job.state', 'owner writers= and with= were removed in 5.0 -> write # flowguard: '
+     'together Job.phase Job.state and, on its own line, # flowguard: writers Job.phase reserve'),
+    ('owner', 'owner was removed in 5.0 -> write # flowguard: same NAME ref above a function, together FIELD PARTNERS or '
+     'writers FIELD FUNCTIONS'),
+])
+def test_each_old_spelling_is_red_with_the_43_comment_that_says_the_same(comment, wanted):
+    # the table of upgrade-4.3.md, "Comment spellings": B=value, on= and the other options keep their place; a bare name
+    # or a module:function of the comment's own file is written bare (in except= with its path); a module the reader
+    # does not know stays as written, and its 4.3 reading names the step (a module position needs its file)
+    facts = _facts(f'''
+        # flowguard: {comment}
+        def reserve(db):
+            return db
+        class Desk:
+            def book(self):
+                return 1
+    ''')
+    assert not facts.get('anchors')
+    issue, = facts['anchor_issues']
+    assert (issue['level'], issue['code'], issue['line'], issue['message']) == ('red', 'removed', 1, wanted)
+    assert 'deprecated' not in issue['message']
+
+
+def test_show_spells_each_agreement_as_its_43_comment(tmp_path):
+    _files(tmp_path, {'policy.py': '''
+        # flowguard: writers account.status save,store.py:Store.put
+        # flowguard: together account.status account.changed=1 on=update except=store.py:Store.put(bulk import)
+        def save(db):
+            db.execute("UPDATE account SET status = 'x', changed = 1")
+        # flowguard: same ROUND ref
+        def round_amount(value: float) -> int:
+            return round(value)
+    ''', 'store.py': '''
+        class Store:
+            def put(self, db):
+                db.execute("UPDATE account SET status = 'y'")
+    '''})
+    with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
+        index = anchors.collect(graph)
+        assert not index.issues
+        cfg = load_config(tmp_path)
+        shown = owners.show_lines(cfg, graph, index, 'account.status')
+        reference = owners.show_lines(cfg, graph, index, 'ROUND')
+    assert shown[0] == 'writers account.status save,store.py:Store.put policy.py:1'
+    assert 'together account.status account.changed=1 on=update except=store.py:Store.put(bulk import) policy.py:2' in shown
+    assert reference[0].startswith('same ROUND ref policy.py:6; ')
+    assert not [line for line in shown + reference
+                if re.match(r'(?:owner|with|alone) ', line) or re.search(r'(?:writers|with|alone)=', line)]
+
+
+def test_old_foreign_spellings_are_red_at_their_line_with_their_rewrite():
+    facts = anchors.foreign_owners('// flowguard: owner ROUND\n// flowguard: sensor ROUND\nexport function copy() {}\n'
+                                   '// flowguard: owner Account.status with=Account.changed alone=seed(fills it once)\n',
+                                   'typescript/policy.ts', 'policy.ts')
+    assert not facts['anchors']
+    assert [(issue['level'], issue['code'], issue['line'], issue['message']) for issue in facts['anchor_issues']] == [
+        ('red', 'removed', 1, 'owner NAME above a function was removed in 5.0 -> write // flowguard: same ROUND ref'),
+        ('red', 'removed', 2, 'sensor was removed in 5.0 -> write // flowguard: same ROUND'),
+        ('red', 'removed', 4, 'owner with= and alone= were removed in 5.0 -> write // flowguard: together Account.status '
+         'Account.changed except=policy.ts:seed(fills it once)')]
 
 
 @pytest.mark.parametrize('comment', [

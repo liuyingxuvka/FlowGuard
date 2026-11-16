@@ -1,24 +1,24 @@
 from shop.settings import GRACE_DAYS, OWED_LIMIT
 
 
-# flowguard: owner STANDING
+# flowguard: same STANDING ref
 def standing_allows(days_after_expiry: int, suspended: bool, owed: int) -> bool:
     return days_after_expiry <= GRACE_DAYS and not suspended and owed <= OWED_LIMIT
 
 
-# flowguard: sensor RENEWAL
+# flowguard: same RENEWAL
 def renewal_allowed(days_late: int) -> bool:
     return days_late <= 14
 
 
-# flowguard: sensor BOOKING
+# flowguard: same BOOKING
 def booking_allowed(days_late: int, vip: bool) -> bool:
     if vip:
         return True
     return days_late <= 14
 
 
-# flowguard: sensor PRIORITY
+# flowguard: same PRIORITY
 def priority(age: int, vip: bool) -> int:
     if vip:
         return 1

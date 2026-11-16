@@ -7,7 +7,7 @@ def open_db(path):
     return db
 
 
-# flowguard: sensor BORROW
+# flowguard: same BORROW
 def may_borrow(db: sqlite3.Connection, member_id: int, days_after_expiry: int) -> bool:
     row = db.execute("select amount from debts where member_id = ?", (member_id,)).fetchone()
     if row is None:
@@ -15,7 +15,7 @@ def may_borrow(db: sqlite3.Connection, member_id: int, days_after_expiry: int) -
     return days_after_expiry <= 3
 
 
-# flowguard: sensor DEBT_LIMIT
+# flowguard: same DEBT_LIMIT
 def over_debt_limit(db: sqlite3.Connection, member_id: int, limit: int) -> bool:
     row = db.execute("select coalesce(sum(amount), 0) from debts where member_id = ?", (member_id,)).fetchone()
     return row[0] > limit

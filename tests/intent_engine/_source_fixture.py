@@ -38,7 +38,7 @@ def annotate(code, target, name, parameters, *, output='bool', calibrated_by='')
     code=code[:start]+signature+code[end:]
     rendered=code.splitlines(True)
     line=min([node.lineno,*[d.lineno for d in node.decorator_list]])-1
-    sensor='# flowguard: sensor '+name+'('+', '.join(p+': '+p for p in parameters)+') -> answer: '+output
+    sensor='# flowguard: same '+name+'('+', '.join(p+': '+p for p in parameters)+') -> answer: '+output
     if calibrated_by:sensor+=' calibrated_by='+calibrated_by
     rendered.insert(line,' '*node.col_offset+sensor+'\n')
     return ''.join(rendered)

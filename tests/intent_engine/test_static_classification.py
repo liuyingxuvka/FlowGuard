@@ -244,12 +244,12 @@ def test_a_label_spelled_another_way_is_no_finding_and_no_line(tmp_path):
     assert not hasattr(found, 'hidden'), found
 
 
-LIMITS = '''# flowguard: owner LIMIT
+LIMITS = '''# flowguard: same LIMIT ref
 def chart(days: int) -> bool:
     return days <= 3
 
 
-# flowguard: sensor LIMIT
+# flowguard: same LIMIT
 def report(days: int) -> bool:
     return days <= %d
 '''
@@ -406,7 +406,7 @@ def test_known_fixed_is_said_only_for_a_family_every_check_of_which_judged_the_w
 def test_a_red_step_of_two_copies_changed_alone_is_ascii(tmp_path):
     text = LIMITS + '''
 
-# flowguard: sensor LIMIT
+# flowguard: same LIMIT
 def summary(days: int) -> bool:
     return days <= %d
 '''

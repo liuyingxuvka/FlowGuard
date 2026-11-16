@@ -27,7 +27,7 @@ def late_fee(days: int, member: bool) -> int:
     return fee // 2 if member else fee
 
 
-# flowguard: sensor CHOICE(x: count) -> allowed: bool calibrated_by=tests/test_fees.py::test_choice
+# flowguard: same CHOICE(x: count) -> allowed: bool calibrated_by=tests/test_fees.py::test_choice
 def choice(x: int) -> bool:
     return x <= 3
 '''

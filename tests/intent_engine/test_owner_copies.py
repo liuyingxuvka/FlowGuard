@@ -90,33 +90,32 @@ def _facts(text, file='policy.py'):
 
 def test_owner_comments_name_a_reference_copy_or_a_field_with_its_writers():
     facts = _facts('''
-        # flowguard: owner ROUND
+        # flowguard: same ROUND ref
         def owner(value: float) -> int:
             return int(value)
-        # flowguard: sensor ROUND
+        # flowguard: same ROUND
         def copy(value: float) -> int:
             return int(value)
-        # flowguard: owner hires.reserved writers=shop.store:reserve,shop.store:release
-        # flowguard: owner hires writers=shop.store:reserve
+        # flowguard: writers hires.reserved shop/store.py:reserve,shop/store.py:release
+        # flowguard: writers hires shop/store.py:reserve
     ''')
     rows = [(row['kind'], row['name'], row['qual'], row['owner'], tuple(row['writers'])) for row in facts['anchors']]
     assert rows == [('sensor', 'ROUND', 'owner', True, ()), ('sensor', 'ROUND', 'copy', False, ()),
-                    ('owner', 'hires.reserved', '', False, ('shop.store:reserve', 'shop.store:release'))]
+                    ('owner', 'hires.reserved', '', False, ('shop/store.py:reserve', 'shop/store.py:release'))]
     assert [issue['message'] for issue in facts['anchor_issues']] == [
-        'a data owner needs Table.column (or Model.field) with writers=function,... and/or with=Model.field[=value],...; '
-        'alone=function(reason) needs with=']
-    ts = anchors.foreign_owners('// flowguard: owner Employee.organizationalUnitId writers=transferEmployee\n',
+        'writers needs Table.column (or Model.field) and its functions: writers Table.column f,path:g']
+    ts = anchors.foreign_owners('// flowguard: writers Employee.organizationalUnitId transferEmployee\n',
                                 'typescript/a.ts', 'a.ts')
     assert [(row['kind'], row['name'], tuple(row['writers']), row['line']) for row in ts['anchors']] == [
-        ('owner', 'Employee.organizationalUnitId', ('transferEmployee',), 1)]
+        ('owner', 'Employee.organizationalUnitId', ('typescript/a.ts:transferEmployee',), 1)]
 
 
 def test_one_judgment_has_one_owner():
     facts = _facts('''
-        # flowguard: owner ROUND
+        # flowguard: same ROUND ref
         def first(value: float) -> int:
             return int(value)
-        # flowguard: owner ROUND
+        # flowguard: same ROUND ref
         def second(value: float) -> int:
             return int(value)
     ''')
@@ -127,26 +126,26 @@ def test_one_judgment_has_one_owner():
 
 def test_a_projection_is_written_without_a_colon():
     facts = _facts('''
-        # flowguard: sensor ELIGIBLE -> result[0]
+        # flowguard: same ELIGIBLE -> result[0]
         def first(days: int):
             return days <= 3, 'why'
-        # flowguard: sensor ELIGIBLE -> result.ok
+        # flowguard: same ELIGIBLE -> result.ok
         def second(days: int):
             return days
-        # flowguard: sensor BAD -> result()
+        # flowguard: same BAD -> result()
         def bad(days: int):
             return days
     ''')
     projections = [(row['name'], row['projection'], row['output'], row['output_type']) for row in facts['anchors']]
     assert projections == [('ELIGIBLE', 'result[0]', '', ''), ('ELIGIBLE', 'result.ok', '', '')]
-    assert [issue['message'] for issue in facts['anchor_issues']] == ['invalid sensor anchor syntax']
+    assert [issue['message'] for issue in facts['anchor_issues']] == ['invalid same anchor syntax']
     first = anchors._anchor(facts['anchors'][0])
     assert anchors.project(first, (False, 'why')) is False
 
 
 def test_an_output_declaration_keeps_its_colon():
     facts = _facts('''
-        # flowguard: sensor ELIGIBLE(days: day) -> allowed: bool
+        # flowguard: same ELIGIBLE(days: day) -> allowed: bool
         def first(days: int) -> bool:
             return days <= 3
     ''')
@@ -156,17 +155,17 @@ def test_an_output_declaration_keeps_its_colon():
 
 def test_parameters_correspond_only_by_name_unless_the_copy_writes_its_mapping(tmp_path):
     source = '''
-        # flowguard: owner ELIGIBLE
+        # flowguard: same ELIGIBLE ref
         def owner(days: int) -> bool:
             return days <= 3
-        # flowguard: sensor ELIGIBLE
+        # flowguard: same ELIGIBLE
         def copy(overdue_days: int) -> bool:
             return overdue_days <= 4
     '''
     index = anchors._index([anchors._anchor(row) for row in _facts(source)['anchors']], [])
     hint = next(issue.message for issue in index.issues if 'ELIGIBLE(' in issue.message)
     assert 'parameters correspond only by name: write # flowguard: same ELIGIBLE(days=<its parameter>)' in hint
-    mapped = source.replace('# flowguard: sensor ELIGIBLE\n', '# flowguard: sensor ELIGIBLE(days=overdue_days)\n')
+    mapped = source.replace('# flowguard: same ELIGIBLE\n', '# flowguard: same ELIGIBLE(days=overdue_days)\n')
     facts = _facts(mapped)
     copy = anchors._anchor(facts['anchors'][1])
     assert [(p.name, p.alias, p.source) for p in copy.parameters] == [('days', 'overdue_days', 'overdue_days')]
@@ -186,14 +185,14 @@ def test_math_is_not_grey_and_representatives_include_halves_and_non_finite_valu
         from math import floor, isfinite
 
 
-        # flowguard: owner ROUND
+        # flowguard: same ROUND ref
         def away(value: float) -> int:
             if not isfinite(value):
                 raise ValueError("finite only")
             return floor(value + 0.5) if value >= 0.0 else math.ceil(value - 0.5)
 
 
-        # flowguard: sensor ROUND
+        # flowguard: same ROUND
         def up(value: float) -> int:
             if not math.isfinite(value):
                 raise ValueError("finite only")
@@ -225,12 +224,12 @@ def test_fixed_6_copies_with_different_return_forms_are_compared_through_their_p
             why: str
 
 
-        # flowguard: sensor ELIGIBLE -> result[0]
+        # flowguard: same ELIGIBLE -> result[0]
         def eligible(days: int):
             return days <= 3, 'within the window'
 
 
-        # flowguard: sensor ELIGIBLE(days=overdue_days) -> result.ok
+        # flowguard: same ELIGIBLE(days=overdue_days) -> result.ok
         def preview(overdue_days: int) -> Answer:
             return Answer(overdue_days <= 3, 'preview')
     ''', 'tests/test_case.py': '''
@@ -256,7 +255,7 @@ def test_fixed_6_copies_with_different_return_forms_are_compared_through_their_p
 def _copies(*bounds, owner=False):
     """limits.py: one LIMIT copy per bound (`days <= bound`), at lines 2, 7, 12, ...; the first is the owner."""
     names = ('chart', 'calendar', 'report')
-    return '\n\n'.join(f'# flowguard: {"owner" if owner and not index else "sensor"} LIMIT\n'
+    return '\n\n'.join(f'# flowguard: {"same LIMIT ref" if owner and not index else "same LIMIT"}\n'
                        f'def {names[index]}(days: int) -> bool:\n    return days <= {bound}\n'
                        for index, bound in enumerate(bounds))
 
@@ -399,7 +398,7 @@ def test_fixed_10_the_unchanged_kwp_look_alikes_of_a_registered_owner_get_no_lin
     owner = tmp_path / 'Step1/src/kwp_step1/matlab_fallbacks.py'
     lines = owner.read_text(encoding='utf-8').splitlines(True)
     assert lines[13] == '\n' and lines[14].startswith('def matlab_round(')
-    lines[13] = '# flowguard: owner MATLAB_ROUND\n'
+    lines[13] = '# flowguard: same MATLAB_ROUND ref\n'
     owner.write_text(''.join(lines), encoding='utf-8')
     code, text = _check(tmp_path)
     # Copy discovery compares the look-alikes of the reference: copies the baseline already had, and look-alikes
@@ -445,7 +444,7 @@ def test_fixed_18_numbers_equal_only_at_zero_are_unrelated(tmp_path):
             return amount * 0.19
     ''', 'tests/test_case.py': 'def test_native():\n    assert True\n'})
     money = tmp_path / 'money.py'
-    money.write_text(money.read_text(encoding='utf-8').replace('def margin', '# flowguard: owner MARGIN\ndef margin'), encoding='utf-8')
+    money.write_text(money.read_text(encoding='utf-8').replace('def margin', '# flowguard: same MARGIN ref\ndef margin'), encoding='utf-8')
     code, text = _check(tmp_path, '--all')
     assert code == 0, text
     assert 'money.py:6' not in text and 'copies of MARGIN' not in text, text
@@ -455,7 +454,7 @@ def test_fixed_18_numbers_equal_only_at_zero_are_unrelated(tmp_path):
 
 def test_a_new_write_outside_a_data_owner_is_red_and_older_ones_are_the_old_ledger(tmp_path):
     _project(tmp_path, {'changed.py': 'def unrelated(): return 0\n', 'shop/__init__.py': '', 'shop/store.py': '''
-        # flowguard: owner hires.reserved writers=shop.store:reserve
+        # flowguard: writers hires.reserved reserve
         def reserve(db, hire_id):
             db.execute("UPDATE hires SET reserved = 1 WHERE id = ?", (hire_id,))
 
@@ -554,7 +553,7 @@ def test_reusing_static_findings_returns_its_findings_and_lines_without_mutating
 
 def test_copy_discovery_uses_sealed_source_and_a_look_alike_it_cannot_run_leaves_it_incomplete(tmp_path, monkeypatch):
     _project(tmp_path, {'rules.py': '''
-        # flowguard: owner HALF
+        # flowguard: same HALF ref
         def half(value: float) -> float:
             return value * 0.5
 
@@ -595,9 +594,8 @@ def test_copy_discovery_uses_sealed_source_and_a_look_alike_it_cannot_run_leaves
     assert {'half', 'same', 'spin', 'copied'} <= compared, result.stderr
     # copies the baseline already had are no finding of this change
     assert _block(text)[1:] == [], text
-    # FlowGuard runs copy discovery itself: only the project's own 4.2 owner spelling is deprecated
-    notices = [line for line in result.stderr.splitlines() if line.startswith('deprecated: ')]
-    assert notices == ['deprecated: function owner goes in 5.0 -> write same NAME ref'], result.stderr
+    # FlowGuard runs copy discovery itself: a project that writes the 4.3 spellings gets no notice
+    assert not [line for line in result.stderr.splitlines() if line.startswith('deprecated: ')], result.stderr
     # spin (rules.py:10) does not complete and broken (rules.py:16) imports: copy discovery did not judge every
     # look-alike, so it does not count as run (a known entry's `known fixed?` needs it); without them it does.
     from contextlib import closing
@@ -674,7 +672,7 @@ def test_changed_alone_does_not_count_the_same_raised_exception_as_agreement(tmp
 def test_a_new_copy_of_a_registered_owner_is_an_impact(tmp_path):
     # 4.3: structure findings cannot be red (design 6.1, D1); a copy this change adds is impact.
     _project(tmp_path, {'rules.py': '''
-        # flowguard: owner HALF
+        # flowguard: same HALF ref
         def half(value: float) -> float:
             return value * 0.5
     '''})
@@ -694,7 +692,7 @@ def test_a_typescript_data_owner_turns_a_new_prisma_write_outside_its_writers_re
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(path.read_bytes())
     (tmp_path / 'backend/src/owners.ts').write_text(
-        '// flowguard: owner Employee.organizationalUnitId writers=transferEmployee\nexport {};\n', encoding='utf-8')
+        '// flowguard: writers Employee.organizationalUnitId transferEmployee\nexport function transferEmployee() {}\n', encoding='utf-8')
     (tmp_path / '.gitignore').write_text('.flowguard/cache/\n', encoding='utf-8')
     _commit(tmp_path)
     code, text = _check(tmp_path)
@@ -714,7 +712,7 @@ def test_a_typescript_data_owner_turns_a_new_prisma_write_outside_its_writers_re
 
 def test_show_lists_an_owners_old_ledger(tmp_path):
     _project(tmp_path, {'shop.py': '''
-        # flowguard: owner hires.reserved writers=shop:reserve
+        # flowguard: writers hires.reserved reserve
         def reserve(db):
             db.execute("UPDATE hires SET reserved = 1")
 
@@ -723,7 +721,7 @@ def test_show_lists_an_owners_old_ledger(tmp_path):
             db.execute("UPDATE hires SET reserved = 0")
 
 
-        # flowguard: owner HALF
+        # flowguard: same HALF ref
         def half(value: float) -> float:
             return value * 0.5
 
@@ -731,9 +729,9 @@ def test_show_lists_an_owners_old_ledger(tmp_path):
         def same(amount: float) -> float:
             return amount * 0.5
     '''})
-    for name, wanted in (('hires.reserved', ['owner hires.reserved shop.py:1; writers=shop:reserve',
+    for name, wanted in (('hires.reserved', ['writers hires.reserved reserve shop.py:1',
                                               'outside writers: shop.py:7 legacy (sql:update, value 0)']),
-                         ('HALF', ['owner HALF shop.py:11; 1 unregistered look-alikes (not run here; check --all compares them)',
+                         ('HALF', ['same HALF ref shop.py:11; 1 unregistered look-alikes (not run here; check --all compares them)',
                                    'look-alike shop.py:15 same'])):
         result = subprocess.run([sys.executable, '-c', _cli_fixture._BOOT, SOURCE, 'unused-marker', '',
                                  '--root', str(tmp_path), 'show', name], cwd=tmp_path, capture_output=True, text=True, timeout=60)
@@ -842,7 +840,8 @@ def test_one_value_gate_checks_states_anchors_enums_and_writes_outside_the_class
 def test_a_registered_pair_is_red_where_a_write_leaves_its_partner_out(tmp_path):
     # 4.3: an agreement is judged against the baseline code (what it finds there was there before the change), so
     # the agreement is the baseline's and the writes that are judged are this change's.
-    agreement = "# flowguard: owner hires.reserved with=hires.state=held alone=shop.store:import_rows(bulk import marks rows later)\n"
+    agreement = ("# flowguard: together hires.reserved hires.state=held "
+                 "except=shop/store.py:import_rows(bulk import marks rows later)\n")
     store = '''
         def _mark(db, hire_id):
             db.execute("UPDATE hires SET state = 'held' WHERE id = ?", (hire_id,))
@@ -851,16 +850,17 @@ def test_a_registered_pair_is_red_where_a_write_leaves_its_partner_out(tmp_path)
         def reserve(db, hire_id):
             db.execute("UPDATE hires SET reserved = 1 WHERE id = ?", (hire_id,))
             _deep(db, hire_id)
+        def import_rows(db):
+            return None
     '''
     _project(tmp_path, {'shop/__init__.py': '', 'shop/store.py': agreement + textwrap.dedent(store).lstrip()})
     code, text = _check(tmp_path)
     assert code == 0 and _block(text)[1:] == [], text
     path = tmp_path / 'shop/store.py'
-    path.write_text(path.read_text(encoding='utf-8') + textwrap.dedent('''
+    path.write_text(path.read_text(encoding='utf-8').replace('    return None\n', '    db.execute("UPDATE hires SET reserved = 0")\n')
+                    + textwrap.dedent('''
         def release(db, hire_id):
             db.execute("UPDATE hires SET reserved = 0 WHERE id = ?", (hire_id,))
-        def import_rows(db):
-            db.execute("UPDATE hires SET reserved = 0")
     ''').lstrip(), encoding='utf-8')
     code, text = _check(tmp_path)
     # Round 20 semantics change: the partner is looked for in the same operation (callers three levels up,
@@ -876,7 +876,7 @@ def test_copy_discovery_compares_on_the_codes_own_literals(tmp_path):
     _project(tmp_path, {}, pyproject='[tool.pytest.ini_options]\npythonpath = ["Step1/src", "Step3/src"]\n')
     technology = tmp_path / 'Step3/src/kwp_step3/technology.py'
     technology.write_text(technology.read_text(encoding='utf-8').replace('def normalize_technology_name(value: object)',
-                                                          '# flowguard: owner TECHNOLOGY\ndef normalize_technology_name(value: object)'), encoding='utf-8')
+                                                          '# flowguard: same TECHNOLOGY ref\ndef normalize_technology_name(value: object)'), encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 0 and _block(text)[1:] == [], text
     # The copy in utils.py forks on a name only the copies' own tables spell: a copies finding of the reference (the

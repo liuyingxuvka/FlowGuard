@@ -111,8 +111,10 @@ describe nothing).
   literals and `set()`/`frozenset()` arguments (set) and `Literal[...]` members (union). Dict keys,
   `'key' in mapping`, logging/print calls, exception constructors and `raise` are never recorded; test
   files contribute none. `literal_groups()` groups Python and TS/JS rows together.
-- Owner comments: `# flowguard: owner NAME` on a function is a sensor with `owner=True`; `owner T.c
-  writers=... with=M.f[=v] alone=f(why)` (and `// flowguard: owner ...` in TS/JS) is an anchor of kind `owner` with `writers`, `pairs`, `alone`.
+- Agreement comments: `# flowguard: same NAME ref` on a function is a sensor with `owner=True`; `writers T.c f,path:g`
+  and `together T.c M.f[=v] on=... except=path:f(why)` (also `// flowguard: ...` in TS/JS) are anchors of kind `owner`
+  with `writers`, or `pairs`, `on` and `alone`. A 4.2 spelling (`sensor`, `owner`) is an `anchor_issues` row of code
+  `removed`, red at its line with its 4.3 rewrite.
 - `assignments` (Python): a computed right side keeps `expr`; `MapHandle.assignments()`/`writes()` fold it with the
   decision sites' constant folding (enum members, module and imported constants, each branch of `?:`) into `values`.
   `row['k'] = v` has `form='key'` and the field `receiver.k`; a class-body default is `module:Class.name`.

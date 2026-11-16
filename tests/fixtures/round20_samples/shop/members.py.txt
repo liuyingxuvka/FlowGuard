@@ -7,7 +7,7 @@ def open_db(path):
     return db
 
 
-# flowguard: sensor BORROW
+# flowguard: same BORROW
 def may_borrow(db: sqlite3.Connection, member_id: int, days_after_expiry: int) -> bool:
     row = db.execute("select amount from debts where member_id = ?", (member_id,)).fetchone()
     if row is None:

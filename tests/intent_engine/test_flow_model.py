@@ -155,7 +155,7 @@ def test_missing_anchor_is_red_and_large_model_warns(tmp_path):
 def test_utf8_view_is_explicit_and_preserves_bom_and_crlf(tmp_path):
     body = '''# flowguard: event case(payload: str)
 def case(payload: str): return None
-# flowguard: sensor read(raw: bytes) -> body: bytes
+# flowguard: same read(raw: bytes) -> body: bytes
 def read(raw: bytes) -> bytes: return raw
 '''
     index, m = source(tmp_path, body)
@@ -274,7 +274,7 @@ def scenario(value: int): save(value); publish(value)
 
 
 def test_direct_caller_selects_role_without_first_or_last_recursive_result(tmp_path):
-    body='''# flowguard: sensor recursive(value: number) -> answer: bool
+    body='''# flowguard: same recursive(value: number) -> answer: bool
 def recursive(value: int) -> bool:
     if value > 0: recursive(value-1)
     return value > 0
@@ -312,7 +312,7 @@ def scenario(value: int): helper(value)
 def test_fixed_empty_and_literal_equals_views_do_not_execute_callbacks(tmp_path):
     body='''# flowguard: event inputs(value: bool)
 def inputs(value: bool): return None
-# flowguard: sensor problems(value: flag) -> issues: list
+# flowguard: same problems(value: flag) -> issues: list
 def problems(value: bool) -> list: return [] if value else ['actual diagnostic']
 '''
     index,m=source(tmp_path,body)
@@ -505,7 +505,7 @@ def replacement_flow(tmp_path, *, wrong=False, overrides=False, conflict=False):
     from flowguard.intent.engine import Engine
     module='replacement_'+uuid.uuid4().hex
     path=tmp_path/(module+'.py')
-    path.write_text('# flowguard: sensor accept(days: day) -> answer: bool\n'
+    path.write_text('# flowguard: same accept(days: day) -> answer: bool\n'
                     'def accept(days: int) -> bool: return days <= '+('9'if wrong else'7')+'\n')
     (tmp_path/'tests/intent').mkdir(parents=True)
     (tmp_path/'pyproject.toml').write_text('[tool.flowguard]\nauthority_docs=["policy.txt"]\n')
@@ -559,7 +559,7 @@ def test_active_rule_conflict_is_red_instead_of_an_arbitrary_expected_value(tmp_
 
 
 def test_truthy_string_cannot_enter_a_declared_bool_relation_domain(tmp_path):
-    body='''# flowguard: sensor active() -> value: bool
+    body='''# flowguard: same active() -> value: bool
 def active() -> bool: return 'False'
 '''
     index,m=source(tmp_path,body)
@@ -579,7 +579,7 @@ def active() -> bool: return 'False'
 
 @pytest.mark.parametrize('names',[(),('active','extra')])
 def test_actual_relation_field_set_mismatch_is_red_before_predicate(tmp_path,names):
-    body='''# flowguard: sensor active() -> value: bool
+    body='''# flowguard: same active() -> value: bool
 def active() -> bool: return True
 '''
     index,m=source(tmp_path,body)
@@ -596,7 +596,7 @@ def active() -> bool: return True
 
 def test_path_reading_does_not_become_a_str_by_coercion(tmp_path):
     body='''from pathlib import Path
-# flowguard: sensor path() -> value: Path
+# flowguard: same path() -> value: Path
 def path() -> Path: return Path('actual')
 '''
     index,m=source(tmp_path,body)

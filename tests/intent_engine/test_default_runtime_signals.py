@@ -64,7 +64,7 @@ def _has_change(text):
 def test_fixed_1_a_database_call_is_not_compared_and_never_claims_a_complete_green(tmp_path, capsys):
     policy = _project(tmp_path, '''
         import sqlite3
-        # flowguard: sensor AVAILABLE(stock: count, reserved: count; db, item_id) -> allowed: bool
+        # flowguard: same AVAILABLE(stock: count, reserved: count; db, item_id) -> allowed: bool
         def can_hire(db: sqlite3.Connection, item_id: int, stock: int, reserved: int) -> bool:
             db.execute('SELECT id FROM inventory WHERE id=?', (item_id,)).fetchone()
             return stock > reserved
@@ -113,7 +113,7 @@ def test_fixed_1_a_database_call_is_not_compared_and_never_claims_a_complete_gre
 def test_fixed_2_database_writes_stay_grey_without_replaying_the_effect(tmp_path):
     policy = _project(tmp_path, '''
         import sqlite3
-        # flowguard: sensor COUNTED
+        # flowguard: same COUNTED
         def hire_count(db: sqlite3.Connection, stock: int, reserved: int) -> int:
             db.execute('UPDATE calls SET n=n+1')
             return db.execute('SELECT n FROM calls').fetchone()[0]
@@ -137,7 +137,7 @@ def test_fixed_2_database_writes_stay_grey_without_replaying_the_effect(tmp_path
 def test_fixed_3_old_function_uses_old_module_constant_on_the_recorded_call(tmp_path):
     policy = _project(tmp_path, '''
         GRACE_DAYS = 3
-        # flowguard: sensor STANDING
+        # flowguard: same STANDING
         def standing(days: int, suspended: bool, owed: int) -> bool:
             return days <= GRACE_DAYS and not suspended and owed <= 20
     ''', '''
@@ -398,7 +398,7 @@ def test_fixed_4_changed_function_needs_no_anchor_to_report_member_changes(tmp_p
 
 def test_fixed_5_passing_release_test_reports_the_changed_decision_and_records_its_real_path(tmp_path):
     policy = _project(tmp_path, '''
-        # flowguard: sensor NEEDS_SAVE
+        # flowguard: same NEEDS_SAVE
         def needs_save(payload: str) -> bool:
             return bool(payload)
         # flowguard: event SAVED
@@ -434,10 +434,10 @@ def test_fixed_5_passing_release_test_reports_the_changed_decision_and_records_i
 
 def test_fixed_6_same_name_copies_disagree_on_a_real_shared_input(tmp_path):
     policy = _project(tmp_path, '''
-        # flowguard: sensor STANDING
+        # flowguard: same STANDING
         def standing(days: int) -> bool:
             return days <= 3
-        # flowguard: sensor STANDING
+        # flowguard: same STANDING
         def preview(days: int) -> bool:
             return days <= 3
     ''', '''
@@ -459,7 +459,7 @@ def test_fixed_6_same_name_copies_disagree_on_a_real_shared_input(tmp_path):
 
 def test_fixed_7_rule_failure_preserves_its_independent_source_sentence(tmp_path):
     policy = _project(tmp_path, '''
-        # flowguard: sensor STANDING
+        # flowguard: same STANDING
         def standing(days: int) -> bool:
             return days <= 3
     ''', '''
@@ -489,7 +489,7 @@ def test_fixed_9_reused_connection_calls_run_once_each_and_are_not_compared(tmp_
     policy = _project(tmp_path, '''
         import sqlite3
         GRACE_DAYS = 3
-        # flowguard: sensor STANDING
+        # flowguard: same STANDING
         def standing(db: sqlite3.Connection, days: int) -> bool:
             debt = db.execute('SELECT amount FROM obligations').fetchone()
             if debt is None:
@@ -519,7 +519,7 @@ def test_fixed_9_reused_connection_calls_run_once_each_and_are_not_compared(tmp_
 def test_late_imported_sensor_is_observed_without_eagerly_importing_its_module(tmp_path):
     policy = _project(tmp_path, '''
         GRACE_DAYS = 3
-        # flowguard: sensor LATE_STANDING
+        # flowguard: same LATE_STANDING
         def standing(days: int) -> bool:
             return days <= GRACE_DAYS
     ''', '''
@@ -542,11 +542,11 @@ def test_same_name_database_copies_are_compared_in_the_same_real_context(tmp_pat
     policy = _project(tmp_path, '''
         import sqlite3
         GRACE_DAYS = 3
-        # flowguard: sensor STANDING
+        # flowguard: same STANDING
         def standing(db: sqlite3.Connection, days: int) -> bool:
             debt = db.execute('SELECT amount FROM obligations').fetchone()
             return debt is None or days <= GRACE_DAYS
-        # flowguard: sensor STANDING
+        # flowguard: same STANDING
         def preview(db: sqlite3.Connection, days: int) -> bool:
             debt = db.execute('SELECT amount FROM obligations').fetchone()
             return debt is None or days <= GRACE_DAYS
@@ -571,10 +571,10 @@ def test_same_name_database_copies_are_compared_in_the_same_real_context(tmp_pat
 
 def test_same_name_copy_union_finds_a_baseline_disagreement_and_reports_it_as_before(tmp_path):
     policy = _project(tmp_path, '''
-        # flowguard: sensor STANDING
+        # flowguard: same STANDING
         def owner(days: int) -> bool:
             return False
-        # flowguard: sensor STANDING
+        # flowguard: same STANDING
         def peer(days: int) -> bool:
             return days == 91
     ''', '''
@@ -602,7 +602,7 @@ def test_same_name_copy_union_finds_a_baseline_disagreement_and_reports_it_as_be
 def test_fixture_constant_override_never_enters_the_sealed_comparison(tmp_path):
     policy = _project(tmp_path, '''
         LIMIT = 3
-        # flowguard: sensor LIMIT_BOUNDARY
+        # flowguard: same LIMIT_BOUNDARY
         def allowed(days: int) -> bool:
             return days > LIMIT
     ''', '''

@@ -11,16 +11,16 @@ class QuoteCase(Enum):
     EXACT = 'exact'
     CHANGED = 'changed'
 
-# flowguard: sensor CHOICE(x: count) -> allowed: bool
+# flowguard: same CHOICE(x: count) -> allowed: bool
 def choice(x: int) -> bool:
     if x < 0: raise ValueError('native negative refusal')
     return x <= 3
 
-# flowguard: sensor QUOTE(quote: kind) -> allowed: bool
+# flowguard: same QUOTE(quote: kind) -> allowed: bool
 def quote_allows(quote: QuoteCase) -> bool:
     return quote is QuoteCase.EXACT
 
-# flowguard: sensor CALIBRATED(x: count) -> allowed: bool calibrated_by=test_native.py::test_sensor
+# flowguard: same CALIBRATED(x: count) -> allowed: bool calibrated_by=test_native.py::test_sensor
 def calibrated(x: int) -> bool:
     return x <= 3
 '''

@@ -25,7 +25,7 @@ from pathlib import Path
 _CONF = Path(__file__).with_name("fees.json")
 
 
-# flowguard: sensor LATE_FEE(days: day, member: bool) -> fee: int calibrated_by=tests/test_fees.py::test_fee
+# flowguard: same LATE_FEE(days: day, member: bool) -> fee: int calibrated_by=tests/test_fees.py::test_fee
 def late_fee(days: int, member: bool) -> int:
     conf = json.loads(_CONF.read_text())
     if days <= conf["free_days"]:
@@ -125,7 +125,7 @@ def test_calibrated_config_reader_points_run_sealed_and_never_read_the_file(tmp_
     (tmp_path / 'policy.py').write_text(textwrap.dedent('''
         import json
         from pathlib import Path
-        # flowguard: sensor limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
+        # flowguard: same limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
         def limit(x: int) -> bool:
             return x <= json.loads(Path(__file__).with_name('limit.json').read_text())['limit']
     ''').lstrip())
@@ -151,7 +151,7 @@ def test_real_call_of_a_config_reader_is_checked_against_its_rule(tmp_path):
         import json
         from pathlib import Path
         _CONF = Path(__file__).with_name('limit.json')
-        # flowguard: sensor LIMIT(days: day) -> allowed: bool
+        # flowguard: same LIMIT(days: day) -> allowed: bool
         def accept(days: int) -> bool:
             return days <= json.loads(_CONF.read_text())['limit']
     ''').lstrip())

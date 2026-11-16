@@ -6,7 +6,7 @@ from tests.intent_engine.test_calibration import project
 
 
 def test_calibration_collection_failure_keeps_the_native_error(tmp_path, capsys):
-    project(tmp_path, """# flowguard: sensor limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
+    project(tmp_path, """# flowguard: same limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
 def limit(x: int) -> bool:
     return x <= 3
 """, """from policy import limit
@@ -24,7 +24,7 @@ def test_native():
 
 
 def test_collection_diagnostics_do_not_depend_on_warm_traceback_rendering(tmp_path, capsys):
-    project(tmp_path, """# flowguard: sensor limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
+    project(tmp_path, """# flowguard: same limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
 def limit(x: int) -> bool:
     return x <= 3
 """, """from policy import limit

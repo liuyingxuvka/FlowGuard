@@ -13,7 +13,7 @@ SOURCE = str(Path(__file__).resolve().parents[2])
 
 def project(root):
     (root / 'tests/intent').mkdir(parents=True)
-    (root / 'policy.py').write_text('# flowguard: sensor PERMIT(x: flag) -> answer: bool\ndef permit(x: bool) -> bool:\n    return x\n')
+    (root / 'policy.py').write_text('# flowguard: same PERMIT(x: flag) -> answer: bool\ndef permit(x: bool) -> bool:\n    return x\n')
     (root / 'tests/intent/permit.py').write_text('''from flowguard.intent import rule, row
 @rule('PERMIT', decides='permit', fields={'x': bool}, anchor='PERMIT', source='assumed: only true is permitted')
 def PERMIT(x): return x
@@ -189,7 +189,7 @@ def test_a_final_source_failure_is_not_hidden_by_successful_pytest(tmp_path):
     after_pytest = '''def change_source_after_pytest(*args, **kwargs):
     result = original_check(*args, **kwargs)
     from pathlib import Path
-    (Path(args[1]) / 'broken.py').write_text("# flowguard: sensor FINAL(x: count) -> answer: bool\\ndef unseen(y: bool) -> bool: return y\\n")
+    (Path(args[1]) / 'broken.py').write_text("# flowguard: same FINAL(x: count) -> answer: bool\\ndef unseen(y: bool) -> bool: return y\\n")
     return result
 '''
     injected = 'original_check=cli._run_check_pytest;exec(' + repr(after_pytest) + ');cli._run_check_pytest=change_source_after_pytest'

@@ -181,15 +181,15 @@ def _facts(text):
 
 def test_fields_combine_with_the_context_separator_and_calibrated_by_in_either_order():
     facts = _facts('''
-        # flowguard: sensor A(today: day; db, hire) fields days=(today - hire.due).days calibrated_by=tests/t.py::t
+        # flowguard: same A(today: day; db, hire) fields days=(today - hire.due).days calibrated_by=tests/t.py::t
         def a(db, hire, today: date) -> bool:
             return True
 
-        # flowguard: sensor B calibrated_by=tests/t.py::t[1] fields days=(today - hire.due).days member=db.execute("select m from c where id=?", (hire.c,)).fetchone()[0] == 1
+        # flowguard: same B calibrated_by=tests/t.py::t[1] fields days=(today - hire.due).days member=db.execute("select m from c where id=?", (hire.c,)).fetchone()[0] == 1
         def b(db, hire, today: date) -> bool:
             return True
 
-        # flowguard: sensor C -> fields: bool
+        # flowguard: same C -> fields: bool
         def c(days: int) -> bool:
             return True
     ''')
@@ -212,7 +212,7 @@ def test_fields_combine_with_the_context_separator_and_calibrated_by_in_either_o
 ])
 def test_a_wrong_fields_comment_is_red_and_says_how_to_write_it(comment, reason):
     facts = _facts(f'''
-        # flowguard: sensor A {comment}
+        # flowguard: same A {comment}
         def a(today: date) -> bool:
             return True
     ''')
@@ -228,15 +228,15 @@ def test_fields_belong_to_a_judgment_and_never_repeat_a_parameter():
         def e(today: date) -> None:
             pass
 
-        # flowguard: sensor S fields today=today.day
+        # flowguard: same S fields today=today.day
         def s(today: date) -> bool:
             return True
 
-        # flowguard: owner hires.reserved writers=shop:reserve fields days=1
+        # flowguard: together hires.reserved hires.state fields days=1
     ''')
     problems = [row['message'] for row in facts['anchor_issues']]
-    assert problems[0].startswith('policy.py:1 fields apply only to same-name and function owner anchors'), problems
-    assert problems[1].startswith('policy.py:9 data owners cannot have fields'), problems
+    assert problems[0].startswith('policy.py:1 fields apply only to same NAME and same NAME ref anchors'), problems
+    assert problems[1].startswith('policy.py:9 together cannot have fields'), problems
     issue, = facts['anchors'][0]['issues']
     assert issue['level'] == 'red' and issue['message'].startswith('policy.py:5 field today matches a parameter'), issue
 
@@ -270,8 +270,8 @@ def test_an_explicit_write_in_a_field_is_refused_statically_at_the_comment_line(
 # ---- calibrated_by with fields, show, req add ----------------------------------------------------------
 
 def test_calibrated_by_with_fields_keeps_only_the_named_tests_calls(shop):
-    _edit(shop, 'shop/hires.py', '# flowguard: sensor MAY_BORROW fields',
-          '# flowguard: sensor MAY_BORROW(today; db, hire) calibrated_by=tests/test_hires.py::test_member fields')
+    _edit(shop, 'shop/hires.py', '# flowguard: same MAY_BORROW fields',
+          '# flowguard: same MAY_BORROW(today; db, hire) calibrated_by=tests/test_hires.py::test_member fields')
     test = shop / 'tests/test_hires.py'
     test.write_text(test.read_text() + textwrap.dedent('''
 
@@ -329,7 +329,7 @@ def test_req_add_says_how_a_lasting_rule_cites_the_stored_words(shop, tmp_path):
 def test_check_reruns_the_tests_that_reached_a_fields_rule_when_only_the_rule_changed(tmp_path):
     root = tmp_path / 'late'
     (root / 'tests/intent').mkdir(parents=True)
-    (root / 'shop.py').write_text('# flowguard: sensor LATE fields days=today - hire["due"]\n'
+    (root / 'shop.py').write_text('# flowguard: same LATE fields days=today - hire["due"]\n'
                                   'def is_late(hire: dict, today: int) -> bool:\n    return today - hire["due"] > 2\n')
     (root / 'tests/test_shop.py').write_text('from shop import is_late\n\n\ndef test_late():\n    assert is_late({"due": 1}, 5)\n')
     (root / 'tests/intent/late.py').write_text(textwrap.dedent('''

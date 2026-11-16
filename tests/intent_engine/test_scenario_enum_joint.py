@@ -16,7 +16,7 @@ def enum_joint_project(tmp_path):
     native = 'import pytest\nfrom types import SimpleNamespace\nfrom helpers import Detail\nimport app\n'
     for part in ('left', 'right'):
         identifier = part.upper()
-        source += f'''# flowguard: sensor {identifier}(flag: flag, detail: detail) -> accepted: bool
+        source += f'''# flowguard: same {identifier}(flag: flag, detail: detail) -> accepted: bool
 def {part}_gate(flag: bool, detail: int) -> bool:
     if flag:
         return True
@@ -31,7 +31,7 @@ def {part}_flag(): return True
 @pytest.fixture
 def {part}_detail(): return Detail.ZERO
 '''
-    source += '''# flowguard: sensor APPROVAL(left: data, right: data) -> approved: bool
+    source += '''# flowguard: same APPROVAL(left: data, right: data) -> approved: bool
 def approve(left: object, right: object) -> bool:
     approved = left_gate(left.flag,left.detail) and right_gate(right.flag,right.detail)
     if not approved:

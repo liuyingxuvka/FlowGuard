@@ -21,7 +21,7 @@ BASELINE = {
     'app/vstate.py': 'COUNTER = 0\n',
     'app/dice.py': 'import random\n\n\ndef roll(bonus: int):\n    return random.randint(1, 6)\n',
     'app/lg.py': 'import logging\n\n\ndef checked(x: int):\n    return x <= 3\n',
-    'app/gen.py': '# flowguard: sensor RG_GEN\ndef first(items, x: int):\n    return x <= 3\n',
+    'app/gen.py': '# flowguard: same RG_GEN\ndef first(items, x: int):\n    return x <= 3\n',
     'app/ev.py': 'def notify(on_event, x: int):\n    return x <= 3\n',
     'app/db.py': 'def insert(db, x: int):\n    return x <= 3\n\n\ndef finish(db, x: int):\n    return x <= 3\n',
     'app/state.py': 'from app import vstate\n\n\ndef count(x: int):\n    return x <= 3\n',
@@ -29,7 +29,7 @@ BASELINE = {
 CHANGED = {
     'app/dice.py': 'import random\n\n\ndef roll(bonus: int):\n    return random.randint(1, 6) + bonus\n',
     'app/lg.py': "import logging\n\n\ndef checked(x: int):\n    logging.getLogger('app').warning('checked %s', x)\n    return x <= 3\n",
-    'app/gen.py': '# flowguard: sensor RG_GEN\ndef first(items, x: int):\n    next(items)\n    return x <= 3\n',
+    'app/gen.py': '# flowguard: same RG_GEN\ndef first(items, x: int):\n    next(items)\n    return x <= 3\n',
     'app/ev.py': 'def notify(on_event, x: int):\n    on_event(x)\n    return x <= 3\n',
     'app/db.py': ('def insert(db, x: int):\n    db.set_authorizer(None)\n    db.execute("INSERT INTO t VALUES (1)")\n'
                   '    db.commit()\n    return x <= 3\n\n\ndef finish(db, x: int):\n'

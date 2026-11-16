@@ -18,7 +18,7 @@ from tests.intent_engine._source_fixture import source_sessions
 
 @pytest.mark.parametrize('value,actual', [(2,True),(4,False)])
 def test_single_monitor_and_interceptor_share_the_same_owned_trace_rule(tmp_path,value,actual):
-    anchor=project(tmp_path,'''# flowguard: sensor limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
+    anchor=project(tmp_path,'''# flowguard: same limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
 def limit(x: int) -> bool:
     return x <= 3
 ''','''from policy import limit

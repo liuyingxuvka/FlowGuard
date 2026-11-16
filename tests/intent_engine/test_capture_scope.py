@@ -77,7 +77,7 @@ def test_unmodeled_anchor_inside_test_entry_keeps_its_actual_event_and_notice(tm
     binding=scenario(tmp_path)
     path=tmp_path/'policy.py'
     path.write_text(path.read_text().replace('return x <= 3','return audit(x <= 3)')+'''
-# flowguard: sensor audit(value: flag) -> result: bool
+# flowguard: same audit(value: flag) -> result: bool
 def audit(value: bool) -> bool:
     return value
 ''')

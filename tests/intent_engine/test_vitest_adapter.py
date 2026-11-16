@@ -131,7 +131,7 @@ FEES = {
 def _sensor(root, file, before, name):
     path = root / file
     text = path.read_text(encoding='utf-8')
-    path.write_text(text.replace(before, f'// flowguard: sensor {name}\n' + before, 1), encoding='utf-8', newline='\n')
+    path.write_text(text.replace(before, f'// flowguard: same {name}\n' + before, 1), encoding='utf-8', newline='\n')
 
 
 # ---- ecma facts shared by check --static and the execution side --------------------------------------
@@ -150,17 +150,17 @@ def test_comparisons_with_constant_names_and_table_lookups_fold_through_imports(
             const MAX = 10;
             const Kind = { A: 'a', B: 'b' };
 
-            // flowguard: sensor FEE
+            // flowguard: same FEE
             export function fee(days: number, kind: string): number {
               if (days > FREE_DAYS && days <= MAX) return 1;
               if (kind === Kind.A) return 2;
               return 0;
             }
 
-            // flowguard: sensor LABEL
+            // flowguard: same LABEL
             export const label = (status: string) => LABELS[status] ?? 'x';
 
-            // flowguard: sensor
+            // flowguard: same
             export function broken() {}
         ''',
     })
@@ -174,7 +174,7 @@ def test_comparisons_with_constant_names_and_table_lookups_fold_through_imports(
     assert keys == [('label', 'LABELS', ['ACTIVE', 'RETIRED'])], keys
     sensors = [(a.name, a.qual, a.line, a.target_line, [p.name for p in a.parameters]) for a in index.entries if a.kind == 'sensor']
     assert sensors == [('FEE', 'fee', 5, 6, ['days', 'kind']), ('LABEL', 'label', 12, 13, ['status'])], sensors
-    assert [issue.message for issue in index.issues] == ['src/fee.ts:15: sensor needs one NAME: // flowguard: sensor NAME']
+    assert [issue.message for issue in index.issues] == ['src/fee.ts:15: same needs one NAME: // flowguard: same NAME']
 
 
 # ---- the plan ----------------------------------------------------------------------------------------
@@ -338,7 +338,7 @@ def test_a_known_entry_this_run_speaks_for_keeps_its_own_line_beside_the_map_che
 def test_the_report_title_says_how_far_head_lies_after_the_task_start_as_pytest_does(tmp_path):
     """An agent that never runs new-task: in a vitest project the execution side's block can be FlowGuard's only
     output, so it too names the commits since the task start and the next step."""
-    limit = '// flowguard: sensor LIMIT\nexport function limit(days: number) {{ return days <= {}; }}\n'
+    limit = '// flowguard: same LIMIT\nexport function limit(days: number) {{ return days <= {}; }}\n'
     _commit(tmp_path, {'src/limits.ts': limit.format(3)})
     start = _git(tmp_path, 'rev-parse', 'HEAD').strip()
     assert _flowguard(tmp_path, 'check', '--static')[0] == 0      # records the task start
@@ -363,7 +363,7 @@ def test_the_report_title_says_how_far_head_lies_after_the_task_start_as_pytest_
 def test_the_report_names_a_file_by_an_end_no_other_file_of_the_repository_has(tmp_path):
     # As in pytest's block (D17): src/limits.ts never prints as limits.ts in a repository that also has a limits.ts,
     # though no line of the block names that other file.
-    limit = '// flowguard: sensor LIMIT\nexport function limit(days: number) {{ return days <= {}; }}\n'
+    limit = '// flowguard: same LIMIT\nexport function limit(days: number) {{ return days <= {}; }}\n'
     _commit(tmp_path, {'src/limits.ts': limit.format(3), 'limits.ts': 'export const LIMIT = 3;\n'})
     (tmp_path / 'src/limits.ts').write_text(limit.format(4), encoding='utf-8')
     code, text = _report(tmp_path, _prepare(tmp_path)['plan'])
@@ -1451,29 +1451,32 @@ def test_a_run_that_filters_out_the_session_test_fails_with_its_red_in_the_block
         assert ran['real'] == 'passed' and ran.get('FlowGuard execution side') in (None, 'skipped'), (arguments, ran)
 
 
-def test_deprecation_notices_print_once_on_stderr_after_the_block(vitest_home):
-    # Review of 4.3: the session test discarded its report's stderr, so a deprecated intent spelling (precedes, which 5.0
-    # removed) was said nowhere but in show --last; the plan's own notices (prepare's stderr) and the static test's were lost the
-    # same way. Design 4.7: deprecated goes to stderr; each notice once, after the block, also in a filtered run.
-    root = vitest_home / 'deprecated'
+def test_a_vitest_run_says_each_removed_spelling_red_at_its_line_with_its_rewrite(vitest_home):
+    # Review of 4.3: the session test discarded its report's stderr, so a deprecated spelling was said nowhere but in show
+    # --last; 4.3 then said each notice once, after the block, also in a filtered run. 5.0 removed the 4.2 spellings
+    # (`// flowguard: sensor`, `owner NAME`): each is a red line of the block at its comment, its step the 4.3 comment,
+    # from the map checks of the static test, and no notice is said; a filtered run without the static test says that
+    # the map checks did not report, as for any red of a comment.
+    root = vitest_home / 'removed'
     _commit(root, {
-        'package.json': '{"name":"deprecated","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
-        'src/a.ts': '// flowguard: sensor LIMIT\nexport function over(x: number): boolean {\n  return x > 3;\n}\n',
+        'package.json': '{"name":"removed","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/a.ts': '// flowguard: same LIMIT\nexport function over(x: number): boolean {\n  return x > 3;\n}\n',
         'src/b.ts': '// flowguard: sensor LIMIT\nexport const enough = (x: number): boolean => x > 3;\n',
         'tests/app.test.ts': "import { it, expect } from 'vitest';\nimport { over } from '../src/a';\nit('real', () => { expect(over(4)).toBe(true); });\n",
         'src/grace.ts': '// flowguard: owner GRACE\nexport function grace(days: number): boolean {\n  return days <= 5;\n}\n',
     })
     assert _flowguard(root, 'init')[0] == 0
     _commit(root, message='wired')
-    notices = ['deprecated: function owner goes in 5.0 -> write same NAME ref', 'deprecated: sensor goes in 5.0 -> write same NAME']
-    for arguments in ([], ['tests/app.test.ts']):           # the session test's report, and the teardown's
+    reds = ['red: comment b.ts:1: sensor was removed in 5.0 -> write // flowguard: same LIMIT',
+            'red: comment grace.ts:1: owner NAME above a function was removed in 5.0 -> write // flowguard: same GRACE ref']
+    for arguments, code, wanted in (([], 1, reds), (['tests/app.test.ts'], 0, [])):   # the session test's report, the teardown's
         done = subprocess.run([_tool('node'), str(vitest_home / 'node_modules/vitest/vitest.mjs'), 'run', *arguments], cwd=root,
                               capture_output=True, encoding='utf-8', timeout=600, env=_environment())
         out, err = ANSI.sub('', done.stdout), ANSI.sub('', done.stderr)
-        assert done.returncode == 0 and _block(out), (arguments, out, err)
-        assert err.strip().splitlines()[-2:] == notices, (arguments, err)
-        assert [(out + err).count(notice) for notice in notices] == [1, 1], (arguments, out, err)
-    assert 'deprecated features used (5.0): function owner, sensor' in _cli_fixture.last(root), _cli_fixture.last(root)
+        assert done.returncode == code and [line for line in _block(out) if line.startswith('red: ')] == wanted, (arguments, out, err)
+        assert 'deprecated: ' not in out + err, (arguments, out, err)
+    assert _block(out)[-1] == 'not compared: flowguard.static.test.mjs (map checks did not report to this vitest run) -> not a failure', out
+    assert 'deprecated features used' not in _cli_fixture.last(root), _cli_fixture.last(root)
 
 
 def test_a_known_site_is_touched_by_an_edit_of_its_text_and_not_by_an_edit_beside_it_as_in_pytest(vitest_home):
@@ -1806,13 +1809,13 @@ def test_a_same_name_red_names_an_input_next_to_the_one_the_test_used_and_fails_
         'package.json': '{"name": "weeks", "private": true, "type": "module", "scripts": {"test": "vitest run"}, '
                         '"devDependencies": {"vitest": "' + VITEST + '"}}\n',
         'src/chart.ts': ISO_WEEK + '''
-            // flowguard: sensor ISO_WEEKS_IN_YEAR
+            // flowguard: same ISO_WEEKS_IN_YEAR
             export function weeksInYear(year: number): number {
               return isoWeek(new Date(Date.UTC(year, 11, 28)));
             }
         ''',
         'src/calendar.ts': ISO_WEEK + '''
-            // flowguard: sensor ISO_WEEKS_IN_YEAR
+            // flowguard: same ISO_WEEKS_IN_YEAR
             export function weekCount(year: number): number {
               return isoWeek(new Date(Date.UTC(year, 11, 28)));
             }
@@ -1858,7 +1861,7 @@ def test_three_same_name_copies_are_counted_by_answer_and_the_red_leaves_the_cho
     # AI to change the copy the test reached, one of the two that agree, and to write a `distinct` TS cannot write.
     root = vitest_home / 'three-weeks'
     copy = '''
-        // flowguard: sensor ISO_WEEKS_IN_YEAR
+        // flowguard: same ISO_WEEKS_IN_YEAR
         export function %s(year: number): number {
           return isoWeek(new Date(Date.UTC(year, 11, %d)));
         }
@@ -1894,13 +1897,13 @@ def test_a_run_lists_only_its_own_packages_unreached_points_one_per_place(vitest
     _commit(root, {
         'web/package.json': '{"name": "web", "private": true, "type": "module", "scripts": {"test": "vitest run"}, '
                             '"devDependencies": {"vitest": "' + VITEST + '"}}\n',
-        'web/src/a.ts': '// flowguard: sensor A_LIMIT\nexport function over(x: number): boolean {\n  return x > 3;\n}\n',
-        'web/src/b.ts': '// flowguard: sensor B_LIMIT\nexport function under(x: number): boolean {\n  return x < 3;\n}\n',
-        'web/src/c.ts': '// flowguard: sensor B_LIMIT\nexport function below(x: number): boolean {\n  return x < 3;\n}\n',
+        'web/src/a.ts': '// flowguard: same A_LIMIT\nexport function over(x: number): boolean {\n  return x > 3;\n}\n',
+        'web/src/b.ts': '// flowguard: same B_LIMIT\nexport function under(x: number): boolean {\n  return x < 3;\n}\n',
+        'web/src/c.ts': '// flowguard: same B_LIMIT\nexport function below(x: number): boolean {\n  return x < 3;\n}\n',
         'web/tests/a.test.ts': "import { expect, it } from 'vitest';\nimport { over } from '../src/a';\n\n"
                                "it('over', () => { expect(over(4)).toBe(true); });\n",
         'api/package.json': '{"name": "api", "private": true, "type": "module", "scripts": {"build": "tsc"}}\n',
-        'api/src/d.ts': '// flowguard: sensor API_LIMIT\nexport function limit(x: number): boolean {\n  return x > 9;\n}\n',
+        'api/src/d.ts': '// flowguard: same API_LIMIT\nexport function limit(x: number): boolean {\n  return x > 9;\n}\n',
     })
     code, text = _flowguard(root, 'init')
     assert code == 0, text

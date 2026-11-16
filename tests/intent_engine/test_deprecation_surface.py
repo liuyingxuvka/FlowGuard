@@ -1,4 +1,5 @@
-"""Removal notices name the deprecated input a project uses, once per run, and none for FlowGuard's own work."""
+"""A removed spelling is red at its place with its rewrite (5.0; 4.3 printed a removal notice once per run), and
+FlowGuard's own work says no notice."""
 
 
 COPIES = {
@@ -44,12 +45,14 @@ def test_no_deprecation_notice_for_the_copy_discovery_flowguard_makes_itself(tmp
     assert 'deprecated features used' not in text, text
 
 
-def test_a_pytest_session_says_its_deprecation_notices_once_on_stderr_after_its_block(tmp_path):
-    """Review of 4.3: pytest captures its collection's output, so the notices of a deprecated spelling read there (a
-    `sensor` comment, an intent file's `precedes`, which 5.0 removed) were lost unless pytest ran with -s. Design 4.7:
-    deprecated goes to stderr; the session says each notice once, after its block."""
+def test_a_pytest_session_says_each_removed_spelling_red_at_its_line_with_its_rewrite(tmp_path):
+    """Review of 4.3: pytest captures its collection's output, so the notices of a deprecated spelling read there were lost
+    unless pytest ran with -s; the session said them once on stderr after its block. 5.0 removed the 4.2 spellings
+    (`sensor`, `owner NAME` above a function): each is a red line of the block at its comment, its step the 4.3
+    comment, and no notice is said."""
     import subprocess
     import sys
+    from tests.intent_engine import _cli_fixture
     from tests.intent_engine._cli_fixture import SOURCE
     root = tmp_path / 'project'
     (root / 'tests/intent').mkdir(parents=True)
@@ -70,8 +73,11 @@ def test_a_pytest_session_says_its_deprecation_notices_once_on_stderr_after_its_
     subprocess.run(['git', 'add', '.'], cwd=root, check=True, capture_output=True)
     subprocess.run(['git', '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'base'], cwd=root,
                    check=True, capture_output=True)
-    notices = ['deprecated: sensor goes in 5.0 -> write same NAME', 'deprecated: function owner goes in 5.0 -> write same NAME ref']
     done = run('-q', '-p', 'no:cacheprovider', pytest_run=True)
-    assert 'FlowGuard ' in done.stdout and not [line for line in done.stdout.splitlines() if line.startswith('deprecated: ')], done.stdout
-    assert sorted(done.stderr.strip().splitlines()[-2:]) == sorted(notices), done.stdout + done.stderr
-    assert [done.stderr.count(notice) for notice in notices] == [1, 1], done.stderr
+    assert done.returncode == 1 and ' passed' in done.stdout and 'failed' not in done.stdout, done.stdout + done.stderr
+    assert [line for line in _cli_fixture.block(done)[1:] if line.startswith('red: ')] == [
+        'red: comment app.py:1: sensor was removed in 5.0 -> write # flowguard: same LIMIT',
+        'red: comment grace.py:1: owner NAME above a function was removed in 5.0 -> write # flowguard: same GRACE ref'], done.stdout
+    assert 'deprecated' not in done.stdout + done.stderr, done.stdout + done.stderr
+    done = run('--root', str(root), 'show', '--last')
+    assert done.returncode == 0 and 'deprecated features used' not in done.stdout, done.stdout

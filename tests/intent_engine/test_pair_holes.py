@@ -571,7 +571,7 @@ def test_a_caller_that_imports_the_same_name_from_another_file_makes_its_member_
 
 def test_a_python_caller_that_imports_the_same_name_from_another_module_makes_its_member_red(tmp_path):
     store = '''
-        # flowguard: owner hires.reserved with=hires.state=held
+        # flowguard: together hires.reserved hires.state=held
         from shop.%s import hold
 
 
@@ -759,7 +759,7 @@ def test_a_deleted_file_the_map_never_reads_gives_the_baseline_nothing(tmp_path)
             db.execute("UPDATE hires SET reserved = 1 WHERE id = ?", (hire_id,))
     '''
     _commit(tmp_path, {'pyproject.toml': '[tool.flowguard]\nexclude = ["vendor/**"]\n', 'shop/__init__.py': '',
-                       'shop/store.py': '# flowguard: owner hires.reserved with=hires.state=held\nKEEP = 1\n',
+                       'shop/store.py': '# flowguard: together hires.reserved hires.state=held\nKEEP = 1\n',
                        '.flowguard/models/retired.py': retired, 'vendor/tool.py': retired, 'shop/old.py': retired})
     for path in ('.flowguard/models/retired.py', 'vendor/tool.py', 'shop/old.py'):
         (tmp_path / path).unlink()

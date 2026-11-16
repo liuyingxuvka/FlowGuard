@@ -27,7 +27,7 @@ def project(tmp_path, *, missing_save=False, hierarchical=True, nested=False, ex
 def check(flag: bool, detail: bool): return flag
 # flowguard: event SAVE(flag: bool, detail: bool)
 def save(flag: bool, detail: bool): return detail
-# flowguard: sensor PUBLISH(flag: bool, detail: bool) -> done: bool
+# flowguard: same PUBLISH(flag: bool, detail: bool) -> done: bool
 def publish(flag: bool, detail: bool) -> bool:
     if flag: return True
     return False
@@ -36,7 +36,7 @@ def child(flag: bool, detail: bool):
     check(flag, detail)
     save(flag, detail)
     return publish(flag, detail)
-# flowguard: sensor UPPER(flag: bool, detail: bool, stock: bool) -> accepted: bool
+# flowguard: same UPPER(flag: bool, detail: bool, stock: bool) -> accepted: bool
 def upper(flag: bool, detail: bool, stock: bool) -> bool:
     return child(flag, detail) is True
 # flowguard: event PARENT_ENTRY(flag: bool, detail: bool, stock: bool)
@@ -52,8 +52,8 @@ def run(flag: bool, detail: bool, stock: bool):
             text=text.replace('def save(flag: bool, detail: bool): return detail',
                               'def save(flag: bool, detail: bool): return publish(flag, detail)')
             prefix,body=text.split('def child(flag: bool, detail: bool):\n',1)
-            _,suffix=body.split('# flowguard: sensor UPPER',1)
-            text=prefix+'def child(flag: bool, detail: bool):\n    return check(flag, detail)\n# flowguard: sensor UPPER'+suffix
+            _,suffix=body.split('# flowguard: same UPPER',1)
+            text=prefix+'def child(flag: bool, detail: bool):\n    return check(flag, detail)\n# flowguard: same UPPER'+suffix
         if export_entry:
             text=text.replace('    return publish(flag, detail)\n', '    return publish(flag, detail) is True\n')
         path.write_text(text)

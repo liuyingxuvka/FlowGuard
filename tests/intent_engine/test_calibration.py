@@ -18,7 +18,7 @@ def project(tmp_path, source, test):
 
 
 def test_pure_batch_preserves_values_and_reuses_one_verified_module(tmp_path):
-    anchor = project(tmp_path, '''# flowguard: sensor limit(x: count) -> allowed: bool
+    anchor = project(tmp_path, '''# flowguard: same limit(x: count) -> allowed: bool
 def limit(x: int) -> bool:
     if x < 0: raise ValueError('negative input')
     return x <= 3
@@ -40,7 +40,7 @@ def limit(x: int) -> bool:
 
 def test_side_effect_sensor_uses_only_the_real_fixture_call_and_restores_alias(tmp_path):
     anchor = project(tmp_path, '''from pathlib import Path
-# flowguard: sensor limit(x: count, filename: path) -> allowed: bool calibrated_by=test_policy.py::test_native
+# flowguard: same limit(x: count, filename: path) -> allowed: bool calibrated_by=test_policy.py::test_native
 def limit(x: int, filename: str) -> bool:
     try:
         return x <= int(Path(filename).read_text())
@@ -77,7 +77,7 @@ def test_native(filename):
 
 def test_unavailable_custom_exception_is_not_masqueraded_as_a_builtin_refusal(tmp_path):
     anchor = project(tmp_path, '''class Denied(ValueError): pass
-# flowguard: sensor limit(x: count, threshold: count) -> allowed: bool calibrated_by=test_policy.py::test_native
+# flowguard: same limit(x: count, threshold: count) -> allowed: bool calibrated_by=test_policy.py::test_native
 def limit(x: int, threshold: int) -> bool:
     if x < 0: raise Denied('negative input')
     return x <= threshold
@@ -93,7 +93,7 @@ def test_native(tmp_path):
 
 
 def test_native_probe_does_not_import_unselected_intent(tmp_path):
-    anchor = project(tmp_path, '''# flowguard: sensor limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
+    anchor = project(tmp_path, '''# flowguard: same limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
 def limit(x: int) -> bool:
     return x <= 3
 ''', '''from policy import limit
@@ -110,7 +110,7 @@ def test_native(): assert limit(2) is True
 
 
 def test_ambiguous_calls_and_missing_target_stay_grey(tmp_path):
-    anchor = project(tmp_path, '''# flowguard: sensor limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
+    anchor = project(tmp_path, '''# flowguard: same limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
 def limit(x: int) -> bool:
     return x <= 3
 ''', 'from policy import limit\ndef test_native():\n    assert limit(1)\n    assert limit(2)\n')
@@ -125,7 +125,7 @@ def limit(x: int) -> bool:
 
 def test_unstable_external_state_cannot_calibrate(tmp_path):
     anchor = project(tmp_path, '''import time
-# flowguard: sensor stamp(x: count) -> result: float calibrated_by=test_policy.py::test_native
+# flowguard: same stamp(x: count) -> result: float calibrated_by=test_policy.py::test_native
 def stamp(x: int) -> float:
     return time.time() + x
 ''', 'from policy import stamp\ndef test_native(): assert stamp(0) > 0\n')
@@ -141,7 +141,7 @@ def test_a_coarse_clock_still_cannot_calibrate_a_clock_reading_sensor(tmp_path, 
     real = time.time
     monkeypatch.setattr(time, 'time', lambda: (real() * 64 // 1) / 64)
     anchor = project(tmp_path, '''import time
-# flowguard: sensor stamp(x: count) -> result: float calibrated_by=test_policy.py::test_native
+# flowguard: same stamp(x: count) -> result: float calibrated_by=test_policy.py::test_native
 def stamp(x: int) -> float:
     return time.time() + x
 ''', 'from policy import stamp\ndef test_native(): assert stamp(0) > 0\n')
@@ -153,7 +153,7 @@ def stamp(x: int) -> float:
 
 
 def test_baseline_assert_and_teardown_failures_are_not_hidden(tmp_path):
-    anchor = project(tmp_path, '''# flowguard: sensor limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
+    anchor = project(tmp_path, '''# flowguard: same limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
 def limit(x: int) -> bool:
     return x <= 3
 ''', 'from policy import limit\ndef test_native(): assert limit(2) is False\n')
@@ -164,7 +164,7 @@ def limit(x: int) -> bool:
 
 def test_constructor_state_write_is_not_a_replayed_sensor(tmp_path):
     anchor = project(tmp_path, '''class Service:
-    # flowguard: sensor init(x: count) -> result: None calibrated_by=test_policy.py::test_native
+    # flowguard: same init(x: count) -> result: None calibrated_by=test_policy.py::test_native
     def __init__(self, x: int) -> None:
         self.x = x
 ''', 'from policy import Service\ndef test_native(): assert Service(2).x == 2\n')
@@ -191,7 +191,7 @@ def test_intercepted_same_function_restores_alias_and_real_final_return():
 def test_conflicting_project_sdk_namespace_is_rejected_without_replacing_the_live_tool(tmp_path):
     package = tmp_path / 'flowguard'; package.mkdir()
     (package / '__init__.py').write_text("VERSION='old target'\n")
-    (package / 'decision.py').write_text('# flowguard: sensor limit(x: count) -> allowed: bool\ndef limit(x: int) -> bool:\n    return x <= 2\n')
+    (package / 'decision.py').write_text('# flowguard: same limit(x: count) -> allowed: bool\ndef limit(x: int) -> bool:\n    return x <= 2\n')
     (tmp_path / 'pyproject.toml').write_text('')
     anchor = anchors.collect_sources(tmp_path, [('flowguard/decision.py', 'flowguard.decision')]).entries[0]
     live = sys.modules['flowguard']
@@ -201,7 +201,7 @@ def test_conflicting_project_sdk_namespace_is_rejected_without_replacing_the_liv
 
 
 def test_stale_source_and_actual_teardown_fail_stay_unavailable(tmp_path):
-    anchor = project(tmp_path, '''# flowguard: sensor limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
+    anchor = project(tmp_path, '''# flowguard: same limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
 def limit(x: int) -> bool:
     return x <= 3
 ''', '''import pytest
@@ -223,7 +223,7 @@ def test_native(): assert limit(2)
 
 def test_existing_code_instrumentation_is_never_replaced_by_fresh_source(tmp_path):
     import ast
-    anchor = project(tmp_path, '''# flowguard: sensor limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
+    anchor = project(tmp_path, '''# flowguard: same limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
 def limit(x: int) -> bool:
     return x <= 3
 ''', 'from policy import limit\ndef test_native(): assert type(limit(2)) is bool\n')
@@ -251,7 +251,7 @@ def test_outcome_equality_keeps_numbers_and_native_error_class_identity():
 
 
 def test_private_probe_is_real_current_session_not_a_boolean_skip_switch(tmp_path):
-    anchor = project(tmp_path, '''# flowguard: sensor limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
+    anchor = project(tmp_path, '''# flowguard: same limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
 def limit(x: int) -> bool:
     return x <= 3
 ''', '''from flowguard.intent.calibration import probe_context
@@ -268,7 +268,7 @@ def test_native(request):
 
 
 def test_skipped_original_test_is_never_a_calibration_pass(tmp_path):
-    anchor = project(tmp_path, '''# flowguard: sensor limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
+    anchor = project(tmp_path, '''# flowguard: same limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
 def limit(x: int) -> bool:
     return x <= 3
 ''', 'import pytest\nfrom policy import limit\ndef test_native():\n    value = limit(2)\n    pytest.skip("not a passing baseline")\n')
@@ -279,7 +279,7 @@ def limit(x: int) -> bool:
 
 
 def test_driver_cannot_hide_source_parameter_or_output_type_mismatch(tmp_path):
-    anchor = project(tmp_path, '''# flowguard: sensor limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
+    anchor = project(tmp_path, '''# flowguard: same limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
 def limit(x: int) -> bool:
     return 'wrong' if x == 5 else True
 ''', 'from policy import limit\ndef test_native(): assert limit(2) is True\n')
@@ -292,7 +292,7 @@ def limit(x: int) -> bool:
 
 def test_driver_reads_current_source_with_same_mtime_and_length(tmp_path):
     import os, py_compile
-    anchor = project(tmp_path, '''# flowguard: sensor limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
+    anchor = project(tmp_path, '''# flowguard: same limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
 def limit(x: int) -> bool:
     return x <= 3
 ''', 'from policy import limit\ndef test_native(): assert limit(2) is True\n')
@@ -312,7 +312,7 @@ def limit(x: int) -> bool:
 def test_old_flowguard_src_package_cannot_shadow_the_live_sdk(tmp_path):
     folder = tmp_path / 'src' / 'flowguard'; folder.mkdir(parents=True)
     (folder / '__init__.py').write_text('')
-    (folder / 'policy.py').write_text('# flowguard: sensor old_limit(x: count) -> allowed: bool\ndef old_limit(x: int) -> bool:\n    return x <= 3\n')
+    (folder / 'policy.py').write_text('# flowguard: same old_limit(x: count) -> allowed: bool\ndef old_limit(x: int) -> bool:\n    return x <= 3\n')
     (tmp_path / 'pyproject.toml').write_text('[tool.flowguard]\nroots=["src"]\n')
     anchor = anchors.collect_sources(tmp_path, [('src/flowguard/policy.py','flowguard.policy')]).entries[0]
     tool = sys.modules['flowguard']
@@ -324,7 +324,7 @@ def test_old_flowguard_src_package_cannot_shadow_the_live_sdk(tmp_path):
 def test_native_dependency_keeps_its_identity_in_the_current_interpreter(tmp_path):
     package = tmp_path / 'domain_sdk'; package.mkdir()
     (package / '__init__.py').write_text('NATIVE_ID="native-old"\n')
-    anchor = project(tmp_path, '''# flowguard: sensor limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
+    anchor = project(tmp_path, '''# flowguard: same limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
 def limit(x: int) -> bool:
     return x <= 3
 ''', '''import domain_sdk
@@ -341,7 +341,7 @@ def test_native():
 
 
 def test_calibration_reuses_the_current_sdk_without_bootstrapping_a_second_copy(tmp_path):
-    anchor = project(tmp_path, '''# flowguard: sensor limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
+    anchor = project(tmp_path, '''# flowguard: same limit(x: count) -> allowed: bool calibrated_by=test_policy.py::test_native
 def limit(x: int) -> bool:
     return x <= 3
 ''', 'import flowguard\nfrom policy import limit\ndef test_native(): assert limit(2) is True\n')
