@@ -258,6 +258,51 @@ def test_a_file_moved_without_git_keeps_its_agreements(tmp_path):
     assert _loosened(tmp_path)[0] == []
 
 
+BOOKING = '''class Booking:
+    unit_id = None
+    employee_id = None
+
+
+# flowguard: owner Booking.unit_id writers=reserve
+# flowguard: owner Booking.employee_id with=Booking.unit_id alone=move(reason)
+def reserve(b, u, e):
+    b.unit_id = u
+    b.employee_id = e
+
+
+def move(b, u):
+    b.unit_id = u
+'''
+
+
+def test_a_renamed_python_file_compares_its_own_and_other_files_positions_by_the_module_they_name(tmp_path):
+    # A Python position in another file keeps its path (anchors._position); a renamed file's old spellings are read
+    # over the current map, so their own functions are spelled by the new path. Both resolve to the new module.
+    _commit(tmp_path, {'pkg/__init__.py': '', 'pkg/old.py': BOOKING})
+    _git(tmp_path, 'mv', 'pkg/old.py', 'pkg/new.py')
+    assert _loosened(tmp_path)[0] == []
+    _write(tmp_path, {'pkg/new.py': BOOKING.replace('owner Booking.unit_id writers=reserve', 'writers Booking.unit_id reserve')
+                      .replace('owner Booking.employee_id with=Booking.unit_id alone=move(reason)',
+                               'together Booking.employee_id Booking.unit_id except=pkg/new.py:move(reason)')})
+    assert _loosened(tmp_path)[0] == []
+    _write(tmp_path, {'pkg/new.py': BOOKING.replace('alone=move(reason)', 'alone=move(reason),reserve(also)')})
+    assert _loosened(tmp_path)[0] == ['except=reserve added to together Booking.employee_id']
+    # The same file moved without Git.
+    _git(tmp_path, 'mv', 'pkg/new.py', 'pkg/old.py')
+    _write(tmp_path, {'pkg/old.py': BOOKING})
+    _git(tmp_path, 'add', 'pkg/old.py')
+    (tmp_path / 'pkg/old.py').rename(tmp_path / 'pkg/new.py')
+    assert _loosened(tmp_path)[0] == []
+
+
+def test_a_python_path_position_follows_its_renamed_target_file(tmp_path):
+    _commit(tmp_path, {'pkg/__init__.py': '', 'pkg/b.py': 'class Booking:\n    unit_id = None\n\n\ndef reserve(b, u):\n    b.unit_id = u\n',
+                       'pkg/a.py': '# flowguard: writers Booking.unit_id pkg/b.py:reserve\nX = 1\n'})
+    _git(tmp_path, 'mv', 'pkg/b.py', 'pkg/c.py')
+    _write(tmp_path, {'pkg/a.py': '# flowguard: writers Booking.unit_id pkg/c.py:reserve\nX = 1\n'})
+    assert _loosened(tmp_path)[0] == []
+
+
 SAVE = "export async function save(prisma: any) {\n  await prisma.item.update({ where: { id: '1' }, data: { state: '%s' } });\n}\n"
 
 

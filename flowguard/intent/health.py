@@ -775,7 +775,7 @@ def brief_line(cfg):
     if not data or not data['count'] and not data['writers']:
         return ''
     return (f'{data["count"]} open structure issues' + (f' ({data["writers"]} other fields have multiple writers and no writer agreement)' if data['writers'] else '')
-            + '; highest severity: ' + '; '.join(data['top']) + ' (last check; check --static --all lists every issue and next step)')
+            + '; highest severity: ' + '; '.join(data['top']) + ' (last check; check --static --all lists each with its next step, check --all also copies that drifted apart)')
 
 
 def assess(found):

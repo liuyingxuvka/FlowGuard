@@ -1104,16 +1104,18 @@ def _counted(number, noun, plural=None):
 # ---- what this change loosened, and the fields it newly writes (4.3) ----------------------------------
 
 
-def _agreements(rows, moved=None):
+def _agreements(rows, modules, moved=None):
     """The agreements of these `anchors` fact rows: {field: {'writers': {writer: row}, 'pairs': {partner: row},
     'alone': {function: row}, 'on': {on: row}}} of the data agreements (writers, together), and {(name, function):
     [rows]} of the same-name copies (`same`, `same NAME ref`). A position is the function it resolves to
-    (`module:function`), so a comment moved to another file means the function of that file it now names; `moved`
-    maps the module of a file renamed away to its new module."""
+    (`module:function`; a Python position in another file keeps its path, which `modules`, {path: module}, maps), so
+    a comment moved to another file means the function of that file it now names; `moved` maps the module of a file
+    renamed away to its new module."""
     moved = moved or {}
 
     def resolved(position):
         target, _, qual = position.rpartition(':')
+        target = modules.get(target, target)
         return moved.get(target, target) + ':' + qual
     data, same = {}, {}
     for row in rows:
@@ -1204,7 +1206,8 @@ def loosened(change, index):
     from .anchors import _graph_locator
     graph = change.graph
     # a 4.2 bare name means the functions of that name in the map, at the baseline too, as the step 5.0 prints names them
-    locate = _graph_locator(graph, {path: change.module(path) for path in paths if change.module(path)} | change._modules)
+    modules = {path: change.module(path) for path in paths if change.module(path)} | change._modules
+    locate = _graph_locator(graph, modules)
 
     def nodes(path):
         """The map's functions of a JS/TS file as its reader's node rows (`anchors.foreign_owners` reads them)."""
@@ -1245,8 +1248,8 @@ def loosened(change, index):
             old_rows.extend(rows)
     for path in sorted(paths):
         old_rows.extend(then_rows[path])
-    (then, same_then), (now, same_now) = _agreements(old_rows, moved), _agreements(new_rows)
-    files = {change.module(path): path for path in paths if change.module(path)} | {module: path for path, module in change._modules.items()}
+    (then, same_then), (now, same_now) = _agreements(old_rows, modules, moved), _agreements(new_rows, modules)
+    files = {module: path for path, module in modules.items()}
 
     def spelled(position, row):
         """A position as the comment at `row` spells it: a function of its own file bare, another's path:function."""
