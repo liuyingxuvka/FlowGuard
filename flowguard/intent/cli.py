@@ -80,6 +80,20 @@ class _RemovedOption(argparse.Action):
         raise Removed(self.what.format(value=values if isinstance(values, str) else '').strip(), self.replacement)
 
 
+class _KindOption(_RemovedOption):
+    """`req add --kind KIND` (hidden): 4.3 announced only `glossary` and `adoption` for removal, which raise `Removed`;
+    `request`, the 4.3 default and the only kind 5.0 stores, is accepted and changes nothing. Any other value is no
+    kind, as in 4.3."""
+    def __init__(self, option_strings, dest, **options):
+        super().__init__(option_strings, dest, nargs=None, **options)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if values in ('glossary', 'adoption'):
+            super().__call__(parser, namespace, values, option_string)
+        elif values != 'request':
+            parser.error(f"argument --kind: invalid choice: {values!r} (choose from 'request')")
+
+
 def _spelled(word):
     """One word of a printed command: bare when every shell reads it as it is, else in double quotes, which
     cmd.exe, PowerShell and POSIX shells all read (README: `show "what it decides"`); single quotes are not
@@ -2230,7 +2244,7 @@ def main(argv=None):
     add = operations.add_parser('add')
     add.add_argument('file')
     add.add_argument('--id', dest='identifier')
-    add.add_argument('--kind', action=_RemovedOption, what='req add --kind {value}',
+    add.add_argument('--kind', action=_KindOption, what='req add --kind {value}',
                      replacement='python -m flowguard req add FILE --id R<n>')
     add.add_argument('--supersedes', action='append', default=[])
     operations.add_parser('list')

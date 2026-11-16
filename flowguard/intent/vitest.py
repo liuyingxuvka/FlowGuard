@@ -1245,8 +1245,8 @@ def judge(cfg, data, records, package=None):
     engine.baseline = commit
     for error in model.errors:
         place = f'{error["file"]}:{error["line"]}'
-        issues.append(signals.finding('input', f'load:{place}', f'load {place}', [signals.ascii_text(error['msg'])],
-                                      'correct this declaration; until then none of its file is checked',
+        what, step = signals.load_step(error['msg'])
+        issues.append(signals.finding('input', f'load:{place}', f'load {place}', [what], step,
                                       places=(place,), files=(error['file'],)))
     for rule in model.rules.values():
         homes = [home for home in rule.homes if getattr(home, 'anchor', None) is not None and home.anchor.target in points]

@@ -1556,8 +1556,10 @@ def sentinel(config: pytest.Config):
     from .calibration import probe_context
     from . import ledger
     fallbacks = ledger.Result(present=False) if probe_context(config) else state.ledger()
-    red = ('\n' + ledger.summary(fallbacks) + ' -> run python -m flowguard ledger check for all differences and entries to copy\n'
-           + '\n'.join('red: ' + finding.text for finding in fallbacks.red)) if fallbacks.red else ''
+    # The sentinel judges the handlers it lists; a section 5.0 removed is the block's red input line, not counted here.
+    from dataclasses import replace
+    red = ('\n' + ledger.summary(replace(fallbacks, sections=[])) + ' -> run python -m flowguard ledger check for all '
+           'differences and entries to copy\n' + '\n'.join('red: ' + finding.text for finding in fallbacks.red)) if fallbacks.red else ''
     if missing:
         raise AssertionError(f'only {len(declared) - len(missing)} of {len(declared)} intent items collected or reusable; missing ' + ', '.join(missing[:3]) + ' -> run the complete declared collection' + red)
     if red:

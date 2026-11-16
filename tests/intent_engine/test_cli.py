@@ -128,6 +128,24 @@ def test_a_command_or_option_removed_in_5_0_exits_2_and_names_its_replacement(tm
     assert not (tmp_path / '.flowguard').exists()
 
 
+def test_req_add_kind_request_which_4_3_never_announced_for_removal_still_stores_the_words(tmp_path, capsys):
+    # 4.3's default kind printed no notice: 5.0 refused it with the glossary and adoption kinds it did announce.
+    words = tmp_path / 'words.txt'
+    words.write_bytes('Late fees start after three days.\n'.encode())
+    assert cli.main(['--root', str(tmp_path), 'req', 'add', str(words), '--kind', 'request', '--id', 'R1']) == 0
+    out, err = capsys.readouterr()
+    assert out.startswith('stored R1 (request, ') and err == '', out + err
+    assert cli.main(['--root', str(tmp_path), 'req', 'add', str(words), '--id', 'R2']) == 0
+    out, err = capsys.readouterr()
+    assert out.startswith('stored R2 (request, ') and err == '', out + err
+    # a value 4.3 knew no kind of stays a usage error, not a removal
+    with pytest.raises(SystemExit) as stopped:
+        cli.main(['--root', str(tmp_path), 'req', 'add', str(words), '--kind', 'note', '--id', 'R3'])
+    out, err = capsys.readouterr()
+    assert stopped.value.code == 2 and "argument --kind: invalid choice: 'note' (choose from 'request')" in err, err
+    assert 'removed' not in err, err
+
+
 @pytest.mark.parametrize('command', [['show'], ['check'], ['req', 'add']])
 def test_the_help_of_a_command_names_no_option_removed_in_5_0(command, capsys):
     with pytest.raises(SystemExit) as stopped:

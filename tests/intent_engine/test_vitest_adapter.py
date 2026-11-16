@@ -2215,6 +2215,23 @@ def test_an_unchanged_copy_compared_on_some_inputs_is_not_called_not_compared(tm
     assert [text for text in said if 'NONE' in text], said
 
 
+def test_an_intent_name_5_0_removed_is_a_red_load_line_whose_step_is_its_replacement_in_the_vitest_report(tmp_path):
+    # The vitest report gave every refused intent file the generic 'correct this declaration' step, so the replacement
+    # stood only in the words; pytest and check gave it as the step. A name the file reaches only when it runs
+    # (`api.distinct`, refused as `IntentError: ...`) reads as the same line as one the loader refuses before it runs.
+    from flowguard.intent.api import removed
+    _commit(tmp_path, {
+        'src/a.ts': 'export function f(x: number) { return x + 1; }\n',
+        'tests/intent/order.py': "from flowguard.intent import precedes\nprecedes('SAVED', 'PUBLISHED', source='assumed: x')\n",
+        'tests/intent/rules.py': "from flowguard.intent import api\napi.distinct('A', 'B')\n",
+    })
+    (tmp_path / 'src/a.ts').write_text('export function f(x: number) { return x + 2; }\n')
+    _, lines = _judged(tmp_path, [dict(id='typescript/src/a.ts:f', args=[1], result=3)])
+    shown = sorted(f'{line.text} -> {line.step}' for line in lines if line.kind == 'red')
+    assert shown == [f'load tests/intent/order.py:1: {removed("precedes")}; until then none of its file is checked',
+                     f'load tests/intent/rules.py:2: {removed("distinct")}; until then none of its file is checked'], lines
+
+
 @pytest.mark.parametrize('first', [0, 1])
 def test_copy_baseline_colour_is_judged_per_input_whatever_the_first_witness(tmp_path, first):
     # Off x=0 the copies already differed at the baseline (before); at x=0 they agreed and differ now (red).

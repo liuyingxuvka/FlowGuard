@@ -40,7 +40,8 @@ REMOVED = {
     'flow(transitions=)': 'flow(transitions=) was removed in 5.0 -> delete transitions= from this flow; 5.0 checks no state changes',
     'checks': 'checks was removed in 5.0 -> bind the rule to its scenario test with flow(ID, ..., relations=[Relation(RULE, {...}, Read(...))])',
     'distinct': ('distinct was removed in 5.0 -> delete it; two rules of one decides= key must agree unless one overrides= the '
-                 'other, and python -m flowguard known add copies:NAME --act ignore --why TEXT records copies that are meant to differ'),
+                 'other, and python -m flowguard known add copies:NAME --act ignore --why TEXT records copies that are meant to differ '
+                 'once python -m flowguard check --all lists them'),
     'structure_rule': ('structure_rule was removed in 5.0 -> delete it; states(...) checks the literal values a field is given, '
                        'an ordinary test can check any other source fact'),
     'allow': 'allow was removed in 5.0 -> delete it with its structure_rule',
@@ -86,7 +87,7 @@ def test_a_removed_name_read_in_python_raises_what_to_do():
 
 
 def test_a_removed_name_and_a_rule_marker_are_red_lines_of_the_block_in_pytest_and_check(tmp_path):
-    from tests.intent_engine._cli_fixture import block
+    from tests.intent_engine._cli_fixture import block, last
     from tests.intent_engine.test_unverified_outcome import _cli, _project, _pytest
     root = _project(tmp_path / 'p', {
         'orders.py': '''
@@ -104,16 +105,27 @@ def test_a_removed_name_and_a_rule_marker_are_red_lines_of_the_block_in_pytest_a
         'tests/intent/order_rules.py': '''
             from flowguard.intent import precedes
             precedes('SAVED', 'PUBLISHED', source='assumed: a draft is saved before it is published')
+        ''',
+        # a removed name the file reaches only when it runs: the same line, its replacement the step, nothing cut
+        'tests/intent/same_rules.py': '''
+            from flowguard.intent import api
+            api.distinct('A', 'B')
         '''})
     lines = ['red: load order_rules.py:1: precedes was removed in 5.0 -> ' + FLOW_ORDER
              + '; until then none of its file is checked',
              'red: marker test_orders.py:4: pytest.mark.rule was removed in 5.0 -> delete the marker; a rule is checked at '
              'its anchors, not through marked tests']
-    result, text = _pytest(root, '-q')
-    assert result.returncode == 1 and [line for line in block(result) if line.startswith('red: ')] == lines, text
-    assert 'deprecated' not in result.stderr and 'PytestUnknownMarkWarning' not in text, text
-    result, text = _cli(root, 'check', '--all')
-    assert result.returncode == 1 and all(line in text.splitlines() for line in lines), text
+    # the block shortens this line's words to its width; the step stays whole and show --last gives the whole line
+    distinct = 'red: load tests/intent/same_rules.py:2: ' + REMOVED['distinct'] + '; until then none of its file is checked'
+    step = ' -> ' + distinct.partition(' -> ')[2]
+    for command in (_pytest, _cli):
+        result, text = command(root, '-q') if command is _pytest else command(root, 'check', '--all')
+        reds = [line for line in (block(result) if command is _pytest else text.splitlines()) if line.startswith('red: ')]
+        assert result.returncode == 1 and [line for line in reds if 'same_rules' not in line] == lines, text
+        assert [line.startswith('red: load same_rules.py:2: ') and line.endswith(step) for line in reds
+                if 'same_rules' in line] == [True], text
+        assert distinct in last(root).splitlines(), last(root)
+        assert 'deprecated' not in result.stderr and 'PytestUnknownMarkWarning' not in text, text
 
 
 def test_source_contract_change_invalidates_with_Map_function_and_file_scope(tmp_path):

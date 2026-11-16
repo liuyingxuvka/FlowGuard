@@ -254,6 +254,27 @@ def test_a_section_5_0_removed_is_one_red_input_line_naming_its_replacement_and_
     assert evaluate(shop, head(shop)).sections == [section]
 
 
+def test_the_sentinel_counts_the_ledger_reds_it_lists_and_leaves_a_removed_section_to_the_block(shop):
+    # The sentinel's message counted a 5.0-removed section as one more red than the lines it listed; the section is
+    # the block's red input line, which the sentinel does not judge.
+    sentinel(shop)
+    git(shop, 'add', '-A')
+    git(shop, 'commit', '-qm', 'sentinel')
+    append(shop, LOOKUP)
+    text, line = REMOVED_SECTIONS['structure']
+    add_entry(shop, '\n' + text)
+    failed = pytest_run(shop)
+    output = failed.stdout + failed.stderr
+    assert failed.returncode == 1 and 'FAILED tests/test_flowguard_intent.py::test_flowguard_intent' in output, output
+    lines = output.splitlines()
+    start = next(index for index, said in enumerate(lines) if said.startswith('FlowGuard fallback ledger: '))
+    listed = [said for said in lines[start + 1:start + 3] if said.startswith('red: ')]
+    assert lines[start] == ('FlowGuard fallback ledger: 1 entries (1 legacy), 2 code handlers; 1 red, 0 unverified -> run '
+                            'python -m flowguard ledger check for all differences and entries to copy'), output
+    assert len(listed) == 1 and listed[0].startswith('red: New unregistered fallback: '), output
+    assert 'red: ' + line in failed.stdout.splitlines(), output       # the section's own line, in the block
+
+
 def test_word_count_reads_latin_words_and_cjk_characters():
     assert ledger.words('the caller shows the value as unknown here') == 8
     assert ledger.words('调用方把缺失值显示为未知') == 6

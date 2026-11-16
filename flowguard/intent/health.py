@@ -6,8 +6,9 @@ restricting children, a column one description of a table lacks, two same-name f
 Every problem, old ones too, is an `Issue` with a stable name and its members, those this change added fresh;
 `signals.deliver` gives each member its line. The owner's decision on an issue is a `.flowguard/known.toml` entry
 that names it (`python -m flowguard known add NAME --act leave|ignore --why TEXT`, read by `signals.deliver`): one
-with `act = "leave"` turns the issue's before lines into known lines, one with `act = "ignore"` counts its members
-without a line where its family may be ignored. An issue keeps its name from run to run, so the entry keeps naming it.
+with `act = "leave"` turns the issue's before lines into known lines and leaves it in the session brief's count, one
+with `act = "ignore"` counts its members without a line where its family may be ignored and takes it out of that count
+(`assess`). An issue keeps its name from run to run, so the entry keeps naming it.
 """
 from __future__ import annotations
 
@@ -778,7 +779,10 @@ def brief_line(cfg):
 
 
 def assess(found):
-    """`found` with its `summary` for the session brief (`summary` of every issue it holds): a known.toml entry closes
-    no issue here, it only changes the issue's lines (`signals.deliver`)."""
-    found.summary = summary(found.issues)
+    """`found` with its `summary` for the session brief: every issue it holds but those known.toml's ignore entries
+    cover (`signals.ignore_covers`, its entries `found.known`), as 4.3's `[structure]` decision closed one. Any other entry
+    (`leave`, `ask`, `fix`) keeps its issue counted, for it is still open; an entry changes only the lines
+    (`signals.deliver`)."""
+    from .signals import ignore_covers
+    found.summary = summary([issue for issue in found.issues if not ignore_covers(issue, found.known)])
     return found

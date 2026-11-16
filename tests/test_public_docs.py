@@ -168,6 +168,29 @@ def test_documented_commands_use_the_real_current_parser(tmp_path, monkeypatch, 
     assert removed == REMOVED_IN_5
 
 
+CURRENT_DOCS = [ROOT / 'README.md', ROOT / 'README.zh-CN.md', ROOT / 'AGENTS.md', SKILL / 'SKILL.md', SKILL / 'reference.md',
+                ROOT / 'docs/intent-guide.md', ROOT / 'docs/intent-contracts.md']
+
+
+def test_the_current_docs_say_what_5_0_does(tmp_path, capsys):
+    # The installed reference said a flow's state declarations remain supported, though 5.0 removed them (`Transition`,
+    # `flow(..., transitions=)`); the guide said req add's reminder puts a rule in the intent folder, while it names
+    # .flowguard/rules.toml.
+    for path in CURRENT_DOCS:
+        for sentence in re.split(r'(?<=\.)\s+|\n', path.read_text(encoding='utf-8')):
+            if re.search(r'transition|state declaration', sentence, re.I):
+                assert re.search(r'\b(?:removed|gone)\b', sentence), (path.name, sentence)
+    words = tmp_path / 'words.txt'
+    words.write_text('Late fees start after three days.\n', encoding='utf-8')
+    assert cli.main(['--root', str(tmp_path), 'req', 'add', str(words), '--id', 'R1']) == 0
+    reminder = capsys.readouterr().out.splitlines()[-1]
+    target = re.fullmatch(r'if these words set a continuing rule, add it to (\S+): (\[rule\.<id>\]) .*', reminder)
+    assert target, reminder
+    guide = (ROOT / 'docs/intent-guide.md').read_text(encoding='utf-8')
+    [said] = re.findall(r'`req add` ends with the reminder.*?\.(?=\s|$)', guide, re.M)
+    assert f'`{target[1]}`' in said and f'`{target[2]}`' in said, said
+
+
 def _publish_gate():
     workflow = (ROOT / '.github/workflows/publish-release.yml').read_text(encoding='utf-8')
     script = workflow.split("python - <<'PY'\n", 1)[1].rsplit('\n          PY', 1)[0]

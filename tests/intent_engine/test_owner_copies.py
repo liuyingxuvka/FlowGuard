@@ -613,7 +613,7 @@ def test_copy_discovery_uses_sealed_source_and_a_look_alike_it_cannot_run_leaves
     assert owners.COPY_DISCOVERY in discovered().ran
 
 
-def test_manual_copy_discovery_does_not_execute_module_initialization_or_function_effects(tmp_path):
+def test_manual_copy_discovery_does_not_execute_module_initialization_or_function_effects(tmp_path, monkeypatch):
     marker = tmp_path / 'executed.txt'
     _project(tmp_path, {'reference.py': f'''
         open({str(marker)!r}, 'w').write('module initialization')
@@ -631,6 +631,25 @@ def test_manual_copy_discovery_does_not_execute_module_initialization_or_functio
     code, text = _check(tmp_path, '--all')
     assert code == 0 and _block(text)[1:] == [], text
     assert not marker.exists()
+    # Discovery did run: it replayed the look-alike of a module whose top level raises from source and refused the one
+    # with an effect, so copy discovery is incomplete; neither ran the module nor the effect.
+    from contextlib import closing
+    from flowguard.intent import owners
+    from flowguard.intent.config import load_config
+    from flowguard.structure import build
+    replayed, replay = [], owners._replay
+    def recorded(function, rows, names, previous=None):
+        outcome = replay(function, rows, names, previous)
+        replayed.append((function['id'], outcome[0] is not None, outcome[1]))
+        return outcome
+    monkeypatch.setattr(owners, '_replay', recorded)
+    cfg = load_config(tmp_path)
+    with closing(build(tmp_path, roots=cfg.roots)) as graph:
+        found = owners.discover(cfg, graph, anchors.collect(graph), owners.Change(cfg, graph, owners.baseline(cfg)),
+                                everything=True)
+    assert ('peer:copy', True, '') in replayed, replayed
+    assert [(ran, reason.startswith('uses ')) for name, ran, reason in replayed if name == 'peer:effect'] == [(False, True)], replayed
+    assert owners.COPY_DISCOVERY not in found.ran and not marker.exists(), (found.ran, replayed)
 
 
 def test_changed_alone_compares_baseline_source_without_importing_the_project(tmp_path):
@@ -896,6 +915,35 @@ def test_copy_discovery_compares_on_the_codes_own_literals(tmp_path):
 def _known_ignore(root, name, why):
     """`known add NAME --act ignore`: the 5.0 record of copies meant to differ (4.3: a [structure] decision)."""
     assert _cli_fixture.main(['--root', root, 'known', 'add', name, '--act', 'ignore', '--why', why]) == 0
+
+
+def test_known_add_names_check_all_which_reports_the_look_alike_of_a_reference_that_check_static_leaves_out(tmp_path):
+    # known add said `check --static --all reports every finding`, but only check runs copy discovery: following
+    # it could not record copies of a reference that are meant to differ (5.0's replacement of [structure] and distinct).
+    from tests.intent_engine.test_static_check import _flowguard
+    _project(tmp_path, {'fees.py': '''
+        # flowguard: same FEE ref
+        def late_fee(days: int) -> int:
+            if days <= 3:
+                return 0
+            return (days - 3) * 2
+
+
+        def preview_fee(days: int) -> int:
+            if days <= 3:
+                return 0
+            return (days - 4) * 2
+    ''', 'tests/test_native.py': 'def test_native():\n    assert True\n'})
+    code, text = _check(tmp_path, '--static', '--all')
+    assert code == 0 and 'FEE' not in '\n'.join(_block(text)), text
+    known = ['known', 'add', 'copies:FEE', '--act', 'ignore', '--why', 'the preview charges one day less on purpose']
+    code, out = _flowguard(tmp_path, *known)
+    assert code == 2 and ('the last run reported no copies:FEE: python -m flowguard check --all reports every finding, '
+                          'or name its sites with --site path:symbol') in out, out
+    code, text = _check(tmp_path, '--all')
+    assert code == 0 and any(line.startswith('before: copies of FEE at fees.py:preview_fee') for line in _block(text)), text
+    code, out = _flowguard(tmp_path, *known)
+    assert code == 0 and 'sites fees.py:preview_fee' in out, out
 
 
 def test_known_add_with_act_ignore_takes_the_copies_line_of_a_changed_copy_out(tmp_path):

@@ -115,7 +115,7 @@ The owner is the person who sets the requirement. `source='owner R1: ...'` cites
 
 ## Existing frozen capabilities
 
-Existing finite flows, their node/read/relation bindings and state declarations remain supported. Their path and source identities matter: an attempted call is not a completed effect, an unobserved edge is not a successful path, and separate invocations cannot be joined into one witness. These capabilities are frozen; ordinary setup does not require a new flow model. Existing deep checks are also frozen.
+Existing finite flows and their node/read/relation bindings remain supported; their state transitions (`Transition`, `flow(..., transitions=)`) were removed in 5.0. Their path and source identities matter: an attempted call is not a completed effect, an unobserved edge is not a successful path, and separate invocations cannot be joined into one witness. These capabilities are frozen; ordinary setup does not require a new flow model. Existing deep checks are also frozen.
 
 The base installation reads Python. The `languages` extra adds TS/JS, Prisma, SQL and frozen C/C++/C# readers. Vitest with ESM has an execution adapter; Jest has static checks. Unsupported readers and observations remain explicit. Keep each project's ordinary tests as the primary execution path.
 

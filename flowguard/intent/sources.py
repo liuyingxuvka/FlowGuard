@@ -895,8 +895,8 @@ def add_known(cfg, graph, finding, *, act, why, ask='', identifier='', sites=())
         places = list(dict.fromkeys(place for line in (last['lines'] if last else ()) if line['name'] == finding
                                     for place in line['places']))
         if not places:
-            raise ValueError(f'known add: the last run reported no {finding}: python -m flowguard check --static --all '
-                             'reports every finding, or name its sites with --site path:symbol')
+            raise ValueError(f'known add: the last run reported no {finding}: python -m flowguard check --all reports '
+                             'every finding, or name its sites with --site path:symbol')
         declared = {}           # (file, line) -> the names a declaration or module-level constant there gives
         for row in [*graph.declarations(exported=False), *graph.assignments()]:
             if ':' not in row.get('node', '') and not row.get('field'):

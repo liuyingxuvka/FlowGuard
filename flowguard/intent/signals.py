@@ -83,6 +83,14 @@ def family_of(name):
     return head if head in FAMILIES else ''
 
 
+def ignore_covers(issue, entries):
+    """Whether known.toml's `act = "ignore"` entries cover the finding `issue`: its family may be ignored, an ignore
+    entry names it and no entry of another act does. `deliver` counts its members without a line, and the session
+    brief leaves it out of its count of open structure problems (`health.assess`)."""
+    acts = [entry.act for entry in entries if entry.finding == issue.name]
+    return FAMILIES[issue.family][2] and bool(acts) and all(act == 'ignore' for act in acts)
+
+
 def _known_step(entry):
     if entry.act == 'ask':
         return f'asked the owner on {entry.asked}; no answer yet' if entry.asked else 'an open question for the owner, not asked yet'
@@ -129,11 +137,11 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
             raise ValueError(f'{issue.name}: a finding needs its subject and one part per member')
         if not issue.fresh <= {part[0] for part in issue.parts}:
             raise ValueError(f'{issue.name}: fresh names a function that is no part: {sorted(issue.fresh)}')
-        red, new, ignorable = FAMILIES[issue.family]
+        red, new, _ = FAMILIES[issue.family]
         shown = issue.family != 'writers' or everything
         naming = [entry for entry in entries if entry.finding == issue.name]
         speaking = [entry for entry in naming if entry.act != 'ignore']
-        ignoring = ignorable and len(speaking) < len(naming)
+        ignoring = ignore_covers(issue, entries)
         names.add(issue.name)
         verb = BROKEN.get(issue.family, 'was broken at task start')
         for function, place, what, step in issue.parts:
@@ -149,12 +157,12 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
                                                        'so it stays red' for entry in naming)))
                 said.update(entry.id for entry in naming)
             elif function in issue.fresh:
-                if ignoring and not speaking:
+                if ignoring:
                     ignored.add((issue.name, function))
                 elif shown:          # a new writer's own step: there is nothing to fix, only a design matter
                     lines.append(Line(new or 'impact', issue.name, function, text,
                                       step if issue.family == 'writers' else IMPACT_STEP, places, issue.detail))
-            elif ignoring and not speaking:
+            elif ignoring:
                 ignored.add((issue.name, function))
             elif shown and (everything or (function in touched_functions if function else bool(issue.files & touched_files))):
                 for entry in speaking:
@@ -579,10 +587,11 @@ def split_step(text):
 def load_step(message):
     """(what, step) of the red line of an intent file the loader refused (`load FILE:LINE`): a name 5.0 removed says
     what to do instead (`api.removed`), any other refusal to correct the declaration; until then none of the file is
-    checked."""
+    checked. A removed name the file reaches only when it runs (`api.distinct(...)`, `flow(**options)`) comes as the
+    loader's `IntentError: [line N: ]` text and reads as the static refusal's line."""
     from .api import REMOVED
     text = ascii_text(message)
-    what, step = split_step(text)
+    what, step = split_step(re.sub(r'\AIntentError: (?:line \d+: )?', '', text))
     if step and what.endswith(' was removed in 5.0') and what.removesuffix(' was removed in 5.0') in REMOVED:
         return what, step + '; until then none of its file is checked'
     return text, 'correct this declaration; until then none of its file is checked'

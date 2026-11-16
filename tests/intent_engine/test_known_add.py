@@ -40,9 +40,11 @@ def test_known_add_writes_an_entry_from_the_findings_places_that_the_next_run_re
     code, text = _static(tmp_path)
     assert code == 0 and not [line for line in _block(text) if line.startswith(('red', 'before'))], text
     assert any(line.startswith('known: known.declarations-status') for line in _block(text)), text
-    # That run printed the entry's line, not the finding's: known add names the run that lists every finding.
+    # That run printed the entry's line, not the finding's: known add names the run that lists every finding, copy
+    # discovery's included, which check --static leaves out.
     code, out = _flowguard(tmp_path, 'known', 'add', FINDING, '--act', 'leave', '--why', 'x')
-    assert code == 2 and 'python -m flowguard check --static --all reports every finding' in out, out
+    assert code == 2 and ('the last run reported no declarations:STATUS: python -m flowguard check --all reports every '
+                          'finding, or name its sites with --site path:symbol') in out, out
     # A second entry of the same finding gets its own id; an id the file has is refused, and the file stays as it was.
     code, out = _flowguard(tmp_path, 'known', 'add', FINDING, '--act', 'ask', '--why', 'which list is right?',
                            '--ask', 'Should both lists be closed?', '--site', 'src/b.ts:STATUS')
@@ -73,3 +75,34 @@ def test_known_add_refuses_what_the_next_run_would_read_as_invalid_and_leaves_th
     assert (tmp_path / '.flowguard/known.toml').read_bytes() == (
         b'[known.old]\r\nsites = ["src/b.ts:label"]\r\nwhy = "old"\r\nact = "leave"\r\n\r\n[known.open-check]\r\n'
         b'sites = ["src/a.ts:isOpen"]\r\nwhy = "the open check is unclear"\r\nact = "ask"\r\nask = "Is a closed job open?"\r\n')
+
+
+
+def test_an_ignore_entry_takes_its_finding_out_of_the_briefs_count_and_a_leave_entry_keeps_it(tmp_path):
+    # 4.3: a [structure] decision took its problem out of the session brief's count of open structure problems.
+    # 5.0 records the decision in known.toml: act = "ignore" (a false finding, only counted) takes it out as that
+    # decision did; act = "leave" keeps it counted, for the problem is still open.
+    from flowguard.intent import cache
+    from flowguard.intent.config import load_config
+    from flowguard.intent.health import brief_line
+    from tests.intent_engine.test_static_check import LABELS
+    finding = 'labels:src/a.ts:TYPE_LABELS'
+    _commit(tmp_path, {'src/a.ts': LABELS % ('TYPE_LABELS', 'Area'), 'src/b.ts': LABELS % ('KIND_LABELS', 'Areas')})
+    def brief():
+        code, text = _flowguard(tmp_path, 'check', '--static', '--all')
+        assert code == 0, text
+        cfg = load_config(tmp_path)
+        return cache.structure_summary(cfg)['count'], brief_line(cfg)
+    assert brief() == (1, '1 open structure issues; highest severity: labels TYPE_LABELS (last check; '
+                          'check --static --all lists every issue and next step)')
+    code, out = _flowguard(tmp_path, 'known', 'add', finding, '--act', 'leave', '--why', 'the two tables differ on purpose')
+    assert code == 0, out
+    assert brief()[0] == 1
+    path = tmp_path / '.flowguard/known.toml'
+    path.write_text(path.read_text(encoding='utf-8').replace('act = "leave"', 'act = "ignore"'), encoding='utf-8')
+    assert brief() == (0, '')
+    # an entry of another act beside the ignore entry keeps the problem open, and counted
+    code, out = _flowguard(tmp_path, 'known', 'add', finding, '--act', 'fix', '--why', 'one spelling in the next release',
+                           '--site', 'src/b.ts:KIND_LABELS')
+    assert code == 0, out
+    assert brief()[0] == 1

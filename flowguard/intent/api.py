@@ -34,7 +34,8 @@ REMOVED = {
     'flow(transitions=)': "delete transitions= from this flow; 5.0 checks no state changes",
     'checks': 'bind the rule to its scenario test with flow(ID, ..., relations=[Relation(RULE, {...}, Read(...))])',
     'distinct': ('delete it; two rules of one decides= key must agree unless one overrides= the other, and '
-                 'python -m flowguard known add copies:NAME --act ignore --why TEXT records copies that are meant to differ'),
+                 'python -m flowguard known add copies:NAME --act ignore --why TEXT records copies that are meant to differ '
+                 'once python -m flowguard check --all lists them'),
     'structure_rule': ('delete it; states(...) checks the literal values a field is given, an ordinary test can check '
                        'any other source fact'),
     'allow': 'delete it with its structure_rule',
