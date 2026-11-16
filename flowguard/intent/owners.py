@@ -328,14 +328,19 @@ def _write_key(row):
     return row['file'], row['function'], row['kind'], str(row.get('model') or row.get('table')), str(row.get('field') or row.get('db_column'))
 
 
-def _agreement_place(graph, owner, role):
-    """A role's original declaration, before complementary data agreements were combined."""
+def _agreement_line(graph, owner, role):
+    """The line of a role's original declaration, before complementary data agreements were combined; None when the
+    file holds no single one (`_agreement_place` then names the canonical registration)."""
     facts = graph.file_facts(owner.file)
     rows = [row for row in facts.get('anchors', ()) if row['kind'] == 'owner' and row['name'] == owner.name
             and not row['qual'] and row.get(role)] if facts is not None else []
-    if len(rows) == 1:
-        return f'{owner.file}:{rows[0]["line"]}'
-    return f'canonical registration {owner.file}:{owner.line}'
+    return rows[0]['line'] if len(rows) == 1 else None
+
+
+def _agreement_place(graph, owner, role):
+    """A role's original declaration, before complementary data agreements were combined."""
+    line = _agreement_line(graph, owner, role)
+    return f'{owner.file}:{line}' if line is not None else f'canonical registration {owner.file}:{owner.line}'
 
 
 def _test_write(graph, row, tests=None):
@@ -1946,7 +1951,7 @@ def show_lines(cfg, graph, index, name):
         if owner.kind == 'owner' and owner.writers:
             rows, fixtures, outside = _writers_rows(graph, owner)
             where = _agreement_place(graph, owner, "writers")
-            lines.append(f'writers {owner.name} {",".join(_spelled(graph, owner.module, writer) for writer in owner.writers)} {where}')
+            lines.append(_writers_head(graph, owner))
             def plain(row):
                 value = f', value {row["value"]!r}' if 'value' in row else ''
                 return f'{row["file"]}:{row["line"]} {row["function"]} ({row["kind"]}{value})'
@@ -1957,10 +1962,7 @@ def show_lines(cfg, graph, index, name):
                 lines.append(f'fix: call {" or ".join(dict.fromkeys(map(_writer_name, owner.writers)))} instead; adding a '
                              f"function to the writers agreement ({where}) loosens it, which is the owner's decision")
         if owner.kind == 'owner' and owner.pairs:
-            exceptions = ','.join(_spelled(graph, owner.module, item.partition('(')[0], path=True) + '(' + item.partition('(')[2]
-                                  for item in owner.alone)
-            lines.append(f'together {owner.name} {",".join(owner.pairs)}' + (f' on={owner.on}' if owner.on else '')
-                         + (f' except={exceptions}' if exceptions else '') + f' {_agreement_place(graph, owner, "pairs")}')
+            lines.append(_together_head(graph, owner))
             lines.append(_pair_fix(graph, owner))
         if owner.owner:
             functions = _functions(graph, cfg)
@@ -1973,6 +1975,84 @@ def show_lines(cfg, graph, index, name):
                          '(not run here; check --all compares them)')
             lines.extend(f'look-alike {row["file"]}:{row["line"]} {row["qual"]}' for row in similar)
     return lines
+
+
+def _writers_head(graph, owner):
+    """A writers agreement in its 4.3 spelling with its place, the first line `show_lines` gives it."""
+    writers = ','.join(_spelled(graph, owner.module, writer) for writer in owner.writers)
+    return f'writers {owner.name} {writers} {_agreement_place(graph, owner, "writers")}'
+
+
+def _together_head(graph, owner):
+    """A together agreement in its 4.3 spelling (on= and except= kept) with its place, as `show_lines` gives it."""
+    exceptions = ','.join(_spelled(graph, owner.module, item.partition('(')[0], path=True) + '(' + item.partition('(')[2]
+                          for item in owner.alone)
+    return (f'together {owner.name} {",".join(owner.pairs)}' + (f' on={owner.on}' if owner.on else '')
+            + (f' except={exceptions}' if exceptions else '') + f' {_agreement_place(graph, owner, "pairs")}')
+
+
+def agreement_heads(graph, index):
+    """[(name, line, file, names)] of every comment agreement of the source index, for the first lines of `show NAME`
+    and `show PATH` (`cli._concerning`): a writers or a together agreement and each `same NAME` or `same NAME ref`
+    copy; `line` as `show_lines` spells it with its place (a data agreement's comment line, the function a `same`
+    copy marks), `file` the file it is written in, and `names` what it concerns: its field and each partner field
+    (`Model.field`, `Model.*` for every field of that model), a `same` copy's NAME, and as sites `path:symbol` (the
+    symbol as a known.toml site writes it) each writers and except= function, the function a `same` copy marks and
+    the function a data agreement's comment sits right above (blank, comment and decorator lines between)."""
+    from flowguard.structure import store
+    from .anchors import _declared_name
+    texts = {}
+
+    def site(position):
+        row = graph.con.execute('SELECT file, qual, raw FROM node WHERE id = ?', (position,)).fetchone()
+        return f'{row[0]}:{_declared_name(row[0], row[1], store.unpack(row[2]) if row[2] else {})}' if row else None
+
+    def below(file, line):
+        if line is None:
+            return None
+        if file not in texts:
+            path = graph.root / file
+            texts[file] = read_source(path).splitlines() if path.is_file() else []
+        lines, first = texts[file], line
+        while first < len(lines) and (not lines[first].strip() or lines[first].lstrip().startswith(('#', '//'))):
+            first += 1
+        declared = first
+        while declared < len(lines) and lines[declared].lstrip().startswith('@'):
+            declared += 1
+        row = graph.con.execute("SELECT id FROM node WHERE file = ? AND line IN (?, ?) AND kind IN ('function', 'method') "
+                                'ORDER BY line DESC LIMIT 1', (file, first + 1, declared + 1)).fetchone()
+        return site(row[0]) if row else None
+    heads = []
+    for anchor in index.entries:
+        if anchor.kind == 'owner' and (anchor.writers or anchor.pairs):
+            if anchor.writers:
+                sites = [*map(site, anchor.writers), below(anchor.file, _agreement_line(graph, anchor, 'writers'))]
+                heads.append((anchor.name, _writers_head(graph, anchor), anchor.file, [anchor.name, *filter(None, sites)]))
+            if anchor.pairs:
+                sites = [*(site(item.partition('(')[0]) for item in anchor.alone),
+                         below(anchor.file, _agreement_line(graph, anchor, 'pairs'))]
+                heads.append((anchor.name, _together_head(graph, anchor), anchor.file,
+                              [anchor.name, *(pair.partition('=')[0] for pair in anchor.pairs), *filter(None, sites)]))
+        elif anchor.kind == 'sensor':
+            heads.append((anchor.name, f'same {anchor.name}{" ref" * anchor.owner} {anchor.file}:{anchor.target_line}',
+                          anchor.file, [anchor.name, *filter(None, [site(anchor.target)])]))
+    return heads
+
+
+def field_spellings(graph):
+    """{casefolded spelling: its casefolded spellings} of each Prisma model field: `Model.field` and the
+    `table.column` of its `@@map` and `@map` name the same column, so `show project_requests.status` finds what a
+    known site or an agreement writes as `ProjectRequest.status`, and the other way round."""
+    found = {}
+    for schema in graph.schemas():
+        for item in schema.get('models', ()) if schema['kind'] == 'prisma' else ():
+            table = item.get('table') or item['name']
+            for column in item.get('fields', ()):
+                names = {f'{item["name"]}.{column["name"]}'.casefold(),
+                         f'{table}.{column.get("column") or column["name"]}'.casefold()}
+                for name in names:
+                    found.setdefault(name, set()).update(names)
+    return found
 
 
 def _writers_rows(graph, owner):

@@ -604,11 +604,18 @@ PARTNER_SHARE = 0.5          # share of a field's writing functions that also wr
 PARTNERS_SHOWN = 5
 
 
-def co_written(change, name):
+def co_written(change, name, index):
     """Lines for `show Model.field`: other fields most of its production writers also write in the same
     function, each with the writers that leave it out and the `together FIELD PARTNER` line to copy. Reference
-    only: writing two fields together often is no rule until the owner says so."""
+    only: writing two fields together often is no rule until the owner says so. A field that a together agreement
+    of the source `index` already pairs with this one, in either order, is no candidate (`show` lists the agreement)."""
     from .owners import row_function
+    agreed = [(anchor.name.casefold(), pair.partition('=')[0].casefold()) for anchor in index.entries
+              if anchor.kind == 'owner' for pair in anchor.pairs]
+
+    def paired(one, other):         # `together A B` or `together B A`; `Model.*` pairs every field of Model
+        return any({one, other} == {field, pair} or pair.endswith('.*') and (field, pair[:-1]) in (
+            (one, other.rpartition('.')[0] + '.'), (other, one.rpartition('.')[0] + '.')) for field, pair in agreed)
     tests = {path for (path,) in change.graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
     def field_of(row):
         holder, column = row.get('model') or row.get('table'), row.get('field') or row.get('db_column')
@@ -632,6 +639,7 @@ def co_written(change, name):
     target = next(key for function in writers for key in by_function[function] if key.casefold() == name.casefold())
     comment = '//' if any(ident.startswith(('typescript/', 'tsx/', 'javascript/')) for ident in writers) else '#'
     lines = []
+    shared = Counter({other: count for other, count in shared.items() if not paired(target.casefold(), other.casefold())})
     for other, count in sorted(shared.items(), key=lambda item: (-item[1], item[0]))[:PARTNERS_SHOWN]:
         if count < 2 or count < PARTNER_SHARE * len(writers):
             break

@@ -477,62 +477,115 @@ def show_catalog(cfg, query, full=False):
     return int(bool(problems))
 
 
-def _names(text, name):
-    """Does `text` (a site's symbol, an anchor's name, a finding's subject) name `name`: the same text, or its last
-    dotted part (`capacityService.updateCalendarEntry` and `ProjectRequest.status` name `updateCalendarEntry` and
-    `status`)."""
-    return text == name or text.rpartition('.')[2] == name
+def _named(symbol, query, spellings):
+    """How `symbol` (a site's symbol, an agreement's field or NAME, a finding's subject, an anchor's name) names the
+    casefolded `query`: 'exact' when it is the query or a member of it in any spelling the map gives it
+    (`owners.field_spellings`: `ProjectRequest.status` names `ProjectRequest.status`, `project_requests.status`,
+    `ProjectRequest` and `project_requests`; `ProjectMember.*` names every field of `ProjectMember`), 'part' when
+    only its last dotted part is the query (`capacityService.updateCalendarEntry` for `updatecalendarentry`), else ''.
+    Names compare casefolded, as the facts branch of `show` ranks them."""
+    names = spellings.get(symbol.casefold()) or {symbol.casefold()}
+    if any(name == query or name.startswith(query + '.') or name.endswith('.*') and query.startswith(name[:-1])
+           and '.' not in query[len(name) - 1:] for name in names):
+        return 'exact'
+    return 'part' if any('.' in name and name.rpartition('.')[2] == query for name in names) else ''
 
 
-def _concerning(cfg, data, graph, index, query, *, path):
-    """The first lines of `show NAME` and `show PATH` (`path` is the query when it names a file or folder, else None),
-    and the ids of the intent rules among them: the `.flowguard/known.toml` entries that concern the query, in the
-    brief's order and words (`_known_order`, `_known_brief`), each with the command that prints it whole; then the
-    intent rules (the static scan's) whose homes or anchors name it, `rule ID: decides`; then the `.flowguard/rules.toml`
-    rules those cite, in file order. A site `path:symbol` names the query when it is the query, its symbol names it
-    (`_names`), its path and symbol are those of the query's map node (`module:qual`), or, for a PATH query, its path
-    is that file or lies under that folder; an entry concerns the query when a site names it or its finding does (the
-    name after the family, `same:ISO_WEEKS_IN_YEAR`). The sites are read as written, not resolved on the map. A rule's
-    home `module:Class.field` is read as the site of its module's file; an anchor names the query by its name, or by
-    the site of a source anchor of that name (its file and target function)."""
+def _concerning(cfg, data, graph, index, query, *, path, node=None, anchored=False):
+    """The first lines of `show NAME` and `show PATH` (`path` is the query's file or folder when it names one, else
+    None; `node` the map node of a site query `path:symbol`), and the ids of the intent rules among them.
+
+    First the `.flowguard/known.toml` entries that concern the query, in the brief's order and words (`_known_order`,
+    `_known_brief`), each with the command that prints it whole: an entry concerns it when one of its sites names it,
+    when its finding does (the name after the family, `same:ISO_WEEKS_IN_YEAR`) or, for a PATH query, when its source
+    quotes a document in that file or folder. A site `path:symbol` names the query when it is the query, its symbol
+    names it (`_named`), its path and symbol are those of the query's map node (`module:qual`, a class's methods too)
+    or, for a PATH query, its path is that file or lies under that folder. An entry named only through the last dotted
+    part of a site or its finding says which, besides the brief's words: `known.raw-sql (site backend/src/services/
+    employee.service.ts:employeeService.findAll): ...`. After those, for an exact `Model.field` or `table.column`
+    (`owners.model_known`) or a constant (a constant node of the map), the entries whose why or ask names it as a
+    whole token, in any of its spellings. The sites are read as written, not resolved on the map.
+
+    Then the intent rules (the static scan's) whose homes or anchors name it, `rule ID: decides`; a rule's home
+    `module:Class.field` is read as the site of its module's file, an anchor by its name or by the site of a source
+    anchor of that name (its file and target function). Then the `.flowguard/rules.toml` rules those cite and, for a
+    PATH query, those whose source quotes a document there, in file order. Then the flowguard comment agreements
+    (`owners.agreement_heads`) as `show_lines` spells them: for a PATH query those written there, otherwise those
+    that name the query as a field or partner, as a writers or except= function, or as the function they mark;
+    `anchored` leaves out the agreements of the query's own name, which the ANCHOR view lists whole."""
+    from .owners import agreement_heads, field_spellings, model_known
     from .signals import family_of
-    from .sources import RULE_FORM, catalog
-    node = graph.node(graph.canonical(query) or query) if ':' in query else None
-    folder = None if path is None else posixpath.normpath(path.replace('\\', '/'))     # './app/' -> 'app'
+    from .sources import RULE_FORM, catalog, parse
+    node = node or (graph.node(graph.canonical(query) or query) if ':' in query else None)
+    folder = path                   # `_repository_path`: './app/' is 'app'
+    folded, spellings = query.casefold(), field_spellings(graph)
+
+    def under(file):
+        return folder is not None and (folder == '.' or file == folder or file.startswith(folder + '/'))
+
+    def named(symbol):
+        return '' if folder is not None else _named(symbol, folded, spellings)
 
     def site_names(site):
         spot, colon, symbol = site.rpartition(':')
         file = spot if colon else site          # a document site is its path alone
-        if site == query or colon and _names(symbol, query):
-            return True
-        if node is not None and colon and file == node['file'] and _names(symbol, node['qual']):
-            return True
-        return folder is not None and (folder == '.' or file == folder or file.startswith(folder + '/'))
+        if site == query or under(file):
+            return 'exact'
+        if node is not None and colon and file == node['file'] and (symbol == node['qual'] or symbol.startswith(
+                node['qual'] + '.') or symbol.rpartition('.')[2] == node['qual']):
+            return 'exact'
+        return named(symbol) if colon else ''
 
-    def finding_names(finding):
-        family = family_of(finding)
-        return bool(family) and _names(finding[len(family) + 1:], query)
+    def quoted(source):         # a known entry's or a rules.toml rule's source quotes a document of the PATH query
+        cited = parse(source, strict=True) if folder is not None and source else None
+        return cited is not None and cited.kind == 'doc' and under(posixpath.normpath(cited.path))
 
+    exact = folder is None and bool(FIELD_QUERY.fullmatch(query) and model_known(graph, query.partition('.')[0]) or
+                                    graph.con.execute("SELECT 1 FROM node WHERE kind = 'const' AND qual = ? LIMIT 1",
+                                                      (query,)).fetchone())
+    token = re.compile('|'.join(r'(?<![\w$.])' + re.escape(name) + r'(?![\w$]|\.[\w$])'
+                                for name in sorted(spellings.get(folded) or {folded})), re.IGNORECASE) if exact else None
     found = catalog(cfg)
-    entries = [entry for entry in found.known.values() if any(map(site_names, entry.sites)) or finding_names(entry.finding)]
-    lines = [_brief_line(_known_brief(entry), tail=f' (python -m flowguard show known.{entry.id})')
-             for entry in _known_order(entries)]
+    by_site, by_text, through = [], [], {}
+    for entry in found.known.values():
+        sites = {site: site_names(site) for site in entry.sites}
+        family = family_of(entry.finding) if entry.finding else ''
+        finding = named(entry.finding[len(family) + 1:]) if family else ''
+        if 'exact' in sites.values() or finding == 'exact' or quoted(entry.source):
+            by_site.append(entry)
+        elif 'part' in sites.values() or finding == 'part':
+            parts = [site for site, how in sites.items() if how == 'part']
+            through[entry.id] = '; '.join([*([f'site{"s" * (len(parts) > 1)} {", ".join(parts)}'] if parts else []),
+                                           *([f'finding {entry.finding}'] if finding == 'part' else [])])
+            by_site.append(entry)
+        elif token is not None and any(token.search(text or '') for text in (entry.why, entry.ask)):
+            by_text.append(entry)
+
+    def known_line(entry):          # the brief's line; one named through a last part says which site, kept whole
+        line = _brief_line(_known_brief(entry), tail=f' (python -m flowguard show known.{entry.id})')
+        head, _, rest = line.partition(': ')
+        return f'{head} ({through[entry.id]}): {rest}' if entry.id in through else line
+    lines = [known_line(entry) for entry in [*_known_order(by_site), *_known_order(by_text)]]
     modules = dict(graph.con.execute('SELECT module, path FROM file'))
     rules, cited = [], set()
     for rid, item in data['summary']['rules'].items():
         names = [name for name in item.get('anchors', ()) if not name.startswith('unresolved:')]   # states have none
         homes = [modules[module] + ':' + symbol
                  for module, _, symbol in (home.partition(':') for home in item['homes']) if module in modules]
-        anchored = [f'{anchor.file}:{anchor.target.partition(":")[2]}' for anchor in _anchor_targets(index, names, graph)]
-        if any(_names(name, query) for name in names) or any(map(site_names, [*item['homes'], *homes, *anchored])):
+        anchored_at = [f'{anchor.file}:{anchor.target.partition(":")[2]}' for anchor in _anchor_targets(index, names, graph)]
+        if any(map(named, names)) or any(map(site_names, [*item['homes'], *homes, *anchored_at])):
             rules.append(rid)
             match = RULE_FORM.fullmatch(item['source'].strip()) if isinstance(item['source'], str) else None
             if match:
                 cited.add(match[1])
     lines += [f'rule {rid}: {data["summary"]["rules"][rid]["decides"]}' for rid in rules]
     lines += [_brief_line(f'rule.{rule.id}: {rule.text}', tail=f' (python -m flowguard show rule.{rule.id})')
-              for rule in found.rules.values() if rule.id in cited]
-    return lines, set(rules)
+              for rule in found.rules.values() if rule.id in cited or quoted(rule.source)]
+    for name, line, file, names in agreement_heads(graph, index):
+        if not (anchored and name == query) and (under(file) if folder is not None else any(
+                site_names(item) if ':' in item else named(item) for item in names)):
+            lines.append(line)
+    return list(dict.fromkeys(lines)), set(rules)
 
 
 FIELD_QUERY = re.compile(r'[A-Za-z_]\w*\.[A-Za-z_]\w*')     # Model.field or table.column
@@ -575,6 +628,33 @@ def _unknown_model(graph, query):
             + (f'; Prisma models with a field {field}: {", ".join(models)}' if models else ''))
 
 
+def _repository_path(cfg, query):
+    """The query as a path of the repository when it names a file or a folder there, normalized (`./app/` is `app`,
+    `.\\app` too), else None: a file at the repository's root (`fees.py`) is a PATH query as well."""
+    path = posixpath.normpath(query.replace('\\', '/'))
+    if path.startswith(('/', '../')) or path == '..' or re.match(r'[A-Za-z]:', path):
+        return None
+    return path if (cfg.root / path).is_dir() or (cfg.root / path).is_file() else None
+
+
+def _held_methods(graph, name):
+    """The ids of the functions an `object.method` query names by holder and name, as `MapHandle.call_index` keys
+    them (the node's holder, else its qual's prefix; its name, else its qual's last part), compared casefolded: `show
+    employeeService.update` ranks `employee.service.ts:update` first among the methods named update."""
+    from flowguard.structure import store
+    holder, dot, method = name.casefold().rpartition('.')
+    if not dot or not holder or '.' in holder or not method:
+        return set()
+    held = set()
+    for ident, qual, raw in graph.con.execute(
+            "SELECT id, qual, raw FROM node WHERE kind IN ('function', 'method') AND short = ? COLLATE NOCASE", (method,)):
+        data = store.unpack(raw) if raw else {}
+        own = data.get('holder') or (qual.rpartition('.')[0] if '.' in qual else '')
+        if own.casefold() == holder and (data.get('name') or qual.rpartition('.')[2]).casefold() == method:
+            held.add(ident)
+    return held
+
+
 def show(cfg, query=None, *, full=False, last=False):
     if last:
         if query:
@@ -609,18 +689,22 @@ def show(cfg, query=None, *, full=False, last=False):
         from .anchors import collect
         index = collect(graph)
         notice = _map_notice(graph)
+        if query in rules:          # a rule's or a flow's view begins with what concerns its id, its own line left out
+            concerning = [line for line in _concerning(cfg, data, graph, index, query, path=None,     # and the copies
+                                                       anchored=query in rules[query].get('anchors', ()))[0]   # it lists
+                          if line != f'rule {query}: {rules[query]["decides"]}']
         if query in rules and rules[query].get('kind') == 'flow':
             from .debug import show_observation
+            from .differences import display
             _, pointers = _source_pointers(index, rules[query].get('anchors', ()), graph, full=full)
             view = show_observation(cfg, query, index, cache.observations(cfg).get('events', ()))
-            print('\n'.join([*pointers, *view['lines']]))
+            display('\n'.join([*concerning, *pointers, *view['lines']]))
             return int(view['status'] == 'red')
         if query in rules:
             item = rules[query]
             lines = [f'RULE {query}: {item["decides"]}', item.get('doc', '') if full else '', f'source: {item["source"]}',
                      f'{item["file"]}:{item["line"]}; {item.get("rows", 0)} literal rows']
-            if notice:
-                lines.insert(1, notice)
+            lines[1:1] = [*([notice] if notice else []), *concerning]
             for home in item.get('homes', []) if item.get('kind') == 'rule' else []:
                 lines.append('home ' + home)
                 if full:
@@ -647,10 +731,22 @@ def show(cfg, query=None, *, full=False, last=False):
                 print(f'red load {error["file"]}:{error["line"]}: {error["msg"]} -> fix the intent file')
             return 1
         # A file or folder of the repository is a PATH query: the module's lines, and the known sites under it.
-        path = query if (cfg.root / query).is_dir() or '/' in query and (cfg.root / query).is_file() else None
-        concerning, listed = _concerning(cfg, data, graph, index, query, path=path)
-        from .differences import display        # a known entry's words may hold what the console cannot show
+        path = _repository_path(cfg, query)
+        # A site as known.toml writes it, `path:symbol` with a file of the repository: the symbol's facts, or the node
+        # branch for the function it names (one position of that file, as `sources.site_resolver` reads it).
+        spot, colon, name = query.rpartition(':')
+        site = bool(path is None and colon and _repository_path(cfg, spot) == spot and (cfg.root / spot).is_file())
+        target = None
+        if site:
+            from .anchors import _agreement_positions
+            module = graph.con.execute('SELECT module FROM file WHERE path = ?', (spot,)).fetchone()
+            found = _agreement_positions(graph, {spot: module[0]})[module[0]].get(name, ()) if module else ()
+            target = graph.node(found[0]) if len(found) == 1 else None
+        else:
+            name = query
         anchors, pointers = _source_pointers(index, [query], graph, full=full)
+        concerning, listed = _concerning(cfg, data, graph, index, query, path=path, node=target, anchored=bool(anchors))
+        from .differences import display        # a known entry's words may hold what the console cannot show
         if anchors:
             print('ANCHOR ' + query)
             if concerning:
@@ -680,48 +776,48 @@ def show(cfg, query=None, *, full=False, last=False):
             display('\n'.join(_copy_pointers(graph, index, anchors, [], [], query, full)))
             return 0
         from .docs import module_lines
-        site = query.rstrip('/') + '/' if (cfg.root / query).is_dir() else query
-        if path is not None and (module := module_lines(graph, site)):
+        if path is not None and (module := module_lines(graph, path + '/' if (cfg.root / path).is_dir() else path)):
             display('\n'.join([*module[:1], *concerning, *module[1:]]))       # R98: a module's contracts and connections
             return 0
-        node = graph.node(graph.canonical(query) or query)
+        node = target or (None if site else graph.node(graph.canonical(query) or query))
         if node:
             print(f'{query} {node["file"]}:{node["line"]}\n{node["sig"]}\n{node["doc"]}')
             if notice:
                 print(notice)
             if concerning:
                 display('\n'.join(concerning))
-            found = graph.search_homes(query, k=None)
+            found = graph.search_homes(node['id'], k=None)
             if not found['searched']:
                 print('not searched: ' + found.get('reason', '') + ' -> bind the real decision site')
             print('\n'.join(_candidate_lines(found, full, 'candidate ')))
             return 0
-        words = tokens(query)
+        words = tokens(name)
         from .owners import declaration_lines       # what the map already read about the name comes first
-        ranked = [(3000 - order, line) for order, line in enumerate(declaration_lines(graph, query))]
+        ranked = [(3000 - order, line) for order, line in enumerate(declaration_lines(graph, name))]
         unknown = ''
-        if FIELD_QUERY.fullmatch(query):      # Model.field or table.column: who writes it
-            written = graph.writes(query)
+        if FIELD_QUERY.fullmatch(name):      # Model.field or table.column: who writes it
+            written = graph.writes(name)
             ranked.extend((2000 - bool(row['unclear']), _write_line(row)) for row in written)
-            unknown = _unknown_model(graph, query)
+            unknown = _unknown_model(graph, name)
             from . import health, owners as checks       # several files write it and nobody owns it: say so first
             change = checks.Change(cfg, graph, None)
             for issue in health.writers(change, index, written).issues:
                 ranked.append((2001, f'structure: {issue.text} -> {issue.step}'))
-            ranked.extend((2001, line) for line in health.co_written(change, query))
-            ranked.extend((1999 - order, line) for order, line in enumerate(checks.field_lines(graph, query, written)))
+            ranked.extend((2001, line) for line in health.co_written(change, name, index))
+            ranked.extend((1999 - order, line) for order, line in enumerate(checks.field_lines(graph, name, written)))
         for rid, rule in rules.items():
-            score = 1000 if query.casefold() in {rid.casefold(), rule['decides'].casefold()} else 0
+            score = 1000 if name.casefold() in {rid.casefold(), rule['decides'].casefold()} else 0
             score += 4 * len(words & tokens(rule['decides'] + ' ' + rule.get('doc', '')))
             if score and rid not in listed:        # a rule that concerns the query is listed first already
                 ranked.append((score, f'rule {rid}: {rule["decides"]} {rule.get("doc", "")}'))
         owners = graph.outline(('function', 'method', 'class'))
+        held = _held_methods(graph, name)
         decided = {}
         for node, field, identity in graph.con.execute('SELECT node, field, identity FROM site'):
             decided.setdefault(node, []).append((field or '') + ' ' + (identity or ''))
         for ident, item in owners.items():
             names = {ident.casefold(), item['qual'].casefold(), item['qual'].rsplit('.', 1)[-1].casefold()}
-            score = 1000 if query.casefold() in names else 0
+            score = 1000 if name.casefold() in names or ident in held else 0
             # Only an owner whose text can hold a query word is split into words (may_share is exact).
             if any(may_share(words, text) for text in decided.get(ident, ())):
                 sites = graph.sites(ident)
@@ -730,7 +826,7 @@ def show(cfg, query=None, *, full=False, last=False):
                 score += len(words & tokens(ident + ' ' + item['doc']))
             if score:
                 ranked.append((score, f'{ident} {item["file"]}:{item["line"]}'))
-        for ident, aliases in graph.import_aliases(query).items():       # the names an import binds to an owner
+        for ident, aliases in graph.import_aliases(name).items():       # the names an import binds to an owner
             item = graph.node(ident)
             ranked.extend((1000, f'{alias} -> {ident} {item["file"]}:{item["line"]}') for alias in aliases)
         ranked.sort(key=lambda row: (-row[0], row[1]))

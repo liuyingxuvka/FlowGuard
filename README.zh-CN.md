@@ -63,7 +63,7 @@ FlowGuard 5.0 删除了 4.2 的注释写法（`sensor NAME`、`owner NAME`、`ow
 
 `tests/intent/` 中的规则独立写出预期，并注明出处。主人的原话用 `python -m flowguard req add <file|-> --id R1` 逐字节保存一次。文档出处要引用 `authority_docs` 所列文件中的原句，不能把 AI 方案存成主人原话。
 
-`.flowguard/rules.toml` 存主人现行的规则，每条一行文字，出处逐字引用存下的原话或文档原句。`.flowguard/known.toml` 存还没定论的事和对待方式：`act = "ask"` 是只有主人能答的问题，`leave` 是有意留着不动的问题，`fix` 是改到相关代码时就修的明确错误，`ignore` 是结构检查的误报。`python -m flowguard known add FINDING --act leave --why TEXT` 按上一次运行报出的某个 finding 的位置写入一条（`show --last` 列出每个 finding 的名字）。`python -m flowguard show rules` 列出两者，`new-task` 的简报会列出其中靠前的几条；`show NAME` 和 `show PATH` 开头先列出与这个名字、文件或文件夹有关的条目和规则。
+`.flowguard/rules.toml` 存主人现行的规则，每条一行文字，出处逐字引用存下的原话或文档原句。`.flowguard/known.toml` 存还没定论的事和对待方式：`act = "ask"` 是只有主人能答的问题，`leave` 是有意留着不动的问题，`fix` 是改到相关代码时就修的明确错误，`ignore` 是结构检查的误报。`python -m flowguard known add FINDING --act leave --why TEXT` 按上一次运行报出的某个 finding 的位置写入一条（`show --last` 列出每个 finding 的名字）。`python -m flowguard show rules` 列出两者，`new-task` 的简报会列出其中靠前的几条；`show NAME` 和 `show PATH` 开头先列出与这个名字、文件或文件夹有关的条目、规则和 flowguard 注释约定。
 
 `.flowguard/ledger.toml` 记录能不抛出就结束的异常处理，注明数量、理由和依据的成文规则。`python -m flowguard ledger init` 记录已有处理，`python -m flowguard ledger check` 检查账本。不能登记的形式由发现行说明。
 

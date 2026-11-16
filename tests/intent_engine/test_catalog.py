@@ -570,10 +570,14 @@ def test_show_of_an_entry_names_the_problem_of_its_file(tmp_path, capsys):
 
 
 # Shaped like Planning Tool's open matters (its known.toml of 2026-11-15): TS services and utils, a Prisma schema, two
-# copies of the ISO week count marked `same`, an intent rule anchored on them that cites a rules.toml rule.
+# copies of the ISO week count marked `same`, an intent rule anchored on them that cites a rules.toml rule. As there,
+# percent-scale names CapacityCalendarEntry.value only in its why, three entries quote the requirements document as
+# their source and no site names it, iso-weeks' why is longer than a brief line, and two services each have an
+# `update` method (employeeService.update a known site, centralEmployeeService.update not).
 CAPACITY = {
     'pyproject.toml': '[tool.flowguard]\nauthority_docs = ["docs/requirements.md"]\n',
-    'docs/requirements.md': 'Weekly capacity view aggregated by calendar weeks (KW 1-53).\nA working day has 8 hours.\n',
+    'docs/requirements.md': ('Weekly capacity view aggregated by calendar weeks (KW 1-53).\nA working day has 8 hours.\n'
+                             'Capacity unit toggle (hours 0-8 / percent 0-1).\nApproves/rejects project requests.\n'),
     'docs/requests.md': '# Project requests\n\nApproves/rejects project requests.\n',
     'backend/prisma/schema.prisma': '''
         model ProjectRequest {
@@ -622,6 +626,30 @@ CAPACITY = {
           return day === 4 ? 53 : 52;
         }
     ''',
+    'backend/src/services/employee.service.ts': '''
+        import { prisma } from '../lib/prisma';
+
+        export const employeeService = {
+          async findAll() {
+            return prisma.$queryRawUnsafe('SELECT * FROM employees');
+          },
+          async update(id: string, name: string) {
+            return prisma.employee.update({ where: { id }, data: { name } });
+          },
+        };
+    ''',
+    'backend/src/services/central-employee.service.ts': '''
+        export const centralEmployeeService = {
+          async update(id: string, name: string) {
+            return { id, name };
+          },
+        };
+    ''',
+    'backend/src/services/employee-utilization.service.ts': '''
+        export async function updateAssignmentPsp(employeeId: string) {
+          return employeeId;
+        }
+    ''',
     'tests/intent/iso_weeks.py': '''
         from flowguard.intent import rule
 
@@ -650,24 +678,39 @@ CAPACITY = {
         fix   = "Read the daily hours from DAILY_BASELINE_HOURS"
 
         [known.percent-scale]
-        sites = ["backend/src/utils/capacity-conversion.ts:convertPercentToHours",
-                 "backend/prisma/schema.prisma:CapacityCalendarEntry.value"]
-        why   = "CapacityCalendarEntry.value of PERCENT rows is read on two scales, 0..1 and 0..100"
-        act   = "ask"
-        asked = "2026-11-15"
-        ask   = "Which scale does the database store for PERCENT rows, 0..1 or 0..100?"
+        sites  = ["backend/src/utils/capacity-conversion.ts:convertPercentToHours",
+                  "backend/src/services/capacity.service.ts:capacityService.updateCalendarEntry"]
+        why    = "CapacityCalendarEntry.value of PERCENT rows is read on two scales, 0..1 and 0..100"
+        act    = "ask"
+        asked  = "2026-11-15"
+        ask    = "Which scale does the database store for PERCENT rows, 0..1 or 0..100?"
+        source = 'doc docs/requirements.md "Capacity unit toggle (hours 0-8 / percent 0-1)."'
 
         [known.iso-weeks]
         sites   = ["backend/src/utils/calendar-iso.ts:getIsoWeekCountInYear", "frontend/src/utils/weeks.ts:getIsoWeeksInYear"]
-        why     = "The backend copy counts from 31 December, the frontend copy from 28 December"
+        why     = "The backend copy takes the ISO week of 31 December and returns 1 for 2025; the two frontend copies take 28 December and return 52. Left for the bug-fixing pass (commit 36edc17)"
         act     = "leave"
+        source  = 'doc docs/requirements.md "Weekly capacity view aggregated by calendar weeks (KW 1-53)."'
         finding = "same:ISO_WEEKS_IN_YEAR"
 
         [known.project-requests]
-        sites = ["backend/prisma/schema.prisma:ProjectRequest.status", "docs/requests.md"]
-        why   = "No route approves or rejects a project request"
+        sites  = ["backend/prisma/schema.prisma:ProjectRequest.status", "docs/requests.md"]
+        why    = "No route approves or rejects a project request"
+        act    = "ask"
+        ask    = "Is the project-request workflow retired, or still to be built?"
+        source = 'doc docs/requirements.md "Approves/rejects project requests."'
+
+        [known.raw-sql]
+        sites = ["backend/src/services/employee.service.ts:employeeService.findAll"]
+        why   = "The constitution allows raw SQL only in migration files; these services run raw SQL"
         act   = "ask"
-        ask   = "Is the project-request workflow retired, or still to be built?"
+        asked = "2026-11-15"
+        ask   = "Should the constitution allow raw SQL in these services, or should the code move to Prisma queries?"
+
+        [known.renumber-order]
+        sites = ["backend/src/services/employee.service.ts:employeeService.update"]
+        why   = "employeeService.update hands the employee it loaded before the renumbering to the home-unit change"
+        act   = "leave"
 
         [known.entry-writers]
         sites   = ["backend/prisma/schema.prisma:CapacityCalendarEntry.value"]
@@ -683,54 +726,84 @@ OPEN = ('known.project-requests: open question for the owner: Is the project-req
         '(python -m flowguard show known.project-requests)')
 FIX = ('known.hours-constants: to fix when its code changes: 8 hours a day is written in the conversion and again in the '
        'capacity service (python -m flowguard show known.hours-constants)')
-LEAVE = ('known.iso-weeks: left as it is: The backend copy counts from 31 December, the frontend copy from 28 December '
-         '(python -m flowguard show known.iso-weeks)')
+# Cut to the brief's width as Planning Tool's own iso-weeks line is, the place to read it whole kept.
+LEAVE = ('known.iso-weeks: left as it is: The backend copy takes the ISO week of 31 December and returns 1 for 2025; the two '
+         'frontend copies take 28 December and re... (python -m flowguard show known.iso-weeks)')
 IGNORE = 'known.entry-writers: ignored, not reported: Each service writes its own rows (python -m flowguard show known.entry-writers)'
+RAW = ('known.raw-sql: asked the owner on 2026-11-15, no answer yet: Should the constitution allow raw SQL in these services, '
+       'or should the code move to Prisma quer... (python -m flowguard show known.raw-sql)')
+RENUMBER = ('known.renumber-order: left as it is: employeeService.update hands the employee it loaded before the renumbering '
+            'to the home-unit change (python -m flowguard show known.renumber-order)')
 RULE = 'rule ISO_WEEKS: iso weeks in a year'
 CITED = ('rule.iso-weeks: Weekly capacity is aggregated by calendar weeks KW 1 to 53. '
          '(python -m flowguard show rule.iso-weeks)')
-NOTICE = 'Map: prisma 1/1 parsed; typescript 4/4 parsed; static facts, foreign native-home execution not verified.'
+HOURS = 'rule.hours: A working day has 8 hours. (python -m flowguard show rule.hours)'
+SAME = 'same ISO_WEEKS_IN_YEAR backend/src/utils/calendar-iso.ts:2'
+NOTICE = 'Map: prisma 1/1 parsed; typescript 7/7 parsed; static facts, foreign native-home execution not verified.'
 
 
-def test_show_of_a_name_or_path_begins_with_the_known_entries_and_rules_that_concern_it(tmp_path, capsys):
-    # Planning Tool's agent looked names up with show and saw the open questions about them only in the session brief.
-    _commit(tmp_path, CAPACITY)
+def _shown(tmp_path, capsys, files):
+    _commit(tmp_path, files)
     cfg = load_config(tmp_path)
 
     def shown(query):
         assert cli.show(cfg, query) == 0
         return capsys.readouterr().out.splitlines()
+    return cfg, shown
 
-    # The facts branch (a function name, an object.method, its last part, a Model.field): after
-    # the header and the map notice, the entries in the brief's order (questions not asked yet, asked ones, fix, leave,
-    # ignore) with the brief's words, then the intent rules whose anchors name it and the rules.toml rules they cite.
+
+def _through(line, site):
+    """A known line as `show` gives it for an entry named only through the last dotted part of `site`."""
+    head, _, rest = line.partition(': ')
+    return f'{head} (site {site}): {rest}'
+
+
+def test_show_of_a_name_or_path_begins_with_the_known_entries_and_rules_that_concern_it(tmp_path, capsys):
+    # Planning Tool's agent looked names up with show and saw the open questions about them only in the session brief.
+    cfg, shown = _shown(tmp_path, capsys, CAPACITY)
+    # The facts branch (a function name, an object.method, a Model.field): after the header and the map notice, the
+    # entries in the brief's order (questions not asked yet, asked ones, fix, leave, ignore) with the brief's words, then
+    # the intent rules whose anchors name it, the rules.toml rules they cite and the flowguard comment that marks it.
     lines = shown('getIsoWeekCountInYear')
-    assert lines[:5] == ['show getIsoWeekCountInYear', NOTICE, LEAVE, RULE, CITED], lines
+    assert lines[:6] == ['show getIsoWeekCountInYear', NOTICE, LEAVE, RULE, CITED, SAME], lines
     # The rule's word-scored line of this branch is not repeated; the uncited rules.toml rule is not listed.
     assert sum(line.startswith('rule ISO_WEEKS') for line in lines) == 1 and not any('rule.hours' in line for line in lines)
     assert shown('convertPercentToHours')[:3] == ['show convertPercentToHours', NOTICE, ASKED]
-    for query in ('capacityService.updateCalendarEntry', 'updateCalendarEntry'):
-        assert shown(query)[:3] == [f'show {query}', NOTICE, FIX]
-    assert shown('CapacityCalendarEntry.value')[:4] == ['show CapacityCalendarEntry.value', NOTICE, ASKED, IGNORE]
+    assert shown('capacityService.updateCalendarEntry')[:4] == ['show capacityService.updateCalendarEntry', NOTICE, ASKED, FIX]
     assert shown('ProjectRequest.status')[:3] == ['show ProjectRequest.status', NOTICE, OPEN]
-    # The ANCHOR branch: the entry whose finding names the agreement, the rule anchored on it.
+    # A known line is cut to the brief's width, with the place to read the whole entry kept (Planning Tool's iso-weeks).
+    assert len(LEAVE) == cli.BRIEF_WIDTH and LEAVE.endswith('re... (python -m flowguard show known.iso-weeks)')
+    # Planning Tool's percent-scale names CapacityCalendarEntry.value only in its why: the field's own query lists it,
+    # after the entry with a site on the field, in either spelling of the field.
+    for query in ('CapacityCalendarEntry.value', 'capacity_calendar_entries.value'):
+        assert shown(query)[:4] == [f'show {query}', NOTICE, IGNORE, ASKED]
+    # The ANCHOR branch: the entry whose finding names the agreement, the rule anchored on it; its copies are the
+    # anchor lines that follow, not listed again.
     lines = shown('ISO_WEEKS_IN_YEAR')
     assert lines[:4] == ['ANCHOR ISO_WEEKS_IN_YEAR', LEAVE, RULE, CITED] and lines[4].startswith('anchor ISO_WEEKS_IN_YEAR -> '), lines
-    # The module branch (a file, a folder, a document): every entry with a site there, and the rules anchored there.
-    assert shown('docs/requests.md')[:2] == ['module docs/requests.md: 1 file, 0 functions', OPEN]
-    assert shown('backend/prisma/schema.prisma')[:4] == ['module backend/prisma/schema.prisma: 1 file, 0 functions', OPEN,
-                                                         ASKED, IGNORE]
+    assert SAME not in lines
+    # The module branch (a file, a folder, a document): every entry with a site there, the rules anchored there and the
+    # flowguard comments written there; a document also lists the entries and rules.toml rules that quote it, and puts
+    # no about marker for itself.
+    assert shown('docs/requests.md') == ['module docs/requests.md: 1 file, 0 functions', OPEN]
+    assert shown('docs/requirements.md') == ['module docs/requirements.md: 1 file, 0 functions', OPEN, ASKED, LEAVE, CITED,
+                                             HOURS]
+    assert shown('docs')[:7] == ['show docs', NOTICE, OPEN, ASKED, LEAVE, CITED, HOURS]     # no mapped file there
+    assert shown('backend/prisma/schema.prisma')[:3] == ['module backend/prisma/schema.prisma: 1 file, 0 functions', OPEN,
+                                                         IGNORE]
     lines = shown('backend/src/utils/capacity-conversion.ts')
     assert lines[:4] == ['module backend/src/utils/capacity-conversion.ts: 1 file, 1 function', ASKED, FIX,
                          'described by no text: put <!-- flowguard: about backend/src/utils/capacity-conversion.ts --> '
                          'above the Markdown text that is its contract'], lines
-    lines = shown('backend/src/utils')
-    assert lines[0] == 'module backend/src/utils/: 2 files, 2 functions' and lines[1:6] == [ASKED, FIX, LEAVE, RULE, CITED], lines
+    # A folder with a trailing slash or a leading ./, as a shell completes it, is that folder.
+    folder = ['module backend/src/utils/: 2 files, 2 functions', ASKED, FIX, LEAVE, RULE, CITED, SAME]
+    for query in ('backend/src/utils', 'backend/src/utils/', './backend/src/utils/', './backend/src/utils'):
+        assert shown(query)[:7] == folder, query
     # The plain node branch: the map's id of the object method its site names.
     lines = shown('typescript/backend/src/services/capacity.service.ts:updateCalendarEntry')
     at = lines.index(NOTICE)
     assert lines[0].startswith('typescript/backend/src/services/capacity.service.ts:updateCalendarEntry '
-                               'backend/src/services/capacity.service.ts:') and lines[at + 1] == FIX, lines
+                               'backend/src/services/capacity.service.ts:') and lines[at + 1:at + 3] == [ASKED, FIX], lines
     # Nothing concerns these: no known or rule line (project-requests names another field of that model).
     assert shown('frobnicateWidgets') == ['show frobnicateWidgets', NOTICE]
     lines = shown('ProjectRequest.decisionMetadata')
@@ -740,6 +813,310 @@ def test_show_of_a_name_or_path_begins_with_the_known_entries_and_rules_that_con
     assert cli.screen(cfg) == 0
     brief = capsys.readouterr().out.splitlines()
     assert OPEN.removesuffix(' (python -m flowguard show known.project-requests)') in brief, brief
+
+
+def test_a_known_line_found_through_a_generic_name_says_which_site_and_a_model_or_object_finds_its_members(tmp_path, capsys):
+    # On Planning Tool `show status`, `show update` and `show findAll` printed an entry of one of many same-named
+    # functions or fields without saying which, while `show ProjectRequest`, `show capacityService` and
+    # `show project_requests.status` printed none.
+    _, shown = _shown(tmp_path, capsys, CAPACITY)
+    renumber = _through(RENUMBER, 'backend/src/services/employee.service.ts:employeeService.update')
+    assert shown('update')[:3] == ['show update', NOTICE, renumber]
+    assert shown('findAll')[:3] == ['show findAll', NOTICE, _through(RAW, 'backend/src/services/employee.service.ts:employeeService.findAll')]
+    site = 'backend/src/services/capacity.service.ts:capacityService.updateCalendarEntry'
+    assert shown('updateCalendarEntry')[:4] == ['show updateCalendarEntry', NOTICE, _through(ASKED, site), _through(FIX, site)]
+    assert shown('status')[:3] == ['show status', NOTICE, _through(OPEN, 'backend/prisma/schema.prisma:ProjectRequest.status')]
+    # The site's words are added to the brief's line, which is cut as the brief cuts it.
+    assert len(renumber) == len(RENUMBER) + len(' (site backend/src/services/employee.service.ts:employeeService.update)')
+    # The model or object that holds a site, the table.column of a Prisma field, a name in another letter case: as the
+    # entry itself.
+    for query in ('ProjectRequest', 'projectRequest', 'project_requests', 'project_requests.status'):
+        assert shown(query)[:3] == [f'show {query}', NOTICE, OPEN], query
+    assert shown('capacityService')[:4] == ['show capacityService', NOTICE, ASKED, FIX]
+    assert shown('employeeService')[:4] == ['show employeeService', NOTICE, RAW, RENUMBER]
+    assert shown('convertpercenttohours')[:3] == ['show convertpercenttohours', NOTICE, ASKED]
+    # A map node is as precise as before: the other service's update is no site of the entry.
+    lines = shown('typescript/backend/src/services/employee.service.ts:update')
+    assert lines[lines.index(NOTICE) + 1] == RENUMBER, lines
+    lines = shown('typescript/backend/src/services/central-employee.service.ts:update')
+    assert not [line for line in lines if line.startswith('known.')], lines
+
+
+def test_show_of_a_site_as_known_toml_writes_it_gives_its_symbol_s_facts(tmp_path, capsys):
+    # `show known.<id>` prints sites as path:symbol; passed to show, Planning Tool's site printed the entry and then only
+    # word look-alikes, without the field's declaration or the constant's value.
+    _, shown = _shown(tmp_path, capsys, CAPACITY)
+    query = 'backend/prisma/schema.prisma:ProjectRequest.status'
+    assert shown(query)[:4] == [f'show {query}', NOTICE, OPEN, 'declared ProjectRequest.status: String (backend/prisma/schema.prisma:3)']
+    query = 'backend/src/utils/capacity-conversion.ts:DAILY_BASELINE_HOURS'
+    assert shown(query)[:4] == [f'show {query}', NOTICE, FIX,
+                                'const DAILY_BASELINE_HOURS = 8 (backend/src/utils/capacity-conversion.ts:1)']
+    # A function or object method site is the map node of that file: its signature, then what concerns the site.
+    query = 'backend/src/services/capacity.service.ts:capacityService.updateCalendarEntry'
+    lines = shown(query)
+    assert lines[:2] == [f'{query} backend/src/services/capacity.service.ts:5',
+                         'async updateCalendarEntry(entryId: string, value: number) '], lines
+    assert lines[lines.index(NOTICE) + 1:lines.index(NOTICE) + 3] == [ASKED, FIX], lines
+
+
+def test_an_object_method_query_ranks_that_object_s_method_first(tmp_path, capsys):
+    # On Planning Tool `show employeeService.update` listed central-employee.service.ts:update and updateAssignmentPsp
+    # before employee.service.ts:update, under the known line about employeeService.update.
+    _, shown = _shown(tmp_path, capsys, CAPACITY)
+    lines = shown('employeeService.update')
+    assert lines[:4] == ['show employeeService.update', NOTICE, RENUMBER,
+                         'typescript/backend/src/services/employee.service.ts:update backend/src/services/employee.service.ts:7'], lines
+    assert shown('EmployeeService.update')[3] == lines[3]
+    assert shown('centralEmployeeService.update')[2].startswith('typescript/backend/src/services/central-employee.service.ts:update ')
+
+
+# Shaped like Planning Tool's flowguard comments (no intent rules, as there): a writers agreement at the top of a
+# service file above a constant, a together agreement right above the function it concerns, one inside an object
+# literal above its method, and two `same` copies.
+AGREEMENTS = {
+    'pyproject.toml': '[tool.flowguard]\n',
+    'backend/prisma/schema.prisma': '''
+        model Project {
+          id                String @id
+          name              String
+          lifecycleStatusId String @map("lifecycle_status_id")
+          @@map("projects")
+        }
+
+        model Employee {
+          id                   String @id
+          organizationalUnitId String @map("organizational_unit_id")
+          @@map("employees")
+        }
+
+        model CentralEmployee {
+          id        String  @id
+          orgUnitId String? @map("org_unit_id")
+          @@map("central_employees")
+        }
+
+        model PspElement {
+          id             String  @id
+          title          String
+          parentPspId    String? @map("parent_psp_id")
+          hierarchyLevel Int     @map("hierarchy_level")
+          @@map("psp_elements")
+        }
+    ''',
+    'backend/src/services/project.service.ts': '''
+        import { prisma } from '../lib/prisma';
+
+        // flowguard: writers Project.lifecycleStatusId projectService.create,projectService.update
+        const VALID_TRANSITIONS: Record<string, string[]> = {
+          PLANNED: ['ACTIVE'],
+          ACTIVE: ['FINISHED'],
+        };
+
+        export const projectService = {
+          async create(name: string, lifecycleStatusId: string) {
+            return prisma.project.create({ data: { name, lifecycleStatusId } });
+          },
+          async update(id: string, lifecycleStatusId: string) {
+            if (!VALID_TRANSITIONS[lifecycleStatusId]) throw new Error('invalid transition');
+            return prisma.project.update({ where: { id }, data: { lifecycleStatusId } });
+          },
+        };
+    ''',
+    'backend/src/services/employee-home-unit.service.ts': '''
+        import { prisma } from '../lib/prisma';
+
+        /**
+         * Move an employee to another home unit, locally and in Central.
+         */
+        // flowguard: together CentralEmployee.orgUnitId Employee.organizationalUnitId
+        export async function changeEmployeeHomeUnit(employeeId: string, orgUnitId: string) {
+          await prisma.centralEmployee.update({ where: { id: employeeId }, data: { orgUnitId } });
+          return prisma.employee.update({ where: { id: employeeId }, data: { organizationalUnitId: orgUnitId } });
+        }
+    ''',
+    'backend/src/services/psp-element.service.ts': '''
+        import { prisma } from '../lib/prisma';
+
+        export const pspElementService = {
+          // flowguard: together PspElement.parentPspId PspElement.hierarchyLevel
+          async create(title: string, parentPspId: string, hierarchyLevel: number) {
+            return prisma.pspElement.create({ data: { title, parentPspId, hierarchyLevel } });
+          },
+          async move(id: string, title: string, parentPspId: string, hierarchyLevel: number) {
+            return prisma.pspElement.update({ where: { id }, data: { title, parentPspId, hierarchyLevel } });
+          },
+        };
+    ''',
+    'backend/src/utils/calendar-iso.ts': CAPACITY['backend/src/utils/calendar-iso.ts'],
+    'frontend/src/utils/weeks.ts': CAPACITY['frontend/src/utils/weeks.ts'],
+    '.flowguard/known.toml': '''
+        [known.renumber-order]
+        sites = ["backend/src/services/employee-home-unit.service.ts:changeEmployeeHomeUnit"]
+        why   = "The home-unit change gets the employee loaded before the renumbering"
+        act   = "leave"
+    ''',
+}
+
+WRITERS = ('writers Project.lifecycleStatusId projectService.create,projectService.update '
+           'backend/src/services/project.service.ts:3')
+HOME = ('together CentralEmployee.orgUnitId Employee.organizationalUnitId '
+        'backend/src/services/employee-home-unit.service.ts:6')
+PSP = 'together PspElement.parentPspId PspElement.hierarchyLevel backend/src/services/psp-element.service.ts:4'
+HOME_KNOWN = ('known.renumber-order: left as it is: The home-unit change gets the employee loaded before the renumbering '
+              '(python -m flowguard show known.renumber-order)')
+AGREED_NOTICE = 'Map: prisma 1/1 parsed; typescript 5/5 parsed; static facts, foreign native-home execution not verified.'
+
+
+def test_show_lists_the_flowguard_comment_agreements_that_concern_a_function_file_or_field(tmp_path, capsys):
+    # Planning Tool has no intent rules and twelve agreements written as flowguard comments; show of projectService.create,
+    # of changeEmployeeHomeUnit, of their files and of a together agreement's partner field named none of them.
+    _, shown = _shown(tmp_path, capsys, AGREEMENTS)
+    # A function: the agreements that name it (a writers function, its last part too) or that sit right above it.
+    assert shown('projectService.create')[:3] == ['show projectService.create', AGREED_NOTICE, WRITERS]
+    assert shown('create')[:4] == ['show create', AGREED_NOTICE, WRITERS, PSP]
+    lines = shown('typescript/backend/src/services/project.service.ts:create')
+    assert lines[lines.index(AGREED_NOTICE) + 1] == WRITERS, lines
+    assert shown('changeEmployeeHomeUnit')[:4] == ['show changeEmployeeHomeUnit', AGREED_NOTICE, HOME_KNOWN, HOME]
+    assert shown('pspElementService.create')[:3] == ['show pspElementService.create', AGREED_NOTICE, PSP]
+    assert PSP not in shown('pspElementService.move')
+    assert shown('getIsoWeekCountInYear')[:3] == ['show getIsoWeekCountInYear', AGREED_NOTICE, SAME]
+    # A file or folder: the agreements written there.
+    assert shown('backend/src/services/project.service.ts')[:2] == [
+        'module backend/src/services/project.service.ts: 1 file, 2 functions', WRITERS]
+    assert shown('backend/src/services/employee-home-unit.service.ts')[:3] == [
+        'module backend/src/services/employee-home-unit.service.ts: 1 file, 1 function', HOME_KNOWN, HOME]
+    assert shown('backend/src/utils/calendar-iso.ts')[:2] == ['module backend/src/utils/calendar-iso.ts: 1 file, 1 function', SAME]
+    assert shown('backend/src/services')[:5] == ['module backend/src/services/: 3 files, 5 functions', HOME_KNOWN, HOME, WRITERS, PSP]
+    # A field: every agreement that names it as its field or partner, in either spelling; the ANCHOR view of an
+    # agreement's own field lists it once, as before.
+    for query in ('Employee.organizationalUnitId', 'employees.organizational_unit_id'):
+        assert shown(query)[:3] == [f'show {query}', AGREED_NOTICE, HOME], query
+    assert shown('Employee')[:3] == ['show Employee', AGREED_NOTICE, HOME]
+    assert shown('CentralEmployee.orgUnitId').count(HOME) == 1
+    # A pair an agreement already holds, in either order, is no together candidate of the partner field.
+    lines = shown('PspElement.hierarchyLevel')
+    assert lines[:3] == ['show PspElement.hierarchyLevel', AGREED_NOTICE, PSP], lines
+    candidates = [line for line in lines if line.startswith('together candidate')]
+    assert candidates and all('PspElement.parentPspId' not in line for line in candidates), lines
+    assert any('PspElement.title is written by 2 of the 2 functions' in line for line in candidates), lines
+
+
+# Rules named after the constant and the agreement they decide, a Python states rule and a flow (TD1, TD8).
+LIMITS = {
+    'pyproject.toml': '[tool.flowguard]\nauthority_docs = ["docs/spec.md"]\n',
+    'docs/spec.md': 'A share is at most 2.\nA late day costs 2.\nA hire is open or returned.\n',
+    'app/__init__.py': '',
+    'app/limits.py': '''
+        MAX_SHARE = 2
+
+
+        def share_ok(share):
+            return share <= MAX_SHARE
+    ''',
+    'app/fees.py': '''
+        # flowguard: same FEE
+        def late_fee(days):
+            return 2 * days
+
+
+        # flowguard: same FEE
+        def preview_fee(days):
+            return 3 * days
+    ''',
+    'app/decision.py': '''
+        class Hire:
+            def hold(self):
+                self.status = 'open'
+    ''',
+    'tests/intent/policies.py': '''
+        from flowguard.intent import Node, flow, rule, states
+
+
+        @rule('MAX_SHARE', decides='largest share', fields={'share': float}, source='rule.max-share')
+        def MAX_SHARE(share):
+            return share <= 2
+
+
+        @rule('FEE', decides='late fee', fields={'days': int}, source='doc docs/spec.md "A late day costs 2."', anchor='FEE')
+        def FEE(days):
+            return 2 * days
+
+
+        states('app.decision:Hire.status', ['open', 'returned'], source='doc docs/spec.md "A hire is open or returned."')
+        flow('INVOICE', source='assumed: an invoice charges the late fee', nodes=[Node('fee', 'FEE', phase='return')],
+             edges=[])
+    ''',
+    '.flowguard/rules.toml': '''
+        [rule.max-share]
+        text = "A share is at most 2."
+        source = 'doc docs/spec.md "A share is at most 2."'
+    ''',
+    '.flowguard/known.toml': '''
+        [known.share-limit]
+        sites = ["app/limits.py:MAX_SHARE"]
+        why   = "The frontend allows 2.5"
+        act   = "ask"
+        ask   = "Is the largest share 2 or 2.5?"
+
+        [known.fee-copies]
+        sites   = ["app/fees.py:late_fee", "app/fees.py:preview_fee"]
+        why     = "The preview charges 3 per late day, the invoice 2"
+        act     = "ask"
+        ask     = "Which daily late fee is right, 2 or 3?"
+        finding = "same:FEE"
+
+        [known.preview-share]
+        sites = ["app/fees.py:preview_fee"]
+        why   = "The preview rounds the share before it compares it with MAX_SHARE"
+        act   = "leave"
+
+        [known.invoice-order]
+        sites   = ["app/fees.py:late_fee"]
+        why     = "The invoice flow reads the fee before the discount"
+        act     = "leave"
+        finding = "flow:INVOICE"
+    ''',
+}
+
+SHARE = 'known.share-limit: open question for the owner: Is the largest share 2 or 2.5? (python -m flowguard show known.share-limit)'
+FEE_COPIES = ('known.fee-copies: open question for the owner: Which daily late fee is right, 2 or 3? '
+        '(python -m flowguard show known.fee-copies)')
+PREVIEW = ('known.preview-share: left as it is: The preview rounds the share before it compares it with MAX_SHARE '
+           '(python -m flowguard show known.preview-share)')
+INVOICE = ('known.invoice-order: left as it is: The invoice flow reads the fee before the discount '
+           '(python -m flowguard show known.invoice-order)')
+STATES = 'rule states:app.decision:Hire.status: app.decision:Hire.status'
+
+
+def test_a_rule_or_flow_view_and_a_python_rule_home_begin_with_what_concerns_them(tmp_path, capsys):
+    # A rule named after the constant or the agreement it decides took the RULE branch, which printed no known line.
+    _, shown = _shown(tmp_path, capsys, LIMITS)
+    # The entry with a site on the constant, then the one whose why names it; the rule's own line is its header.
+    lines = shown('MAX_SHARE')
+    assert lines[:3] == ['RULE MAX_SHARE: largest share', SHARE, PREVIEW] and lines[3] == 'source: rule.max-share', lines
+    # The entry whose finding names the agreement and the flow anchored on it; the copies are the view's anchor lines,
+    # not listed again.
+    lines = shown('FEE')
+    assert lines[:3] == ['RULE FEE: late fee', FEE_COPIES, 'rule INVOICE: flow'] and not [
+        line for line in lines if line.startswith('same FEE')], lines
+    assert shown('late_fee')[:6] == ['show late_fee', FEE_COPIES, INVOICE, 'rule FEE: late fee', 'rule INVOICE: flow',
+                                     'same FEE app/fees.py:2']
+    # A flow's view begins with the entry whose finding names it, its own line left out.
+    lines = shown('INVOICE')
+    assert lines[0] == INVOICE and lines[1].startswith('anchor FEE -> ') and 'rule INVOICE: flow' not in lines, lines
+    # A states rule is listed by its home `module:Class.field`, read as its file's site, once and without the word
+    # look-alike's trailing space.
+    lines = shown('Hire.status')
+    assert lines[:2] == ['show Hire.status', STATES] and lines.count(STATES) == 1 and STATES + ' ' not in lines, lines
+    assert shown('app/decision.py')[:2] == ['module app/decision.py: 1 file, 1 function', STATES]
+    for query in ('app', 'app/', './app'):
+        assert shown(query)[:10] == ['module app/: 4 files, 4 functions', SHARE, FEE_COPIES, PREVIEW, INVOICE,
+                                     'rule FEE: late fee', STATES, 'rule INVOICE: flow', 'same FEE app/fees.py:2',
+                                     'same FEE app/fees.py:7'], query
+    # A file at the repository's root is a PATH query too.
+    (tmp_path / 'fees.py').write_text('# flowguard: same FEE\ndef old_fee(days):\n    return 2 * days\n', encoding='utf-8')
+    assert shown('fees.py')[:4] == ['module fees.py: 1 file, 1 function', 'rule FEE: late fee', 'rule INVOICE: flow',
+                                    'same FEE fees.py:2']
 
 
 def test_the_repository_keeps_its_rules_in_force_each_quoting_stored_owner_words(capsys):

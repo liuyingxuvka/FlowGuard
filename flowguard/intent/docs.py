@@ -218,7 +218,8 @@ def _linked(graph, touched):
 
 def module_lines(graph, site):
     """`show PATH` of a file or folder (R98): the texts that describe it, then each module (file) it calls or is
-    called by, with the number of calls and the texts that describe that module; [] when no mapped file is there."""
+    called by, with the number of calls and the texts that describe that module; [] when no mapped file is there.
+    A Markdown file is no module that a text describes: its view puts no about marker for itself."""
     files = module_files(graph, site)
     if not files:
         return []
@@ -243,8 +244,8 @@ def module_lines(graph, site):
         return f'; described by {", ".join(dict.fromkeys(places))}' if places else ''
     own = list(dict.fromkeys(place for path in sorted(files) for place in contracts.get(path, [])))
     lines = [f'module {site}: {len(files)} file{"s" * (len(files) != 1)}, {len(mine)} function{"s" * (len(mine) != 1)}']
-    lines += [f'described by {place}' for place in own] or ['described by no text: put <!-- flowguard: about '
-                                                           f'{site} --> above the Markdown text that is its contract']
+    lines += [f'described by {place}' for place in own] or ([] if site.endswith('.md') else [   # a document is no module
+        f'described by no text: put <!-- flowguard: about {site} --> above the Markdown text that is its contract'])
     lines += [f'calls {path} ({count} call{"s" * (count != 1)}{described(path)})' for path, count in sorted(outward.items())]
     lines += [f'called by {path} ({count} call{"s" * (count != 1)}{described(path)})' for path, count in sorted(inward.items())]
     return lines
