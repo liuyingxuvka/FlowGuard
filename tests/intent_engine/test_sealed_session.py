@@ -421,7 +421,7 @@ def test_a_function_in_an_unchanged_file_is_not_compared_before_and_after(tmp_pa
     assert not [line for line in lines if 'OPAQUE' in line or 'READS' in line], text
 
 
-def test_a_changed_function_or_a_name_with_two_copies_is_due_and_listed_when_not_comparable(tmp_path):
+def test_a_changed_function_or_a_name_with_two_copies_this_change_edits_is_due_and_listed_when_not_comparable(tmp_path):
     result, text, report = _copies(tmp_path, _NOT_COMPARABLE + '''
     # flowguard: same TWIN
     def twin(db, days: int) -> bool:
@@ -437,8 +437,15 @@ def test_a_changed_function_or_a_name_with_two_copies_is_due_and_listed_when_not
     assert result.returncode == 0, text
     assert any(item.get('name') == 'READS' and 'uses attribute loads' in item['reasons']
                for item in report['items']), report['items']                                      # changed itself
-    assert 'TWIN: no comparable JSON result' in _reasons(report), report['items']                 # two copies
+    # R99: two copies as they were at the baseline, called with no JSON input, are an old matter, not this change's
+    assert not any('TWIN' in reason for reason in _reasons(report)), report['items']
     assert not any('OPAQUE' in line for line in text.splitlines() + _reasons(report)), text       # neither
+    path = tmp_path / 'policy.py'
+    path.write_text(path.read_text().replace('def double(db, days: int) -> bool:\n    return days <= 3',
+                                             'def double(db, days: int) -> bool:\n    return days < 4'))
+    result = _run(tmp_path)
+    assert result.returncode == 0, _text(result)
+    assert 'TWIN: no comparable JSON result' in _reasons(_report(tmp_path)), _report(tmp_path)    # a copy this change edits
 
 
 @pytest.mark.parametrize('helper, call', [

@@ -376,7 +376,7 @@ def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no 
     baseline could not run names it by (`signals.copy_answers`). Returns what the run reports: `grey` reasons (not
     compared), the `same:NAME` finding (`signals.copies_issue`: a pair red where this change broke it, old where it
     already differed at the baseline) or None, and `ran` when every copy answered every compared input. `no_inputs`
-    says why nothing was compared when no input could be made."""
+    says why nothing was compared when no input could be made ('': nothing is said)."""
     import ast
     from types import SimpleNamespace
     from . import cells as C, runtime as R, signals
@@ -387,7 +387,7 @@ def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no 
         return json.dumps(left, sort_keys=True, allow_nan=False) == json.dumps(right, sort_keys=True, allow_nan=False)
     numbers = [number for point in points for number in _sealed_numbers(ast.parse(source(point)), point['qual']) or ()]
     inputs, left = signals.copy_inputs(recorded, numbers)
-    if not inputs:
+    if not inputs and no_inputs:
         out.grey.append(name + ': ' + no_inputs)
     if cut := signals.copy_cut(name, 64, left):
         out.grey.append(cut)
@@ -548,6 +548,7 @@ class Observations:
         self.changed, self.records, self.grey = bool(self.files), [], []
         self.metadata, self.bound, self.event_codes, self.payload = {}, {}, {}, None
         self.structure = None
+        self.old_copies = set()     # the same names whose copies this change leaves as they were (`_compare`)
         self.event_record = self.capture = None
         self.text = ''
         self.final = None           # FlowGuard's own seconds in the session, taken once after all its work (`_final`)
@@ -834,10 +835,17 @@ class Observations:
         for name, points in groups.items():
             if len(points) < 2:
                 continue
-            if not any(point['target'] in reached for point in points) and not any(map(self._touched_copy, points)):
-                continue        # copies no test reached, as they were at the baseline: an old matter (R99), not this change's
+            # copies as they were at the baseline are an old matter (R99), not this change's: when no test reached
+            # them they say nothing, and when a test's call of one gave no JSON input neither does that (`report`);
+            # check --all compares every group itself
+            fresh = any(map(self._touched_copy, points))
+            if not fresh:
+                self.old_copies.add(name)
+                if not any(point['target'] in reached for point in points):
+                    continue
             recorded = [_declared(point, sample['inputs']) for point in points for sample in samples.get(point['target'], {}).values()]
-            found = compare_copies(name, points, recorded, source, run, self._place)
+            found = compare_copies(name, points, recorded, source, run, self._place,
+                                   no_inputs='no recorded JSON inputs' if fresh else '')
             self.grey.extend(found.grey)
             if found.issue is not None:
                 self.copies.append(found.issue)
@@ -1014,11 +1022,12 @@ class Observations:
         self._flow_signals()
         items = self._compare()
         # Only a call due for a comparison is `not compared`: a function that changed itself, or one of two or
-        # more same-name copies. A lone unchanged `same` function has nothing to compare it with.
+        # more same-name copies this change edits or marks (`_compare`). A lone unchanged `same` function has nothing
+        # to compare it with.
         copies = Counter(point['name'] for point in self.points.values() if point['anchor'] and point['kind'] == 'sensor')
         self.grey.extend(point['name'] + ': no comparable JSON result' for index, point, _, _, _ in self.records
                          if self.runtime.readings[index].sample is None
-                         and (point['changed'] or copies[point['name']] > 1))
+                         and (point['changed'] or copies[point['name']] > 1 and point['name'] not in self.old_copies))
         model = self.state.model
         for item, result in self.state.results.items():
             if result.get('verdict') == 'grey':

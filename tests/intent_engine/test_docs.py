@@ -443,3 +443,235 @@ def test_a_folder_is_a_module_and_a_folder_with_no_mapped_file_is_red(tmp_path):
     _write(tmp_path, {'app/b.ts': CALLER, 'docs/app.md': folder + '\n<!-- flowguard: about lib/ -->\nGone.\n'})
     code, text = _static(tmp_path)
     assert code == 1 and any(line.startswith('red: about lib/: site lib/: no mapped file in this folder') for line in _block(text)), text
+
+
+PT_ALLOCATION = '''export const allocationService = {
+  async get(id: string) {
+    return { id };
+  },
+};
+'''
+PT_COVERAGE = '''export function allocatedFteInPeriod(rows: { day: Date; fte: number }[]): number {
+  const days = new Map<number, number>();
+  for (const row of rows) {
+    days.set(row.day.getTime(), (days.get(row.day.getTime()) ?? 0) + row.fte);
+  }
+  const first = rows.find((row) => row.fte > 0);
+  return first ? first.fte : 0;
+}
+'''
+PT_CAPACITY = '''import { allocatedFteInPeriod } from '../utils/allocation-coverage';
+export function capacityOf(rows: { day: Date; fte: number }[]) { return 1 - allocatedFteInPeriod(rows); }
+'''
+PT_DIALOG = '''export function buildSyncEntries(entries: { id: string; open: boolean }[]) {
+  return entries.find((entry) => entry.open);
+}
+'''
+PT_NETLOG = '''class NetLog {
+  lines: string[] = [];
+  find(text: string) {
+    return this.lines.filter((line) => line.includes(text));
+  }
+}
+export const log = new NetLog();
+'''
+
+
+def test_a_module_connects_only_through_the_calls_the_map_resolved(tmp_path):
+    """Planning Tool (5.0 review, pt:F7): `show backend/src/utils/` said `calls backend/src/services/allocation.service.ts
+    (6 calls)`, which were `days.get(...)` and `groups.get(...)` on Maps matched by the name `get` alone to
+    allocationService.get, and 43 frontend components `called` the e2e helper NetLog.find through ordinary Array.find
+    calls. The module view and the contracts a change names (`_linked`) count only the calls the map resolved."""
+    from tests.intent_engine.test_static_check import _flowguard
+    contract = '# Utilities\n\n<!-- flowguard: about backend/src/utils/ -->\nThe utilities compute allocation coverage.\n'
+    _commit(tmp_path, {'backend/package.json': '{"name": "backend"}\n', 'frontend/package.json': '{"name": "frontend"}\n',
+                       'backend/src/services/allocation.service.ts': PT_ALLOCATION,
+                       'backend/src/utils/allocation-coverage.ts': PT_COVERAGE,
+                       'backend/src/services/capacity.service.ts': PT_CAPACITY,
+                       'frontend/src/components/AbsenceSyncDialog.tsx': PT_DIALOG,
+                       'frontend/tests/e2e/local-azure/m117-add-project-from-details.live.spec.ts': PT_NETLOG,
+                       'docs/utils.md': contract})
+    def show(path):
+        code, out = _flowguard(tmp_path, 'show', path)
+        assert code == 0, out
+        return out.splitlines()
+    assert show('backend/src/utils/') == [
+        'module backend/src/utils/: 1 file, 1 function', 'described by docs/utils.md:3',
+        'called by backend/src/services/capacity.service.ts (1 call)']
+    assert show('frontend/src/components/AbsenceSyncDialog.tsx') == [
+        'module frontend/src/components/AbsenceSyncDialog.tsx: 1 file, 1 function',
+        'described by no text: put <!-- flowguard: about frontend/src/components/AbsenceSyncDialog.tsx --> above the '
+        'Markdown text that is its contract']
+    # An edit of allocationService.get connects to no utility; one of the resolved caller names the contract.
+    def named():
+        code, text = _static(tmp_path)
+        assert code == 0, text
+        return [line for line in _block(text) if 'utils.md' in line]
+    _write(tmp_path, {'backend/src/services/allocation.service.ts': PT_ALLOCATION.replace('{ id }', '{ id, found: true }')})
+    assert named() == []
+    _write(tmp_path, {'backend/src/services/allocation.service.ts': PT_ALLOCATION,
+                      'backend/src/services/capacity.service.ts': PT_CAPACITY.replace('1 - ', '2 - ')})
+    said = named()         # the block cuts the middle of the line: it is 214 characters long
+    assert len(said) == 1 and said[0].startswith('impact: utils.md:3 describes backend/src/utils/, whose backend/src/utils/') \
+        and said[0].endswith('capacity.service.ts:capacityOf, which this change edits -> reread that text and correct it '
+                             'if it no longer holds'), said
+
+
+PT_SQL_SCHEMA = '''datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Assignment {
+  id     String @id
+  status String @default("DRAFT")
+
+  @@map("assignments")
+}
+'''
+PT_CHECK = '''CREATE TABLE assignments (
+  id NVARCHAR(36) PRIMARY KEY,
+  status NVARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+  CONSTRAINT ck_assignments_status CHECK (status IN ('DRAFT', 'ACTIVE', 'CLOSED', 'CANCELED', 'REMOVED'))
+);
+'''
+PT_HEALTH = '''export function healthBody(database: boolean): string {
+  const overallStatus = database ? 'healthy' : 'degraded';
+  return JSON.stringify({ status: overallStatus });
+}
+'''
+PT_ALERT = '''/**
+ * Alert component for status messages.
+ */
+export function Alert(props: { text: string }) {
+  return <div role="status">{props.text}</div>;
+}
+'''
+PT_WEEK = '''import { GRANULARITIES } from '../constants/granularity';
+export function weekly(): boolean { return GRANULARITIES.includes('WEEK'); }
+'''
+PT_MONTH = '''const GRANULARITIES = ['DAY', 'WEEK', 'MONTH', 'YEAR'] as const;
+export function monthly(): number { return GRANULARITIES.length; }
+'''
+PT_DATA = '''# Data
+
+<!-- flowguard: generate values Assignment.status -->
+- `DRAFT`
+- `ACTIVE`
+<!-- flowguard: end -->
+
+<!-- flowguard: generate values GRANULARITIES -->
+- `DAY`
+<!-- flowguard: end -->
+'''
+
+
+def test_an_old_values_region_is_named_by_a_file_that_declares_its_set_then_or_now_never_by_its_name_alone(tmp_path):
+    """Planning Tool (5.0 review, code:F2, entry:F2, TD9): a stale `generate values Assignment.status` region was named
+    by an edit of any file whose baseline text held the word `status`, 153 of PT's 466 frontend and backend sources
+    (backend/src/api/routes/health.routes.ts with `{ status: overallStatus }`, frontend/src/components/ui/Alert.tsx with
+    `status` in a comment and `role="status"`); a `GRANULARITIES` region by a file that only imports the set. A region is
+    named when this change edits a file whose map facts declare the set at the baseline or now: the SQL CHECK, the file
+    that held the declaration this change removes. One that cannot be written (two different sets) is an old matter
+    too (R99), and the brief counts both kinds; `python -m flowguard docs` leaves the count right (entry:F3)."""
+    from tests.intent_engine.test_static_check import _flowguard
+    schema, check, health, alert, granularity, week, month = (
+        'backend/prisma/schema.prisma', 'backend/prisma/azure-sql-setup.sql', 'backend/src/api/routes/health.routes.ts',
+        'frontend/src/components/ui/Alert.tsx', 'frontend/src/constants/granularity.ts', 'frontend/src/views/week.ts',
+        'frontend/src/views/month.ts')
+    files = {'backend/package.json': '{"name": "backend"}\n', 'frontend/package.json': '{"name": "frontend"}\n',
+             schema: PT_SQL_SCHEMA, check: PT_CHECK, health: PT_HEALTH, alert: PT_ALERT, granularity: PT_GRANULARITY,
+             week: PT_WEEK, month: PT_MONTH, 'docs/data.md': PT_DATA}
+    _commit(tmp_path, files)
+    status, granularities = (f'impact: data.md:{line} generate values {name} {what}' for line, name, what in (
+        (3, 'Assignment.status', 'is out of date -> python -m flowguard docs rewrites it'),
+        (8, 'GRANULARITIES', 'cannot be written -> correct its marker or remove the region')))
+    def said(*options):
+        code, text = _static(tmp_path, *options)
+        assert code == 0, text
+        return [line for line in _block(text, everything=bool(options)) if 'generate ' in line]
+    def brief(*arguments):
+        code, text = _flowguard(tmp_path, *arguments)
+        assert code == 0, text
+        return [line for line in text.splitlines() if 'generated region' in line]
+    assert said() == []
+    assert brief() == ['2 generated regions are out of date, 1 of them cannot be written: '
+                       'python -m flowguard docs rewrites the others and says why']
+    # Files that hold the set's or the field's name and declare no set say nothing.
+    for path, old, new in ((health, "'degraded'", "'impaired'"), (alert, '{props.text}', '{props.text.trim()}'),
+                           (week, "'WEEK'", "'MONTH'")):
+        _write(tmp_path, {path: files[path].replace(old, new)})
+        assert said() == [], path
+        _write(tmp_path, {path: files[path]})
+    # The CHECK declares Assignment.status, month.ts one of the two GRANULARITIES.
+    _write(tmp_path, {check: PT_CHECK.replace(", 'REMOVED'", '')})
+    assert said() == [status]
+    _write(tmp_path, {check: PT_CHECK, month: PT_MONTH.replace("'YEAR'", "'QUARTER'")})
+    assert said() == [granularities]
+    # granularity.ts declared the set at the baseline: the change that removes it leaves month.ts's set alone.
+    _write(tmp_path, {month: PT_MONTH, granularity: 'export const UNIT = 1;\n'})
+    assert said() == [granularities.replace('cannot be written -> correct its marker or remove the region',
+                                            'is out of date -> python -m flowguard docs rewrites it')]
+    # The Prisma field is what makes the CHECK's column Assignment.status: removing it names the region.
+    _write(tmp_path, {granularity: PT_GRANULARITY, schema: PT_SQL_SCHEMA.replace('  status String @default("DRAFT")\n', '')})
+    assert said() == [status.replace('is out of date -> python -m flowguard docs rewrites it',
+                                     'cannot be written -> correct its marker or remove the region')]
+    _write(tmp_path, {schema: PT_SQL_SCHEMA})
+    assert said('--all') == [status, granularities]
+    # docs rewrites what it can; the brief and new-task count what is left, without a check in between.
+    code, out = _flowguard(tmp_path, 'docs')
+    assert code == 1 and out.splitlines() == [
+        'docs/data.md:3 generate values Assignment.status: rewritten',
+        'docs/data.md:8 generate values GRANULARITIES: generate values GRANULARITIES: 2 different value sets have that name'], out
+    assert brief() == ['1 generated region cannot be written: python -m flowguard docs says why']
+    assert brief('new-task') == ['1 generated region cannot be written: python -m flowguard docs says why']
+    # One region out of date is counted alone (the first region now lists five values); after docs none is.
+    _write(tmp_path, {month: 'export function monthly(): number { return 4; }\n'})
+    assert said() == ['impact: data.md:11 generate values GRANULARITIES is out of date -> python -m flowguard docs rewrites it']
+    assert brief() == ['1 generated region is out of date: python -m flowguard docs rewrites it']
+    code, out = _flowguard(tmp_path, 'docs')
+    assert code == 0 and out.splitlines() == ['docs/data.md:11 generate values GRANULARITIES: rewritten'], out
+    assert brief() == [] and brief('new-task') == []
+
+
+PT_ROLES = "export const APPLICATION_ROLES = ['SYSTEM_ADMIN', 'PLANNING_ADMIN', 'EMPLOYEE'] as const;\n"
+PT_PERMISSIONS = ("import { APPLICATION_ROLES } from '../constants/roles';\n\n"
+                  "export type ApplicationRole = (typeof APPLICATION_ROLES)[number];\n")
+PT_CENTRAL = """datasource db {
+  provider = "sqlserver"
+  url      = env("CENTRAL_DATABASE_URL")
+}
+
+model CentralEmployee {
+  id          String @id
+  displayName String @map("display_name")
+
+  @@map("central_employees")
+}
+"""
+
+
+def test_a_region_is_named_by_the_set_a_ts_alias_reads_and_by_a_prisma_schema_that_declares_its_model(tmp_path):
+    """U3's precision limits, by the files' map facts: a `values` region of a TS alias (`ApplicationRole`, written as
+    `(typeof APPLICATION_ROLES)[number]`) is written from the set the alias names, so an edit of that set's own file
+    names it; a `fields Customer` region reads only the Prisma schemas that declare Customer, so an edit of Planning
+    Tool's central schema, which has other models, leaves it alone."""
+    roles, permissions, schema, central = ('frontend/src/constants/roles.ts', 'frontend/src/types/permissions.ts',
+                                           'backend/prisma/schema.prisma', 'backend/prisma/central/schema.prisma')
+    doc = ('# Roles\n\n<!-- flowguard: generate values ApplicationRole -->\n- `SYSTEM_ADMIN`\n<!-- flowguard: end -->\n\n'
+           '<!-- flowguard: generate fields Customer -->\n<!-- flowguard: end -->\n')
+    _commit(tmp_path, {roles: PT_ROLES, permissions: PT_PERMISSIONS, schema: PT_SCHEMA, central: PT_CENTRAL,
+                       'docs/roles.md': doc})
+    values, fields = (f'impact: roles.md:{line} generate {what} is out of date -> python -m flowguard docs rewrites it'
+                      for line, what in ((3, 'values ApplicationRole'), (7, 'fields Customer')))
+    def said():
+        code, text = _static(tmp_path)
+        assert code == 0, text
+        return [line for line in _block(text) if 'generate ' in line]
+    assert said() == []
+    _write(tmp_path, {central: PT_CENTRAL.replace('  id ', '  email       String?\n  id ')})
+    assert said() == []                                   # a schema without the model
+    _write(tmp_path, {central: PT_CENTRAL, schema: PT_SCHEMA.replace('customerId String', 'customerId String?')})
+    assert said() == [fields]
+    _write(tmp_path, {schema: PT_SCHEMA, roles: PT_ROLES.replace("'EMPLOYEE'", "'FINANCE_ADMIN', 'EMPLOYEE'")})
+    assert said() == [values]                             # the set the alias names, in another file

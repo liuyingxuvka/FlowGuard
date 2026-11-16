@@ -307,6 +307,58 @@ def test_copies_no_test_reached_say_nothing_until_this_change_edits_or_marks_one
     assert said() == [line]                               # a mark this change writes on a function it leaves as it was
 
 
+WEEK_CHART = """
+import datetime
+
+
+# flowguard: same ISO_WEEK_NUMBER
+def iso_week_number(day: datetime.date) -> int:
+    return day.isocalendar()[1]
+
+
+def granularity_for_span(days: int) -> str:
+    if days <= 14:
+        return 'DAY'
+    return 'WEEK' if days <= 90 else 'MONTH'
+"""
+WEEK_TOOLBAR = """
+import datetime
+
+
+# flowguard: same ISO_WEEK_NUMBER
+def week_of(day: datetime.date) -> int:
+    thursday = day + datetime.timedelta(days=3 - day.weekday())
+    return (thursday - datetime.date(thursday.year, 1, 1)).days // 7 + 1
+"""
+
+
+def test_copies_a_test_reached_only_with_dates_say_nothing_until_this_change_edits_one(tmp_path):
+    """U3's open list (R99): a test calls one ISO week copy with a `datetime.date`, which is no JSON input, so the copies
+    are never compared, and pytest said `no recorded JSON inputs` on every run. It says so when this change edits a
+    copy, and check --all lists it."""
+    root = _project(tmp_path, {'planning/chart.py': WEEK_CHART, 'planning/toolbar.py': WEEK_TOOLBAR,
+                               'planning/__init__.py': '', 'tests/test_weeks.py': """
+        import datetime
+        from planning.chart import granularity_for_span, iso_week_number
+        def test_weeks():
+            assert iso_week_number(datetime.date(2026, 1, 1)) == 1 and granularity_for_span(3) == 'DAY'
+    """})
+    chart, toolbar = root / 'planning/chart.py', root / 'planning/toolbar.py'
+    line = 'not compared: ISO_WEEK_NUMBER (no recorded JSON inputs, or no comparable JSON result) -> not a failure'
+    def said():
+        result = _pytest(root)
+        assert result.returncode == 0 and '1 passed' in result.stdout, _text(result)
+        return _cli_fixture.block(result)[1:]
+    assert said() == []                                   # no change
+    chart.write_text(textwrap.dedent(WEEK_CHART).lstrip().replace('days <= 14', 'days <= 15'), encoding='utf-8')
+    assert said() == []                                   # an edit beside a copy
+    code, text = _check(root, '--all')
+    assert code == 0 and 'not compared: ISO_WEEK_NUMBER -> not a failure' in _block(text), text     # --all lists it
+    chart.write_text(textwrap.dedent(WEEK_CHART).lstrip(), encoding='utf-8')
+    toolbar.write_text(textwrap.dedent(WEEK_TOOLBAR).lstrip().replace('// 7 + 1', '// 7 + 2 - 1'), encoding='utf-8')
+    assert said() == [line]                               # an edit of a copy
+
+
 # ---- round 22 F1: a same-name red names every copy's answer and chooses none -------------------------------
 
 def _copies(*bounds, owner=False):

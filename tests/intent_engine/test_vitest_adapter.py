@@ -442,6 +442,49 @@ def test_an_unchanged_copy_no_test_reached_says_nothing_and_a_changed_or_newly_m
     assert said() == ['not compared: ISO_WEEKS_IN_YEAR (weeks.ts:2) (not reached by any test) -> not a failure']
 
 
+PT_LOCALE_CONTROLS = PT_WEEK_NUMBER + """
+let firstWeekDay = 4;
+
+/**
+ * Get the number of ISO weeks in a given year.
+ */
+// flowguard: same ISO_WEEKS_IN_YEAR
+function getIsoWeeksInYear(year: number): number {
+  const dec28 = new Date(year, 11, 24 + firstWeekDay);
+  return getIsoWeekNumber(dec28);
+}
+
+export function lastWeek(year: number): number {
+  return getIsoWeeksInYear(year);
+}
+
+export function setFirstWeekDay(day: number): void {
+  firstWeekDay = day;
+}
+"""
+
+
+def test_an_unchanged_copy_no_test_reached_says_nothing_even_when_its_source_cannot_be_sealed(tmp_path):
+    """U3's open list (R99): an unreached copy whose source cannot be sealed (it reads a module-level `let`) printed its
+    reason on every run. As one that can be sealed, it says so only when this change edits it, which the map's
+    fingerprint of its code tells when no sealed source can: an edit beside it says nothing."""
+    chart, controls = 'frontend/src/components/shared/ChartControlCard.tsx', 'frontend/src/components/shared/PlanningTimeControls.tsx'
+    _commit(tmp_path, {'frontend/package.json': '{"name": "frontend", "private": true, "type": "module"}\n', chart: PT_CHART,
+                       controls: PT_LOCALE_CONTROLS})
+    line = PT_LOCALE_CONTROLS.splitlines().index('function getIsoWeeksInYear(year: number): number {') + 1
+    def said():
+        code, text = _report(tmp_path, _prepare(tmp_path)['plan'], package='frontend')
+        assert code == 0, text
+        return _cli_fixture.block(text)[1:]
+    assert said() == []                                   # no change
+    (tmp_path / controls).write_text(PT_LOCALE_CONTROLS.replace('Get the number of', 'Count the') + '\nexport function '
+                                     "weekLabel(week: number): string {\n  return 'W' + week;\n}\n", encoding='utf-8')
+    assert said() == []                                   # edits beside the copy: its comment, a new function
+    (tmp_path / controls).write_text(PT_LOCALE_CONTROLS.replace('24 + firstWeekDay', '23 + firstWeekDay + 1'), encoding='utf-8')
+    assert said() == [f'not compared: ISO_WEEKS_IN_YEAR (PlanningTimeControls.tsx:{line}) '
+                      '(uses imported or mutable binding firstWeekDay) -> not a failure']
+
+
 def test_a_function_reading_a_changed_constant_or_table_is_planned_as_changed(tmp_path):
     _commit(tmp_path, {
         'src/limits.ts': "export const LIMIT = 3;\nexport const LABELS = { TEAM: 'Team', AREA: 'Area' };\n",

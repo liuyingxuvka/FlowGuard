@@ -281,16 +281,21 @@ def render_block(lines, *, title, everything=False, files=()):
     out += [_said(line, names) for line in by['impact'][:SHOWN['impact']]]
     out += [_said(line, names) for line in by['loosened']]
     if by['not compared']:
-        out.append(_cap(_summary(by['not compared'], names)))
+        out.append(_summary(by['not compared'], names))
     if more := sum(max(0, len(by[kind]) - shown) for kind, shown in SHOWN.items()):
         out.append(f'+{more} more: {MORE}')
     return '\n'.join(out)
 
 
+REASONS_KEPT = 40           # characters the reasons of the not compared line keep at least before its items are counted
+
+
 def _summary(lines, names):
     """The one `not compared` line: what was not compared (one by name; up to three named after their count, more
     counted as functions, or items when not every one is a function) and why, the most common reason first (each
-    line's reasons are its detail)."""
+    line's reasons are its detail). It keeps WIDTH characters besides its paths and places (`_width`), and an item is
+    never cut: the reasons give way in their middle, down to REASONS_KEPT characters, and when the named items leave
+    less room than that they are counted (`3 items`)."""
     reasons = Counter()
     for line in lines:
         for reason in dict.fromkeys(_reason(reason) for reason in line.detail or ('no reason recorded',)):
@@ -304,13 +309,15 @@ def _summary(lines, names):
     else:
         said = f'{ranked[0]}, {ranked[1]}, or {len(ranked) - 2} other reason{"s" * (len(ranked) > 3)}'
     subjects = [_shorten(_unarrowed(line.text), line.places, names) for line in lines]
-    if len(lines) == 1:
-        what = subjects[0]
-    elif len(lines) <= PLACES:
-        what = f'{len(lines)} {noun}s: ' + ', '.join(subjects[:-1]) + ' and ' + subjects[-1]
-    else:
-        what = f'{len(lines)} {noun}s'
-    return f'not compared: {what} ({said}) -> {NOT_COMPARED_STEP}'
+    counted = f'{len(lines)} {noun}{"s" * (len(lines) != 1)}'
+    named = [subjects[0]] if len(lines) == 1 else \
+        [f'{counted}: ' + ', '.join(subjects[:-1]) + ' and ' + subjects[-1]] if len(lines) <= PLACES else []
+    kept = [*(names.get(path, path) for line in lines for path in map(_path_of, line.places) if path),
+            *(_shorten(place, (place,), names) for line in lines for place in line.places if place)]
+    for what in [*named, counted]:
+        room = WIDTH - _width(f'not compared: {what} () -> {NOT_COMPARED_STEP}', kept)
+        if room >= min(len(said), REASONS_KEPT) or what == counted:
+            return f'not compared: {what} ({_middle(said, max(room, REASONS_KEPT))}) -> {NOT_COMPARED_STEP}'
 
 
 def _reason(text):
@@ -419,11 +426,8 @@ def _cap(said, paths=(), places=()):
     of its longest stretches, cut to one length together: first the input the line is about (a changed line's inputs,
     a same-name line's `on ...:`), down to 36 characters, then the other stretches, then that input further. A
     changed line keeps the words between its values: `(inputs) was X, now Y; k/n inputs differ`."""
-    spans = sorted({piece for piece in (*places, *paths) if piece}, key=len, reverse=True)
     def width(text):
-        for piece in spans:
-            text = text.replace(piece, '')
-        return len(text)
+        return _width(text, (*places, *paths))
     if width(said) <= WIDTH:
         return said
     head, _, body = said.partition(': ')
@@ -461,11 +465,23 @@ def _cap(said, paths=(), places=()):
         while level > least + 3 and sum(max(0, len(pieces[index][0]) - level) for index in free) < excess:
             level -= 1
         for index in free:
-            piece = pieces[index][0]
-            if len(piece) > level:
-                keep = level - 3
-                pieces[index][0] = piece[:(keep + 1) // 2] + '...' + piece[len(piece) - keep // 2:]
+            pieces[index][0] = _middle(pieces[index][0], level)
     return head + ''.join(piece for piece, _ in pieces) + arrow + step
+
+
+def _width(text, pieces):
+    """The characters of `text` that count toward WIDTH: those besides the paths and places (`pieces`) it names."""
+    for piece in sorted({piece for piece in pieces if piece}, key=len, reverse=True):
+        text = text.replace(piece, '')
+    return len(text)
+
+
+def _middle(text, size):
+    """`text` in at most `size` characters, its middle given way to '...'."""
+    if len(text) <= size:
+        return text
+    keep = size - 3
+    return text[:(keep + 1) // 2] + '...' + text[len(text) - keep // 2:]
 
 
 def finding(family, name, subject, whats, step, *, function='', places=(), files=(), detail=(), fresh=True):

@@ -852,10 +852,17 @@ def show(cfg, query=None, *, full=False, last=False):
 
 def write_docs(cfg):
     """`python -m flowguard docs`: rewrite every generated region of the repository's Markdown files from the map
-    (`docs.rewrite`); one line per region it rewrote or could not write. 1 when one could not be written."""
+    (`docs.rewrite`); one line per region it rewrote or could not write. 1 when one could not be written. The session
+    brief's count of regions out of date (`cache.structure_summary`, which a check saves) becomes what is left: the
+    regions it could not write; without a saved summary nothing is saved."""
     from . import docs
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
         done = docs.rewrite(graph)
+        saved = cache.structure_summary(cfg)
+        if saved is not None:
+            left = sum(bool(problem) for *_, problem in done)
+            with graph.con:
+                cache.save_structure(graph.con, dict(saved, regions=left, unwritable=left))
     for document, line, kind, argument, problem in done:
         print(f'{document}:{line} generate {kind} {argument}: ' + (problem or 'rewritten'))
     if not done:

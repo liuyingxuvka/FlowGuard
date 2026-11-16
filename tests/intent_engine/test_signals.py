@@ -304,6 +304,37 @@ def test_the_not_compared_line_names_up_to_three_items_and_the_most_common_reaso
     assert said.count('->') == 1 and sourced[0].detail == ('assumed -> confirm against actual owner words',)
 
 
+def test_the_not_compared_line_never_cuts_through_an_item():
+    """Planning Tool (5.0 review, pt:F17): a vitest run after two `same ISO_WEEK_NUMBER` marks said `not compared: 3 items:
+    ISO_WEEK_NUMBER (AbsenceCalendarCard.tsx:134), ISO_WEEK_NUMBER (UtilizationTool...mjs (not reached ...)`: its paths
+    counted toward the 200 characters and the cut fell inside the second item. Paths do not count; when the line is still
+    too long the reasons give way in their middle, and items that leave them no room are counted."""
+    calendar = 'frontend/src/components/employee-utilization/absence-calendar/AbsenceCalendarCard.tsx:134'
+    toolbar = 'frontend/src/components/employee-utilization/utilization-toolbar/UtilizationToolbar.tsx:84'
+    static = 'frontend/flowguard.static.test.mjs'
+    lines = [signals.not_compared(f'ISO_WEEK_NUMBER ({calendar})', ['not reached by any test'],
+                                  function='tsx/AbsenceCalendarCard:getIsoWeek', places=(calendar,)),
+             signals.not_compared(f'ISO_WEEK_NUMBER ({toolbar})', ['not reached by any test'],
+                                  function='tsx/UtilizationToolbar:getIsoWeekNumber', places=(toolbar,)),
+             signals.not_compared(static, ['map checks did not report to this vitest run'], places=(static,))]
+    assert _block(lines)[1] == (
+        'not compared: 3 items: ISO_WEEK_NUMBER (AbsenceCalendarCard.tsx:134), ISO_WEEK_NUMBER (UtilizationToolbar.tsx:84) '
+        'and flowguard.static.test.mjs (not reached by any test, or map checks did not report to this vitest run) -> not a failure')
+    # Longer reasons give way in their middle; the items stay whole.
+    long = [signals.not_compared(line.text, [reason * 3], function=line.function, places=line.places)
+            for line, reason in zip(lines, ('uses imported or mutable binding getIsoWeek ', 'unsupported generator ',
+                                            'map checks did not report to this vitest run '))]
+    said = _block(long)[1]
+    assert said.startswith('not compared: 3 items: ISO_WEEK_NUMBER (AbsenceCalendarCard.tsx:134), ISO_WEEK_NUMBER '
+                           '(UtilizationToolbar.tsx:84) and flowguard.static.test.mjs (') and '...' in said, said
+    assert len(said.replace('AbsenceCalendarCard.tsx:134', '').replace('UtilizationToolbar.tsx:84', '')    # as `_cap` counts
+               .replace('flowguard.static.test.mjs', '')) == signals.WIDTH, said
+    # Items too long to leave the reasons their room are counted.
+    named = [signals.not_compared(f'{"ISO_WEEK_NUMBER_OF_THE_CALENDAR_YEAR_" * 2}{index} ({place})', ['not reached by any test'],
+                                  places=(place,)) for index, place in enumerate((calendar, toolbar, static))]
+    assert _block(named)[1] == 'not compared: 3 items (not reached by any test) -> not a failure'
+
+
 def test_every_line_of_a_block_has_one_of_the_shapes_and_flowguard_text_is_ascii():
     import random
     generator = random.Random(43)

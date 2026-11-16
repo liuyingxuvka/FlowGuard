@@ -458,18 +458,19 @@ def save_test_collection(con, files, stamp):
     put_meta(con, 'ordinary_collection', json.dumps(current, sort_keys=True))
 
 
-STRUCTURE = 'structure_brief'     # 4.x saved `structure_issues`, without the regions count: not read
+STRUCTURE = 'brief_counts'     # 4.x saved `structure_issues` and 5.0 development builds `structure_brief`, without
+                               # the counts of regions: neither is read
 
 
 def save_structure(con, summary):
-    """The open structure problems' count and heaviest names and the count of generated regions out of date
-    (`health.summary`), for the session brief."""
+    """The open structure problems' count and heaviest names, the count of generated regions out of date and how many
+    of them cannot be written (`health.summary`), for the session brief."""
     put_meta(con, STRUCTURE, json.dumps(summary, ensure_ascii=False))
 
 
 def structure_summary(cfg):
     """The last saved structure summary, read without building the map; None when no check saved one (a summary
-    an older FlowGuard saved, under another key and without the regions count, is none)."""
+    an older FlowGuard saved, under another key and without the counts of regions, is none)."""
     path = cfg.cache / 'map.sqlite'
     if not path.is_file():
         return None

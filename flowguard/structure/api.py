@@ -1121,6 +1121,22 @@ class MapHandle:
         self._derived['calls'] = down, up
         return down, up
 
+    def resolved_calls(self):
+        """({caller: {callee}}, {callee: {caller}}) of the calls the map resolved: through an import or a lexical
+        binding (JS/TS) or the store's links (Python), and those a tracer observed. A Python attribute call linked only
+        because one function of the repository has that name (provenance `guessed`) is left out unless an observed edge
+        confirms it, as `callers(guessed=False)` reads them, and so are the JS/TS calls `call_index` resolves by a
+        name alone: real ones (`logger.warn(...)` on an imported object) as well as `rows.find(...)` and
+        `new Map().get(...)`, which name no project function."""
+        if 'resolved_calls' not in self._derived:
+            down, up = {}, {}
+            for src, dst in self.con.execute("SELECT DISTINCT src, dst FROM edge WHERE kind = 'calls' AND prov != 'guessed' "
+                                             "AND dst NOT LIKE 'unknown-%' AND src != dst"):
+                down.setdefault(src, set()).add(dst)
+                up.setdefault(dst, set()).add(src)
+            self._derived['resolved_calls'] = down, up
+        return self._derived['resolved_calls']
+
     def call_tree(self, node, depth=3, *, up=0):
         """{function: how} of `node` (with the functions nested in it) and what they call, `depth` levels down;
         with `up`, first the callers `up` levels up, each with what it calls; from production code the way up

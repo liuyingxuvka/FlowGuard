@@ -12,7 +12,8 @@ this change removed, is an `impact` line when this change touches it, and `check
 A text whose site is a file or a folder (`backend/src/services/`) is that module's contract (R98). A change that edits
 a function another module calls, or that calls into another module, names the contracts of those modules too, once
 each, when the change leaves their text as it was: the connected module may now work differently. `show PATH` of a
-file or folder prints its contracts and the modules it calls and is called by, with theirs (`module_lines`).
+file or folder prints its contracts and the modules it calls and is called by, with theirs (`module_lines`). Both
+read the calls the map resolved (`MapHandle.resolved_calls`), never a call matched by a method's name alone.
 
 A list the code already holds is generated instead: the lines between `<!-- flowguard: generate KIND ARG -->` and
 `<!-- flowguard: end -->` are written from the map by `python -m flowguard docs` (`rewrite`), and a run whose region
@@ -22,7 +23,7 @@ from __future__ import annotations
 import os
 import re
 
-from flowguard.map.common import git_run, read_source
+from flowguard.map.common import git_run, is_test_file, read_source
 
 MARKER = re.compile(r'<!--\s*flowguard:\s*about\s+(\S+?)\s*-->')
 HEADING = re.compile(r'(#{1,6})\s')
@@ -88,14 +89,16 @@ def findings(change, touched, *, everything=False):
     """The document findings for `owners.static_findings`: an `impact` line per `about` marker whose site this change
     edits (its node is in `touched`, or `Change.edited` sees a comment inside it) while the text it describes stays as
     it was, and per marker whose site names nothing that this change touches; a red input finding per marker this
-    change adds or edits whose site names nothing. A generated region that is out of date is an `impact` line when this
-    change edits a file it is generated from (`_generated_from`) or the region or its marker itself (`everything`:
-    every one), and each one is counted in `stats['stale_regions']` for the session brief (R99). Without a baseline
-    nothing is compared, and no region is counted."""
+    change adds or edits whose site names nothing. A generated region that is out of date, or that cannot be written
+    while its marker is older than this change, is an `impact` line when this change edits a file it is generated from
+    (`_generated_from`) or the region or its marker itself (`everything`: every one); one this change writes that
+    cannot be written is red. Each is counted in `stats['stale_regions']`, those that cannot be written also in
+    `stats['unwritable_regions']`, for the session brief (R99). Without a baseline nothing is compared, and no region
+    is counted."""
     from .owners import Findings
     from .signals import Line
     from .sources import _input, site_resolver
-    found = Findings(stats=dict(stale_regions=0))
+    found = Findings(stats=dict(stale_regions=0, unwritable_regions=0))
     if not change.baseline:
         return found
     graph, resolve, linked = change.graph, None, None       # both read once, when a marker needs them
@@ -142,39 +145,100 @@ def findings(change, touched, *, everything=False):
         kept = {(kind, argument, body) for kind, argument, _, _, _, body in old_regions}     # as the baseline has them
         for line, kind, argument, body, problem in stale(graph, document, read_source(graph.root / document)):
             place = f'{document}:{line}'
+            found.stats['stale_regions'] += 1
+            found.stats['unwritable_regions'] += bool(problem)
             if problem and (kind, argument) not in regions_then:      # this change wrote the region
                 found.issues.append(_input(f'docs:{place}', f'generate {kind} {argument}', place, [problem],
                                            f'correct the marker at {place}', [document]))
+            elif not (everything or (kind, argument, body) not in kept or _generated_from(change, kind, argument)):
+                continue            # as an earlier change left it, from sources this change leaves alone (R99)
             elif problem:
                 found.lines.append(Line('impact', f'docs:{place}', '', f'{place} generate {kind} {argument} cannot be written',
                                         'correct its marker or remove the region', (place,), (problem,)))
             else:
-                found.stats['stale_regions'] += 1
-                if everything or (kind, argument, body) not in kept or _generated_from(change, kind, argument):
-                    found.lines.append(Line('impact', f'docs:{place}', '', f'{place} generate {kind} {argument} is out of date',
-                                            'python -m flowguard docs rewrites it', (place,), ()))
+                found.lines.append(Line('impact', f'docs:{place}', '', f'{place} generate {kind} {argument} is out of date',
+                                        'python -m flowguard docs rewrites it', (place,), ()))
     return found
 
 
 def _generated_from(change, kind, argument):
-    """Whether this change edits, adds or removes a file a region of `kind` is generated from (`generated`): for
-    `functions` and `constants` the file the argument names; for `fields`, which reads every Prisma schema, a Prisma
-    schema file; for `values`, which reads the value sets of the whole map, a file that declares a set of that name now
-    (`owners.value_sets_named`, the sets it writes: a JS/TS declaration, a Prisma enum or CHECK of the field) or a
-    source file whose baseline text names it (its last dotted part). A TS alias's values are read from the set it
-    names, whose file alone is not followed."""
+    """Whether this change edits, adds or removes a file a region of `kind` is generated from (`generated`), as the
+    file's map facts read at the baseline and now: for `functions` and `constants` the file the argument names; for
+    `fields` a Prisma schema that declares the model; for `values` a file outside tests and archives that declares the
+    set (`_declares`: a JS/TS set, a Prisma enum, the Prisma field or a JS/TS member of `Model.field`, a SQL CHECK on
+    its column). A file that merely holds the set's or the field's name declares nothing."""
     paths = change.baseline_paths()
     if kind in ('functions', 'constants'):
         return argument in paths
+    if kind not in ('fields', 'values'):
+        return False
+    graph = change.graph
+    kinds = ('language', 'schema', 'value_sets', 'typed_fields')
+    now = {path: facts for path, _, facts in graph._kinds(*kinds)}
+    records = {path: [facts for facts in (change.old_record(path, kinds), now.get(path)) if facts]
+               for path in sorted(paths) if change.module(path) is not None}
     if kind == 'fields':
-        return any(path.endswith('.prisma') for path in paths)
-    from .owners import value_sets_named
-    declaring = {file for _, _, files, used in value_sets_named(change.graph, argument) if used for file in files}
-    if declaring & paths:
+        return any(item['name'] == argument for path, found in records.items() if path.endswith('.prisma')
+                   for facts in found for item in (facts.get('schema') or {}).get('models', ()))
+    read = [facts for path, found in records.items() if not is_test_file(path) and not graph.archived(path)
+            for facts in found]
+    names, enums = _set_names(graph, argument, read)
+    return any(_declares(graph, facts, argument, names, enums) for facts in read)
+
+
+def _set_names(graph, argument, extra):
+    """(JS/TS set names, Prisma enum names) a `values ARGUMENT` set is read through, now or in the fact records `extra`
+    (changed files at the baseline): for `Model.field` the sets its JS/TS members name (`typed_fields`, an alias such
+    as `granularity: Granularity`) and the enums its Prisma fields are typed with; for another name that name; then
+    the sets each JS/TS alias of one of them names, `(typeof GRANULARITIES)[number]`, as `MapHandle._ts_values`
+    follows them."""
+    model, dot, field = argument.partition('.')
+    names, enums = set(), set()
+    if dot and field and '.' not in field:
+        records = [facts for _, _, facts in graph._kinds('typed_fields')] + list(extra)
+        names = {row['of'] for facts in records for row in facts.get('typed_fields') or ()
+                 if row['container'] == model and row['field'] == field and row['kind'] == 'alias'}
+        schemas = [schema for schema in graph.schemas() if schema.get('kind') == 'prisma'] + \
+            [facts['schema'] for facts in extra if (facts.get('schema') or {}).get('kind') == 'prisma']
+        enums = {column['type'] for schema in schemas for item in schema.get('models', ()) if item['name'] == model
+                 for column in item.get('fields', ()) if column['name'] == field}
+    else:
+        names, enums = {argument}, {argument}
+    rows = [row for found in graph._ts_sets().values() for row in found] + \
+        [row for facts in extra for row in facts.get('value_sets') or ()]
+    while True:
+        more = {row['of'] for row in rows if row['kind'] == 'alias' and row['name'] in names} - names
+        if not more:
+            return names, enums
+        names |= more
+
+
+def _declares(graph, facts, argument, names, enums):
+    """Whether one file's fact record (now or at the baseline) declares the set a `values ARGUMENT` region is written
+    from: a JS/TS set of one of `names` (`_set_names`), a Prisma enum of one of `enums` or, for `Model.field`, a JS/TS
+    member of that type and field, the field in a Prisma model (whose type and column a CHECK's set is read through)
+    and a SQL CHECK on its column."""
+    if any(row['name'] in names for row in facts.get('value_sets') or ()):
         return True
-    word = re.compile(r'\b' + re.escape(argument.rpartition('.')[2]) + r'\b')     # a set this change removes or moves
-    return any(change.module(path) is not None and change.old_text(path) is not None and word.search(change.old_text(path))
-               for path in sorted(paths))
+    schema = facts.get('schema') or {}
+    if any(enum['name'] in enums for enum in schema.get('enums', ())):
+        return True
+    model, dot, field = argument.partition('.')
+    if not (dot and field and '.' not in field):
+        return False
+    if any(row['container'] == model and row['field'] == field for row in facts.get('typed_fields') or ()):
+        return True
+    if schema.get('kind') == 'prisma':
+        return any(column['name'] == field for item in schema.get('models', ()) if item['name'] == model
+                   for column in item.get('fields', ()))
+    models = graph._models()
+    for item in [*schema.get('tables', ()), *schema.get('changes', ())]:
+        owner = models.table_model(item.get('name') or item['table'])
+        for check in item.get('checks', ()):
+            column = models.column_field(owner, check['column']) if owner == model else None
+            if column is not None and column['name'] == field:
+                return True
+    return False
 
 
 # ---- modules: their contracts and connections (R98) ---------------------------------------------------------------
@@ -200,15 +264,16 @@ def _site_of(graph, node):
 
 def _linked(graph, touched):
     """{function of another file: (how, edited function, its file)} for the functions this change edits (`touched`): the
-    functions of other files that call one ('calls') and those one calls ('is called by'), by the map's call edges and
-    the JS/TS calls it resolves by name (`MapHandle.call_index`), first edited function by id."""
+    functions of other files that call one ('calls') and those one calls ('is called by'), by the calls the map
+    resolved (`MapHandle.resolved_calls`: a call matched by its name alone connects nothing), first edited function
+    by id."""
     if not touched:
         return {}
-    down, up = graph.call_index()
+    down, up = graph.resolved_calls()
     linked = {}
     for node in sorted(touched):
         home = _file_of(graph, node)
-        for others, how in ((up.get(node, {}), 'calls'), (down.get(node, {}), 'is called by')):
+        for others, how in ((up.get(node, ()), 'calls'), (down.get(node, ()), 'is called by')):
             for other in sorted(others):
                 path = _file_of(graph, other)
                 if other not in touched and path not in ('', home):
@@ -219,7 +284,9 @@ def _linked(graph, touched):
 def module_lines(graph, site):
     """`show PATH` of a file or folder (R98): the texts that describe it, then each module (file) it calls or is
     called by, with the number of calls and the texts that describe that module; [] when no mapped file is there.
-    A Markdown file is no module that a text describes: its view puts no about marker for itself."""
+    The calls are those the map resolved (`MapHandle.resolved_calls`): a JS/TS member call matched by its name alone
+    (`rows.find`, `days.get`, `logger.warn` on an imported object) is not counted. A Markdown file is no module that a
+    text describes: its view puts no about marker for itself."""
     files = module_files(graph, site)
     if not files:
         return []
@@ -231,10 +298,10 @@ def module_lines(graph, site):
                     contracts.setdefault(path, []).append(f'{document}:{line}')
     functions = {node: item for node, item in graph.functions().items() if '<' not in item['qual']}
     mine = [node for node, item in functions.items() if item['file'] in files]
-    down, up = graph.call_index()
+    down, up = graph.resolved_calls()
     outward, inward = {}, {}
     for node in mine:
-        for others, into in ((down.get(node, {}), outward), (up.get(node, {}), inward)):
+        for others, into in ((down.get(node, ()), outward), (up.get(node, ()), inward)):
             for other in others:
                 path = functions[other]['file'] if other in functions else ''
                 if path and path not in files:

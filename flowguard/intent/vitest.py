@@ -1142,9 +1142,10 @@ def judge(cfg, data, records, package=None):
     before where it already failed at task start), an intent file that does not load and an invalid known.toml or
     rules.toml (red), one not compared item per point, copy group or rule that could not be compared, with its
     reasons, and what the change touches. `known` are the plan's known entries; `agreed` the same names whose copies
-    this run compared on every copy and found to agree. A same-name function no test reached is listed as unreached
-    only when this change edits it or writes its mark (R99). `package` is the folder of the vitest run: a point in
-    another package cannot be reached by its tests and is not listed as unreached."""
+    this run compared on every copy and found to agree. A same-name function no test reached is listed as unreached,
+    or with the reason its source cannot be sealed, only when this change edits it or writes its mark (R99). `package`
+    is the folder of the vitest run: a point in another package cannot be reached by its tests and is not listed as
+    unreached."""
     from . import cache, cells as C, signals
     from .engine import CONFLICT, Engine, PredicateError, outcome_eq
     from .health import LINES_ONLY, Issue
@@ -1156,6 +1157,7 @@ def judge(cfg, data, records, package=None):
     for record in records:
         calls.setdefault(record['id'], []).append(record)
     issues, lines, unchecked = [], [], {}
+    edited = set(data['touched'])           # the declarations this change adds, edits or removes
     def skipped(subject, reasons, *, function='', places=()):
         entry = unchecked.setdefault((subject, function), dict(places=tuple(places), reasons=[]))
         entry['reasons'].extend(reason for reason in reasons if reason not in entry['reasons'])
@@ -1174,10 +1176,15 @@ def judge(cfg, data, records, package=None):
         copy_only = any(copy['id'] == ident for other in points.values() for copy in other['copies']
                         if calls.get(other['id']))
         if not calls.get(ident) and not collected:
+            # A copy no test reached that this change leaves as it was is an old matter, not this change's (R99),
+            # whether or not its source can be sealed: its sealed source is compared (`changed`), and the map's
+            # fingerprint of its code (`touched`) tells an edit of one that cannot be sealed.
+            old = point['anchored'] and not copy_only and not (point['changed'] or point['marked'] or ident in edited)
+            if old:
+                continue
             if point['skip'] and (copy_only or _inside(cfg, point['rel'], package)):
                 skipped(subject, [point['skip']], function=ident, places=(where,))
-            elif point['anchored'] and (point['changed'] or point['marked']) and not copy_only and _inside(cfg, point['rel'], package):
-                # an unchanged copy no test reached is an old matter, not this change's (R99)
+            elif point['anchored'] and not copy_only and _inside(cfg, point['rel'], package):
                 skipped(subject, ['not reached by any test'], function=ident, places=(where,))
             continue
         if not collected or not point['changed']:

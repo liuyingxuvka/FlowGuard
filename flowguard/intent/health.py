@@ -770,19 +770,20 @@ def _order(issues):
     return sorted(issues, key=lambda issue: (issue.rank, -len(issue.files) if issue.rank == 6 else 0, issue.name))
 
 
-def summary(issues, regions):
+def summary(issues, regions, unwritable):
     """The count and the three heaviest short names, which the session brief shows; fields without an
-    owner are counted apart (they wait for the owner, not for a fix); and `regions`, the generated regions of the
-    documents that are out of date (`docs.findings`)."""
+    owner are counted apart (they wait for the owner, not for a fix); `regions`, the generated regions of the
+    documents that are out of date (`docs.findings`), and `unwritable`, how many of them cannot be written."""
     ordered = _order([issue for issue in issues if issue.rank != LINES_ONLY])
     problems = [issue for issue in ordered if issue.rank != 6]
     return dict(count=len(problems), writers=len(ordered) - len(problems), top=[issue.short for issue in ordered[:3]],
-                regions=regions)
+                regions=regions, unwritable=unwritable)
 
 
 def brief_lines(cfg):
-    """The brief's lines from the last check (`cache.structure_summary`): the open structure problems and the generated
-    regions out of date, each when there is one; none when no check recorded them."""
+    """The brief's lines from the last check or `python -m flowguard docs` run (`cache.structure_summary`): the open
+    structure problems and the generated regions out of date, those that cannot be written counted among them, each
+    when there is one; none when neither recorded them."""
     from . import cache
     data = cache.structure_summary(cfg)
     if not data:
@@ -791,9 +792,18 @@ def brief_lines(cfg):
     if data['count'] or data['writers']:
         lines.append(f'{data["count"]} open structure issues' + (f' ({data["writers"]} other fields have multiple writers and no writer agreement)' if data['writers'] else '')
                      + '; highest severity: ' + '; '.join(data['top']) + ' (last check; check --static --all lists each with its next step, check --all also copies that drifted apart)')
-    if data['regions']:
-        lines.append(f'{data["regions"]} generated region{"s are" if data["regions"] != 1 else " is"} out of date: '
-                     f'python -m flowguard docs rewrites {"them" if data["regions"] != 1 else "it"}')
+    regions, unwritable = data['regions'], data['unwritable']
+    counted = f'{regions} generated region{"s" * (regions != 1)}'
+    if not regions:
+        return lines
+    if not unwritable:
+        lines.append(f'{counted} {"are" if regions != 1 else "is"} out of date: '
+                     f'python -m flowguard docs rewrites {"them" if regions != 1 else "it"}')
+    elif regions == unwritable:
+        lines.append(f'{counted} cannot be written: python -m flowguard docs says why')
+    else:
+        lines.append(f'{counted} are out of date, {unwritable} of them cannot be written: '
+                     'python -m flowguard docs rewrites the others and says why')
     return lines
 
 
@@ -801,8 +811,9 @@ def assess(found):
     """`found` with its `summary` for the session brief: every issue it holds but those known.toml's ignore entries
     cover (`signals.ignore_covers`, its entries `found.known`), as 4.3's `[structure]` decision closed one. Any other entry
     (`leave`, `ask`, `fix`) keeps its issue counted, for it is still open; an entry changes only the lines
-    (`signals.deliver`). The generated regions out of date are those `docs.findings` counted."""
+    (`signals.deliver`). The generated regions out of date and those that cannot be written are those
+    `docs.findings` counted."""
     from .signals import ignore_covers
     found.summary = summary([issue for issue in found.issues if not ignore_covers(issue, found.known)],
-                            found.stats['stale_regions'])
+                            found.stats['stale_regions'], found.stats['unwritable_regions'])
     return found
