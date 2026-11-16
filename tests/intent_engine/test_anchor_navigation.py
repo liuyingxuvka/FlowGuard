@@ -23,15 +23,13 @@ def chart_preview(days: int) -> bool:
     return days <= 3
 '''
 
-RULE = '''from flowguard.intent import rule, row, distinct
+RULE = '''from flowguard.intent import rule, row
 OWNER = 'grace'
 @rule('GRACE', decides='payment eligibility', fields={'days':int},
       source='doc POLICY.md "Late payments have a three day grace."', anchor=OWNER)
 def GRACE(days):
     return days <= 3
 GRACE.rows(row(days=4, expect=False, why='fourth day refused'))
-distinct('grace','preview',why='payment eligibility and a chart display have different roles',
-         source='assumed: independent business and display roles')
 '''
 
 
@@ -133,8 +131,7 @@ def test_short_source_hints_are_globally_capped_and_full_keeps_all(tmp_path,caps
     root,cfg=project(tmp_path)
     (root/'app.py').write_text(APP[:APP.index('# flowguard: sensor grace',1)] +
         ''.join(f'def copy_{i}(days: int)->bool:\n    return days <= 3\n'for i in range(7)))
-    # No separate declaration remains in this source; keep only the actual rule.
-    path=cfg.intent/'policy.py';path.write_text(RULE.split('distinct(',1)[0])
+    path=cfg.intent/'policy.py';path.write_text(RULE)
     assert cli.show(cfg,'GRACE')==0
     short=capsys.readouterr().out
     assert short.count('unbound candidate ')==3 and '4 more source candidates' in short

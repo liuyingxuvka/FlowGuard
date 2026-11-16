@@ -484,17 +484,16 @@ def test_check_says_known_fixed_for_a_rule_whose_results_pass_also_when_it_reuse
 
 def test_a_red_that_is_no_rule_keeps_a_next_step_in_pytest_and_check(tmp_path, capsys):
     # Round 22 F2 review: with the rule steps only for rules, check printed a broken distinct with no step at all.
+    # 5.0 removed distinct; a states declaration the code breaks is such a red too.
     import subprocess
     import sys
-    (tmp_path / 'POLICY.md').write_text('The two eligibility decisions must remain separate.\n')
+    (tmp_path / 'POLICY.md').write_text('A hire is open or returned.\n')
     (tmp_path / 'pyproject.toml').write_text('[tool.flowguard]\nauthority_docs=["POLICY.md"]\n')
-    (tmp_path / 'decision.py').write_text('# flowguard: sensor first(days: day) -> allowed: bool\ndef first(days: int) -> bool:\n'
-                                          '    return days <= 3\n# flowguard: sensor second(days: day) -> allowed: bool\n'
-                                          'def second(days: int) -> bool:\n    return days <= 3\n')
+    (tmp_path / 'decision.py').write_text("class Hire:\n    def hold(self):\n        self.status = 'held'\n")
     (tmp_path / 'tests/intent').mkdir(parents=True)
     (tmp_path / 'tests/intent/policies.py').write_text(
-        "from flowguard.intent import distinct\ndistinct('first', 'second', why='The two eligibility decisions must remain "
-        "separate.', source='doc POLICY.md \"The two eligibility decisions must remain separate.\"')\n")
+        "from flowguard.intent import states\nstates('decision:Hire.status', ['open', 'returned'], "
+        "source='doc POLICY.md \"A hire is open or returned.\"')\n")
     cfg = load_config(tmp_path)
     cli.init(cfg)
     capsys.readouterr()
@@ -503,7 +502,7 @@ def test_a_red_that_is_no_rule_keeps_a_next_step_in_pytest_and_check(tmp_path, c
     assert cli_fixture.check(cfg) == 1
     for text in (ran.stdout, capsys.readouterr().out):
         lines = text.splitlines()
-        index = next(index for index, line in enumerate(lines) if 'distinct broken: first and second agree' in line)
+        index = next(index for index, line in enumerate(lines) if 'red: states states:decision:Hire.status' in line and "'held'" in line)
         assert ' -> ' in lines[index] or lines[index + 1:index + 2] and lines[index + 1].startswith('    '), text
 
 

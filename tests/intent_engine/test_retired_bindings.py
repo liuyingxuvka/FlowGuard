@@ -29,15 +29,91 @@ def test_old_binding_is_refused_before_intent_execution_with_a_rebuild_route(tmp
     assert model.errors and all('removed'in e['msg']and'rebuild'in e['msg']for e in model.errors)
 
 
-def test_distinct_decorator_cannot_store_or_call_an_adapter(tmp_path):
+# 5.0 removed the intent API 4.3 announced; each name says what to do instead (design 4.7: never ignored silently).
+FLOW_ORDER = 'declare the order as flow(ID, source=..., nodes=[Node(...), ...], edges=[...])'
+NO_STATE_CHANGES = 'delete it; 5.0 checks no state changes, states(...) still checks the values a field is given'
+REMOVED = {
+    'precedes': 'precedes was removed in 5.0 -> ' + FLOW_ORDER,
+    'guarded_by': 'guarded_by was removed in 5.0 -> ' + FLOW_ORDER,
+    'transitions': 'transitions was removed in 5.0 -> ' + NO_STATE_CHANGES,
+    'Transition': 'Transition was removed in 5.0 -> ' + NO_STATE_CHANGES,
+    'flow(transitions=)': 'flow(transitions=) was removed in 5.0 -> delete transitions= from this flow; 5.0 checks no state changes',
+    'checks': 'checks was removed in 5.0 -> bind the rule to its scenario test with flow(ID, ..., relations=[Relation(RULE, {...}, Read(...))])',
+    'distinct': ('distinct was removed in 5.0 -> delete it; two rules of one decides= key must agree unless one overrides= the '
+                 'other, and python -m flowguard known add copies:NAME --act ignore --why TEXT records copies that are meant to differ'),
+    'structure_rule': ('structure_rule was removed in 5.0 -> delete it; states(...) checks the literal values a field is given, '
+                       'an ordinary test can check any other source fact'),
+    'allow': 'allow was removed in 5.0 -> delete it with its structure_rule',
+}
+
+
+@pytest.mark.parametrize('old,found', [
+    ('from flowguard.intent import precedes, guarded_by\nprecedes("SAVED", "PUBLISHED")\n', [(2, 'precedes'), (2, 'guarded_by')]),
+    ('from flowguard.intent import transitions, checks\n', [(2, 'transitions'), (2, 'checks')]),
+    ('from flowguard.intent.api import Transition, structure_rule, allow\n', [(2, 'Transition'), (2, 'structure_rule'), (2, 'allow')]),
+    ("import flowguard.intent as fg\nfg.distinct('A', 'B', why='different roles', source='assumed: separation')\n", [(3, 'distinct')]),
+    ("from flowguard.intent import distinct as separate\nseparate('A', 'B', why='different roles', source='assumed: separation')\n",
+     [(2, 'distinct')]),
+    ("from flowguard.intent import distinct\n@distinct('A', 'B', why='different roles', source='assumed: separation')\n"
+     "def adapter(c, fn): raise RuntimeError('cannot be called')\n", [(2, 'distinct')]),
+    ("from flowguard.intent import *\n@structure_rule('PATHS', source='assumed: paths')\ndef PATHS(graph): return []\n"
+     "def own(checks): return checks\n", [(3, 'structure_rule')]),
+    ("from flowguard.intent import flow, Node\nflow('F', source='assumed: f', nodes=[Node('a')], edges=[], transitions=[])\n",
+     [(3, 'flow(transitions=)')]),
+])
+def test_a_removed_intent_name_is_refused_before_the_file_runs_with_what_to_do(tmp_path, old, found):
     (tmp_path/'tests/intent').mkdir(parents=True)
-    (tmp_path/'tests/intent/policy.py').write_text('''from flowguard.intent import distinct
-@distinct('A','B',why='different roles',source='assumed: original separation')
-def adapter(c,fn):raise RuntimeError('cannot be called')
-''')
-    model=load(root=tmp_path)
-    assert any('call adapters were removed'in e['msg']and'rebuild'in e['msg']for e in model.errors)
-    assert all(not hasattr(d,'adapter')for d in model.distincts)
+    (tmp_path/'tests/intent/policy.py').write_text('raise RuntimeError("must not execute")\n' + old)
+    expected = [dict(file='tests/intent/policy.py', line=line, msg=REMOVED[name]) for line, name in found]
+    assert load(root=tmp_path).errors == expected
+    from flowguard.intent import cache
+    from flowguard.intent.config import load_config
+    assert cache.scan(load_config(tmp_path))['errors'] == expected        # the static screen and history read the same
+
+
+def test_a_removed_name_read_in_python_raises_what_to_do():
+    import flowguard.intent as fg
+    for name in ('precedes', 'guarded_by', 'transitions', 'Transition', 'checks', 'distinct', 'structure_rule', 'allow'):
+        for module in (fg, api):
+            with pytest.raises(api.IntentError) as raised:
+                getattr(module, name)
+            assert str(raised.value) == REMOVED[name]
+        assert name not in fg.__all__ and name not in api.__all__
+    with pytest.raises(api.IntentError, match=r'line \d+: flow\(transitions=\) was removed in 5\.0 -> delete transitions='):
+        fg.flow('F', source='assumed: f', nodes=[fg.Node('a')], edges=[], transitions=())
+    with pytest.raises(AttributeError):
+        fg.no_such_name
+
+
+def test_a_removed_name_and_a_rule_marker_are_red_lines_of_the_block_in_pytest_and_check(tmp_path):
+    from tests.intent_engine._cli_fixture import block
+    from tests.intent_engine.test_unverified_outcome import _cli, _project, _pytest
+    root = _project(tmp_path / 'p', {
+        'orders.py': '''
+            def accept(days: int) -> bool:
+                return days <= 3
+        ''',
+        'tests/test_orders.py': '''
+            import pytest
+            from orders import accept
+
+            @pytest.mark.rule('ACCEPT')
+            def test_accept():
+                assert accept(3)
+        ''',
+        'tests/intent/order_rules.py': '''
+            from flowguard.intent import precedes
+            precedes('SAVED', 'PUBLISHED', source='assumed: a draft is saved before it is published')
+        '''})
+    lines = ['red: load order_rules.py:1: precedes was removed in 5.0 -> ' + FLOW_ORDER
+             + '; until then none of its file is checked',
+             'red: marker test_orders.py:4: pytest.mark.rule was removed in 5.0 -> delete the marker; a rule is checked at '
+             'its anchors, not through marked tests']
+    result, text = _pytest(root, '-q')
+    assert result.returncode == 1 and [line for line in block(result) if line.startswith('red: ')] == lines, text
+    assert 'deprecated' not in result.stderr and 'PytestUnknownMarkWarning' not in text, text
+    result, text = _cli(root, 'check', '--all')
+    assert result.returncode == 1 and all(line in text.splitlines() for line in lines), text
 
 
 def test_source_contract_change_invalidates_with_Map_function_and_file_scope(tmp_path):

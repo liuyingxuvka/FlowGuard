@@ -356,8 +356,9 @@ def _owner_flow(root, tmp_path, calls):
              'tests/test_docs.py': 'from docs_mod import Doc, store, ship\n\ndef test_cycle():\n    doc = Doc()\n'
                                    + ''.join(f'    {call}(doc)\n' for call in calls) + '    assert doc.state\n',
              'tests/intent/flows.py': '''
-                 from flowguard.intent import precedes
-                 ORDER = precedes("STORED", "SHIPPED", source="owner R1: 先存好再发出去")
+                 from flowguard.intent import flow, Node
+                 ORDER = flow("STORE_THEN_SHIP", source="owner R1: 先存好再发出去", nodes=[Node("stored", "STORED", start=True),
+                              Node("shipped", "SHIPPED", end=True)], edges=[("stored", "shipped")])
              '''}
     root = _project(root, files)
     (tmp_path / 'owner.txt').write_text('先存好再发出去，不能跳过存。\n', encoding='utf-8')
@@ -371,18 +372,18 @@ def _owner_flow(root, tmp_path, calls):
 def test_a_flow_item_shows_the_verdict_of_the_events_it_was_judged_on(tmp_path):
     green = _owner_flow(tmp_path / 'green', tmp_path, ['store', 'ship'])
     result, text = _pytest(green, '-v', f'--junitxml={tmp_path / "green.xml"}')
-    line = next(line for line in text.splitlines() if 'PRECEDES_STORED_SHIPPED[flow]' in line)
+    line = next(line for line in text.splitlines() if 'STORE_THEN_SHIP[flow]' in line)
     assert result.returncode == 0 and 'PASSED' in line and 'UNVERIFIED' not in line, text
     assert 'unverified' not in _summary(text), text
     assert not any(_junit(tmp_path / 'green.xml')[2].values())
     red = _owner_flow(tmp_path / 'red', tmp_path, ['ship', 'store'])
     result, text = _pytest(red, '-v', f'--junitxml={tmp_path / "red.xml"}')
-    line = next(line for line in text.splitlines() if 'PRECEDES_STORED_SHIPPED[flow]' in line)
+    line = next(line for line in text.splitlines() if 'STORE_THEN_SHIP[flow]' in line)
     assert result.returncode == 1 and 'FAILED' in line and 'UNVERIFIED' not in line, text
     assert '1 failed, 2 passed' in _summary(text), text
     suite, cases, properties = _junit(tmp_path / 'red.xml')
     # The red is the Flow test's own failure; the session adds no second testcase for it.
-    assert suite.get('failures') == '1' and cases['tests.intent.flows::PRECEDES_STORED_SHIPPED[flow]'].find('failure') is not None, cases
+    assert suite.get('failures') == '1' and cases['tests.intent.flows::STORE_THEN_SHIP[flow]'].find('failure') is not None, cases
 
 
 GATE = {
@@ -481,19 +482,19 @@ def test_an_unanchored_changed_function_whose_replay_is_refused_is_listed_unveri
     assert not (root / 'audit.log').exists()
 
 
-def test_check_all_fails_a_grey_template_flow_quoting_the_owner(tmp_path):
+def test_check_all_fails_a_grey_flow_quoting_the_owner(tmp_path):
     root = _owner_flow(tmp_path / 'p', tmp_path, [])       # no test stores or ships: the Flow stays grey
     checked, text = _cli(root, 'check', '--all')
     assert checked.returncode == 1, text
-    assert any(line.startswith('red: rule PRECEDES_STORED_SHIPPED: cites original words from the owner (R1), but is now grey (unverified): ')
+    assert any(line.startswith('red: rule STORE_THEN_SHIP: cites original words from the owner (R1), but is now grey (unverified): ')
                for line in text.splitlines()), text
     assert any(line.startswith("    a reason in the [unverified] section of .flowguard/ledger.toml stops this check, which is the owner's decision: "
-                               'PRECEDES_STORED_SHIPPED = ') for line in last(root).splitlines()), last(root)
+                               'STORE_THEN_SHIP = ') for line in last(root).splitlines()), last(root)
     brief, text = _cli(root)
     # The brief (design 4.7) lists the rules of rules.toml, not an unfinished intent item: check --all lists that.
-    assert brief.returncode == 0 and text.startswith('FlowGuard ') and 'PRECEDES_STORED_SHIPPED' not in text, text
+    assert brief.returncode == 0 and text.startswith('FlowGuard ') and 'STORE_THEN_SHIP' not in text, text
     (root / ledger.LEDGER).parent.mkdir(exist_ok=True)
-    (root / ledger.LEDGER).write_text('[unverified]\nPRECEDES_STORED_SHIPPED = ' + ledger._quote(
+    (root / ledger.LEDGER).write_text('[unverified]\nSTORE_THEN_SHIP = ' + ledger._quote(
         '测试还没有走到存和发这两步，顺序由 test_docs 之外的集成检查守住') + '\n', encoding='utf-8')
     listed, text = _cli(root, 'check', '--all')
     assert listed.returncode == 0 and 'cites original words from the owner' not in text, text

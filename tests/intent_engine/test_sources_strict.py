@@ -382,13 +382,8 @@ def test_an_intent_owner_source_superseded_in_this_task_is_red_and_one_supersede
 
 
 STATES = '''
-    from flowguard.intent import states, structure_rule
+    from flowguard.intent import states
     states('shop:Hire.status', ['open'], source={source!r})
-
-
-    @structure_rule('PATHS', source={source!r})
-    def PATHS(graph):
-        return []
 '''
 
 
@@ -396,14 +391,14 @@ def _declarations(tmp_path, source, baseline):
     _write(tmp_path, {'tests/intent/days.py': STATES.format(source=source)})
     engine = Engine(load(load_config(tmp_path)))
     engine.baseline = baseline
-    return engine.run_states(engine.m.states['states:shop:Hire.status']), engine.run_structure(engine.m.structures['PATHS'])
+    return [engine.run_states(engine.m.states['states:shop:Hire.status'])]
 
 
-def test_states_and_structure_rules_judge_their_source_against_the_baseline_too(tmp_path):
+def test_states_judge_their_source_against_the_baseline_too(tmp_path):
     _project(tmp_path, **{'shop.py': 'class Hire:\n    def open(self):\n        self.status = "open"\n'})
     store_request(tmp_path, b'Only open.\n', identifier='R1')
     base = _commit(tmp_path, {'tests/intent/days.py': STATES.format(source='owner R1')})
-    assert [result['verdict'] for result in _declarations(tmp_path, 'owner R1', base)] == ['ok', 'grey'], 'PATHS: empty'
+    assert [result['verdict'] for result in _declarations(tmp_path, 'owner R1', base)] == ['ok']
     store_request(tmp_path, b'Open or held.\n', identifier='R2', supersedes=['R1'])
     gone = 'R1 is no longer current -> cite the current request'
     # D27: a request stored in this task supersedes the cited one: red, as for a rule.

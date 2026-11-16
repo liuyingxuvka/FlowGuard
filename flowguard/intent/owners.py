@@ -1826,7 +1826,7 @@ def field_impact(change, index):
     return found
 
 
-def static_findings(cfg, graph, index, base=None, *, everything=False, replay=False, excluded=()):
+def static_findings(cfg, graph, index, base=None, *, everything=False, replay=False):
     """The one assembly of owner and structure findings. Without replay (pytest, `check --static`): owner
     writes and pairs, values outside declared sets, old values (rules too), new spellings, unchanged copies
     of a changed function's old body, deletes that leave children, missing columns and the open structure
@@ -1865,8 +1865,8 @@ def static_findings(cfg, graph, index, base=None, *, everything=False, replay=Fa
     found.extend(copies).extend(health.writers(change, index)).extend(health.uncreated(change))
     found.extend(health.labels(change))
     if replay:
-        found.extend(discover(cfg, graph, index, change, everything=everything, excluded=excluded))
-        found.extend(changed_alone(cfg, graph, index, change, excluded=excluded))
+        found.extend(discover(cfg, graph, index, change, everything=everything))
+        found.extend(changed_alone(cfg, graph, index, change))
     found = families_ran(health.assess(cfg, change, index, found), index)
     found.ran.add('pair')
     found.touched_functions, found.touched_files = touched_functions(change), frozenset(change.files)
@@ -2133,7 +2133,7 @@ def _category(same, total, shape, shared):
     return 'similar' if shared else None
 
 
-def discover(cfg, graph, index, change, *, everything=False, excluded=()):
+def discover(cfg, graph, index, change, *, everything=False):
     """Unregistered look-alikes of each function owner, grouped by their results on its classes: a `copies:` finding
     of each diverged copy and each copy this change adds beside a reference the baseline had, and leads for `show
     --last`. An owner whose copies the owner decided (`[structure."copies:NAME"]`, NAME its anchor name) gets no
@@ -2146,7 +2146,7 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
     started = time.perf_counter()
     functions = _functions(graph, cfg)
     by_id = {row['id']: row for row in functions}
-    registered = {a.target for a in index.entries if a.kind == 'sensor'} | set(excluded)
+    registered = {a.target for a in index.entries if a.kind == 'sensor'}
     impact = change.impact() if change.baseline else dict(added=[], changed=[])
     added, edited = set(impact['added']), set(impact['changed'])
     candidates_seen, complete = 0, True      # complete: every candidate of every reference compared
@@ -2210,7 +2210,7 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
         lead(f'reference {label} has {total} suspected copies (candidates: {len(candidates)}; time: {seconds:.2f} seconds; '
                            f'{len(rows)} representative values; only comparable JSON inputs count; call-site reachability was not checked)'
                            f'-> choose one for each copy: call the reference; or write above the copy: # flowguard: same {owner.name}; '
-                           f'or declare distinct("{owner.name}", "<copy-anchor-name>", why="...", source="...")')
+                           f'or, for copies meant to differ, python -m flowguard known add copies:{owner.name} --act ignore --why TEXT records that')
         order = {'copy': 0, 'diverged copy': 1, 'similar': 2}
         for (category, _), group in sorted(groups.items(), key=lambda item: (order[item[0][0]], item[1][0][0]['id'])):
             members = [row for row, _ in group]
@@ -2235,7 +2235,7 @@ def discover(cfg, graph, index, change, *, everything=False, excluded=()):
             if category == 'diverged copy':
                 found.issues.append(Issue(f'copies:{owner.name}', 5, f'copy {owner.name}', f'reference {label}: {text}',
                                           f'choose one for each copy: call {owner.qual}; or write # flowguard: same {owner.name} above the copy and make it agree; '
-                                          f'or declare distinct("{owner.name}", "<copy-anchor-name>", why="...", source="...")',
+                                          f'or, for copies meant to differ, python -m flowguard known add copies:{owner.name} --act ignore --why TEXT records that',
                                           frozenset({owner.target, *(row['id'] for row in members)}),
                                           frozenset({owner.file, *(row['file'] for row in members)}), **facts))
             elif category == 'copy' and fresh and old_owner:
@@ -2299,7 +2299,7 @@ def _owner_at_baseline(change, owner):
 
 # ---- one changed, its former twins not (unregistered too) ---------------------------------------------
 
-def changed_alone(cfg, graph, index, change, *, excluded=()):
+def changed_alone(cfg, graph, index, change):
     """A changed function whose old version agreed with unchanged look-alikes on every representative
     value, while the new one differs: those copies probably needed the same change. Owners make it red."""
     from . import cells as C
@@ -2331,7 +2331,7 @@ def changed_alone(cfg, graph, index, change, *, excluded=()):
         from flowguard.structure.extract import own_nodes, shape, strip_doc
         old_shape = set(shape(own_nodes(strip_doc(old_node.body))))
         old_numbers = _numbers(old_node)
-        peers = [other for other in functions if other['id'] not in touched and other['id'] not in excluded
+        peers = [other for other in functions if other['id'] not in touched
                  and other['simple'] is not None and len(other['simple']) == len(row['simple'])
                  and (_similarity(other['shape'], old_shape) >= SIMILAR_SHAPE or other['constants'] & old_numbers)]
         peers = sorted(peers, key=lambda other: (-_similarity(other['shape'], old_shape), other['id']))[:PEERS]
@@ -2441,16 +2441,15 @@ def _changed_alone_issue(anchor, changed, twins, step):
                  fresh=frozenset(item['id'] for item in changed))
 
 
-def check_findings(cfg, graph, index, base=None, *, everything=False, excluded=(), static=None):
+def check_findings(cfg, graph, index, base=None, *, everything=False, static=None):
     """`check`: the static findings with copy discovery and the changed-alone comparison."""
     if static is None:
-        return static_findings(cfg, graph, index, base, everything=everything, replay=True, excluded=excluded)
+        return static_findings(cfg, graph, index, base, everything=everything, replay=True)
     # Pytest already assembled the static facts. Replay remains outside its session and can add
     # copy issues; assess those and refresh the combined summary without running the static checks twice.
     from . import health
     change = Change(cfg, graph, baseline(cfg, base))
-    found = discover(cfg, graph, index, change, everything=everything, excluded=excluded).extend(
-        changed_alone(cfg, graph, index, change, excluded=excluded))
+    found = discover(cfg, graph, index, change, everything=everything).extend(changed_alone(cfg, graph, index, change))
     found = health.assess(cfg, change, index, found)
     found = families_ran(Findings().extend(static).extend(found), index)
     found.summary = health.summary(health.decided(cfg, index, found.issues, change.decisions())[0])

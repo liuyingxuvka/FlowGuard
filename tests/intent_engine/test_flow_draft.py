@@ -8,7 +8,7 @@ import uuid
 import pytest
 
 from flowguard.intent.anchors import collect_sources
-from flowguard.intent.flow import Capture, Flow, Node, Transition, check_flow, finite_check, validate
+from flowguard.intent.flow import Capture, Flow, Node, check_flow, finite_check, validate
 
 
 def project(tmp_path, body):
@@ -23,25 +23,16 @@ def project(tmp_path, body):
     return index, obj
 
 
+LARGE = 5000        # nodes, one state each: more than a fixed 4096-state cap would allow
+
+
 def large_model(tmp_path):
-    values = ' | '.join(str(n) for n in range(65))
-    body = f'''# flowguard: states Counter.a = {values}
-# flowguard: states Counter.b = {values}
-class Counter:
-    a = 0
-    b = 0
-# flowguard: event A()
-def a(): pass
-# flowguard: event B()
-def b(): pass
-'''
-    index, _ = project(tmp_path, body)
-    transitions = tuple(Transition('Counter.' + state, n, (n + 1) % 65, node, initial=n == 0)
-                        for state, node in [('a', 'A'), ('b', 'B')] for n in range(65))
-    model = Flow('COUNTERS', 'assumed: test finite domain',
-                 (Node('a', 'A', start=True, end=True), Node('b', 'B', end=True)),
-                 (('a', 'a'), ('a', 'b'), ('b', 'a'), ('b', 'b')),
-                 tuple(replace(t, on=t.on.lower()) for t in transitions))
+    """A cycle of LARGE nodes on one anchor, each with a loop to itself and an edge back to the first."""
+    index, _ = project(tmp_path, '# flowguard: event A()\ndef a(): pass\n')
+    names = [f'n{n}' for n in range(LARGE)]
+    model = Flow('CYCLE', 'assumed: test finite domain', tuple(Node(name, 'A', end=True) for name in names),
+                 tuple(edge for n, name in enumerate(names)
+                       for edge in ((name, name), (name, names[(n + 1) % LARGE]), (name, names[0]))))
     return index, model
 
 
@@ -49,8 +40,8 @@ def test_default_exhaustion_crosses_4096_and_deduplicates_cycles(tmp_path):
     index, model = large_model(tmp_path)
     result = finite_check(model, index)
     assert result['verdict'] == 'ok', result
-    assert result['exhausted'] and result['states'] == 2 * 65 * 65
-    assert result['reachable'] == ['a', 'b']
+    assert result['exhausted'] and result['states'] == LARGE
+    assert result['reachable'] == sorted(node.name for node in model.nodes)
 
 
 def test_only_an_explicit_debug_limit_truncates_and_stays_grey(tmp_path):

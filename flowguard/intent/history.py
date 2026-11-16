@@ -19,46 +19,6 @@ def _texts(cfg, revision, folder):
             for path in paths if path and path.endswith(b'.py')}
 
 
-def _guards(texts):
-    guards = {}
-    for file, text in texts.items():
-        tree = ast.parse(text, file)
-        pytest_names = {alias.asname or alias.name for statement in tree.body if isinstance(statement, ast.Import)
-                        for alias in statement.names if alias.name == 'pytest'}
-        mark_names = {alias.asname or alias.name for statement in tree.body if isinstance(statement, ast.ImportFrom)
-                      and statement.module == 'pytest' for alias in statement.names if alias.name == 'mark'}
-        skip_names = {alias.asname or alias.name for statement in tree.body if isinstance(statement, ast.ImportFrom)
-                      and statement.module == 'pytest' for alias in statement.names if alias.name == 'skip'}
-        markers = {name + '.mark' for name in pytest_names} | mark_names
-        for node in ast.walk(tree):
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            marked = []
-            for decorator in node.decorator_list:
-                if (isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute)
-                        and decorator.func.attr == 'rule' and ast.unparse(decorator.func.value) in markers and decorator.args):
-                    marked.append(ast.dump(decorator.args[0], include_attributes=False))
-            if marked:
-                # Conditional calls and importorskip need their real pytest outcome.
-                calls = [statement.value for statement in node.body if isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Call)]
-                skipped = any(isinstance(call.func, ast.Name) and call.func.id in skip_names
-                              or isinstance(call.func, ast.Attribute) and call.func.attr == 'skip'
-                              and ast.unparse(call.func.value) in pytest_names for call in calls)
-                for decorator in node.decorator_list:
-                    call = decorator if isinstance(decorator, ast.Call) else None
-                    target = call.func if call else decorator
-                    if not isinstance(target, ast.Attribute) or ast.unparse(target.value) not in markers:
-                        continue
-                    if target.attr == 'skip':
-                        skipped = True
-                    elif target.attr == 'skipif' and call:
-                        condition = call.args[0] if call.args else next((k.value for k in call.keywords if k.arg == 'condition'), None)
-                        if isinstance(condition, ast.Constant) and condition.value is True:
-                            skipped = True
-                guards[(file, node.name)] = (tuple(marked), skipped)
-    return guards
-
-
 def check(cfg, base=None):
     """Compare Git's baseline, never a cache that might already have forgotten a deleted rule."""
     from .owners import baseline
@@ -83,11 +43,6 @@ def check(cfg, base=None):
             if row['retired'] or row['fields'] in cases:
                 continue
             red.append(f'row removed or narrowed without retired=: {rid} {old["file"]}:{row["line"]} -> retain the case or retire it with a reason')
-    before_guards = _guards(_texts(cfg, revision, 'tests'))
-    after_guards = _guards({cfg.rel(p): p.read_text(encoding='utf-8-sig') for p in (cfg.root / 'tests').rglob('*.py')}) if (cfg.root / 'tests').is_dir() else {}
-    for (file, name), marker in before_guards.items():
-        if (file, name) not in after_guards or after_guards[(file, name)][1] or after_guards[(file, name)][0] != marker[0]:
-            red.append(f'guard lost: {file}::{name} -> restore the real marked test without skipping it')
     return red
 
 

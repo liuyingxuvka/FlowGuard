@@ -1,5 +1,5 @@
 """What the tool computes on intent (design 3.2, 3.3, 3.6): rule against rule, rule against code,
-the guards, distinct, and liveness. Each `run_*` returns a JSON-ready result with a verdict (red,
+the guards and liveness. Each `run_*` returns a JSON-ready result with a verdict (red,
 grey, ok) and at most a few lines; pytest items (flowguard.plugin) call them, nothing else runs them.
 """
 from __future__ import annotations
@@ -407,44 +407,6 @@ class Engine:
                     info=[], n=len(writes), files=sorted({write['file'] for write in writes}), provisional=valid and self.provisional(declaration),
                     **self._judged(source, why))
 
-    def run_structure(self, declaration):
-        from flowguard.structure import build
-        from contextlib import closing
-        from .sources import source_state
-        source, why = source_state(self, declaration, gone_red=False)
-        valid = source == 'ok'
-        red, grey = ([why] if source == 'red' else []), ([why] if source == 'grey' else [])
-        files = set()
-        coverage = None
-        with closing(build(self.m.cfg.root, roots=self.m.cfg.roots)) as graph:
-            violations = declaration.pred(graph)
-            if not isinstance(violations, (list, tuple, set, dict)):
-                raise TypeError(f'{declaration.id}: a structure rule returns its violating nodes, not a boolean')
-            for node in violations:
-                if isinstance(node, dict):
-                    identity = f'{node["file"]}:{node["line"]}'
-                    name = node.get('node', node.get('id', identity))
-                    files.add(node['file'])
-                else:
-                    identity = name = str(node)
-                if identity not in declaration.allowed and name not in declaration.allowed:
-                    red.append(f'{declaration.id}: {identity} {name} -> fix it or allow this node with a reason')
-            coverage = graph.query_coverage()
-            if not coverage['queried']:
-                coverage['complete'] = False
-            if not coverage['queried'] and not red:
-                grey.append('structure rule queried no source facts -> bind the check to the code it constrains')
-            for issue in coverage['issues']:
-                affected = issue['files']
-                location = affected[0] if affected else 'mapped sources'
-                if len(affected) > 1:
-                    location += f' and {len(affected) - 1} more files'
-                grey.append(f'{issue["query"]} query incomplete for {issue["language"]}: '
-                            f'{issue["reason"]} ({location}) -> use a supported explicit scope or reader')
-        return dict(kind='structure', verdict='red' if red else 'grey' if grey else 'ok', red=red, grey=grey,
-                    info=[], n=len(violations), files=sorted(files), listing=True, query_coverage=coverage,
-                    provisional=valid and self.provisional(declaration), **self._judged(source, why))
-
     # ------------------------------------------------------------ cells
 
     def kinds(self, key: str) -> dict:
@@ -589,8 +551,6 @@ class Engine:
         """The answer the active rules of rule's key give at cell, from rule's point of view."""
         vals = {}
         for q in self.m.active(rule.decides):
-            if q is not rule and self.m.distinct_pair(rule.id, q.id):
-                continue
             v = eval_rule(q, cell)
             if v is not None:
                 vals[q.id] = v
@@ -627,8 +587,6 @@ class Engine:
         for a, b in itertools.combinations(live, 2):
             va, vb = vals[a.id], vals[b.id]
             both = [i for i, c in enumerate(cells) if va[i] is not None and vb[i] is not None]
-            if self.m.distinct_pair(a.id, b.id):
-                continue
             win = a if self.m.overrides(a.id, b.id) else b if self.m.overrides(b.id, a.id) else None
             bad = [i for i in both if not outcome_eq(va[i], vb[i]) and not third(i, (a.id, b.id))]
             if not bad:
@@ -956,22 +914,6 @@ class Engine:
         result['drivers'] = sorted({event.case for event in events
                                     if event.anchor in {node.reference for node in model.nodes}}.union(
                                         *(set(child.get('drivers', ())) for child in children)))
-        return result
-
-    def run_anchor_distinct(self, declaration):
-        from .differences import anchor_distinct
-        result = anchor_distinct(self.m.cfg.root, declaration, index=self.m.anchor_index,
-                                 cfg=self.m.cfg, archive=self.archive)
-        result.update(kind='anchor_distinct', verdict='red' if result['status'] == 'red'
-                      else 'grey' if result['status'] == 'grey' else 'ok')
-        source_gap = result.get('source_reason') if not (result.get('source_verified') or result.get('provisional')) else None
-        result['red'] = [reason for reason in result['reasons'] if reason != source_gap] if result['status'] == 'red' else []
-        result['grey'] = ([source_gap] if source_gap else []) + (result['reasons'] if result['status'] == 'grey' else [])
-        result['info'] = [declaration.why, f'scope: {result["scope"]}; behavior checked: {result["behavior_checked"]}']
-        entries = [anchor for anchor in self.m.anchor_index.entries
-                   if any(value in (anchor.name, anchor.target) for value in (declaration.a, declaration.b))]
-        result['footprint'] = sorted({anchor.target for anchor in entries})
-        result['files'] = sorted({anchor.file for anchor in entries})
         return result
 
     # ------------------------------------------------------------ rule against code
@@ -1548,15 +1490,15 @@ class Engine:
     def two_names(self, rule, home, mine: set, info: list) -> list[str]:
         """Design 3.2 grouping by computation: a rule of another key homed at the same function that
         realizes one of this rule's sites may be the same decision under a second name. Two rules
-        that only share the function (two decisions in one function) are not grouped. A distinct or
-        `uses` between them answers the question."""
+        that only share the function (two decisions in one function) are not grouped. A `uses` between
+        them answers the question."""
         out = []
         for q in self.m.rules.values():
             if q.id in self.m.superseded_by or rule.id in self.m.superseded_by:
                 continue
             if q.decides == rule.decides or not any(h.target == home.target for h in q.homes):
                 continue
-            if self.m.distinct_pair(rule.id, q.id) or q.id in rule.uses or rule.id in q.uses:
+            if q.id in rule.uses or rule.id in q.uses:
                 continue
             qh = next(h for h in q.homes if h.target == home.target)
             shared = sorted({u.key for u in self.realized(q, qh)} & mine)
@@ -1564,7 +1506,7 @@ class Engine:
                 u = next(x for x in self.probe(rule, home)["uses"] if x.key == shared[0])
                 out.append(f"one decision under two names? {rule.id} / {q.id} both turn on "
                            f"{u.target.replace(':', '.')} L{u.site.line} {u.site.text[:40]} "
-                           "(merge the keys, or say distinct)")
+                           "(merge the keys)")
             else:
                 info.append(f"{rule.id} and {q.id} share {home.target} but turn on different sites")
         return out

@@ -111,11 +111,6 @@ def _rule_colour(item, result):
     return 'green*' if any(value.get('provisional') for value in values) else 'green'
 
 
-def _test_name(nodeid):
-    """Parameter IDs may contain ::, and the file path may contain brackets."""
-    return nodeid.partition('::')[2].partition('[')[0].rsplit('::', 1)[-1]
-
-
 def _map_notice(graph):
     coverage = graph.capabilities()
     foreign = {name: row for name, row in coverage.get('languages', {}).items() if name != 'python'}
@@ -309,17 +304,8 @@ def _source_pointers(index, references, graph, *, full=False):
     return anchors, lines
 
 
-def _copy_pointers(graph, index, anchors, homes, summary, results, words, full, *, identifiers=()):
+def _copy_pointers(graph, index, anchors, homes, results, words, full):
     excluded = set(homes) | {a.target for a in anchors}
-    references = {a.name for a in anchors} | {a.target for a in anchors} | set(homes) | set(identifiers)
-    for distinct in summary.get('distincts', []):
-        if references & {distinct['a'], distinct['b']}:
-            excluded.update(a.target for a in _anchor_targets(index, [distinct['a'], distinct['b']], graph))
-            excluded.update(value for value in (distinct['a'], distinct['b']) if ':' in value)
-            for value in (distinct['a'], distinct['b']):
-                rule = summary['rules'].get(value, {})
-                excluded.update(rule.get('homes', []))
-                excluded.update(a.target for a in _anchor_targets(index, rule.get('anchors', []), graph))
     targets = list(dict.fromkeys([*homes, *(a.target for a in anchors
                  if a.source_role == 'production' and a.kind in {'sensor', 'event'})]))
     candidates, lines = {}, []
@@ -345,7 +331,6 @@ def _copy_pointers(graph, index, anchors, homes, summary, results, words, full, 
 
 def _unmodelled(index, summary, *, root=None):
     references = {ref for item in summary['rules'].values() for ref in item.get('anchors', [])}
-    references.update(value for relation in summary.get('distincts', []) for value in (relation['a'], relation['b']))
     def identity(anchor):
         return (anchor.name, anchor.target, anchor.file, anchor.source_digest,
                 anchor.kind, anchor.target_line, anchor.parameters)
@@ -533,9 +518,9 @@ def show(cfg, query=None, *, full=False, last=False):
             lines.extend(pointers)
             if item.get('flows'):lines.append('via flow ' + ', '.join(dict.fromkeys(item['flows'])))
             lines.extend('navigation unknown: ' + value for value in item.get('navigation_unknown', []))
-            lines.extend(_copy_pointers(graph, index, anchors, item.get('homes', []), data['summary'],
+            lines.extend(_copy_pointers(graph, index, anchors, item.get('homes', []),
                          list(data['results'].get(query, {}).get('items', {}).values()),
-                         item.get('doc', '') + ' ' + item['decides'], full, identifiers=(query,)))
+                         item.get('doc', '') + ' ' + item['decides'], full))
             from .deps import Now, stale
             if data['results'].get(query) and (not data['deps'].get(query) or stale(data['deps'][query], Now(cfg, graph))):
                 lines.insert(1, 'cached results are stale or unverified -> run check')
@@ -563,7 +548,7 @@ def show(cfg, query=None, *, full=False, last=False):
             unused = set(_unmodelled(index, data['summary'], root=cfg.root)) & {a.name for a in anchors}
             if unused:print('info: not referenced by a current model: ' + ', '.join(sorted(unused)))
             from .differences import display
-            display('\n'.join(_copy_pointers(graph, index, anchors, [], data['summary'], [], query, full)))
+            display('\n'.join(_copy_pointers(graph, index, anchors, [], [], query, full)))
             return 0
         from .docs import module_lines
         site = query.rstrip('/') + '/' if (cfg.root / query).is_dir() else query
@@ -681,7 +666,7 @@ class _Own:
                                    detail=detail))
 
     def history(self, messages):
-        """The reds of the intent rules' history (`history.check`): a rule, row or guard removed without its reason."""
+        """The reds of the intent rules' history (`history.check`): a rule or row removed without its reason."""
         for message in messages:
             what, step = _step_of(message, 'show the rule and correct its source, binding or regression rows')
             subject, colon, rest = what.partition(': ')
@@ -747,8 +732,7 @@ def _legacy_lines(listed):
 
 def _declared_at(model, identifier):
     """`file:line` of the declaration `identifier` (as a pytest session names it), '' when the model has none."""
-    declaration = (model.rules.get(identifier) or model.states.get(identifier) or model.structures.get(identifier)
-                   or model.flows.get(identifier) or model.anchor_distincts.get(identifier))
+    declaration = model.rules.get(identifier) or model.states.get(identifier) or model.flows.get(identifier)
     return f'{model.file_of[identifier]}:{declaration.line}' if declaration is not None and identifier in model.file_of else ''
 
 
@@ -791,20 +775,19 @@ def _rule_finding(model, rid, values):
 
 def _cache_findings(cfg, model, data):
     """check's own findings from the intent results it ran or reused (`cache.read`), in the words of a pytest
-    session, as (issues, lines): intent load errors, an unfinished verification or collection and a removed rule,
-    row or guard (red, D3, D4); each red intent rule (`_rule_finding`) or other declaration; a cited source that
+    session, as (issues, lines): intent load errors, an unfinished verification or collection and a removed rule
+    or row (red, D3, D4); each red intent rule (`_rule_finding`) or other declaration; a cited source that
     already failed at the baseline (before); a failed test of pytest's scope (red); and each grey intent item, or a
     rule without results, not compared."""
     from .deps import test_scope
     from .health import LINES_ONLY, Issue
     from .plugin import FLOW_STEP
-    from .signals import BEFORE_STEP, ascii_text, finding, not_compared
+    from .signals import BEFORE_STEP, ascii_text, finding, load_step, not_compared
     own = _Own()
     summary, attempt = data['summary'], data.get('attempt') or {}
     for error in summary['errors']:
         place = f'{error["file"]}:{error["line"]}'
-        own.red('input', f'load:{place}', f'load {place}', ascii_text(error['msg']),
-                'correct this declaration; until then none of its file is checked', places=(place,), files=(error['file'],))
+        own.red('input', f'load:{place}', f'load {place}', *load_step(error['msg']), places=(place,), files=(error['file'],))
     order = {item: number for number, item in enumerate(model.declared_items())}
     def values(rid):
         items = data['results'].get(rid, {}).get('items', {})
@@ -813,8 +796,7 @@ def _cache_findings(cfg, model, data):
         for message in value.get('red') or ['reported red']:
             found = re.match(r'(.+?):(\d+): (.*)', str(message), re.S)
             place = f'{found[1]}:{found[2]}' if found else value['item'].partition('::')[0]
-            own.red('input', f'load:{place}', f'load {place}', ascii_text(found[3] if found else message),
-                    'correct this declaration; until then none of its file is checked', places=(place,),
+            own.red('input', f'load:{place}', f'load {place}', *load_step(found[3] if found else message), places=(place,),
                     files=(place.partition(':')[0],))
     collected = attempt and (attempt.get('sentinel') is not None or attempt.get('collected') or attempt.get('selected')
                              or attempt.get('deferred'))
@@ -824,7 +806,7 @@ def _cache_findings(cfg, model, data):
     for message in attempt.get('errors', []):
         own.red('input', f'verification:{message}', 'verification', *_step_of(message, 'correct the reported error and run check'))
     own.history(data.get('history', []))
-    kinds = {'flow': 'flow', 'states': 'states', 'structure': 'structure', 'anchor_distinct': 'distinct'}
+    kinds = {'flow': 'flow', 'states': 'states'}
     for rid, item in summary['rules'].items():
         if item.get('superseded_by'):
             continue
@@ -1144,10 +1126,7 @@ def _owner_findings(cfg, *, everything=False, base=None, static=None):
             return owners.Findings(issues=sources.input_findings(cfg, lambda: graph))
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
         index = anchors.collect(graph)
-        distincts = cache.read(cfg)['summary'].get('distincts', [])
-        excluded = {target for item in distincts for target in (item['a'], item['b']) if ':' in target}
-        excluded |= {anchor.target for item in distincts for name in (item['a'], item['b']) for anchor in index.named(name)}
-        found = owners.check_findings(cfg, graph, index, base, everything=everything, excluded=excluded, static=static)
+        found = owners.check_findings(cfg, graph, index, base, everything=everything, static=static)
         if everything:
             from .ledger import open_legacy
             found.lines = [*found.lines, *_legacy_lines(open_legacy(cfg, graph))]
@@ -1157,16 +1136,15 @@ def _owner_findings(cfg, *, everything=False, base=None, static=None):
 
 
 def _check_selection(cfg: Config, model: object, data: dict, everything: bool, sentinel: Path, base: str | None = None):
-    import ast
     from flowguard.map.common import git_run
-    from . import deps, history
+    from . import deps
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
         # The commit pytest compares with (its Runtime resolves --flowguard-base the same way), else the task
         # baseline: a source judged against another commit (`baseline:<commit>` of deps.record) is judged again.
         commit = None if base is None else git_run(cfg.root, 'rev-parse', '--verify', base + '^{commit}').stdout.decode().strip()
         now = deps.Now(cfg, graph, baseline=commit)
         selected = set(model.rules) if everything else set(deps.affected(data, model, now))
-        flows = {identifier for identifier in [*model.flows, *model.states, *model.structures, *model.anchor_distincts]
+        flows = {identifier for identifier in [*model.flows, *model.states]
                  if everything or not deps.reusable(data, identifier, now)}
         selected.update(identifier for identifier, rule in model.rules.items() if not {
             model.file_of[identifier] + '::' + name for name in model.items_of(rule)
@@ -1190,7 +1168,7 @@ def _check_selection(cfg: Config, model: object, data: dict, everything: bool, s
         if any('<unresolved>' in record for file, record in records.items() if ordinary_file(file)):
             ordinary.update(file for file in records if ordinary_file(file))
             selected.update(model.rules)
-            flows.update([*model.flows, *model.states, *model.structures, *model.anchor_distincts])
+            flows.update([*model.flows, *model.states])
         # A `fields` anchor's rule is checked on the calls its tests reach: rerun the tests that reached
         # it last time, every test while that is unknown.
         for identifier in selected:
@@ -1198,10 +1176,7 @@ def _check_selection(cfg: Config, model: object, data: dict, everything: bool, s
                 reached = {test.partition('::')[0] for value in data['results'].get(identifier, {}).get('items', {}).values()
                            for test in value.get('tests', ())}
                 ordinary.update(file for file in records if ordinary_file(file) and (file in reached or not reached))
-        guards = history._guards({cfg.rel(path): path.read_text(encoding='utf-8-sig')
-                                 for path in (cfg.root / 'tests').rglob('*.py')})
-        rule_markers = {ast.dump(ast.Constant(identifier), include_attributes=False) for identifier in model.rules}
-    return selected, flows, ordinary, records, guards, rule_markers
+    return selected, flows, ordinary, records
 
 
 # flowguard: event CHECK_PYTEST(command: list, root: Path, output: Path, stream: bool)
@@ -1290,8 +1265,7 @@ def _check(cfg, *, everything=False, deep=False, base=None, reports=None, own=No
     declared = set(model.declared_items())
     if stream_all:
         print('FlowGuard check --all: preparing source dependencies before pytest.', flush=True)
-    selected, flows, ordinary, test_records, guards, rule_markers = _check_selection(
-        cfg, model, data, everything, sentinel, base)
+    selected, flows, ordinary, test_records = _check_selection(cfg, model, data, everything, sentinel, base)
     extras = flows
     attempt = data.get('attempt') or {}
     failed_collection = (attempt.get('sentinel') is not None or attempt.get('collected')) and (
@@ -1335,11 +1309,6 @@ def _check(cfg, *, everything=False, deep=False, base=None, reports=None, own=No
             with closing(build(cfg.root, roots=cfg.roots)) as graph:
                 cache.save_test_dependencies(graph.con, completed)
                 graph.con.commit()
-    for (file, name), (markers, _) in guards.items():
-        if rule_markers.intersection(markers):
-            for nodeid, reading in data['tests'].items():
-                if nodeid.partition('::')[0] == file and _test_name(nodeid) == name and reading['outcome'] == 'skipped':
-                    historical.append(f'guard lost: {nodeid} was skipped -> restore the real marked test')
     from .owners import baseline as owner_baseline
     revision = owner_baseline(cfg, base)
     if revision is not None and executed:

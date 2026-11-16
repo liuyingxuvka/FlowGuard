@@ -171,19 +171,6 @@ def test_second():
         assert not retired_ledgers(connection)
 
 
-def test_a_marked_guard_with_only_an_unobserved_child_fails_closed(sample):
-    (sample / 'tests/test_child_guard.py').write_text('''import subprocess, sys, pytest
-@pytest.mark.rule('LIMIT')
-def test_child_guard():
-    subprocess.run([sys.executable, '-c', 'from sample.policy import accept; assert accept(4) is False'], check=True, cwd='src')
-''')
-    result = run(sample)
-    assert result.returncode == 1, result.stdout + result.stderr
-    assert 'marked but never enters LIMIT' in result.stdout + result.stderr
-    with database(sample) as connection:
-        assert not retired_ledgers(connection)
-
-
 def test_plain_pytest_executes_declared_items_and_sentinel(sample):
     result = run(sample)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -403,7 +390,6 @@ def test_recording_preserves_real_parent_results_and_Map_callee_identities(sampl
     (sample / 'src/sample/failure.py').write_text('def leaf(): return 7\ndef caller(): return leaf()\n')
     (sample / 'tests/test_child.py').write_text('''import subprocess, sys, pytest
 from sample.policy import accept
-@pytest.mark.rule("LIMIT")
 def test_child():
     from sample.failure import caller
     assert caller() == 7
@@ -428,19 +414,6 @@ def test_child():
         assert graph.node('sample.failure')['file'] == 'src/sample/failure.py'
 
 
-@pytest.mark.parametrize('calls_home', [True, False])
-def test_rule_marker_requires_entering_a_real_home(sample, calls_home):
-    text = 'import pytest\nfrom sample.policy import accept\n@pytest.mark.rule("LIMIT")\ndef test_marked():\n    ' + ('assert accept(4) is False' if calls_home else 'assert True') + '\n'
-    (sample / 'tests/test_marked.py').write_text(text)
-    result = run(sample)
-    assert result.returncode == (0 if calls_home else 1), result.stdout + result.stderr
-    assert ('marked but never enters LIMIT' in result.stdout) is not calls_home
-    if calls_home:
-        with database(sample) as connection:
-            assert connection.execute("SELECT outcome FROM reading WHERE test='tests/test_marked.py::test_marked'").fetchone()[0] == 'passed'
-            assert not retired_ledgers(connection)
-
-
 def test_collection_failure_is_an_environment_reading(sample):
     (sample / 'tests/test_missing.py').write_text('import missing_test_collection_dependency_r14\n')
     result = run(sample)
@@ -452,7 +425,7 @@ def test_collection_failure_is_an_environment_reading(sample):
 def test_comprehension_is_covered_by_its_named_owner_and_nested_functions_survive(sample):
     source = sample / 'src/sample/comps.py'
     source.write_text('def outer(value):\n    def inner(item):\n        return item\n    return all(inner(v) <= 3 for v in [value])\n')
-    (sample / 'tests/test_comp.py').write_text('import pytest\nfrom sample.policy import accept\nfrom sample.comps import outer\n@pytest.mark.rule("LIMIT")\ndef test_comp():\n    assert accept(4) is False\n    assert outer(1)\n')
+    (sample / 'tests/test_comp.py').write_text('import pytest\nfrom sample.policy import accept\nfrom sample.comps import outer\ndef test_comp():\n    assert accept(4) is False\n    assert outer(1)\n')
     result = run(sample)
     assert result.returncode == 0, result.stdout + result.stderr
     with database(sample) as connection:
@@ -600,19 +573,3 @@ def test_state_literal_item_is_collected_and_checked(sample, value, exit_code):
         assert row is not None and (row[0] == 'red') is (exit_code == 1)
 
 
-@pytest.mark.parametrize('allow_handler', [False, True])
-def test_structure_item_keeps_an_explicit_reason_for_each_allowed_handler(sample, allow_handler):
-    (sample / 'src/sample/handler.py').write_text('def parse(value):\n    try:\n        return int(value)\n    except ValueError:\n        return None\n')
-    text = '''from flowguard.intent import structure_rule, allow
-@structure_rule('HANDLERS',source='assumed: exceptions need a reason')
-def HANDLERS(graph):
-    return [h for h in graph.handlers() if h['file']=='src/sample/handler.py']
-'''
-    if allow_handler:
-        text += 'HANDLERS.allows(allow("src/sample/handler.py:4","invalid input is an optional value here"))\n'
-    (sample / 'tests/intent/structure.py').write_text(text)
-    result = run(sample)
-    assert result.returncode == (0 if allow_handler else 1), result.stdout + result.stderr
-    with database(sample) as connection:
-        row = connection.execute("SELECT verdict,payload FROM result WHERE rule='HANDLERS'").fetchone()
-        assert row is not None and (row[0] == 'red') is not allow_handler

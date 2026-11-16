@@ -63,28 +63,6 @@ def test_same_name_copy_disagreement_fails_pytest_and_check_without_rules(tmp_pa
     assert 'GRACE' in capsys.readouterr().out
 
 
-@pytest.mark.parametrize('merged', [False, True])
-def test_named_anchor_distinct_is_a_collected_checked_item(tmp_path, merged):
-    copy = SOURCE.replace('GRACE', 'OTHER').replace('def accept(', 'def other(')
-    if not merged:
-        copy = copy.replace('<= 3', '<= 7')
-    intent = '''from flowguard.intent import distinct
-distinct('GRACE','OTHER',why='these are deliberately different policies',source='assumed: separation')
-'''
-    project(tmp_path, SOURCE + '\n' + copy, intent)
-    result = run(tmp_path)
-    assert result.returncode == int(merged), result.stdout + result.stderr
-    from flowguard.intent.cache import read
-    from flowguard.intent.config import load_config
-    data = read(load_config(tmp_path))
-    parts = [part for group in data['results'].values() for part in group['items'].values()
-             if part.get('kind') == 'anchor_distinct']
-    assert len(parts) == 1
-    assert parts[0]['verdict'] == ('red' if merged else 'ok')
-    assert parts[0]['provisional'] and parts[0]['behavior_checked']
-    assert any(rule.get('kind') == 'anchor_distinct' for rule in data['summary']['rules'].values())
-
-
 @pytest.mark.parametrize('mode', ['valid', 'wrong', 'missing', 'signature'])
 def test_rule_uses_real_anchor_without_a_call_adapter(tmp_path, mode):
     code = SOURCE

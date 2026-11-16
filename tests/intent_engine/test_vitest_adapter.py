@@ -1471,8 +1471,8 @@ def test_a_run_that_filters_out_the_session_test_fails_with_its_red_in_the_block
 
 
 def test_deprecation_notices_print_once_on_stderr_after_the_block(vitest_home):
-    # Review of 4.3: the session test discarded its report's stderr, so a deprecated intent spelling (precedes) was
-    # said nowhere but in show --last; the plan's own notices (prepare's stderr) and the static test's were lost the
+    # Review of 4.3: the session test discarded its report's stderr, so a deprecated intent spelling (precedes, which 5.0
+    # removed) was said nowhere but in show --last; the plan's own notices (prepare's stderr) and the static test's were lost the
     # same way. Design 4.7: deprecated goes to stderr; each notice once, after the block, also in a filtered run.
     root = vitest_home / 'deprecated'
     _commit(root, {
@@ -1480,12 +1480,11 @@ def test_deprecation_notices_print_once_on_stderr_after_the_block(vitest_home):
         'src/a.ts': '// flowguard: sensor LIMIT\nexport function over(x: number): boolean {\n  return x > 3;\n}\n',
         'src/b.ts': '// flowguard: sensor LIMIT\nexport const enough = (x: number): boolean => x > 3;\n',
         'tests/app.test.ts': "import { it, expect } from 'vitest';\nimport { over } from '../src/a';\nit('real', () => { expect(over(4)).toBe(true); });\n",
-        'tests/intent/order_rules.py': ("from flowguard.intent import precedes\n\n"
-                                        "precedes('SAVED', 'PUBLISHED', source='assumed: a draft is saved before it is published')\n"),
+        'src/grace.ts': '// flowguard: owner GRACE\nexport function grace(days: number): boolean {\n  return days <= 5;\n}\n',
     })
     assert _flowguard(root, 'init')[0] == 0
     _commit(root, message='wired')
-    notices = ['deprecated: sensor goes in 5.0 -> write same NAME', 'deprecated: precedes goes in 5.0 -> do not use it']
+    notices = ['deprecated: function owner goes in 5.0 -> write same NAME ref', 'deprecated: sensor goes in 5.0 -> write same NAME']
     for arguments in ([], ['tests/app.test.ts']):           # the session test's report, and the teardown's
         done = subprocess.run([_tool('node'), str(vitest_home / 'node_modules/vitest/vitest.mjs'), 'run', *arguments], cwd=root,
                               capture_output=True, encoding='utf-8', timeout=600, env=_environment())
@@ -1493,7 +1492,7 @@ def test_deprecation_notices_print_once_on_stderr_after_the_block(vitest_home):
         assert done.returncode == 0 and _block(out), (arguments, out, err)
         assert err.strip().splitlines()[-2:] == notices, (arguments, err)
         assert [(out + err).count(notice) for notice in notices] == [1, 1], (arguments, out, err)
-    assert 'deprecated features used (5.0): sensor, precedes' in _cli_fixture.last(root), _cli_fixture.last(root)
+    assert 'deprecated features used (5.0): function owner, sensor' in _cli_fixture.last(root), _cli_fixture.last(root)
 
 
 def test_a_known_site_is_touched_by_an_edit_of_its_text_and_not_by_an_edit_beside_it_as_in_pytest(vitest_home):

@@ -75,23 +75,6 @@ def test_partial_ordinary_pytest_preserves_complete_collection_without_false_red
     assert not [issue for issue in issues if issue.name == 'collection:intent'], issues
 
 
-@pytest.mark.parametrize('parameter_id', [None, 'a::b'])
-def test_actual_dynamic_skip_is_guard_lost_only_for_a_true_rule_marker(tmp_path, capsys, parameter_id):
-    root, cfg = project(tmp_path)
-    cli.init(cfg)
-    test = root / ('tests/test_platform.py' if parameter_id is None else 'tests/test_platform[case].py')
-    original = 'import pytest\nOTHER_PLATFORM=True\n@pytest.mark.skipif(OTHER_PLATFORM, reason="other platform")\ndef test_platform(): assert True\n'
-    if parameter_id is not None:
-        original = original.replace('@pytest.mark.skipif', f'@pytest.mark.parametrize("value", [{parameter_id!r}])\n@pytest.mark.skipif')
-        original = original.replace('def test_platform():', 'def test_platform(value):')
-    test.write_text(original)
-    assert cli_fixture.check(cfg, everything=True) == 0
-    capsys.readouterr()
-    test.write_text(original.replace('@pytest.mark.skipif', '@pytest.mark.rule("LIMIT")\n@pytest.mark.skipif'))
-    assert cli_fixture.check(cfg, everything=True) == 1
-    assert 'guard lost' in capsys.readouterr().out
-
-
 def test_a_new_corrected_row_attaches_real_old_code_proof_to_existing_result(tmp_path, capsys):
     root, cfg = project(tmp_path, wrong=True)
     intent = cfg.intent / 'policy.py'

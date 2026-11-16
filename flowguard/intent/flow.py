@@ -1,6 +1,6 @@
 """Small anchor graphs and scoped real readings; declarations are not a runner.
 
-Only nodes, edges, finite state transitions and existing Rule relations live here.
+Only nodes, edges and existing Rule relations live here.
 The API/loader owns registration and the pytest plugin owns when a scope runs.
 """
 from __future__ import annotations
@@ -33,19 +33,6 @@ class Node:
     @property
     def reference(self):
         return self.anchor or self.name
-
-
-@dataclass(frozen=True)
-class Transition:
-    state: str
-    before: object
-    after: object
-    on: str
-    initial: bool = False
-
-    def __post_init__(self):
-        from .deprecation import warn
-        warn('Transition')
 
 
 _UNSET = object()
@@ -84,17 +71,13 @@ class Flow:
     source: str
     nodes: tuple
     edges: tuple
-    transitions: tuple = ()
     relations: tuple = ()
     file: str = ''
     line: int = 0
-    optional: tuple = ()     # allowed edges a template adds; unobserved, they are not reported unverified
 
     def __post_init__(self):
         self.nodes = tuple(n if isinstance(n, Node) else Node(n) for n in self.nodes)
         self.edges = tuple(tuple(e) for e in self.edges)
-        self.optional = tuple(tuple(e) for e in self.optional)
-        self.transitions = tuple(t if isinstance(t, Transition) else Transition(*t) for t in self.transitions)
         self.relations = tuple(self.relations)
 
     @property
@@ -153,9 +136,7 @@ def validate(model, index, *, contracts=None):
     names = [n.name for n in model.nodes]
     if not model.id or not model.source:
         red.append('flow needs an id and a sourced declaration')
-    # A transitions template has no nodes: its changes hold wherever an anchored call changes the state.
-    anywhere = bool(model.transitions) and all(t.on == '*' for t in model.transitions)
-    if (not names and not anywhere) or any(not isinstance(n,str) or not n for n in names) or len(names) != len(set(names)):
+    if not names or any(not isinstance(n,str) or not n for n in names) or len(names) != len(set(names)):
         red.append('flow needs nonempty, unique local node names')
     if len(names) > 10:
         info.append(f'{len(names)} nodes in one layer exceeds about 10; split at a real lower contract')
@@ -194,15 +175,6 @@ def validate(model, index, *, contracts=None):
     for edge in model.edges:
         if len(edge) != 2 or any(n not in names for n in edge):
             red.append(f'edge references unknown nodes: {edge!r}')
-    for item in model.transitions:
-        if item.on not in names and item.on != '*':
-            red.append(f'transition references unknown node {item.on}')
-        anchors = index.named(item.state, 'states')
-        if not anchors:
-            red.append(f'transition state anchor gone: {item.state}')
-        for anchor in anchors:
-            if item.before not in anchor.values or item.after not in anchor.values:
-                red.append(f'{item.state}: transition {item.before!r} -> {item.after!r} is outside declared states')
     for rel in model.relations:
         if not isinstance(rel, Relation):
             red.append('relations must reference existing rules with literal reading bindings')
@@ -245,16 +217,16 @@ def _current_rule(engine, reference):
     return engine.m.rules.get(identifier)
 
 
-def _state_relation(relation, state, rules, engine=None):
+def _invariant(relation, rules, engine=None):
+    """A relation that reads only `$state` and no actual is a finite invariant. The finite model is the graph alone
+    (5.0 checks no state changes), so an invariant that reads a state field is unverified; one without inputs is
+    judged on none, which its rule's fields refuse."""
     rule = _rule(relation, rules)
-    if any(r.node != '$state' for r in relation.inputs.values()) or relation.actual:
-        return None
-    inputs = {}
-    for name, read in relation.inputs.items():
-        if read.field not in state:
-            raise Unverified(f'finite invariant reads unknown state {read.field}')
-        inputs[name] = state[read.field]
-    return rule.id, _expectation(rule,inputs,engine)
+    if relation.actual or any(read.node != '$state' for read in relation.inputs.values()):
+        return
+    if relation.inputs:
+        raise Unverified(f'finite invariant reads unknown state {next(iter(relation.inputs.values())).field}')
+    _expectation(rule, {}, engine)
 
 
 def finite_check(model, index, *, rules=None, contracts=None, max_states=None, engine=None):
@@ -265,53 +237,29 @@ def finite_check(model, index, *, rules=None, contracts=None, max_states=None, e
     red, grey, info = list(schema['red']), list(schema['grey']), list(schema['info'])
     if red:
         return _result('flow-finite', red, grey, info, states=0, reachable=[])
-    initial = {}
-    for transition in model.transitions:
-        if transition.initial or transition.state not in initial:
-            if transition.initial and transition.state in initial and initial[transition.state] != transition.before:
-                explicit = [t.before for t in model.transitions if t.state == transition.state and t.initial]
-                if len(set(explicit)) > 1:
-                    red.append(f'{transition.state}: conflicting initial state declarations')
-            initial[transition.state] = transition.before
-    state_names = tuple(sorted(initial))
+    for rel in model.relations:
+        try:
+            _invariant(rel, rules, engine)
+        except Unverified as error: grey.append(str(error))
+        except Exception as error: red.append(f'finite rule raised {type(error).__name__}: {error}')
+    # Each node is one state of the finite model: the graph is explored from its starts, every node once.
     outgoing = {n.name: [b for a,b in model.edges if a == n.name] for n in model.nodes}
-    pending = deque((node, tuple(initial[s] for s in state_names)) for node in sorted(model.starts))
-    seen, reached = set(), set()
+    pending = deque(sorted(model.starts))
+    reached = set()
     while pending:
-        key = pending.popleft()
-        if key in seen: continue
-        if max_states is not None and len(seen) >= max_states:
-            pending.appendleft(key)
+        node = pending.popleft()
+        if node in reached: continue
+        if max_states is not None and len(reached) >= max_states:
+            pending.appendleft(node)
             grey.append(f'finite model exceeds {max_states} states; it was not exhausted')
             break
-        seen.add(key); node, values = key; reached.add(node)
-        state = dict(zip(state_names, values)); enabled = True
-        changes = {}
-        for state_name in {t.state for t in model.transitions if t.on == node}:
-            options = [t for t in model.transitions if t.on == node and t.state == state_name and t.before == state[state_name]]
-            if not options:
-                red.append(f'{node}: no enabled transition for {state_name}={state[state_name]!r}')
-                enabled = False
-            elif len({t.after for t in options}) != 1:
-                red.append(f'{node}: ambiguous transition for {state_name}={state[state_name]!r}')
-                enabled = False
-            else: changes[state_name] = options[0].after
-        if not enabled: continue
-        state.update(changes)
-        for rel in model.relations:
-            try:
-                answer = _state_relation(rel, state, rules,engine)
-                if answer and answer[1] is not None and answer[1] is not True:
-                    red.append(f'finite invariant {answer[0]} fails at {node}: {state!r}')
-            except Unverified as error: grey.append(str(error))
-            except Exception as error: red.append(f'finite rule raised {type(error).__name__}: {error}')
+        reached.add(node)
         if not outgoing[node] and node not in model.ends:
             red.append(f'{node}: reachable dead end is not a declared terminal')
-        values = tuple(state[s] for s in state_names)
-        pending.extend((target, values) for target in outgoing[node])
+        pending.extend(outgoing[node])
     if not pending:
         red.extend(f'{node.name}: model node is unreachable' for node in model.nodes if node.name not in reached)
-    return _result('flow-finite', red, grey, info, states=len(seen), reachable=sorted(reached),
+    return _result('flow-finite', red, grey, info, states=len(reached), reachable=sorted(reached),
                    exhausted=not pending and not any('not exhausted' in x for x in grey))
 
 
@@ -448,8 +396,7 @@ def _engine_contracts(model, engine, contracts, rules):
             if rule.uses:
                 needed[rule.id] = rule.id
             if isinstance(engine, Engine):
-                needed.update((q.id, q.id) for q in engine.m.active(rule.decides)
-                              if q.uses and not engine.m.distinct_pair(rule.id,q.id))
+                needed.update((q.id, q.id) for q in engine.m.active(rule.decides) if q.uses)
         except Unverified as error:
             grey.append(str(error))
     if not needed:
@@ -670,7 +617,6 @@ def runtime_check(model, events, index, *, rules=None, contracts=None, engine=No
         by_case = _scopes
     order = list(by_case)
     checked, unclaimed = 0, 0
-    observed_transitions = set()
     source_cache = {}
     for case in order:
         sequence, readings, case_events = [], {}, by_case[case]
@@ -684,16 +630,7 @@ def runtime_check(model, events, index, *, rules=None, contracts=None, engine=No
         grey.extend(f'{case}: declared direct caller edge for {name} was not verified; helper extraction needs an explicit new binding'
                     for name in sorted(uncertain_callers))
         references = {n.reference for n in model.nodes}
-        anywhere = {t.state for t in model.transitions if t.on == '*'}
         for event in case_events:
-            for state_name in anywhere if event.phase == 'return' else ():
-                before, after = event.before_states.get(state_name, _MISSING), event.states.get(state_name, _MISSING)
-                if before is _MISSING or after is _MISSING or before == after:
-                    continue
-                if any(t.state == state_name and t.on == '*' and t.before == before and t.after == after for t in model.transitions):
-                    observed_transitions.add((state_name, before, after, '*'))
-                else:
-                    red.append(f'{case}: {state_name} actually changes {before!r} -> {after!r} at {event.anchor}, outside declared transitions')
             if event.anchor not in references:
                 if references:
                     info.append(f'anchor not included in {model.id}: {event.anchor}')
@@ -720,20 +657,6 @@ def runtime_check(model, events, index, *, rules=None, contracts=None, engine=No
             elif node.name not in model.starts:
                 (grey if uncertain_callers else red).append(f'{case}: runtime starts at {node.name}, outside declared entries')
             sequence.append(node.name); readings.setdefault(node.name, []).append(event)
-            modeled_states = {t.state for t in model.transitions if t.on != '*'}
-            for state_name in modeled_states:
-                expected = [t for t in model.transitions if t.on == node.name and t.state == state_name]
-                before = event.before_states.get(state_name, _MISSING)
-                after = event.states.get(state_name, _MISSING)
-                if expected:
-                    if event.phase != 'return' or before is _MISSING or after is _MISSING:
-                        grey.append(f'{case}: {node.name} has no complete before/after reading for {state_name}')
-                    elif not any(t.before == before and t.after == after for t in expected):
-                        red.append(f'{case}: {state_name} actually changes {before!r} -> {after!r} at {node.name}, outside declared transitions')
-                    else:
-                        observed_transitions.add((state_name, before, after, node.name))
-                elif before is not _MISSING and after is not _MISSING and before != after:
-                    red.append(f'{case}: {state_name} changed at {node.name} without a declared transition')
             for rel in model.relations:
                 if (rel.on or model.nodes[-1].name) != node.name: continue
                 try:
@@ -757,17 +680,14 @@ def runtime_check(model, events, index, *, rules=None, contracts=None, engine=No
         elif sequence[-1] not in model.ends:
             (grey if uncertain_callers else red).append(f'{case}: runtime stopped at {sequence[-1]}, before a declared terminal')
     if not by_case: grey.append('no runtime anchor cases were observed')
-    grey.extend(f'unobserved edge {a} -> {b}' for a,b in sorted(edges - observed - set(model.optional)))
-    grey.extend(f'unobserved state transition {t.state}: {t.before!r} -> {t.after!r} at {t.on}'
-                for t in model.transitions if (t.state,t.before,t.after,t.on) not in observed_transitions)
+    grey.extend(f'unobserved edge {a} -> {b}' for a,b in sorted(edges - observed))
     if unclaimed: info.append(f'{unclaimed} readings were outside the original rules opinion')
     if _observed_only:
         if unclaimed:
             grey.append(f'{unclaimed} observed readings have no rule opinion')
         info.append('scope: actual observed anchor paths and relations only; finite model and lower contracts were not proved')
     return _result('flow-runtime', red, grey, info, observed_edges=sorted(observed), cases=len(by_case),
-                   checked_relations=checked, unclaimed_relations=unclaimed,
-                   observed_transitions=sorted(observed_transitions,key=repr), ignored_case_scopes=ignored)
+                   checked_relations=checked, unclaimed_relations=unclaimed, ignored_case_scopes=ignored)
 
 
 def _reading_source(observed, index, read, cache=None):
@@ -1040,7 +960,7 @@ class Capture:
         self.on_event, self.diagnostic_issues = on_event, []
         self._ordinary = _ordinary
         self._model_scopes = self._read = None
-        self._read_states, self._sampled = False, {}      # anchor target -> the inert keys of the calls kept
+        self._sampled = {}      # anchor target -> the inert keys of the calls kept
         if models is not None:
             models = list(models)
             entries = [_test_entry_references(model, index) for model in models]
@@ -1048,12 +968,10 @@ class Capture:
                 self._model_scopes = frozenset().union(*entries)
             else:
                 # No test entry scopes every Flow. _scenario_scopes keeps the whole case for a production entry,
-                # including a downstream call without its start, so every event of an anchor a Flow names is kept,
-                # and with transitions every event that read a declared state. Of any other anchor (all of them
-                # in a project without Flows) the first _SAMPLE distinct calls are kept for `show NAME`: the
-                # capture does not grow with the number of calls.
+                # including a downstream call without its start, so every event of an anchor a Flow names is kept.
+                # Of any other anchor (all of them in a project without Flows) the first _SAMPLE distinct calls are
+                # kept for `show NAME`: the capture does not grow with the number of calls.
                 self._read = frozenset(node.reference for model in models for node in model.nodes)
-                self._read_states = any(model.transitions for model in models)
         self.events, self.issues = [], []
         self._frames, self._counts, self._sites = {}, Counter(), {}
         paths = {}      # one resolve per file: several anchors share one
@@ -1188,11 +1106,11 @@ class Capture:
             if not self._in_model_scope(anchor, frame):
                 return None
             sampled = self._read is not None and anchor.name not in self._read
-            if sampled and not self._read_states and len(self._sampled.get(anchor.target, ())) >= _SAMPLE:
+            if sampled and len(self._sampled.get(anchor.target, ())) >= _SAMPLE:
                 return None
             args={p.name:_snapshot(frame.f_locals.get(p.name,_Opaque('missing parameter')))for p in anchor.parameters}
             before=self._states(frame,anchor)
-            if sampled and not (self._read_states and before):
+            if sampled:
                 kept, identity = self._sampled.setdefault(anchor.target, set()), _inert_key(args)
                 if identity in kept or len(kept) >= _SAMPLE:
                     return None

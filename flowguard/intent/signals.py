@@ -569,6 +569,18 @@ def split_step(text):
     return (what, step) if arrow else (text, '')
 
 
+def load_step(message):
+    """(what, step) of the red line of an intent file the loader refused (`load FILE:LINE`): a name 5.0 removed says
+    what to do instead (`api.removed`), any other refusal to correct the declaration; until then none of the file is
+    checked."""
+    from .api import REMOVED
+    text = ascii_text(message)
+    what, step = split_step(text)
+    if step and what.endswith(' was removed in 5.0') and what.removesuffix(' was removed in 5.0') in REMOVED:
+        return what, step + '; until then none of its file is checked'
+    return text, 'correct this declaration; until then none of its file is checked'
+
+
 def ascii_text(text):
     """A FlowGuard text written before 4.3 with its full-width punctuation and arrows in ASCII."""
     from .owners import _ascii

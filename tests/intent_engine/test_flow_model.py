@@ -10,8 +10,7 @@ from tests.intent_engine._source_fixture import source_engine, source_sessions
 
 from flowguard.intent.api import Refused, rule
 from flowguard.intent.anchors import collect_sources
-from flowguard.intent.flow import (Capture, Flow, Node, Read, Relation, Transition,
-                                  check_flow, finite_check, runtime_check, validate)
+from flowguard.intent.flow import Capture, Flow, Node, Read, Relation, check_flow, finite_check, runtime_check, validate
 
 
 def source(tmp_path, body):
@@ -128,33 +127,20 @@ def test_different_cases_cannot_supply_each_others_missing_steps(tmp_path):
     assert any('first' in x for x in result['red']) and any('second' in x for x in result['red'])
 
 
-def test_finite_states_reachability_and_invalid_transition(tmp_path):
+def test_a_finite_invariant_over_a_state_field_stays_unverified(tmp_path):
+    # 5.0 removed Transition: the finite model is the graph alone, so it never claims a state field's value
     body = '''class Job:
-    # flowguard: states Job.status = new | saved | published
+    # flowguard: states Job.status = new | broken
     status = 'new'
 # flowguard: event save(value: int)
 def save(value: int): return value
-# flowguard: event publish(value: int)
-def publish(value: int): return value
 '''
     index, _ = source(tmp_path, body)
-    good = Flow('JOB', 'assumed: finite', ('save', 'publish'), (('save', 'publish'),),
-        (Transition('Job.status', 'new', 'saved', 'save', initial=True),
-         Transition('Job.status', 'saved', 'published', 'publish')))
-    result = finite_check(good, index)
-    assert result['verdict'] == 'ok' and result['states'] == 2, result
-    bad = Flow('JOB', 'assumed: impossible state', ('save', 'publish'), (('save', 'publish'),),
-        (Transition('Job.status', 'new', 'published', 'save', initial=True),
-         Transition('Job.status', 'saved', 'published', 'publish')))
-    result = finite_check(bad, index)
-    assert result['verdict'] == 'red' and any('no enabled transition' in r for r in result['red']), result
-
-
-def test_nonfinite_or_unknown_state_is_not_exhaustive(tmp_path):
-    index, _ = source(tmp_path, BASIC)
-    model = Flow('JOB', 'assumed: unknown', ('save',), (), (Transition('Unknown.status', 0, 1, 'save'),))
+    allowed = relation(lambda status: status != 'broken', {'status': ('new', 'broken')}, 'ALLOWED')
+    model = Flow('JOB', 'assumed: invariant', ('save',), (), relations=(Relation(allowed, {'status': Read('$state', 'Job.status')}),))
     result = finite_check(model, index)
-    assert result['verdict'] != 'ok' and any('Unknown.status' in r for r in result['red'] + result['grey'])
+    assert result['verdict'] == 'grey' and result['grey'] == ['finite invariant reads unknown state Job.status'], result
+    assert result['red'] == [] and result['states'] == 1 and result['exhausted'], result
 
 
 def test_missing_anchor_is_red_and_large_model_warns(tmp_path):
@@ -187,28 +173,6 @@ def test_custom_conversion_callback_is_refused():
     with pytest.raises(ValueError, match='view'): Read('read', view=lambda x: x)
 
 
-def test_state_runtime_uses_actual_before_after_and_catches_wrong_change(tmp_path):
-    body = '''class Job:
-    # flowguard: states Job.status = new | saved | published
-    status = 'new'
-    # flowguard: event save(value: int)
-    def save(self, value: int): self.status = 'saved'; return value
-    # flowguard: event publish(value: int)
-    def publish(self, value: int): self.status = 'published'; return value
-'''
-    index, m = source(tmp_path, body)
-    model = Flow('JOB', 'assumed: actual states',
-        (Node('save',phase='return'), Node('publish',phase='return')), (('save','publish'),),
-        (Transition('Job.status','new','saved','save'), Transition('Job.status','saved','published','publish')))
-    with Capture(tmp_path,index,'one') as captured:
-        job=m.Job(); job.save(3); job.publish(3)
-    assert runtime_check(model,captured.events,index)['verdict'] == 'ok'
-    with Capture(tmp_path,index,'bad') as captured:
-        job=m.Job(); job.status='published'; job.save(3); job.publish(3)
-    result=runtime_check(model,captured.events,index)
-    assert result['verdict']=='red' and any('actually changes' in r for r in result['red']),result
-
-
 def test_refused_matches_actual_exception_and_caught_none_is_a_real_return(tmp_path):
     body='''# flowguard: event reject(value: int)
 def reject(value: int): raise ValueError('actual refusal')
@@ -237,21 +201,6 @@ def test_ambiguous_prior_reading_is_grey_instead_of_last_wins(tmp_path):
     with Capture(tmp_path,index,'one')as captured:m.begin(3);m.save(2);m.save(3);m.publish(3)
     result=runtime_check(model,captured.events,index)
     assert result['verdict']=='grey' and any('2 occurrences' in r for r in result['grey']),result
-
-
-def test_finite_state_invariant_uses_existing_rule(tmp_path):
-    body='''class Job:
-    # flowguard: states Job.status = new | saved | broken
-    status='new'
-# flowguard: event save(value: int)
-def save(value: int): return value
-'''
-    index,_=source(tmp_path,body)
-    allowed=relation(lambda status:status!='broken',{'status':('new','saved','broken')},'ALLOWED')
-    model=Flow('JOB','assumed: invariant',('save',),(),(Transition('Job.status','new','broken','save'),),
-        relations=(Relation(allowed,{'status':Read('$state','Job.status')}),))
-    result=finite_check(model,index)
-    assert result['verdict']=='red' and any('ALLOWED' in r for r in result['red']),result
 
 
 def joint_flow(tmp_path, children=2, coupled=False, detail=False, detail_kind=bool):
@@ -603,22 +552,6 @@ def test_wrong_native_code_still_red_under_replacement_policy(tmp_path):
     assert result['verdict']=='red' and any('NEW' in r or 'OLD' in r for r in result['red']),result
 
 
-def test_finite_invariant_uses_same_effective_replacement_owner(tmp_path):
-    _,_,_,engine=replacement_flow(tmp_path)
-    body="""class Stage:
-    # flowguard: states Stage.days = 3 | 4
-    days=3
-# flowguard: event advance(value: int)
-def advance(value: int): return value
-"""
-    index,_=source(tmp_path,body)
-    model=Flow('FINITE','assumed: current owner',('advance',),(),
-        (Transition('Stage.days',3,4,'advance'),),
-        (Relation(engine.m.rules['OLD'],{'days':Read('$state','Stage.days')}),))
-    result=finite_check(model,index,engine=engine)
-    assert result['verdict']=='ok',result
-
-
 def test_active_rule_conflict_is_red_instead_of_an_arbitrary_expected_value(tmp_path):
     flow,index,events,engine=replacement_flow(tmp_path,conflict=True)
     result=runtime_check(flow,events,index,engine=engine)
@@ -642,27 +575,6 @@ def active() -> bool: return 'False'
     assert result['verdict']=='red',result
     assert calls==[], 'a value outside the declared domain must not reach the predicate'
     assert any('active' in r and 'bool' in r for r in result['red']),result
-
-
-def test_finite_state_relation_uses_the_same_kind_gate_before_predicate(tmp_path):
-    body='''class Flag:
-    # flowguard: states Flag.active = 'False'
-    active='False'
-# flowguard: event inspect_flag()
-def inspect_flag(): return None
-'''
-    index,_=source(tmp_path,body)
-    calls=[]
-    def expected(active):
-        calls.append(active)
-        return bool(active)
-    original=relation(expected,{'active':bool},'FINITE_BOOL')
-    model=Flow('FINITE_DOMAIN','assumed: strict state reading',('inspect_flag',),(),
-        (Transition('Flag.active','False','False','inspect_flag'),),
-        (Relation(original,{'active':Read('$state','Flag.active')}),))
-    result=finite_check(model,index)
-    assert result['verdict']=='red' and any('bool' in r for r in result['red']),result
-    assert calls==[]
 
 
 @pytest.mark.parametrize('names',[(),('active','extra')])

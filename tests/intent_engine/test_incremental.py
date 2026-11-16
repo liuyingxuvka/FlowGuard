@@ -144,13 +144,6 @@ def test_literal_inline_starred_rows_are_preserved_and_unknown_registration_is_v
     assert any('registration unresolved' in error['msg'] for error in cache.scan(cfg)['errors'])
 
 
-def test_distinct_names_object_ids_without_executing_intent(tmp_path):
-    _, cfg, _ = fixture(tmp_path)
-    path = cfg.intent / 'limit.py'
-    path.write_text('raise RuntimeError("never execute")\n' + path.read_text() + "\nfrom flowguard.intent import distinct as separate\nseparate(LIMIT,'sample:other',why='different policy',source='assumed: another rule')\n")
-    assert cache.scan(cfg)['distincts'] == [dict(a='LIMIT', b='sample:other', why='different policy', source='assumed: another rule')]
-
-
 def test_same_sqlite_keeps_latest_failed_attempt_and_previous_complete_results(tmp_path):
     _, cfg, _ = fixture(tmp_path)
     graph = build(cfg.root)
@@ -269,18 +262,6 @@ def test_default_history_keeps_the_task_baseline_after_later_commits(tmp_path):
     git(root, 'commit', '-qm', 'record an unrelated note')
     assert cache.session_baseline(cfg) == baseline
     assert any('row removed' in line for line in history.check(cfg))
-
-
-def test_marked_test_loss_is_visible(tmp_path):
-    root, cfg, _ = fixture(tmp_path)
-    test = root / 'tests/test_guard.py'
-    test.write_text("import pytest\n@pytest.mark.rule('LIMIT')\ndef test_guard(): assert True\n")
-    git(root, 'init', '-q')
-    git(root, 'add', '.')
-    git(root, 'commit', '-qm', 'baseline')
-    base = git(root, 'rev-parse', 'HEAD')
-    test.write_text(test.read_text().replace('assert True', "pytest.skip('lost')"))
-    assert any('guard lost' in line for line in history.check(cfg, base))
 
 
 def test_old_failure_and_new_success_proves_only_a_real_previous_home(tmp_path):
@@ -531,26 +512,23 @@ def test_pytest_pythonpath_helper_dependencies_use_the_maps_detected_roots(tmp_p
 
 
 def test_history_reads_the_baseline_from_the_project_root_below_the_repository_top_folder(tmp_path):
-    """The project is a folder of a larger repository (a monorepo's app/): its intent and test files at the baseline
-    are read from the project's root (a bare `git show rev:tests/x.py` reads from the top folder and is refused), so
-    a removed row and a lost guard are found there too, and check runs instead of stopping on Git's refusal."""
+    """The project is a folder of a larger repository (a monorepo's app/): its intent files at the baseline are read
+    from the project's root (a bare `git show rev:tests/x.py` reads from the top folder and is refused), so a removed
+    row is found there too, and check runs instead of stopping on Git's refusal."""
     (tmp_path / 'repo').mkdir()
     root, cfg, _ = fixture(tmp_path / 'repo')
-    test = root / 'tests/test_guard.py'
-    test.write_text("import pytest\n@pytest.mark.rule('LIMIT')\ndef test_guard(): assert True\n")
     top = root.parent
     git(top, 'init', '-q')
     git(top, 'add', '.')
     git(top, 'commit', '-qm', 'baseline')
     assert history.check(cfg, 'HEAD') == []
-    test.write_text(test.read_text().replace('assert True', "pytest.skip('lost')"))
     path = cfg.intent / 'limit.py'
     path.write_text(path.read_text().replace("LIMIT.rows(row(x=4,expect=False,why='fixed fourth value'))\n", ''))
     found = history.check(cfg, 'HEAD')
-    assert any('row removed' in line for line in found) and any('guard lost' in line for line in found), found
+    assert any('row removed' in line for line in found), found
 
 
-def test_rewriting_an_sdk_alias_does_not_look_like_deleting_a_marked_test(tmp_path):
+def test_rewriting_an_sdk_alias_does_not_look_like_deleting_a_rule(tmp_path):
     root, cfg, _ = fixture(tmp_path)
     path = cfg.intent / 'limit.py'
     direct = path.read_text()
@@ -560,24 +538,6 @@ def test_rewriting_an_sdk_alias_does_not_look_like_deleting_a_marked_test(tmp_pa
     git(root, 'commit', '-qm', 'qualified SDK rule')
     path.write_text(direct)
     assert history.check(cfg, 'HEAD') == []
-
-
-def test_an_inactive_platform_skipif_does_not_erase_a_marked_guard(tmp_path):
-    root, cfg, _ = fixture(tmp_path)
-    path = root / 'tests/test_guard.py'
-    original = "import pytest as p\n@p.mark.rule('LIMIT')\ndef test_guard(): assert True\n"
-    path.write_text(original)
-    git(root, 'init', '-q')
-    git(root, 'add', '.')
-    git(root, 'commit', '-qm', 'actual marked guard')
-    path.write_text(original.replace('def test_guard()', "@p.mark.skipif(False, reason='platform condition is inactive')\ndef test_guard()"))
-    assert history.check(cfg, 'HEAD') == []
-    for body in ("\n if False: p.skip('not reached')\n assert True", "p.importorskip('math'); assert True"):
-        path.write_text(original.replace('assert True', body))
-        assert history.check(cfg, 'HEAD') == []
-    for marker in ("@p.mark.skip(reason='disabled')", "@p.mark.skipif(True, reason='disabled')"):
-        path.write_text(original.replace('def test_guard()', marker + '\ndef test_guard()'))
-        assert any('guard lost' in message for message in history.check(cfg, 'HEAD'))
 
 
 def test_unresolved_import_keeps_the_whole_file_dependency_unknown(tmp_path):

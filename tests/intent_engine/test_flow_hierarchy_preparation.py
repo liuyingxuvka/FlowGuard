@@ -33,7 +33,7 @@ def preparation(tmp_path, monkeypatch, *, probing=False):
                   (('entry', 'child'),))
     rules = {item.id: item for item in (leaf, done, peer, extra, outside)}
     model = SimpleNamespace(errors=[], flows={item.id: item for item in (child, parent)}, rules=rules,
-                            states={}, structures={}, anchor_distincts={},
+                            states={},
                             key=lambda decides: [item for item in rules.values() if item.decides == decides],
                             # No rule item ran in this stand-in session: no contract is read from results.
                             file_of=dict.fromkeys(rules, 'tests/intent/policy.py'),

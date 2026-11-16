@@ -42,7 +42,7 @@ def project(tmp_path, code, declarations):
     (root / (module + '.py')).write_text(code)
     folder = root / 'tests/intent'
     folder.mkdir(parents=True)
-    header = 'from flowguard.intent import rule, row, Refused, distinct, D\n'
+    header = 'from flowguard.intent import rule, row, Refused, D\n'
     (folder / 'policy.py').write_text(header + textwrap.dedent(declarations).replace('PKG', module))
     model = load(load_config(root))
     return model, source_engine(model), module
@@ -137,6 +137,36 @@ def B(x): return {'True' if override else 'x ' + operator + ' 3'}
     assert bool(result['overrides']) == override
 
 
+def test_two_disagreeing_rules_of_one_key_are_a_conflict_since_distinct_is_gone(tmp_path):
+    # 5.0 removed distinct: 4.3 let distinct('A', 'B', ...) silence this conflict and the joint checks of the pair
+    text = '''
+@rule('A', decides='limit', source='assumed: A', fields={'x': int})
+def A(x): return x <= 3
+@rule('B', decides='limit', source='assumed: B', fields={'x': int})
+def B(x): return x <= 4
+'''
+    model, engine, _ = project(tmp_path, '', text)
+    assert not model.errors
+    assert [(item['a'], item['b']) for item in engine.check_key('limit')['conflicts']] == [('A', 'B')]
+    result = engine.run_rules(model.rules['A'])
+    assert result['verdict'] == 'red' and any('conflict' in line for line in result['red']), result
+
+
+def test_two_keys_on_one_decision_site_are_one_decision_under_two_names_since_distinct_is_gone(tmp_path):
+    # 5.0 removed distinct, which 4.3 offered as the second answer of this question: merging the keys is the one left
+    text = SINGLE + '''
+@rule('GRACE', decides='grace', source='assumed: the same boundary', fields={'days': int}, anchor='LIMIT')
+def GRACE(days):
+    return days <= 3
+'''
+    model, engine, _ = project(tmp_path, 'def accept(days): return days <= 3', text)
+    assert not model.errors
+    rule = model.rules['LIMIT']
+    result = engine.run_live(rule, rule.homes[0])
+    names = [line for line in result['grey'] if line.startswith('one decision under two names? LIMIT / GRACE ')]
+    assert len(names) == 1 and names[0].endswith('(merge the keys)'), result
+
+
 @pytest.mark.parametrize('expression', ['x*y <= 3', 'x**2 + y <= 3'])
 def test_non_linear_rules_never_read_green(tmp_path, expression):
     text = f'''\n@rule('A', decides='limit', source='assumed: nonlinear', fields={{'x': D, 'y': D}})
@@ -205,23 +235,6 @@ def test_unreached_second_site_is_not_a_false_green(tmp_path):
     assert any('unreached site' in line for line in result['grey'])
 
 
-def test_a_borrowed_distinct_adapter_cannot_prove_a_constant_answer(tmp_path):
-    # The retired route is rejected; no adapter is borrowed to fabricate evidence.
-    extra = "\n@distinct('LIMIT','PKG:always',why='another decision',source='assumed: test')\ndef mirror(c,fn): return fn(c.days)\n"
-    model, _, _ = project(tmp_path, 'def accept(days): return days <= 3\ndef always(days): return True', SINGLE + extra)
-    assert any('call adapters were removed' in e['msg'] and 'rebuild' in e['msg'] for e in model.errors)
-
-
-def test_a_distinct_checks_the_other_nodes_own_threshold(tmp_path):
-    extra = "\ndistinct('PKG:accept','LATER',why='another decision',source='assumed: test')\n"
-    model, engine, _ = project(tmp_path, 'def accept(days): return days <= 3\ndef later(days): return days <= 30', SINGLE + extra)
-    from flowguard.intent.differences import anchor_distinct
-    result=anchor_distinct(model.cfg.root,model.distincts[0],index=model.anchor_index)
-    assert result['status']=='ok' and result['changed']>0 and result['complete']
-
-
-
-
 @pytest.mark.parametrize('value,expected', [('open', 'ok'), ('held', 'red')])
 def test_declared_allowed_states_against_real_writers(tmp_path, value, expected):
     code = f'class Hire:\n    def create(self): self.status = {value!r}\n'
@@ -242,21 +255,6 @@ def test_declared_allowed_states_against_real_writers(tmp_path, value, expected)
 def test_unmodelled_status_writes_do_not_create_rules(tmp_path):
     model, _, _ = project(tmp_path, "class Hire:\n def create(self): self.status='held'", '')
     assert model.declared_items() == [] and not model.states
-
-
-def test_structure_rule_turns_a_skip_into_a_failure(tmp_path):
-    code = "def work():\n    pytest.skip('do not conceal a missing behavior')\n"
-    text = '''
-    from flowguard.intent import structure_rule
-    @structure_rule('NO_SKIP', source='doc policy.txt "Tests must not skip"')
-    def no_skip(graph):
-        return [call for call in graph.calls() if call['text'].endswith('.skip')]
-    '''
-    model, _, _ = project(tmp_path, code, text)
-    (model.cfg.root / 'policy.txt').write_text('Tests must not skip\n')
-    model.cfg.authority_docs = ['policy.txt']
-    result = Engine(model).run_structure(model.structures['NO_SKIP'])
-    assert result['verdict'] == 'red' and 'NO_SKIP' in result['red'][0]
 
 
 @pytest.mark.parametrize('decoration', ['classmethod', 'staticmethod'])

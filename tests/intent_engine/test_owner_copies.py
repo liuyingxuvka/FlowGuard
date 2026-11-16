@@ -1244,6 +1244,43 @@ def test_a_copy_this_change_makes_diverge_from_the_reference_is_new_never_broken
            '-> fix it, or say why in your report' in shown, text
 
 
+def test_copies_meant_to_differ_are_recorded_by_known_add_with_act_ignore(tmp_path):
+    """5.0 removed distinct: the copies finding's step names `known add ... --act ignore` instead, and that entry takes
+    the copy out of the block (the copies family is one an automatic structure check finds)."""
+    root = _project(tmp_path, {
+        'orders.py': '''
+            # flowguard: same ACCEPT ref
+            def accept(days: int) -> bool:
+                return days <= 3
+
+            def preview_accept(days: int) -> bool:
+                return days <= 3
+        ''',
+        'tests/test_orders.py': 'from orders import accept, preview_accept\n\n\ndef test_accept():\n    assert accept(3) and preview_accept(2)\n',
+    })
+    orders = root / 'orders.py'
+    orders.write_text(orders.read_text().replace('def preview_accept(days: int) -> bool:\n    return days <= 3',
+                                                 'def preview_accept(days: int) -> bool:\n    return days <= 4'), encoding='utf-8')
+    impact = 'impact: copies of ACCEPT: orders.py:preview_accept is a diverged copy of the reference orders.py:accept'
+    code, text = _check(root)
+    assert code == 0 and any(line.startswith(impact) for line in _block(text)), text
+    from contextlib import closing
+    from flowguard.intent import owners
+    from flowguard.intent.config import load_config
+    from flowguard.structure import build
+    with closing(build(root)) as graph:
+        found = owners.check_findings(load_config(root), graph, anchors.collect(graph))
+    step = next(issue.step for issue in found.issues if issue.name == 'copies:ACCEPT')
+    assert step == ('choose one for each copy: call accept; or write # flowguard: same ACCEPT above the copy and make it '
+                    'agree; or, for copies meant to differ, python -m flowguard known add copies:ACCEPT --act ignore --why '
+                    'TEXT records that'), step
+    assert _cli_fixture.main(['--root', root, 'known', 'add', 'copies:ACCEPT', '--act', 'ignore', '--why',
+                              'the preview accepts a fourth day on purpose']) == 0
+    code, text = _check(root)
+    assert code == 0 and not any(line.startswith(impact) for line in _block(text)), text
+    assert 'loosened: known.copies-accept added with act = "ignore"' in text, text
+
+
 def test_a_rule_bound_to_a_typescript_copy_says_rules_run_python_functions_only(tmp_path):
     # Planning Tool's three ISO week copies are TypeScript; a rule bound to them was red with "home gone" and a
     # ModuleNotFoundError, as if the function had been deleted.

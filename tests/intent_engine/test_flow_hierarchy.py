@@ -15,7 +15,7 @@ from flowguard.intent.flow import Capture, Flow, Node, Read, Relation, check_flo
 from flowguard.intent.loader import load
 
 
-def project(tmp_path, *, missing_save=False, hierarchical=True, stateful=False, nested=False, export_entry=False):
+def project(tmp_path, *, missing_save=False, hierarchical=True, nested=False, export_entry=False):
     root=tmp_path / ('hierarchy_' + uuid.uuid4().hex)
     (root/'tests/intent').mkdir(parents=True)
     module='hierarchy_app_' + uuid.uuid4().hex
@@ -57,20 +57,6 @@ def run(flag: bool, detail: bool, stock: bool):
         if export_entry:
             text=text.replace('    return publish(flag, detail)\n', '    return publish(flag, detail) is True\n')
         path.write_text(text)
-    if stateful:
-        path=root/(module+'.py')
-        text=path.read_text()
-        text='''class Job:
-    # flowguard: states Job.status = new | saved | published
-    status='new'
-JOB=Job()
-def reset(): JOB.status='new'
-'''+text
-        text=text.replace('event SAVE(flag: bool, detail: bool)', 'event SAVE(flag: bool, detail: bool, job: Job)')
-        text=text.replace('def save(flag: bool, detail: bool): return detail', "def save(flag: bool, detail: bool, job: Job=JOB): job.status='saved'; return detail")
-        text=text.replace('sensor PUBLISH(flag: bool, detail: bool)', 'sensor PUBLISH(flag: bool, detail: bool, job: Job)')
-        text=text.replace('def publish(flag: bool, detail: bool) -> bool:', "def publish(flag: bool, detail: bool, job: Job=JOB) -> bool:\n    job.status='published'")
-        path.write_text(text)
     (root/('tests/'+native+'.py')).write_text('import pytest\nimport '+module+' as app\n'+'''@pytest.fixture
 def flag(): return True
 @pytest.fixture
@@ -82,10 +68,7 @@ def test_case(flag: bool, detail: bool, stock: bool):
     result = app.run(flag, detail, stock)
     assert result is True or result is False
 ''')
-    if stateful:
-        path=root/('tests/'+native+'.py')
-        path.write_text(path.read_text().replace('    result = app.run', '    app.reset()\n    result = app.run'))
-    policy='''from flowguard.intent import rule,row,flow,Node,Read,Relation,Transition
+    policy='''from flowguard.intent import rule,row,flow,Node,Read,Relation
 @rule('DONE',decides='done',fields={'flag':bool,'detail':bool},source='doc SPEC.txt "Child checks, saves and publishes before exporting flag."')
 def DONE(flag,detail): return flag
 DONE.rows(row(flag=True,detail=False,expect=True,why='flag permits'),row(flag=False,detail=False,expect=False,why='flag blocks'))
@@ -112,8 +95,6 @@ TOP.rows(row(done=True,stock=True,expect=True,why='completed child is forwarded'
  edges=[('start','lower'),('lower','upper')],
  relations=[Relation('TOP',{'done':Read('lower'),'stock':Read('start','arg.stock')},Read('upper'),on='upper')])
 '''
-    if stateful:
-        policy=policy.replace("edges=[('entry','check'),('check','save'),('save','published')],", "edges=[('entry','check'),('check','save'),('save','published')],transitions=[Transition('Job.status','new','saved','save',initial=True),Transition('Job.status','saved','published','published')],")
     if nested:
         policy=policy.replace("Node('check','CHECK',phase='return'),Node('save','SAVE',phase='return')",
                               "Node('check','CHECK'),Node('save','SAVE')")

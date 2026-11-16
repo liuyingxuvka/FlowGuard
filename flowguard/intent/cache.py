@@ -9,7 +9,7 @@ from pathlib import Path
 import sqlite3
 
 from .config import intent_files
-from .loader import api_aliases, api_call_name, distinct_identifier, literal_problems
+from .loader import api_aliases, api_call_name, literal_problems
 from flowguard.map.common import MapError, content_digest, git_common_directory, git_head, literal_value as _literal
 
 
@@ -172,17 +172,11 @@ def remember_baseline(cfg, *, new_task=False):
     return head, ''
 
 
-# The one-line relation templates and their name parameters (flowguard/intent/api.py).
-_TEMPLATES = {'precedes': ('first', 'then'), 'guarded_by': ('guard', 'action'), 'transitions': ('state',), 'checks': ('rule', 'case')}
-
-
-
-
 def scan(cfg, texts=None):
     """Static screen/history facts, using the loader's literal-row validation."""
     texts = texts if texts is not None else {cfg.rel(p): p.read_text(encoding='utf-8-sig') for p in intent_files(cfg)}
-    rules, errors, distincts, lines = {}, [], [], 0
-    references, identifiers, distinct_calls, flow_calls, template_calls = [], {}, [], [], []
+    rules, errors, lines = {}, [], 0
+    references, identifiers, flow_calls = [], {}, []
     def expanded(node, bindings, seen=()):
         if isinstance(node, ast.Name) and node.id in bindings and node.id not in seen:
             return expanded(bindings[node.id], bindings, (*seen, node.id))
@@ -219,9 +213,9 @@ def scan(cfg, texts=None):
                 imported.update({a.asname or a.name: origin + '.' + a.name for a in node.names})
         for function in (n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))):
             for decorator in function.decorator_list:
-                if not isinstance(decorator, ast.Call) or api_call_name(decorator, aliases) not in {'rule', 'structure_rule'}:
+                if not isinstance(decorator, ast.Call) or api_call_name(decorator, aliases) != 'rule':
                     continue
-                id_node = decorator.args[0] if decorator.args else next((k.value for k in decorator.keywords if k.arg in {'id', 'identifier'}), None)
+                id_node = decorator.args[0] if decorator.args else next((k.value for k in decorator.keywords if k.arg == 'id'), None)
                 identifier = _literal(id_node)
                 if not isinstance(identifier, str):
                     continue
@@ -230,8 +224,8 @@ def scan(cfg, texts=None):
                     errors.append(dict(file=relative, line=function.lineno, msg=f'duplicate declaration {identifier}'))
                 names[function.name] = identifier
                 identifiers[module + '.' + function.name] = identifier
-                rules[identifier] = dict(id=identifier, decides=values.get('decides', 'structure'), source=values.get('source', ''),
-                    kind='structure' if api_call_name(decorator, aliases) == 'structure_rule' else 'rule', file=relative, line=function.lineno, quote=values.get('quote'),
+                rules[identifier] = dict(id=identifier, decides=values.get('decides', ''), source=values.get('source', ''),
+                    kind='rule', file=relative, line=function.lineno, quote=values.get('quote'),
                     doc=ast.get_docstring(function) or '', rows=0, retired=0, homes=[], row_records=[],
                     uses=[], supersedes=[], overrides=[], total=values.get('total', False),
                     anchors=anchor_names(next((k.value for k in decorator.keywords if k.arg == 'anchor'), None), bindings))
@@ -252,10 +246,6 @@ def scan(cfg, texts=None):
                     kind='flow', file=relative, line=call.lineno, doc='', rows=0, retired=0,
                     homes=[], anchors=[], fields={}, row_records=[], uses=[], supersedes=[], overrides=[], total=False)
                 flow_calls.append((identifier, names, imported, keywords, bindings, aliases))
-            if api_call_name(call, aliases) in _TEMPLATES:
-                template_calls.append((call, names, imported, relative, aliases))
-            if api_call_name(call, aliases) == 'distinct':
-                distinct_calls.append((call, names, imported, relative))
             if api_call_name(call, aliases) == 'states':
                 target = _literal(call.args[0] if call.args else next((k.value for k in call.keywords if k.arg == 'target'), None))
                 if isinstance(target, str):
@@ -321,10 +311,6 @@ def scan(cfg, texts=None):
         item['models'] = list(dict.fromkeys(lower_models))
         unknown.extend('lower model reference: ' + name for name in item['models'] if name not in rules)
         item['anchors'] = list(dict.fromkeys(nodes.values()))
-        for value in items(keywords.get('transitions'), bindings):
-            if isinstance(value, ast.Call) and api_call_name(value, aliases) == 'Transition':
-                state = _literal(expanded(value.args[0] if value.args else next((k.value for k in value.keywords if k.arg == 'state'), None), bindings))
-                if isinstance(state, str):item['anchors'].append(state)
         for value in items(keywords.get('relations'), bindings):
             if not isinstance(value, ast.Call) or api_call_name(value, aliases) != 'Relation':
                 unknown.append('relation reference: ' + ast.unparse(value));continue
@@ -362,53 +348,11 @@ def scan(cfg, texts=None):
                 rule['anchors'] = list(dict.fromkeys(rule.get('anchors', []) + anchors))
                 rule.setdefault('flows', []).append(identifier)
         item['navigation_unknown'] = list(dict.fromkeys(unknown))
-    for call, names, imported, relative, aliases in template_calls:
-        # A one-line relation template is an ordinary Flow: its id, source and anchors as the API makes them.
-        from .api import _template_id, _template_source
-        kind = api_call_name(call, aliases)
-        keywords = {key.arg: key.value for key in call.keywords if key.arg}
-        parameters = _TEMPLATES[kind]
-        arguments = [call.args[index] if len(call.args) > index else keywords.get(name) for index, name in enumerate(parameters)]
-        if kind == 'checks':
-            found = refs(arguments[0], names, imported)
-            arguments[0] = ast.Constant(found[0]) if len(found) == 1 and not found[0].startswith('unresolved:') else arguments[0]
-        values = [_literal(argument) for argument in arguments]
-        if not all(isinstance(value, str) for value in values):
-            errors.append(dict(file=relative, line=call.lineno, msg=f'{kind}() names must be literals or a rule'))
-            continue
-        identifier = _template_id(kind, *values)
-        if identifier in rules:
-            errors.append(dict(file=relative, line=call.lineno, msg=f'duplicate declaration {identifier}'))
-        source = _literal(keywords.get('source'), None)
-        anchors = values
-        if kind == 'checks':
-            # The decision read: `actual=`, else the rule's single anchor, else the anchor named like the rule.
-            direct = rules.get(values[0], {}).get('direct_anchors', ())
-            actual = _literal(keywords.get('actual'), None)
-            anchors = [values[1], (actual if isinstance(actual, str) else direct[0] if len(direct) == 1 else values[0]).partition('.')[0]]
-        rules[identifier] = dict(id=identifier, decides='flow', source=_template_source(kind, source if isinstance(source, str) else None, *values),
-            kind='flow', file=relative, line=call.lineno, doc='', rows=0, retired=0, homes=[], anchors=list(dict.fromkeys(anchors)),
-            fields={}, row_records=[], uses=[], supersedes=[], overrides=[], total=False, nodes={}, models=[], navigation_unknown=[])
-        if kind == 'checks' and values[0] in rules:
-            rule = rules[values[0]]
-            rule['anchors'] = list(dict.fromkeys([*rule.get('anchors', []), *anchors[::-1]]))
-            rule.setdefault('flows', []).append(identifier)
-    for call, names, imported, relative in distinct_calls:
-        keywords = {k.arg: k.value for k in call.keywords}
-        arguments = {name: call.args[index] if len(call.args) > index else keywords.get(name)
-                     for index, name in enumerate(('a', 'b', 'why', 'source'))}
-        a, b = refs(arguments['a'], names, imported), refs(arguments['b'], names, imported)
-        distincts.append(dict(a=a[0] if a else '', b=b[0] if b else '', why=_literal(arguments['why'], ''), source=_literal(arguments['source'], '')))
-        if a and b and a[0] not in rules and b[0] not in rules:
-            identifier = distinct_identifier(relative, a[0], b[0])
-            rules[identifier] = dict(id=identifier, decides='distinct', kind='anchor_distinct', file=relative,
-                line=call.lineno, source=_literal(arguments['source'], ''), doc=_literal(arguments['why'], ''),
-                rows=0, retired=0, homes=[], anchors=[a[0], b[0]], fields={}, row_records=[], uses=[], supersedes=[], overrides=[], total=False)
     for item in rules.values():
         for old in item.get('supersedes', []):
             if old in rules:
                 rules[old]['superseded_by'] = item['id']
-    return dict(rules=rules, errors=errors, files=sorted(texts), intent_lines=lines, distincts=distincts)
+    return dict(rules=rules, errors=errors, files=sorted(texts), intent_lines=lines)
 
 
 def declaration_names(cfg, summary, *, deep=False):

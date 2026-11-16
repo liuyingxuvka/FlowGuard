@@ -10,7 +10,7 @@ import sys
 import traceback
 
 from . import api
-from .api import Distinct, IntentError, Rule, States, StructureRule
+from .api import REMOVED, IntentError, Rule, States, removed
 from .flow import Flow, Read, Relation, _UNSET
 from .config import intent_files, load_config, setup_path
 from .imports import prepare, source_spec
@@ -29,7 +29,7 @@ def api_aliases(tree):
         if isinstance(node, ast.ImportFrom) and node.module in modules:
             for name in node.names:
                 if name.name == '*':
-                    aliases.update({key: key for key in ('rule', 'row', 'distinct', 'states', 'structure_rule', 'flow', 'Node', 'Read', 'Relation', 'Transition')})
+                    aliases.update({key: key for key in ('rule', 'row', 'states', 'flow', 'Node', 'Read', 'Relation')})
                 else:
                     aliases[name.asname or name.name] = name.name
         elif isinstance(node, ast.ImportFrom) and node.module == 'flowguard':
@@ -82,6 +82,7 @@ def literal_problems(tree: ast.AST, rel: str) -> list[dict]:
                   and any(isinstance(d, ast.Call) and api_call_name(d, aliases) == 'rule'
                           for d in function.decorator_list)}
     rebuild = 'call adapters were removed; rebuild the original test using source anchors and Flow relations'
+    problems.extend(dict(file=rel, line=line, msg=removed(name)) for line, name in _removed_names(tree, aliases))
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom) and node.module in {'flowguard.intent', 'flowguard.intent.api'}:
             if any(name.name == 'Home' for name in node.names):
@@ -98,6 +99,34 @@ def literal_problems(tree: ast.AST, rel: str) -> list[dict]:
     return problems
 
 
+def _removed_names(tree, aliases):
+    """(line, name) of each use of the intent API 5.0 removed (`api.REMOVED`), read from the file's AST before it runs:
+    a removed name imported from the SDK or read from its module (`fg.precedes`), `flow(..., transitions=...)`, and
+    after `from flowguard.intent import *` a removed name the file reads without defining it."""
+    modules = {'flowguard.intent', 'flowguard.intent.api'}
+    star = any(isinstance(node, ast.ImportFrom) and node.module in modules and any(a.name == '*' for a in node.names)
+               for node in ast.walk(tree))
+    bound = {name for node in ast.walk(tree) for name in (
+        [node.name] if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        else [a.asname or a.name.partition('.')[0] for a in node.names if a.name != '*']
+        if isinstance(node, (ast.Import, ast.ImportFrom))
+        else [node.id] if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store)
+        else [node.arg] if isinstance(node, ast.arg) else [])}
+    found = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module in modules:
+            found.extend((a.lineno, a.col_offset, a.name) for a in node.names if a.name in REMOVED)
+        elif isinstance(node, ast.Attribute) and node.attr in REMOVED and aliases.get(ast.unparse(node.value)) == '@module':
+            found.append((node.lineno, node.col_offset, node.attr))
+        elif (isinstance(node, ast.Name) and star and node.id in REMOVED and node.id not in bound
+              and isinstance(node.ctx, ast.Load)):
+            found.append((node.lineno, node.col_offset, node.id))
+        elif (isinstance(node, ast.Call) and api_call_name(node, aliases) == 'flow'
+              and any(key.arg == 'transitions' for key in node.keywords)):
+            found.append((node.lineno, node.col_offset, 'flow(transitions=)'))
+    return [(line, name) for line, _, name in sorted(found)]
+
+
 def item_names(identifier, homes=(), kind='rule', *, deep=False):
     """The one pytest item naming scheme, also used by static failure diagnostics."""
     if kind != 'rule':
@@ -110,10 +139,10 @@ class Model:
     def __init__(self, cfg):
         self.cfg = cfg
         self.deep = False
-        self.rules, self.states, self.structures, self.flows, self.anchor_distincts = {}, {}, {}, {}, {}
+        self.rules, self.states, self.flows = {}, {}, {}
         self.anchor_index = None
         self.scenario_issues = {}
-        self.distincts, self.errors, self.files = [], [], []
+        self.errors, self.files = [], []
         self.file_of, self.kinds, self.superseded_by = {}, {}, {}
         self.intent_lines = 0
         self.literal_rows = set()
@@ -138,17 +167,13 @@ class Model:
                 todo.extend(self.rules[other].overrides)
         return False
 
-    def distinct_pair(self, first, second):
-        return next((d for d in self.distincts if {d.a, d.b} == {first, second}), None)
-
-
     def items_of(self, rule):
         return item_names(rule.id, [h.target for h in rule.homes], deep=self.deep)
 
     def declared_items(self):
         result = [f'{rel}::load' for rel in self.files if any(e['file'] == rel for e in self.errors)]
         result += [f'{self.file_of[r.id]}::{name}' for r in self.rules.values() for name in self.items_of(r)]
-        result += [f'{self.file_of[r.id]}::{name}' for items, part in ((self.states, 'states'), (self.structures, 'structure'), (self.flows, 'flow'), (self.anchor_distincts, 'anchor_distinct'))
+        result += [f'{self.file_of[r.id]}::{name}' for items, part in ((self.states, 'states'), (self.flows, 'flow'))
                    for r in items.values() for name in item_names(r.id, kind=part)]
         return sorted(result)
 
@@ -156,33 +181,6 @@ class Model:
 def _error_line(error, path):
     frames = traceback.extract_tb(error.__traceback__)
     return next((f.lineno for f in reversed(frames) if Path(f.filename) == path), 0)
-
-
-def distinct_identifier(file, a, b):
-    return 'DISTINCT_' + sha256_bytes((file + '\0' + '\0'.join(sorted((a, b)))).encode())[:16]
-
-
-def _classify_distincts(model):
-    for declaration in model.distincts:
-        sides = []
-        for explicit_rule, name in zip(declaration.rule_sides, (declaration.a, declaration.b)):
-            rule = name in model.rules
-            anchors = [anchor for anchor in model.anchor_index.entries
-                       if anchor.kind == 'sensor' and name in (anchor.name, anchor.target)] if model.anchor_index else []
-            sides.append('ambiguous' if rule and anchors and not explicit_rule else 'rule' if rule
-                         else 'anchor' if anchors else 'unknown')
-        if sides == ['anchor', 'anchor']:
-            declaration.binding_kind = 'anchor'
-            declaration.id = distinct_identifier(declaration.file, declaration.a, declaration.b)
-            if declaration.id in model.file_of:
-                model.errors.append(dict(file=declaration.file, line=declaration.line, msg='duplicate distinct declaration'))
-                continue
-            model.anchor_distincts[declaration.id] = declaration
-            model.file_of[declaration.id] = declaration.file
-        elif sides != ['rule', 'rule']:
-            model.errors.append(dict(file=declaration.file, line=declaration.line,
-                                     msg='distinct must name two unambiguous rules or two source anchors; old rule/node adapters were removed: rebuild the original test using source anchors and Flow relations; use module:qual for an anchor'))
-            declaration.binding_kind = 'invalid'
 
 
 class ScenarioBinding(api._AnchorBinding):
@@ -388,19 +386,13 @@ def load(cfg: Config | None = None, root: Path | None = None, *, anchor_index: o
             model.errors.append(dict(file=rel, line=_error_line(error, path), msg=f'{type(error).__name__}: {error}'))
             continue
         for item in api.DECLARED:
-            if isinstance(item, Distinct):
-                item.file = rel
-                model.distincts.append(item)
-                continue
             if item.id in model.file_of:
                 model.errors.append(dict(file=rel, line=item.line, msg=f'duplicate declaration {item.id}'))
                 continue
-            owner = (model.rules if isinstance(item, Rule) else model.states if isinstance(item, States)
-                     else model.flows if isinstance(item, Flow) else model.structures)
+            owner = model.rules if isinstance(item, Rule) else model.states if isinstance(item, States) else model.flows
             owner[item.id], model.file_of[item.id] = item, rel
         api.DECLARED.clear()
-    needs_anchors = (model.flows or any(rule.anchors for rule in model.rules.values())
-                     or any(side not in model.rules for item in model.distincts for side in (item.a, item.b)))
+    needs_anchors = model.flows or any(rule.anchors for rule in model.rules.values())
     if needs_anchors:
         from contextlib import closing
         from ..structure import build
@@ -417,7 +409,6 @@ def load(cfg: Config | None = None, root: Path | None = None, *, anchor_index: o
                 if not candidates:
                     rule.homes.append(api._AnchorBinding(rule, None, name=name))
         _bind_scenarios(model)
-    _classify_distincts(model)
     _validate(model)
     return model
 
@@ -428,7 +419,7 @@ def _validate(model):
     def refuse(item, message, line=None):
         model.errors.append(dict(file=model.file_of[item.id], line=line or item.line, msg=f'{item.id}: {message}'))
 
-    for item in [*model.rules.values(), *model.states.values(), *model.structures.values(), *model.flows.values()]:
+    for item in [*model.rules.values(), *model.states.values(), *model.flows.values()]:
         try:
             parse_source(item.source)
         except IntentError as error:
@@ -492,16 +483,6 @@ def _validate(model):
                         rule.homes.append(inherited)
                     elif isinstance(home, api._AnchorBinding):
                         rule.homes.append(api._AnchorBinding(rule, home.anchor, name=home.name, equivalent=home.equivalent))
-            for relation in list(model.distincts):
-                if old not in (relation.a, relation.b):
-                    continue
-                first = rule.id if relation.a == old else relation.a
-                second = rule.id if relation.b == old else relation.b
-                if any({existing.a, existing.b} == {first, second} for existing in model.distincts):
-                    continue
-                inherited = copy.copy(relation)
-                inherited.a, inherited.b = first, second
-                model.distincts.append(inherited)
         used = []
         for other in rule.uses:
             seen = set()
@@ -510,5 +491,3 @@ def _validate(model):
                 other = model.superseded_by[other]
             used.append(other)
         rule.uses = tuple(used)
-    # Distinct identities are resolved once by _classify_distincts. There is no
-    # rule-to-anonymous-node invocation route or borrowed call adapter.

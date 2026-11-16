@@ -1519,7 +1519,7 @@ class MapHandle:
                 prior['stale'] = True
                 prior['old_values'] = sorted({g['value'] for g in matched})
                 prior['identity_shared'] = any(g['identity'] and any('sg:id:'+g['identity'] in own for own in row_sigs) for g in matched)
-                prior['reason'] = 'stale copy? still matches old '+', '.join(prior['old_values'])+' -> update, bind or distinct; '+candidate['reason']
+                prior['reason'] = 'stale copy? still matches old '+', '.join(prior['old_values'])+' -> update or bind; '+candidate['reason']
         ranked = homes.ranked(found.values(), k)
         return dict(candidates=ranked, total=len(found), searched=bool(searched), anchors=anchors,
                     searched_anchors=searched, historical_sites=historical,

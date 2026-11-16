@@ -1,4 +1,4 @@
-"""Ordinary pytest owns execution; this plugin adds intent items and source footprints.
+"""Ordinary pytest owns execution; this plugin adds intent items and records the anchored calls of the tests.
 
 PYTEST_DONT_REWRITE: `python -m flowguard check` imports this module before its pytest session loads it
 with `-p`; the plugin is no test module, so pytest skips rewriting it instead of warning that it came late.
@@ -27,7 +27,6 @@ from .config import load_config, project_code
 from .engine import Engine
 from .loader import load
 from .readings import classify, classify_collection
-from .tracer import Footprint
 
 SENTINEL = 'test_flowguard_intent'
 FLOW_STEP = 'make the observed path follow flow {id}'
@@ -35,7 +34,7 @@ NO_SKIP = 'this suite allows no skip, expected failure or early exit: a check th
 _CURRENT = None
 _SIGNALS = ContextVar('flowguard_signals', default=None)
 # the finding family of a declaration's intent items by their kind (a rule's are `rule:`)
-ITEM_KINDS = {'flow': 'flow', 'states': 'states', 'structure': 'structure', 'anchor_distinct': 'distinct'}
+ITEM_KINDS = {'flow': 'flow', 'states': 'states'}
 SCHEMA = '''
 CREATE TABLE IF NOT EXISTS reading(test TEXT PRIMARY KEY, outcome TEXT, kind TEXT, reason TEXT,
   phase TEXT, seconds REAL, stamp REAL);
@@ -100,7 +99,8 @@ class Session:
         self.is_project = project_code(self.cfg)
         self.model = self.engine = self.map = None
         self.collected, self.selected, self.deferred = set(), set(), set()
-        self.results, self.readings, self.footprints, self.durations = {}, {}, {}, {}
+        self.results, self.readings, self.durations = {}, {}, {}
+        self.marked = []                 # `file:line` of each collected test marked pytest.mark.rule, which 5.0 removed
         self.sentinel = None
         self.ordinary_selected, self.early_exit, self.session_errors = set(), [], []
         self.ordinary_files, self.ordinary_deselected = set(), False
@@ -910,8 +910,7 @@ class Observations:
                 if not rows:
                     self.grey.append(rule.id + ': no verified current reading in this test context')
                     continue
-                active = [other for other in self.state.model.active(rule.decides)
-                          if other is rule or not self.state.model.distinct_pair(rule.id, other.id)]
+                active = self.state.model.active(rule.decides)
                 if any(self._parsed(other) is None for other in active):
                     continue    # a rule the loader refused: its load line is red, nothing of it is judged
                 for other in active:
@@ -954,10 +953,7 @@ class Observations:
         for identifier, model in state.model.flows.items():
             if f'{state.model.file_of[identifier]}::{identifier}[flow]' in state.results:
                 continue  # The explicitly selected Flow item owns its complete check.
-            if not model.nodes:      # a transitions template: any anchored call that read its state
-                if not any(t.state in event.states for event in state.events for t in model.transitions):
-                    continue
-            elif not observed_anchors.intersection(node.reference for node in model.nodes):
+            if not observed_anchors.intersection(node.reference for node in model.nodes):
                 continue
             entries = _test_entry_references(model, self.index)
             if entries and not entries.intersection(observed_calls):
@@ -973,8 +969,6 @@ class Observations:
                     continue
                 reasons = []
                 for active in state.model.active(rule.decides):
-                    if active is not rule and state.model.distinct_pair(rule.id, active.id):
-                        continue
                     if active.id not in guards and self._parsed(active) is None:
                         guards[active.id] = ([f'refused by the loader ({self._declared_at(active.id)})'], active.source)
                     elif active.id not in guards:
@@ -1064,8 +1058,12 @@ class Observations:
             self.issues.extend(sources.input_findings(self.cfg, self.state.get_map))
         for error in model.errors:
             place = f'{error["file"]}:{error["line"]}'
-            self._found('input', f'load:{place}', f'load {place}', signals.ascii_text(error['msg']),
-                        'correct this declaration; until then none of its file is checked', places=(place,), files=(error['file'],))
+            self._found('input', f'load:{place}', f'load {place}', *signals.load_step(error['msg']), places=(place,),
+                        files=(error['file'],))
+        from .api import removed
+        for place in self.state.marked:
+            self._found('input', f'marker:{place}', f'marker {place}', *signals.split_step(removed('pytest.mark.rule')),
+                        places=(place,), files=(place.rpartition(':')[0],))
         items = [dict(name='uncovered', status='grey', complete=False, changes=[], changed=0, total=0, reasons=[reason]) for reason in dict.fromkeys([*self.grey, *syntax])] + items
         fallbacks = self.state.ledger()
         if self.state.ledger_judged and not fallbacks.grey:
@@ -1168,8 +1166,7 @@ class Observations:
 
     def _declared_at(self, identifier):
         model = self.state.model
-        declaration = (model.rules.get(identifier) or model.states.get(identifier) or model.structures.get(identifier)
-                       or model.flows.get(identifier) or model.anchor_distincts.get(identifier))
+        declaration = model.rules.get(identifier) or model.states.get(identifier) or model.flows.get(identifier)
         return f'{model.file_of[identifier]}:{declaration.line}' if declaration is not None and identifier in model.file_of else ''
 
     def _parsed(self, declaration):
@@ -1226,8 +1223,7 @@ class Observations:
                 kinds.setdefault(result['rule'], result.get('kind'))
         model = self.state.model
         for identifier, found in verdicts.items():
-            declaration = (model.rules.get(identifier) or model.states.get(identifier) or model.structures.get(identifier)
-                           or model.flows.get(identifier) or model.anchor_distincts.get(identifier))
+            declaration = model.rules.get(identifier) or model.states.get(identifier) or model.flows.get(identifier)
             if 'grey' in found or any(str(reason).startswith(identifier + ': ') for reason in self.grey) \
                     or declaration is not None and _refused(model, declaration):
                 continue
@@ -1334,7 +1330,9 @@ def _session(config):
 
 
 def pytest_configure(config):
-    config.addinivalue_line('markers', 'rule(ID): this test must actually enter a source anchor of the declared rule')
+    # pytest.mark.rule was removed in 5.0: the name stays registered only so that a test using it gets the removal's
+    # red line (`pytest_collection_modifyitems`), not pytest's unknown-marker warning or error
+    config.addinivalue_line('markers', 'rule(ID): removed in 5.0; a test marked so is a red line of the FlowGuard block')
     _refuse_distribution(config)
     _session(config)
     if not config.pluginmanager.has_plugin('flowguard-block'):
@@ -1425,9 +1423,7 @@ class IntentItem(pytest.Item):
     def evaluate_verified(self):
         state = self.config._flowguard_intent
         model, engine = state.model, state.engine
-        declaration = (model.rules.get(self.rule_id) or model.states.get(self.rule_id)
-                       or model.structures.get(self.rule_id) or model.flows.get(self.rule_id)
-                       or model.anchor_distincts.get(self.rule_id))
+        declaration = model.rules.get(self.rule_id) or model.states.get(self.rule_id) or model.flows.get(self.rule_id)
         if declaration is not None:
             state.prepare_declaration(declaration)
         if self.kind == 'load':
@@ -1438,10 +1434,8 @@ class IntentItem(pytest.Item):
             # events and its rules' contracts are complete here: the item itself is red, grey or green.
             state.rule_contracts()
             result = engine.run_flow(model.flows[self.rule_id], state.events, state.anchor_issues)
-        elif self.kind in ('states', 'structure', 'anchor_distinct'):
-            declaration = (model.states if self.kind == 'states'
-                           else model.anchor_distincts if self.kind == 'anchor_distinct' else model.structures)[self.rule_id]
-            result = getattr(engine, 'run_' + self.kind)(declaration)
+        elif self.kind == 'states':
+            result = engine.run_states(model.states[self.rule_id])
         else:
             rule = model.rules[self.rule_id]
             if self.kind == 'rules':
@@ -1457,8 +1451,7 @@ class IntentItem(pytest.Item):
     def reportinfo(self):
         state = self.config._flowguard_intent
         model = state.model
-        declaration = (model.rules.get(self.rule_id) or model.states.get(self.rule_id) or model.structures.get(self.rule_id)
-                       or model.flows.get(self.rule_id) or model.anchor_distincts.get(self.rule_id))
+        declaration = model.rules.get(self.rule_id) or model.states.get(self.rule_id) or model.flows.get(self.rule_id)
         return self.path, max(0, declaration.line - 1) if declaration else 0, self.name
 
 
@@ -1467,10 +1460,9 @@ def pytest_collection_modifyitems(config, items):
     from .calibration import probe_context
     if probe_context(config):
         return  # A private source subtree cannot replace the real collection.
-    if any(any(item.iter_markers('rule')) for item in items):
-        from .deprecation import warn
-        warn('pytest.mark.rule')
     state = config._flowguard_intent
+    state.marked = [f'{state.cfg.rel(item.path)}:{item.reportinfo()[1] + 1}' for item in items
+                    if not isinstance(item, IntentItem) and any(item.iter_markers('rule'))]
     state.collected = {i.nodeid for i in items if isinstance(i, IntentItem)}
     if config.getoption('--flowguard-complete', default=False):
         _require_complete_collection(config, state)
@@ -1667,13 +1659,7 @@ def pytest_runtest_protocol(item, nextitem):
                     state.observations.capture = capture
                     scopes.callback(setattr, state.observations, 'capture', None)
         try:
-            if (isinstance(item, IntentItem) or item.name == SENTINEL
-                    or not any(item.iter_markers('rule'))):
-                yield
-            else:
-                with Footprint(state.is_project) as footprint:
-                    state.footprints[item.nodeid] = footprint
-                    yield
+            yield
         finally:
             if capture:
                 with state.timed():
@@ -1713,17 +1699,6 @@ def pytest_runtest_makereport(item, call):
         state.sentinel = 'ok' if report.passed or state.sentinel_ledger else 'failed'
     if isinstance(item, IntentItem) or item.name == SENTINEL:
         return
-    if report.when == 'call' and report.passed:
-        for marker in item.iter_markers('rule'):
-            entered = set(state.footprints[item.nodeid].keys())
-            model = state.get_model()
-            rid = marker.args[0] if marker.args else ''
-            rule = model.rules.get(rid)
-            homes = [state.engine.home_sites(h.target)[0] for h in rule.homes] if rule else []
-            from .sites import unwrap
-            if not any((code.co_filename, code.co_firstlineno) in entered for fn in homes if fn is not None and (code := getattr(unwrap(fn), '__code__', None))):
-                report.outcome = 'failed'
-                report.longrepr = f'marked but never enters {rid}: no declared source anchor ran -> call the real source anchor or correct the marker'
     if report.failed or report.skipped or report.when == 'call':
         captured = '\n'.join(str(text) for _, text in getattr(report, 'sections', []))
         if getattr(report, '_flowguard_skip_violation', False):
@@ -1975,7 +1950,7 @@ def _verify(session, exitstatus):
                                                completed_nodeids=sorted(state.completed))
     observed = state.observations is not None and (state.observations.records
                                                    or any(line.kind == 'red' for line in state.observations.lines))
-    if not declared and not state.footprints and not observed:
+    if not declared and not observed:
         # Standalone pytest does not build a map, but must retire old traces
         # for a test it ran without recording. Never refresh them by implication.
         # Recorded anchor events are kept even before the first map exists. A
@@ -2024,8 +1999,7 @@ def _verify(session, exitstatus):
             records, now, found = {}, Now(state.cfg, mapping), {}     # one session's digests for all records
             now.archive = state.engine.archive        # the owner words this session's rules already checked
             for rid in fresh:
-                declaration = (model.rules.get(rid) or model.states.get(rid) or model.structures.get(rid)
-                               or model.flows.get(rid) or model.anchor_distincts.get(rid))
+                declaration = model.rules.get(rid) or model.states.get(rid) or model.flows.get(rid)
                 if _refused(model, declaration):
                     continue        # a declaration the loader refused is judged again once it loads; no record
                 records[rid] = record(state.cfg, model, declaration,

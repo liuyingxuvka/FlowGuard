@@ -115,30 +115,20 @@ def test_a_builder_cannot_encode_the_policy_in_a_fee(tmp_path):
 
 
 
-@pytest.mark.parametrize('redefined', [False, True])
-def test_superseding_a_rule_keeps_its_distinct_adapter_without_copying_it(tmp_path, redefined):
+def test_superseding_a_rule_keeps_its_home_without_copying_another_anchor(tmp_path):
     code='def access(days):return days<=7\ndef workshop(days):return days<=3\n'
-    intent="""from flowguard.intent import rule,row,distinct
+    intent="""from flowguard.intent import rule,row
 @rule('OLD',decides='grace',fields={'days':int},anchor='ACCESS',source='assumed: old rule')
 def OLD(days):return days<=3
 OLD.rows(row(days=4,expect=False,why='old fourth-day lesson',retired='new decision has seven days'))
-distinct('ACCESS','WORKSHOP',why='workshops have their own three days',source='assumed: independent workshops')
 @rule('NEW',decides='grace',fields={'days':int},supersedes=[OLD],source='assumed: new seven-day rule')
 def NEW(days):return days<=7
 NEW.rows(row(days=7,expect=True,why='new last grace day'))
 """
-    if redefined:intent=intent.replace('workshops have their own three days','explicit replacement reason')
     model,engine=make(tmp_path,code,intent,bindings={'access':('ACCESS',{'days':'int'}),'workshop':('WORKSHOP',{'days':'int'})})
     new=model.rules['NEW']
     assert len(new.homes)==1
     assert new.homes[0].target.endswith(':access')
-    distincts=list(model.anchor_distincts.values())
-    assert len(distincts)==1
-    assert not hasattr(distincts[0],'adapter')
-    assert distincts[0].why==('explicit replacement reason'if redefined else'workshops have their own three days')
-    from flowguard.intent.differences import anchor_distinct
-    result=anchor_distinct(model.cfg.root,distincts[0],index=model.anchor_index)
-    assert result['status']=='ok'and result['changed']>0,result
 
 
 @pytest.mark.parametrize('calls_business_method', [False, True])

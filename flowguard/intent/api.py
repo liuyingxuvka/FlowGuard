@@ -3,25 +3,55 @@
 A rule is a partial predicate over typed fields: it returns a value, Refused(type, contains=...)
 or None (no opinion). Rows hold literals only (checked from the file's AST at load time), and
 every row says why it matters. Source anchors and Flow relations bind real code readings.
-`distinct` names two rules or two source anchors that must stay different. Declarations are checked by the loader and executed only as ordinary pytest items.
+Declarations are checked by the loader and executed only as ordinary pytest items.
 """
 from __future__ import annotations
 
 import re
 import sys
-from .deprecation import warn
 from itertools import islice
 from datetime import date, datetime, timedelta
 from decimal import Decimal as D
 
-__all__ = ["rule", "row", "distinct", "states", "structure_rule", "allow", "flow", "Node", "Transition", "Read", "Relation",
-           "precedes", "guarded_by", "transitions", "checks", "Refused", "IntentError", "D", "date", "datetime", "timedelta"]
+__all__ = ["rule", "row", "states", "flow", "Node", "Read", "Relation", "Refused", "IntentError", "D", "date",
+           "datetime", "timedelta"]
 
 ID = re.compile(r"[A-Za-z][A-Za-z0-9_]*\Z")
 TARGET = re.compile(r"[A-Za-z_][\w.]*:[A-Za-z_][\w.]*\Z")
 WHERE = re.compile(r"[^:\s][^:]*\.py:[1-9][0-9]*\Z")
 _MISSING = object()
-DECLARED: list = []   # rules and distincts of the intent file being loaded (the loader empties it per file)
+DECLARED: list = []   # the declarations of the intent file being loaded (the loader empties it per file)
+
+# The intent API 5.0 removed (FlowGuard 4.3 announced it), each with what to do instead. The loader refuses an intent
+# file that names one before running it (`loader.literal_problems`); in Python, reading the name raises the same text.
+_FLOW_ORDER = 'declare the order as flow(ID, source=..., nodes=[Node(...), ...], edges=[...])'
+_NO_STATE_CHANGES = "delete it; 5.0 checks no state changes, states(...) still checks the values a field is given"
+REMOVED = {
+    'precedes': _FLOW_ORDER,
+    'guarded_by': _FLOW_ORDER,
+    'transitions': _NO_STATE_CHANGES,
+    'Transition': _NO_STATE_CHANGES,
+    'flow(transitions=)': "delete transitions= from this flow; 5.0 checks no state changes",
+    'checks': 'bind the rule to its scenario test with flow(ID, ..., relations=[Relation(RULE, {...}, Read(...))])',
+    'distinct': ('delete it; two rules of one decides= key must agree unless one overrides= the other, and '
+                 'python -m flowguard known add copies:NAME --act ignore --why TEXT records copies that are meant to differ'),
+    'structure_rule': ('delete it; states(...) checks the literal values a field is given, an ordinary test can check '
+                       'any other source fact'),
+    'allow': 'delete it with its structure_rule',
+    'pytest.mark.rule': 'delete the marker; a rule is checked at its anchors, not through marked tests',
+}
+
+
+def removed(name):
+    """`NAME was removed in 5.0 -> what to do`: the one text of each removed name (`REMOVED`)."""
+    return f'{name} was removed in 5.0 -> {REMOVED[name]}'
+
+
+def __getattr__(name):
+    """A name 5.0 removed (`REMOVED`): importing or reading it raises IntentError with what to do instead."""
+    if name in REMOVED:
+        raise IntentError(removed(name))
+    raise AttributeError(f'module {__name__!r} has no attribute {name!r}')
 
 
 class IntentError(Exception):
@@ -183,119 +213,21 @@ def rule(id, decides, source, fields, overrides=(), supersedes=(), total=False, 
     return wrap
 
 
-def flow(identifier, *, source, nodes, edges, transitions=(), relations=()):
-    """A small observation model: anchors, paths, state transitions and relations."""
-    return _declare_flow(identifier, source, nodes, edges, transitions, relations)
-
-
-def _declare_flow(identifier, source, nodes, edges, transitions=(), relations=(), optional=(), depth=2):
+def flow(identifier, *, source, nodes, edges, relations=(), transitions=_MISSING):
+    """A small observation model: anchors, paths and relations of existing rules."""
     from .flow import Flow
-    caller = sys._getframe(depth)
+    caller = sys._getframe(1)
+    if transitions is not _MISSING:
+        raise IntentError(f'line {caller.f_lineno}: ' + removed('flow(transitions=)'))
     if not isinstance(identifier, str) or not ID.fullmatch(identifier):
         raise IntentError(f'line {caller.f_lineno}: flow id must be a word, got {identifier!r}')
-    item = Flow(identifier, source, nodes, edges, transitions, relations, optional=optional)
+    item = Flow(identifier, source, nodes, edges, relations)
     item.file, item.line = caller.f_code.co_filename, caller.f_lineno
     DECLARED.append(item)
     return item
 
 
-# ---- one-line relation templates: each is an ordinary Flow, checked by the existing flow checks ----
-
-def _template_id(kind, *names):
-    return kind.upper() + '_' + '_'.join(re.sub(r'\W+', '_', name).strip('_') for name in names)
-
-
-def _template_source(kind, source, *arguments):
-    return source or f'assumed: {kind}(' + ', '.join(map(repr, arguments)) + ')'
-
-
-def precedes(first, then, *, source=None):
-    """Every observed `then` comes after a `first` in the same test: `first` starts each path."""
-    warn('precedes')
-    from .flow import Node
-    edges = (('first', 'then'), ('first', 'first'), ('then', 'then'), ('then', 'first'))
-    return _declare_flow(_template_id('precedes', first, then), _template_source('precedes', source, first, then),
-                         (Node('first', first, start=True, end=True), Node('then', then, end=True)), edges,
-                         optional=edges[1:], depth=2)
-
-
-def guarded_by(guard, action, *, source=None):
-    """Every observed `action` has its own `guard` before it: no action follows an action directly."""
-    warn('guarded_by')
-    from .flow import Node
-    edges = (('guard', 'action'), ('guard', 'guard'), ('action', 'guard'))
-    return _declare_flow(_template_id('guarded_by', guard, action), _template_source('guarded_by', source, guard, action),
-                         (Node('guard', guard, start=True, end=True), Node('action', action, end=True)), edges,
-                         optional=edges[1:], depth=2)
-
-
-def transitions(state, *, source=None, **allowed):
-    """The allowed changes of one `states` field wherever an anchored call changes it:
-    transitions("Job.status", new={"saved"}, saved={"published"}). Its values come from the field's
-    existing `# flowguard: states` comment; this line only says which changes are allowed."""
-    warn('transitions')
-    from .flow import Transition
-    if not allowed:
-        raise IntentError(f'transitions({state!r}) needs before={{after, ...}} pairs')
-    steps = []
-    for before, afters in allowed.items():
-        values = afters if isinstance(afters, (set, frozenset, list, tuple)) else (afters,)
-        steps.extend(Transition(state, before, after, '*') for after in sorted(values, key=repr))
-    return _declare_flow(_template_id('transitions', state), _template_source('transitions', source, state),
-                         (), (), tuple(steps), depth=2)
-
-
-def checks(rule, case, *, actual=None, source=None, **fields):
-    """A rule checked on a scenario test's own arguments: checks("FEE", "FEE_CASE", days="arg.days").
-    The decision read is `actual` (an anchor name, optionally `NAME.result...`), by default the rule's
-    single anchor or the anchor named like the rule; the existing scenario binding derives the rest."""
-    warn('checks')
-    from .flow import Node, Read, Relation
-    identifier = rule.id if isinstance(rule, Rule) else rule
-    if not fields:
-        raise IntentError(f'checks({identifier!r}, {case!r}) needs field="arg.name" readings')
-    if actual is None:
-        anchors = rule.anchors if isinstance(rule, Rule) else ()
-        actual = anchors[0] if len(anchors) == 1 else identifier
-    anchor, _, path = actual.partition('.')
-    relation = Relation(rule, {name: Read('case', value) for name, value in fields.items()},
-                        actual=Read('actual', path or 'result'), on='actual')
-    return _declare_flow(_template_id('checks', identifier, case), _template_source('checks', source, identifier, case),
-                         (Node('case', case, start=True), Node('actual', anchor, phase='return', end=True)),
-                         (('case', 'actual'), ('actual', 'actual')), relations=(relation,),
-                         optional=(('actual', 'actual'),), depth=2)
-
-
-from .flow import Node, Transition, Read, Relation
-
-
-class Distinct:
-    """Two rules or two source anchors that must retain different decisions."""
-
-    def __init__(self, a, b, why, source, line):
-        self.rule_sides = (isinstance(a, Rule), isinstance(b, Rule))
-        self.a = a.id if isinstance(a, Rule) else a
-        self.b = b.id if isinstance(b, Rule) else b
-        self.why, self.source, self.line = why, source, line
-        self.file = None
-        self.binding_kind = 'rules'
-
-    def __call__(self, function):
-        raise IntentError(f"line {self.line}: distinct call adapters were removed; rebuild the original "
-                          "test using source anchors and Flow relations; declare distinct between two rules or two anchors")
-
-
-def distinct(a, b, why, source) -> Distinct:
-    """Declare two rules or two source anchors as separate decisions, with their source and reason."""
-    warn('distinct')
-    line = sys._getframe(1).f_lineno
-    if not isinstance(why, str) or not why.strip():
-        raise IntentError(f"line {line}: distinct() needs why=")
-    if not isinstance(source, str) or not source.strip():
-        raise IntentError(f"line {line}: distinct() needs source=")
-    d = Distinct(a, b, why, source, line)
-    DECLARED.append(d)
-    return d
+from .flow import Node, Read, Relation
 
 
 class States:
@@ -314,31 +246,3 @@ def states(target, values, *, source):
     item = States(target, values, source)
     DECLARED.append(item)
     return item
-
-
-def allow(node, why):
-    if not isinstance(why, str) or not why.strip():
-        raise IntentError('allow needs the reason this node is an exception')
-    return (node, why)
-
-
-class StructureRule:
-    def __init__(self, identifier, source, predicate):
-        self.id, self.source, self.pred = identifier, source, predicate
-        self.file, self.line = predicate.__code__.co_filename, predicate.__code__.co_firstlineno
-        self.allowed = {}
-
-    def allows(self, *entries):
-        for node, why in entries:
-            self.allowed[node] = why
-        return self
-
-
-def structure_rule(identifier, *, source):
-    """A Python function selects violations from six fixed generated queries."""
-    warn('structure_rule')
-    def declare(predicate):
-        item = StructureRule(identifier, source, predicate)
-        DECLARED.append(item)
-        return item
-    return declare
