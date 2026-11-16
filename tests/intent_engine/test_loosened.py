@@ -112,14 +112,16 @@ export async function other(prisma: any) {
 """
 
 
-def test_rewriting_the_old_spellings_as_their_red_says_makes_new_agreements(tmp_path):
-    # 5.0 reads no 4.2 spelling, at the baseline either: each is red at its line, its step the 4.3 comment, which names
-    # each function a 4.2 bare name meant (the function of that name in any file) by its path, or bare in its own file.
-    # Written as the steps say, they are agreements this change adds: a new writers agreement loosens nothing, a new
-    # together with an exception is loosened, as every new one is.
-    _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'app/s.ts': SCRIPT,
-                       'app/a.ts': _app('// flowguard: owner Item.state with=Item.note alone=main(app/s.ts fills it)',
-                                        '// flowguard: owner Item.kind writers=setState,main')})
+OLD = _app('// flowguard: owner Item.state with=Item.note alone=main(app/s.ts fills it)',
+           '// flowguard: owner Item.kind writers=setState,main')
+
+
+def test_rewriting_the_old_spellings_as_their_red_says_loosens_nothing(tmp_path):
+    # 5.0 binds no 4.2 spelling: each is red at its line, its step the 4.3 comment, which names each function a 4.2
+    # bare name meant (the function of that name in any file) by its path, or bare in its own file. What this change
+    # loosened compares the agreement that step states, at the baseline too, so the rewrite the step says is no
+    # looser (Planning Tool's upgrade showed two lines when it was).
+    _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'app/s.ts': SCRIPT, 'app/a.ts': OLD})
     cfg = load_config(tmp_path)
     with closing(build(tmp_path, roots=cfg.roots)) as graph:
         index = anchors.collect(graph)
@@ -130,7 +132,7 @@ def test_rewriting_the_old_spellings_as_their_red_says_makes_new_agreements(tmp_
                         'except=app/s.ts:main(app/s.ts fills it)'),
         ('app/a.ts', 2, 'owner writers= was removed in 5.0 -> write // flowguard: writers Item.kind setState,app/s.ts:main')]
     _write(tmp_path, {'app/a.ts': _app(*(message.partition(' -> write ')[2] for _, _, message in removed))})
-    assert _loosened(tmp_path)[0] == ['except=app/s.ts:main added to together Item.state']
+    assert _loosened(tmp_path)[0] == []
     cfg = load_config(tmp_path)
     with closing(build(tmp_path, roots=cfg.roots)) as graph:
         index = anchors.collect(graph)
@@ -139,6 +141,101 @@ def test_rewriting_the_old_spellings_as_their_red_says_makes_new_agreements(tmp_
         ((), ('Item.note',), ('typescript/app/s.ts:main(app/s.ts fills it)',))]
     assert [agreement.writers for agreement in index.named('Item.kind')] == [
         ('typescript/app/a.ts:setState', 'typescript/app/s.ts:main')]
+    # Another function than the old name allowed is still loosened, with a path or bare.
+    _write(tmp_path, {'app/a.ts': _app('// flowguard: together Item.state Item.note except=app/s.ts:other(fills it)',
+                                       '// flowguard: writers Item.kind setState,app/s.ts:main,legacy')})
+    assert sorted(_loosened(tmp_path)[0]) == ['except=app/s.ts:other added to together Item.state',
+                                              'legacy added to writers Item.kind']
+    # An unchanged 4.2 line compares as itself.
+    _write(tmp_path, {'app/a.ts': OLD + 'export const more = 1;\n'})
+    assert _loosened(tmp_path)[0] == []
+
+
+def test_deleting_or_loosening_an_old_spelling_is_loosened(tmp_path):
+    # The 4.2 line is red until it is rewritten; deleting it instead, or rewriting it looser than its step, loosens
+    # the agreement it stated, as deleting or loosening its 4.3 rewrite does.
+    _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'app/s.ts': SCRIPT, 'app/a.ts': OLD})
+    _write(tmp_path, {'app/a.ts': _app('// nothing')})
+    texts, lines = _loosened(tmp_path)
+    assert sorted(texts) == ['together Item.state Item.note removed', 'writers Item.kind removed']
+    assert sorted(line.places for line in lines) == [('app/a.ts:1',), ('app/a.ts:2',)]      # the baseline's 4.2 lines
+    # A partner dropped and a writer added in the rewrite.
+    _write(tmp_path, {'app/a.ts': _app('// flowguard: together Item.state Item.kind except=app/s.ts:main(app/s.ts fills it)',
+                                       '// flowguard: writers Item.kind setState,app/s.ts:main,legacy')})
+    assert sorted(_loosened(tmp_path)[0]) == ['Item.note removed from together Item.state', 'legacy added to writers Item.kind']
+    # A 4.2 line edited looser is read as its own step says, on the current side too.
+    _write(tmp_path, {'app/a.ts': _app('// flowguard: owner Item.state with=Item.note alone=main(app/s.ts fills it),other(too)',
+                                       '// flowguard: owner Item.kind writers=setState,main,legacy')})
+    assert sorted(_loosened(tmp_path)[0]) == ['except=app/s.ts:other added to together Item.state',
+                                              'legacy added to writers Item.kind']
+
+
+def test_the_old_python_spellings_compare_as_their_rewrite(tmp_path):
+    source = '''# flowguard: owner Order.status writers=close with=Order.reason,Order.at
+class Order:
+    status: str
+    reason: str
+    at: str
+
+
+# flowguard: sensor LIMIT
+def close(order: Order):
+    order.status = "x"
+    order.reason = "y"
+    order.at = "z"
+
+
+# flowguard: owner LIMIT
+def limit(order: Order):
+    return order.status
+'''
+    _commit(tmp_path, {'app/__init__.py': '', 'app/order.py': source})
+    # Edited in the old spelling, it is read as the rewrite each of its lines' red states.
+    _write(tmp_path, {'app/order.py': source.replace('with=Order.reason,Order.at', 'with=Order.reason alone=reopen(legacy)')
+                      .replace('writers=close', 'writers=close,reopen').replace('# flowguard: sensor LIMIT\n', '')})
+    assert sorted(_loosened(tmp_path)[0]) == sorted([
+        'Order.at removed from together Order.status', 'except=reopen added to together Order.status',
+        'reopen added to writers Order.status', 'same LIMIT removed from app/order.py:close'])
+    # Rewritten as the reds say, nothing is loosened; deleted, each agreement is.
+    _write(tmp_path, {'app/order.py': source.replace('# flowguard: owner Order.status writers=close with=Order.reason,Order.at',
+                                                     '# flowguard: together Order.status Order.reason,Order.at\n'
+                                                     '# flowguard: writers Order.status close')
+                      .replace('sensor LIMIT', 'same LIMIT').replace('owner LIMIT', 'same LIMIT ref')})
+    assert _loosened(tmp_path)[0] == []
+    _write(tmp_path, {'app/order.py': source.replace('# flowguard: owner Order.status writers=close with=Order.reason,Order.at\n', '')
+                      .replace('# flowguard: sensor LIMIT\n', '').replace('# flowguard: owner LIMIT\n', '')})
+    assert sorted(_loosened(tmp_path)[0]) == sorted([
+        'together Order.status Order.reason,Order.at removed', 'writers Order.status removed',
+        'same LIMIT removed from app/order.py:close', 'same LIMIT removed from app/order.py:limit'])
+
+
+def test_an_old_same_name_spelling_in_js_compares_on_its_function(tmp_path):
+    sensor = '// flowguard: sensor LABEL\nexport function label(x: string) { return x; }\n'
+    reference = '// flowguard: owner LABEL\nexport function label(x: string) { return x + 1; }\n'
+    _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'app/a.ts': _app(label=sensor), 'app/ref.ts': reference})
+    _write(tmp_path, {'app/a.ts': _app(), 'app/ref.ts': reference.replace('owner LABEL', 'same LABEL ref')})
+    assert _loosened(tmp_path)[0] == []
+    # Deleted, or left on the line above another function, each is a same NAME removed from its function.
+    _write(tmp_path, {'app/a.ts': _app(label=sensor.replace('export function label', 'export function other')),
+                      'app/ref.ts': reference.replace('// flowguard: owner LABEL\n', '')})
+    assert sorted(_loosened(tmp_path)[0]) == ['same LABEL removed from app/a.ts:label', 'same LABEL removed from app/ref.ts:label']
+
+
+def test_an_old_spelling_in_a_file_the_change_leaves_alone_still_states_its_agreement(tmp_path):
+    # Read at the baseline and now alike, it keeps the partner another file's together drops.
+    _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'app/a.ts': _app('// flowguard: owner Item.state with=Item.note'),
+                       'app/b.ts': '// flowguard: together Item.state Item.note,Item.kind\nexport const b = 1;\n'})
+    _write(tmp_path, {'app/b.ts': '// flowguard: together Item.state Item.kind\nexport const b = 1;\n'})
+    assert _loosened(tmp_path)[0] == []
+    _write(tmp_path, {'app/b.ts': '// flowguard: together Item.state Item.note\nexport const b = 1;\n'})
+    assert _loosened(tmp_path)[0] == ['Item.kind removed from together Item.state']
+
+
+def test_a_file_moved_without_git_keeps_its_old_spellings(tmp_path):
+    old = _app(*OLD.split(chr(10))[:2], label='// flowguard: sensor LABEL\nexport function label(x: string) { return x; }\n')
+    _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'app/s.ts': SCRIPT, 'app/a.ts': old})
+    (tmp_path / 'app/a.ts').rename(tmp_path / 'app/b.ts')
+    assert _loosened(tmp_path)[0] == []
 
 
 def test_moving_a_comment_between_files_or_renaming_a_file_loosens_nothing_and_no_baseline_compares_nothing(tmp_path):

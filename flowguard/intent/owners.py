@@ -1132,10 +1132,12 @@ def _agreements(rows, moved=None):
     return data, same
 
 
-def _moved_modules(change, paths, current):
+def _moved_modules(change, paths, current, before):
     """{old module: new module} of the files this change renames: those Git reports renamed (`Change.renamed`, a
-    staged rename), and a file deleted beside one added whose comments (`current`, {path: anchors rows}) are the
-    baseline file's, up to the file and module they name (a file moved without Git, its comments with it)."""
+    staged rename), and a file deleted beside one added whose comments (`current`, {path: rows}) are the baseline
+    file's (`before`, {path: rows} of `paths` at the baseline), up to the file and module they name (a file moved
+    without Git, its comments with it). The rows are a file's `anchors` facts and its removed 4.2 comments as written
+    (`_stated`)."""
     moved = {change.module(old): change._modules[new] for old, new in change.renamed().items()
              if new in change._modules and change.module(old)}
 
@@ -1149,7 +1151,7 @@ def _moved_modules(change, paths, current):
     gone = {}
     for path in sorted(paths):
         module = change.module(path)
-        if path not in change._modules and module and module not in moved and (rows := change.old_part(path, 'anchors')):
+        if path not in change._modules and module and module not in moved and (rows := before[path]):
             gone.setdefault(shape(rows, module), []).append(module)
     added = {}
     for path in sorted(change.files - set(change.renamed().values())):
@@ -1161,14 +1163,35 @@ def _moved_modules(change, paths, current):
     return moved
 
 
+def _stated(locate, path, module, issues, read):
+    """(rows, comments) of one file's removed 4.2 comments: the `anchors` rows their steps state (`anchors.stated`),
+    each step read again with the whole map's functions (`locate`, as `anchors.collect` reads it:
+    `anchors._relocated`), and each comment as written ({'removed': text}, which names no file: a file moved without
+    Git compares by them, `_moved_modules`). `issues` are the file's `anchor_issues` facts; `read()` gives its text and
+    its reader's node rows, read only when it holds a removed comment."""
+    from .anchors import _REMOVED_HEAD, Issue, _lines, _relocated, stated
+    removed = [Issue(**value) for value in issues if value['code'] == 'removed']
+    if not removed:
+        return [], []
+    text, nodes = read()
+    lines = _lines(text)
+    head = _REMOVED_HEAD['#' if path.endswith('.py') else '//']
+    written = [{'removed': found[0].strip()} for issue in removed if 0 < issue.line <= len(lines)
+               and (found := head.search(lines[issue.line - 1]))]
+    return stated([_relocated(issue, lines, module, locate) for issue in removed], text, path, module, functions=nodes,
+                  is_test=is_test_file(path)), written
+
+
 def loosened(change, index):
     """What this change loosened in the agreements of its `flowguard:` comments (D9), each a `loosened` line: an
     `except=` added, also in a new together; a together partner removed (the whole agreement too); an
     `on=` added to or changed in a together that stays; a writer added to a writers agreement that stays; a writers
-    agreement removed; a `same NAME` removed from a function. A 4.2 spelling is no agreement in 5.0 (it is red at its
-    line, `anchors._removed`), at the baseline too, so its 4.3 rewrite loosens nothing. The baseline's comments are
-    the old `anchors` facts of the files this change edits, deletes or renames away, beside the map's for every other
-    file. Positions compare
+    agreement removed; a `same NAME` removed from a function. A 4.2 spelling binds no agreement in 5.0 (it is red at
+    its line, `anchors._removed`); here alone, at the baseline and now, it compares as the agreement its red's step
+    states (`_stated`), so a rewrite as that step says loosens nothing, while deleting the 4.2 line, or rewriting or
+    editing it looser, is loosened as deleting or loosening its rewrite is. The baseline's comments are the old
+    `anchors` and `anchor_issues` facts of the files this change edits, deletes or renames away, beside the map's for
+    every other file. Positions compare
     as the functions they resolve to, a renamed file's by its new module (`_moved_modules`): a comment moved beside
     another function of the name it spells now names that function. A file moved without Git and edited in its
     comments too is a file deleted and one added."""
@@ -1177,15 +1200,51 @@ def loosened(change, index):
     paths = change.baseline_paths() if change.baseline else frozenset()
     if not paths:
         return found
-    old_rows, new_rows, current = [], [], {}
-    for path, _, data in change.graph._kinds('anchors'):
-        new_rows.extend(data.get('anchors', ()))
-        current[path] = data.get('anchors', ())
-        if path not in paths:
-            old_rows.extend(data.get('anchors', ()))
+    from flowguard.structure import store
+    from .anchors import _graph_locator
+    graph = change.graph
+    # a 4.2 bare name means the functions of that name in the map, at the baseline too, as the step 5.0 prints names them
+    locate = _graph_locator(graph, {path: change.module(path) for path in paths if change.module(path)} | change._modules)
+
+    def nodes(path):
+        """The map's functions of a JS/TS file as its reader's node rows (`anchors.foreign_owners` reads them)."""
+        return [dict(qual=qual, kind=kind, line=line, raw=store.unpack(raw) if raw else {})
+                for qual, kind, line, raw in graph.con.execute("SELECT qual, kind, line, raw FROM node WHERE file = ? AND kind IN "
+                                                               "('function', 'method') ORDER BY nid", (path,))]
+    kinds = graph._kinds('anchors', 'anchor_issues')
+
+    def stated_now(path, data):
+        return _stated(locate, path, change._modules[path], data.get('anchor_issues', ()), lambda: (
+            read_source(graph.root / path), () if path.endswith('.py') else nodes(path)))
+    edited = {path: stated_now(path, data) for path, _, data in kinds if path in paths}
+    current = {path: [*data.get('anchors', ()), *edited[path][1]] for path, _, data in kinds if path in paths}
+    before, then_rows = {}, {}
     for path in sorted(paths):
-        old_rows.extend(change.old_part(path, 'anchors') or ())
-    moved = _moved_modules(change, paths, current)
+        rows, written = _stated(locate, path, change.module(path), change.old_part(path, 'anchor_issues') or (),
+                                lambda path=path: (read_source(graph.root / path, data=graph._baseline_bytes(change.baseline, path)),
+                                                   () if path.endswith('.py') else change.old_part(path, 'nodes')))
+        then_rows[path] = [*(change.old_part(path, 'anchors') or ()), *rows]
+        before[path] = [*(change.old_part(path, 'anchors') or ()), *written]
+    moved = _moved_modules(change, paths, current, before)
+    # A file this change leaves alone states the same rows at the baseline and now: its 4.2 comments are read only when
+    # they name a field or NAME a file it alters names too, or a renamed module could read them otherwise (`moved`).
+    names = {row['name'] for rows in then_rows.values() for row in rows} | {
+        row['name'] for path, _, data in kinds if path in paths for row in [*data.get('anchors', ()), *edited[path][0]]}
+    old_rows, new_rows = [], []
+    for path, _, data in kinds:
+        if path in paths:
+            rows = edited[path][0]
+        elif moved or names.intersection(issue['name'] for issue in data.get('anchor_issues', ())
+                                         if issue['code'] == 'removed'):
+            rows = stated_now(path, data)[0]
+        else:
+            rows = []
+        rows = [*data.get('anchors', ()), *rows]
+        new_rows.extend(rows)
+        if path not in paths:
+            old_rows.extend(rows)
+    for path in sorted(paths):
+        old_rows.extend(then_rows[path])
     (then, same_then), (now, same_now) = _agreements(old_rows, moved), _agreements(new_rows)
     files = {change.module(path): path for path in paths if change.module(path)} | {module: path for path, module in change._modules.items()}
 

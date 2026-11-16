@@ -16,6 +16,7 @@ import enum
 import importlib
 import inspect
 import io
+import json
 import keyword
 import math
 from pathlib import Path, PosixPath, WindowsPath
@@ -350,6 +351,44 @@ def _relocated(issue, lines, module, locate):
         return issue
     # a data owner's rewrite does not depend on a following function
     return _removed(*match.groups(), issue.file, module, issue.line, locate, followed=True)
+
+
+def stated(issues, text, file, module, *, functions=(), is_test=False):
+    """The `anchors` fact rows the steps of these `removed` issues of one file state: each issue's step names the 4.3
+    comment to write (after ` -> write `; an owner line with both writers= and with= names two, joined by ` and, on its
+    own line, `), and the file's 4.3 reader (`source_facts`, or `foreign_owners` with `functions`, the reader's node
+    rows of the file) reads that comment standing at the issue's line of `text` in the place of the 4.2 one, a `same`
+    on the function the 4.2 comment is on. These are the agreements the 4.2 comments said, for `owners.loosened` alone
+    to compare: the 4.2 comment stays red and binds nothing. A step that names no comment the reader reads (a
+    placeholder such as `together A.b PARTNERS`, or `same NAME ref` on no function) states no row. Rows are as the map
+    keeps them (lists for tuples)."""
+    python = file.endswith('.py')
+    lines = _lines(text)
+    starts = {}             # {line: column of the 4.2 comment}, where its reader found it
+    if python:
+        tree = ast.parse(text)
+        for token in tokenize.generate_tokens(io.StringIO(text).readline):
+            if token.type == tokenize.COMMENT and _REMOVED_HEAD['#'].fullmatch(token.string):
+                starts[token.start[0]] = token.start[1]
+    else:
+        for number, line in enumerate(lines, 1):
+            found = _FOREIGN_HEAD.search(line)
+            if found and found[1] in ('sensor', 'owner'):
+                starts[number] = found.start()
+    steps = {issue.line: issue.message.partition(' -> write ')[2].split(' and, on its own line, ')
+             for issue in issues if issue.code == 'removed' and issue.line in starts}
+    rows = []
+    for nth in range(max(map(len, steps.values()), default=0)):
+        written, at = list(lines), set()
+        for number, comments in steps.items():
+            if nth < len(comments):
+                written[number - 1] = lines[number - 1][:starts[number]] + comments[nth]
+                at.add(number)
+        text_now = '\n'.join(written)
+        data = source_facts(tree, text_now, module, file, is_test=is_test) if python else \
+            foreign_owners(text_now, module, file, is_test=is_test, functions=functions)
+        rows.extend(row for row in data.get('anchors', ()) if row['line'] in at)
+    return json.loads(json.dumps(rows))
 
 
 def _lines(text):
