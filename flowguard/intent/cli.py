@@ -338,7 +338,7 @@ def _copy_pointers(graph, index, anchors, homes, results, words, full):
         scope = [(site.get('where') or target, site['line'], site['text']) for site in live.get('sites', []) if site.get('realized')] if live else None
         found = graph.search_homes(target, sites=scope, not_same=excluded, words=words, k=None)
         if not found['searched']:
-            lines.append('copy search unavailable: ' + found.get('reason', 'no readable decision sites'))
+            lines.append(found['reason'])
         from .owners import look_alikes      # static copy candidates, the same ones check runs for an owner
         registered = {a.target for a in index.entries if a.kind == 'sensor'}
         for candidate in [*found['candidates'], *look_alikes(load_config(graph.root), graph, target, excluded | registered)]:
@@ -756,7 +756,7 @@ def show(cfg, query=None, *, full=False, last=False):
             if owned := show_lines(cfg, graph, index, query):     # writes outside its writers, look-alikes
                 display('\n'.join(owned))
             if FIELD_QUERY.fullmatch(query):        # what the map read about the field and who writes it, as the facts
-                agreed = agreement_writes(graph, index, query)      # branch says; a write listed above once only
+                agreed = agreement_writes(cfg, graph, index, query)      # branch says; a write listed above once only
                 facts = [*filter(None, [_unknown_model(graph, query)]), *declaration_lines(graph, query),
                          *(_write_line(row) for row in graph.writes(query)
                            if (row['file'], row['line'], row['function'], row['kind']) not in agreed)]
@@ -773,7 +773,8 @@ def show(cfg, query=None, *, full=False, last=False):
             unused = set(_unmodelled(index, data['summary'], root=cfg.root)) & {a.name for a in anchors}
             if unused:print('info: not referenced by a current model: ' + ', '.join(sorted(unused)))
             from .differences import display
-            display('\n'.join(_copy_pointers(graph, index, anchors, [], [], query, full)))
+            if copies := _copy_pointers(graph, index, anchors, [], [], query, full):
+                display('\n'.join(copies))
             return 0
         from .docs import module_lines
         if path is not None and (module := module_lines(graph, path + '/' if (cfg.root / path).is_dir() else path)):
@@ -788,8 +789,9 @@ def show(cfg, query=None, *, full=False, last=False):
                 display('\n'.join(concerning))
             found = graph.search_homes(node['id'], k=None)
             if not found['searched']:
-                print('not searched: ' + found.get('reason', '') + ' -> bind the real decision site')
-            print('\n'.join(_candidate_lines(found, full, 'candidate ')))
+                print(found['reason'])
+            if candidates := _candidate_lines(found, full, 'candidate '):
+                print('\n'.join(candidates))
             return 0
         words = tokens(name)
         from .owners import declaration_lines       # what the map already read about the name comes first
@@ -804,7 +806,11 @@ def show(cfg, query=None, *, full=False, last=False):
             for issue in health.writers(change, index, written).issues:
                 ranked.append((2001, f'structure: {issue.text} -> {issue.step}'))
             ranked.extend((2001, line) for line in health.co_written(change, name, index))
-            ranked.extend((1999 - order, line) for order, line in enumerate(checks.field_lines(graph, name, written)))
+            ranked.extend((1998 - order, line) for order, line in enumerate(checks.field_lines(graph, name, written)))
+        if any(row['name'] == name for row in graph.label_rows()):     # a label table: the family the block reports
+            from . import health, owners as checks
+            for issue in health.labels(checks.Change(cfg, graph, None), name).issues:
+                ranked.append((2001, f'structure: {issue.text} -> {issue.step}'))
         for rid, rule in rules.items():
             score = 1000 if name.casefold() in {rid.casefold(), rule['decides'].casefold()} else 0
             score += 4 * len(words & tokens(rule['decides'] + ' ' + rule.get('doc', '')))

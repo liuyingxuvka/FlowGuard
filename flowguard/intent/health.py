@@ -722,14 +722,16 @@ def uncreated(change):
 
 # ---- label tables that disagree --------------------------------------------------------------------
 
-def labels(change):
+def labels(change, named=None):
     """Label tables that disagree (`MapHandle.label_tables()`): copies of one table of labels that spell a
     key's label differently, and lookup tables that lack a key their copies have. One issue per family, new when this
-    change edits or adds one of its tables."""
+    change edits or adds one of its tables; with `named` only the families with a table of that name (`show NAME`)."""
     found = _findings()
     found.ran.add('labels')
     for family in change.graph.label_tables():
         tables = family['tables']
+        if named is not None and all(table['name'] != named for table in tables):
+            continue
         names = [table['name'] for table in tables]
         def ref(i):
             return names[i] if names.count(names[i]) == 1 else f'{names[i]} ({tables[i]["file"].rpartition("/")[2]}:{tables[i]["line"]})'

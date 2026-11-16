@@ -160,16 +160,16 @@ def _generated_from(change, kind, argument):
     """Whether this change edits, adds or removes a file a region of `kind` is generated from (`generated`): for
     `functions` and `constants` the file the argument names; for `fields`, which reads every Prisma schema, a Prisma
     schema file; for `values`, which reads the value sets of the whole map, a file that declares a set of that name now
-    (a JS/TS declaration, a Prisma enum or CHECK of the field) or a source file whose baseline text names it (its last
-    dotted part). A TS alias's values are read from the set it names, whose file alone is not followed."""
+    (`owners.value_sets_named`, the sets it writes: a JS/TS declaration, a Prisma enum or CHECK of the field) or a
+    source file whose baseline text names it (its last dotted part). A TS alias's values are read from the set it
+    names, whose file alone is not followed."""
     paths = change.baseline_paths()
     if kind in ('functions', 'constants'):
         return argument in paths
     if kind == 'fields':
         return any(path.endswith('.prisma') for path in paths)
-    graph = change.graph
-    declaring = {row['file'] for row in graph.declarations(exported=False) if row['name'] == argument}
-    declaring.update(file for row in graph.value_sets() if row['name'] == argument for file in row['files'])
+    from .owners import value_sets_named
+    declaring = {file for _, _, files, used in value_sets_named(change.graph, argument) if used for file in files}
     if declaring & paths:
         return True
     word = re.compile(r'\b' + re.escape(argument.rpartition('.')[2]) + r'\b')     # a set this change removes or moves
@@ -284,7 +284,9 @@ def _cell(text):
 
 def generated(graph, kind, argument):
     """(the Markdown of one region, '') or ('', what is wrong): `fields Model` a table of a Prisma model's fields with
-    each schema file's type where they differ, `values NAME` the members of the value set declared under that name,
+    each schema file's type where they differ, `values NAME` the members of the value set declared under that name
+    (`owners.value_sets_named`, the sets the values lines of `show NAME` give, but for the enum of a Prisma schema not
+    in use: what only test files declare left out; several different sets cannot be written),
     `functions path` and `constants path` the functions with their signatures and the module-level literal
     constants with their values of one file."""
     import json
@@ -312,10 +314,15 @@ def generated(graph, kind, argument):
         rows = [f'| {_cell(name)} | {_cell(typed(name))} | {_cell(columns[name])} |' for name in order]
         return '\n'.join(['| Field | Type | Column |', '|---|---|---|', *rows]), ''
     if kind == 'values':
-        sets = {tuple(item['values']) for item in graph.declarations(exported=False) if item['name'] == argument} \
-            or {tuple(item['values']) for item in graph.value_sets() if item['name'] == argument}
+        from .owners import value_sets_named        # the sets `show NAME` lists as its values lines
+        rows = value_sets_named(graph, argument)
+        sets = {values for values, _, _, used in rows if used}
         if len(sets) != 1:
-            return '', f'generate values {argument}: ' + (f'{len(sets)} different value sets have that name' if sets else 'no value set of that name')
+            unused = [where for _, where, _, used in rows if not used]
+            return '', f'generate values {argument}: ' + (
+                f'{len(sets)} different value sets have that name' if sets else
+                f'only the enum of a Prisma schema not in use has that name ({"; ".join(unused)})' if unused else
+                'no value set of that name')
         return '\n'.join(f'- `{value}`' for value in next(iter(sets))), ''
     if not (graph.root / argument).is_file():
         return '', f'generate {kind} {argument}: no such file in this repository'

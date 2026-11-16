@@ -335,6 +335,61 @@ def test_a_region_this_change_writes_that_cannot_be_generated_is_red(tmp_path):
         'red: generate values JobKind: generate values JobKind has no <!-- flowguard: end --> marker -> correct the marker at jobs.md:9'], text
 
 
+def test_a_values_region_reads_the_sets_show_lists_and_leaves_out_what_only_tests_or_unused_schemas_declare(tmp_path):
+    """Planning Tool (5.0 review, entry:F4): `show OrgUnitTab` listed the one production set, while `generate values
+    OrgUnitTab` also read the e2e helper's redeclaration (frontend/tests/e2e/local-azure/support/nav.ts) and could not be
+    written (`2 different value sets have that name`), a red no marker fixes; `generate values ADMIN_ACTORS` wrote a
+    test file's members as the project's. The region now reads the sets the values lines of `show NAME` give
+    (`owners.value_sets_named`): what only test files declare is left out, and the enum of a Prisma schema not in use,
+    which show lists as such, is not written; a Prisma enum of a schema in use is written under its own name."""
+    from tests.intent_engine.test_static_check import _flowguard
+    in_use = ('datasource db {\n  provider = "postgresql"\n  url      = env("DATABASE_URL")\n}\n\n'
+              'enum JobState {\n  QUEUED\n  DONE\n}\n\nmodel Job {\n  id    String   @id\n  state JobState\n}\n')
+    template = ('datasource db {\n  provider = "sqlite"\n  url      = "file:./dev.db"\n}\n\n'
+                'enum AppRole {\n  SYSTEM_ADMIN\n  EMPLOYEE\n}\n\nenum AssignmentStatus {\n  DRAFT\n  ACTIVE\n}\n')
+    regions = ''.join(f'<!-- flowguard: generate values {name} -->\n<!-- flowguard: end -->\n\n'
+                      for name in ('OrgUnitTab', 'ADMIN_ACTORS', 'AppRole', 'JobState', 'AssignmentStatus'))
+    _commit(tmp_path, {
+        'frontend/src/utils/org-unit-tab.ts': "export type OrgUnitTab = 'overview' | 'absences' | 'planning';\n",
+        'frontend/tests/e2e/local-azure/support/nav.ts': ("export type OrgUnitTab = 'Overview' | 'Absences';\n"
+                                                          "export function orgUnitTab(tab: OrgUnitTab) { return tab; }\n"),
+        'frontend/tests/unit/fg-org-unit-delete-authority.decision-table.test.ts':
+            "const ADMIN_ACTORS = ['SYSTEM_ADMIN', 'PLANNING_ADMIN'] as const;\nexport const actors = ADMIN_ACTORS;\n",
+        'backend/src/types/prisma-enums.ts': "export type AppRole = 'DEVELOPER' | 'SYSTEM_ADMIN' | 'EMPLOYEE';\n",
+        'backend/prisma/schema.prisma': in_use,
+        'backend/prisma/schema.sqlite.prisma': template,
+        'docs/FUNCTION_INVENTORY.md': '# Functions\n',
+    })
+    _write(tmp_path, {'docs/FUNCTION_INVENTORY.md': '# Functions\n\n' + regions})
+    code, out = _flowguard(tmp_path, 'docs')
+    assert code == 1 and out.splitlines() == [
+        'docs/FUNCTION_INVENTORY.md:3 generate values OrgUnitTab: rewritten',
+        'docs/FUNCTION_INVENTORY.md:6 generate values ADMIN_ACTORS: generate values ADMIN_ACTORS: no value set of that name',
+        'docs/FUNCTION_INVENTORY.md:9 generate values AppRole: rewritten',
+        'docs/FUNCTION_INVENTORY.md:12 generate values JobState: rewritten',
+        'docs/FUNCTION_INVENTORY.md:15 generate values AssignmentStatus: generate values AssignmentStatus: only the enum of a Prisma '
+        'schema not in use has that name (enum AssignmentStatus backend/prisma/schema.sqlite.prisma:11, a schema not in use)'], out
+    written = (tmp_path / 'docs/FUNCTION_INVENTORY.md').read_text(encoding='utf-8')
+    assert '- `overview`\n- `absences`\n- `planning`\n' in written and '`Overview`' not in written, written
+    assert '- `DEVELOPER`\n- `SYSTEM_ADMIN`\n- `EMPLOYEE`\n' in written and '- `QUEUED`\n- `DONE`\n' in written, written
+    assert '`PLANNING_ADMIN`' not in written, written
+    # show lists what the regions read, the template's enum marked as such
+    def values(name):
+        code, text = _flowguard(tmp_path, 'show', name)
+        assert code == 0, text
+        return [line for line in text.splitlines() if line.startswith('values ')]
+    assert values('OrgUnitTab') == ['values OrgUnitTab: overview | absences | planning (frontend/src/utils/org-unit-tab.ts:1)']
+    assert values('ADMIN_ACTORS') == []
+    assert values('AppRole') == ['values AppRole: DEVELOPER | SYSTEM_ADMIN | EMPLOYEE (backend/src/types/prisma-enums.ts:1)',
+                                 'values AppRole: SYSTEM_ADMIN | EMPLOYEE (enum AppRole backend/prisma/schema.sqlite.prisma:6, a schema not in use)']
+    # a region newly written for the production set is no red; the two that name no set are
+    _write(tmp_path, {'docs/FUNCTION_INVENTORY.md': written.replace(
+        '<!-- flowguard: generate values ADMIN_ACTORS -->\n<!-- flowguard: end -->\n\n', '').replace(
+        '<!-- flowguard: generate values AssignmentStatus -->\n<!-- flowguard: end -->\n\n', '')})
+    code, text = _static(tmp_path)
+    assert code == 0 and [line for line in _block(text) if line.startswith('red:')] == [], text
+
+
 # ---- module contracts and their connections (R98) ---------------------------------------------------------------
 # The owner: hang what AI found on the code; a module's contract says what it connects to, and a change reminds the
 # agent of the connected places. A text about a file or folder is that module's contract.

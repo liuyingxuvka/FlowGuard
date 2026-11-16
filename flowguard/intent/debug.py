@@ -88,7 +88,8 @@ def show_observation(cfg, name, index, last_events=(), *, model=None):
             lines.append(f'{anchor.file}:{anchor.target_line} {anchor.kind}; {roles or "no inputs"}; {dict(counts)}' + ('; stale source' if changed else ''))
             lines.append(f'results: {dict(outcomes.most_common(5))}; {len(outcomes)} distinct observed outputs')
         rules = [rule.id for rule in getattr(model, 'rules', {}).values() if name in rule.anchors]
-        lines.append('rules: ' + (', '.join(rules) if model is not None else 'model not supplied'))
+        if rules or model is None:          # no rule names it: no line (`show` says it is not referenced)
+            lines.append('rules: ' + (', '.join(rules) if model is not None else 'model not supplied'))
         if outdated:
             lines.append(f'stale: {len(outdated)} historical events do not identify current source')
         return _result('grey' if outdated or not relevant or any(a.issues for a in found) else 'ok', lines,

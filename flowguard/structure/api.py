@@ -1193,6 +1193,14 @@ class MapHandle:
                   if isinstance(row['value'], (int, float)) and not isinstance(row['value'], bool)]
         return Rows(self._syntax('numbers') + folded)
 
+    def label_rows(self):
+        """The module-level JS/TS tables `label_tables` reads: the `const_tables` and `option_lists` rows of
+        production code (outside tests and `archived` files), each with its `kind`."""
+        tests = {path for (path,) in self.con.execute('SELECT path FROM file WHERE is_test = 1')}
+        return [dict(row, kind=kind) for _, _, facts in self._kinds('const_tables', 'option_lists')
+                for kind in ('const_tables', 'option_lists') for row in facts.get(kind, ())
+                if row['file'] not in tests and not self.archived(row['file'])]
+
     def label_tables(self, tables=None):
         """Label tables that disagree: module-level JS/TS tables of production code (`const_tables` and
         `option_lists`, outside tests and `archived` files) with at least 3 keys and only non-empty string
@@ -1203,13 +1211,10 @@ class MapHandle:
         its `tables` (name, file, line, values), `differ` ({key: {label: [table index]}} for keys with several
         labels) and `lacking` ({table index: keys}): a table whose keys are all a family table's but for at
         most a third of them, also a table that maps the keys to codes (`ORG_TYPE_TO_ROLE` without ENTITY).
-        `tables` replaces the map's rows (for example a baseline's)."""
+        `tables` replaces the map's rows (`label_rows`; for example a baseline's)."""
         import itertools
         if tables is None:
-            tests = {path for (path,) in self.con.execute('SELECT path FROM file WHERE is_test = 1')}
-            tables = [dict(row, kind=kind) for _, _, facts in self._kinds('const_tables', 'option_lists')
-                      for kind in ('const_tables', 'option_lists') for row in facts.get(kind, ())
-                      if row['file'] not in tests and not self.archived(row['file'])]
+            tables = self.label_rows()
         # An option without a key ({ value: '', label: 'All' }) is a filter's "no choice", not a key.
         tables = [dict(row, values={key: value for key, value in row['values'].items() if key}) for row in tables]
         tables = [row for row in tables if len(row['values']) >= 3
@@ -1504,9 +1509,14 @@ class MapHandle:
                 prior['identity_shared'] = any(g['identity'] and any('sg:id:'+g['identity'] in own for own in row_sigs) for g in matched)
                 prior['reason'] = 'stale copy? still matches old '+', '.join(prior['old_values'])+' -> update or bind; '+candidate['reason']
         ranked = homes.ranked(found.values(), k)
+        from .readers.registry import language_for
+        language = language_for(node['file']) if node.get('file') else None     # None: an import the map lacks
+        # Only the Python reader reads decision sites: elsewhere there is nothing to bind that a copy search could read.
+        unread = f'the map reads no decision sites in {language} code' if language not in (None, 'python') else \
+            'no readable decision sites -> bind the real decision function'
         return dict(candidates=ranked, total=len(found), searched=bool(searched), anchors=anchors,
                     searched_anchors=searched, historical_sites=historical,
-                    reason='' if searched else 'not searched: no readable decision sites -> bind the real decision function')
+                    reason='' if searched else 'copies not searched: ' + unread)
 
     def _old_groups(self, target, current):
         current_sets = {frozenset(group['sigs']) for group in current}

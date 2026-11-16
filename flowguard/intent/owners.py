@@ -883,6 +883,68 @@ def _pair_step(row, partner):
         f'also write {partner} in the code at line {row["line"]}'
 
 
+class _Pairs:
+    """The writes a together agreement holds and those that miss a partner, read once per change: what `owner_pairs`
+    reports and what `show NAME` of the agreement marks (`show_lines`), one reading for both."""
+
+    def __init__(self, change):
+        self.change = change
+        self.tests = {path for (path,) in change.graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
+        self.trees, self.every = {}, {}
+
+    @staticmethod
+    def bound(row):         # a JS/TS `obj.f = ...` matched by field name alone is not a write of a model
+        return not row.get('unclear') and not (row.get('how') == 'name' and row.get('language', 'python') != 'python')
+
+    def writes(self, target, *, old=False):
+        """`graph.writes(target, by_name=True)` (`old`: `Change.baseline_writes`), every row read once per side."""
+        change = self.change
+        if old not in self.every:
+            self.every[old] = _TargetWrites(change.baseline_writes(by_name=True), change.baseline_definitions().models
+                                            if change.baseline_paths() else change.graph._models()) if old else \
+                _TargetWrites(change.graph.writes(by_name=True), change.graph._models())
+        return self.every[old](target)
+
+    def tree_of(self, function):
+        if function not in self.trees:
+            self.trees[function] = operation(self.change.graph, function, fold=_member)
+        return self.trees[function]
+
+    def triggers(self, owner, written):
+        """The writes of `written` the agreement holds: production code, its `on=` kind, outside `except=`."""
+        alone = [item.partition('(')[0] for item in owner.alone]
+        return [row for row in written if self.bound(row) and row['file'] not in self.tests and not is_test_file(row['file'])
+                and (not owner.on or creates(row) == (owner.on == 'create')) and not _allowed(row, alone)]
+
+    def partners(self, rows, value):
+        return [row for row in rows if self.bound(row) and _holds(row, value or None)]
+
+    def misses(self, owner):
+        """[(pair, missing, members, unconfirmed, calls)] of each partner some held write misses: the write rows that
+        miss it in their order, {function: its first such row}, {function: (row, (partner row, why))} of a hold that
+        counts but is not confirmed, and {id(row): whether its operation was read through calls resolved by name}."""
+        rows = self.triggers(owner, self.writes(owner.name))
+        found = []
+        for pair in owner.pairs:
+            target, _, value = pair.partition('=')
+            model, _, column = target.rpartition('.')
+            now = [(row, _pair_function(row)) for row in self.partners(self.writes(model if column == '*' else target), value)]
+            missing, calls, members, unconfirmed = [], {}, {}, {}
+            for row in rows:
+                function = _pair_function(row)
+                tree = self.tree_of(function)
+                held, unsure = _held(row, function, tree, now)
+                if not held:
+                    missing.append(row)
+                    members.setdefault(function, row)
+                    calls[id(row)] = 'name' in tree.values() or row.get('language', 'python') != 'python'
+                elif unsure is not None:
+                    unconfirmed.setdefault(function, (row, unsure))
+            if missing:
+                found.append((pair, missing, members, unconfirmed, calls))
+        return found
+
+
 def owner_pairs(change, index):
     """`together A B`: each write of a registered field also writes its partner in the same operation
     (`operation`: callers three levels up, then three levels down from them; a JS/TS module-level callback is an
@@ -902,63 +964,28 @@ def owner_pairs(change, index):
     finding, so such a note shows only beside a member that misses its partner."""
     from .health import Issue
     found = Findings()
-    def bound(row):         # a JS/TS `obj.f = ...` matched by field name alone is not a write of a model
-        return not row.get('unclear') and not (row.get('how') == 'name' and row.get('language', 'python') != 'python')
-    tests = {path for (path,) in change.graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
-    trees, guard, every = {}, _Calls(change), {}
-    def writes(target, *, old=False):
-        """`graph.writes(target, by_name=True)` (`old`: `Change.baseline_writes`), every row read once per side."""
-        if old not in every:
-            every[old] = _TargetWrites(change.baseline_writes(by_name=True), change.baseline_definitions().models
-                                       if change.baseline_paths() else change.graph._models()) if old else \
-                _TargetWrites(change.graph.writes(by_name=True), change.graph._models())
-        return every[old](target)
-    def tree_of(function):
-        if function not in trees:
-            trees[function] = operation(change.graph, function, fold=_member)
-        return trees[function]
+    pairs, guard = _Pairs(change), _Calls(change)
     for owner in (a for a in index.entries if a.kind == 'owner' and a.pairs):
-        alone = [item.partition('(')[0] for item in owner.alone]
-        def triggers(written):
-            return [row for row in written if bound(row) and row['file'] not in tests and not is_test_file(row['file'])
-                    and (not owner.on or creates(row) == (owner.on == 'create')) and not _allowed(row, alone)]
-        rows = triggers(writes(owner.name))
-        for pair in owner.pairs:
+        for pair, missing, members, unconfirmed, calls in pairs.misses(owner):
             target, _, value = pair.partition('=')
             model, _, column = target.rpartition('.')
             written = model if column == '*' else target
-            def partners(rows):
-                return [row for row in rows if bound(row) and _holds(row, value or None)]
-            now = [(row, _pair_function(row)) for row in partners(writes(written))]
-            missing, calls, members, unconfirmed = [], {}, {}, {}
-            for row in rows:
-                function = _pair_function(row)
-                tree = tree_of(function)
-                held, unsure = _held(row, function, tree, now)
-                if not held:
-                    missing.append(row)
-                    members.setdefault(function, row)
-                    calls[id(row)] = 'name' in tree.values() or row.get('language', 'python') != 'python'
-                elif unsure is not None:
-                    unconfirmed.setdefault(function, (row, unsure))
             def where(rows):
                 return '  '.join(f'{row["file"]}:{row["line"]} {row["function"]}' for row in rows) \
                     + ('(JS/TS calls resolved by name)' if any(calls[id(row)] for row in rows) else '') \
                     + {'update': '(updates only)', 'create': '(creates only)'}.get(owner.on, '')
             step = (f'write the paired value; an except=path:function(reason) on the together agreement (comment at '
                     f'{_agreement_place(change.graph, owner, "pairs")}) would loosen it, which is the owner\'s decision')
-            if not missing:
-                continue
             fresh, detail = set(), []
             if change.baseline:
-                then = triggers(writes(owner.name, old=True))
-                then_partners = [(row, guard.current(row)) for row in partners(writes(written, old=True))]
+                then = pairs.triggers(owner, pairs.writes(owner.name, old=True))
+                then_partners = [(row, guard.current(row)) for row in pairs.partners(pairs.writes(written, old=True), value)]
                 for function, row in members.items():
                     old = [item for item in then if guard.current(item) == function]
-                    if not old or all(_held(item, function, tree_of(function), then_partners)[0] for item in old):
+                    if not old or all(_held(item, function, pairs.tree_of(function), then_partners)[0] for item in old):
                         fresh.add(function)
                         continue
-                    exact, why = guard.exact(tree_of(function), function)
+                    exact, why = guard.exact(pairs.tree_of(function), function)
                     if not exact:
                         fresh.add(function)
                         detail.append(f'{_pair_place(row)} counts as new: {why}, so its baseline cannot be read')
@@ -1952,18 +1979,18 @@ def show_lines(cfg, graph, index, name):
             rows, fixtures, outside = _writers_rows(graph, owner)
             where = _agreement_place(graph, owner, "writers")
             lines.append(_writers_head(graph, owner))
-            def plain(row):
-                value = f', value {row["value"]!r}' if 'value' in row else ''
-                return f'{row["file"]}:{row["line"]} {row["function"]} ({row["kind"]}{value})'
-            lines.extend('outside writers: ' + plain(row) for row in outside)
-            lines.extend('test fixture (not held): ' + plain(row) for row in fixtures if not _allowed(row, owner.writers))
-            lines.extend('unclear: ' + plain(row) + f' {row.get("reason", "")}' for row in rows if row.get('unclear'))
+            lines.extend('outside writers: ' + _plain(row) for row in outside)
+            lines.extend('test fixture (not held): ' + _plain(row) for row in fixtures if not _allowed(row, owner.writers))
+            lines.extend('unclear: ' + _plain(row) + f' {row.get("reason", "")}' for row in rows if row.get('unclear'))
             if outside:
                 lines.append(f'fix: call {" or ".join(dict.fromkeys(map(_writer_name, owner.writers)))} instead; adding a '
                              f"function to the writers agreement ({where}) loosens it, which is the owner's decision")
         if owner.kind == 'owner' and owner.pairs:
             lines.append(_together_head(graph, owner))
-            lines.append(_pair_fix(graph, owner))
+            broken = _together_misses(cfg, graph, owner)
+            lines.extend(f'missing {pair}: ' + _plain(row) for pair, missing in broken for row in missing)
+            if broken:
+                lines.append(_pair_fix(graph, owner, [pair for pair, _ in broken]))
         if owner.owner:
             functions = _functions(graph, cfg)
             home = next((row for row in functions if row['id'] == owner.target), None)
@@ -1975,6 +2002,23 @@ def show_lines(cfg, graph, index, name):
                          '(not run here; check --all compares them)')
             lines.extend(f'look-alike {row["file"]}:{row["line"]} {row["qual"]}' for row in similar)
     return lines
+
+
+def _plain(row):
+    """One write as `show_lines` lists it: `file:line function (kind, value ...)`."""
+    value = f', value {row["value"]!r}' if 'value' in row else ''
+    return f'{row["file"]}:{row["line"]} {row["function"]} ({row["kind"]}{value})'
+
+
+def _together_misses(cfg, graph, owner):
+    """[(partner, the write rows that miss it)] of a together agreement, as the block's pair finding reads them
+    (`_Pairs.misses`, no baseline): the writes `show NAME` marks, before the fix line it then prints. Read once per
+    map handle and agreement (`show_lines` and `agreement_writes` both ask)."""
+    held = graph._derived.setdefault('together_misses', {})
+    key = (owner.name, owner.file, owner.line)
+    if key not in held:
+        held[key] = [(pair, missing) for pair, missing, *_ in _Pairs(Change(cfg, graph, None)).misses(owner)]
+    return held[key]
 
 
 def _writers_head(graph, owner):
@@ -2065,9 +2109,10 @@ def _writers_rows(graph, owner):
     return rows, fixtures, outside
 
 
-def agreement_writes(graph, index, name):
-    """{(file, line, function, kind)} of the writes `show_lines` lists for the writers agreements of `name` (outside
-    its writers, test fixtures it does not allow, unclear ones): `show` lists every other write of the field once."""
+def agreement_writes(cfg, graph, index, name):
+    """{(file, line, function, kind)} of the writes `show_lines` lists for the agreements of `name` (outside a writers
+    agreement's writers, test fixtures it does not allow, unclear ones; a together agreement's writes that miss a
+    partner): `show` lists every other write of the field once."""
     listed = set()
     for owner in index.named(name):
         if owner.kind == 'owner' and owner.writers:
@@ -2075,6 +2120,9 @@ def agreement_writes(graph, index, name):
             listed.update((row['file'], row['line'], row['function'], row['kind']) for row in
                           [*outside, *(row for row in fixtures if not _allowed(row, owner.writers)),
                            *(row for row in rows if row.get('unclear'))])
+        if owner.kind == 'owner' and owner.pairs:
+            listed.update((row['file'], row['line'], row['function'], row['kind'])
+                          for _, missing in _together_misses(cfg, graph, owner) for row in missing)
     return listed
 
 
@@ -2092,10 +2140,12 @@ def _spelled(graph, module, position, *, path=False):
     return declared if own == module and not path else f'{file}:{declared}'
 
 
-def _pair_fix(graph, owner):
-    return (f'fix: also write {", ".join(owner.pairs)} in the same operation; an except=path:function(reason) on the '
-            f'together agreement ({_agreement_place(graph, owner, "pairs")}) loosens it, which is the owner\'s decision and '
-            'the next run shows as loosened')
+def _pair_fix(graph, owner, pairs):
+    """The fix line `show_lines` prints after the writes that miss a partner (`pairs`, as the agreement spells them)."""
+    scope = {'update': ' (the agreement holds updates only)', 'create': ' (the agreement holds creates only)'}.get(owner.on, '')
+    return (f'fix: also write {", ".join(pairs)} in the same operation as each write marked missing{scope}; an '
+            f'except=path:function(reason) on the together agreement ({_agreement_place(graph, owner, "pairs")}) loosens '
+            'it, which is the owner\'s decision and the next run shows as loosened')
 
 
 def model_known(graph, model):
@@ -2201,21 +2251,95 @@ def _declared_by_tests(row):
     return all(map(is_test_file, row['scope'] if row['kind'] == 'ts-type' else row['files']))
 
 
+def _where(places):
+    """The places of one declaration as `show` prints them: the first three, then how many more."""
+    return ', '.join(places[:3]) + (f' and {len(places) - 3} more' if len(places) > 3 else '')
+
+
+def value_sets_named(graph, name):
+    """[(values, where, files, used)] of the value sets declared under `name`, one selection for the values lines of
+    `show NAME` (`declaration_lines`) and a `generate values NAME` region (`docs.generated`): for `Model.field` the
+    map's value sets of that key (`MapHandle.value_sets`: an enum of a schema in use, a CHECK, a TS type's member),
+    then the enum each Prisma schema the value gate does not read types the field with; for any other name the JS/TS
+    value sets declared under it (`MapHandle.declarations(exported=False)`), then the Prisma enums of that name in
+    every schema the map reads (`_schema_enums`). A set only test files declare is left out (`is_test_file`,
+    `_declared_by_tests`). `where` is what its values line prints in parentheses (a schema not in use says so),
+    `files` the files that declare it, `used` False for the enum of a schema the code does not use (which show lists
+    and a region does not write)."""
+    model, dot, field = name.partition('.')
+    found = {}
+    if dot and field and '.' not in field:
+        for item in graph.value_sets():
+            if item['name'] == name and not _declared_by_tests(item):
+                places, files = found.setdefault(tuple(item['values']), ([], []))
+                places.append(item['where'])
+                files.extend(item['files'])
+        rows = [(values, _where(places), tuple(dict.fromkeys(files)), True) for values, (places, files) in found.items()]
+        return rows + _schema_enums(graph, model=model, field=field)
+    for item in graph.declarations(exported=False):
+        if item['name'] == name and not is_test_file(item['file']):
+            places, files = found.setdefault(tuple(item['values']), ([], []))
+            places.append(f'{item["file"]}:{item["line"]}')
+            files.append(item['file'])
+    rows = [(values, _where(places), tuple(dict.fromkeys(files)), True) for values, (places, files) in found.items()]
+    return rows + _schema_enums(graph, enum=name)
+
+
+def _schema_enums(graph, *, enum=None, model=None, field=None):
+    """[(values, where, files, used)] of Prisma enums (`archived` files and test files left out), one row per enum name,
+    members and state of its schema: with `enum`, each enum of that name in every schema the map reads; with `model`
+    and `field`, the enum that types the field in each schema the value gate does not read (`MapHandle.value_sets`
+    holds the enums of the schemas in use): a schema not in use (`prisma_schemas_in_use`: a provider template such as
+    `schema.sqlite.prisma`), and a guessed schema whose model a schema in use defines. `where` names the enum and
+    where it is declared, then the schema's state unless it is in use: `enum AssignmentStatus
+    backend/prisma/schema.sqlite.prisma:36, a schema not in use`; `used` whether the code uses that schema for it (a
+    schema in use; a guessed one where no schema in use defines the model, as `MapHandle.value_sets` takes it)."""
+    from flowguard.structure.readers.prisma import schema_folders
+    in_use, guessed = graph.prisma_schemas_in_use(), graph.prisma_schemas_guessed()
+    schemas = schema_folders(graph._live_prisma())
+    defined = {item['name'] for schema in schemas if schema['files'][0] in in_use and schema['files'][0] not in guessed
+               for item in schema['models']}
+    found = {}
+    for schema in schemas:
+        first = schema['files'][0]
+        enums = {item['name']: item for item in schema['enums']}
+        if enum is not None:
+            why = '' if first in in_use and first not in guessed else 'a schema not in use' if first not in in_use \
+                else 'a guessed schema'
+            named = [enums[enum]] if enum in enums else []
+        elif first in in_use and (first not in guessed or model not in defined):
+            continue                    # value_sets holds this schema's enums
+        else:
+            why = 'a schema not in use' if first not in in_use else 'a guessed schema; a schema in use defines the model'
+            named = [enums[column['type']] for item in schema['models'] if item['name'] == model
+                     for column in item['fields'] if column['name'] == field and column['type'] in enums]
+        for item in named:
+            if item['fields'] and not is_test_file(item['file']):
+                values = tuple(member['name'] for member in item['fields'])
+                found.setdefault((values, item['name'], why), []).append((item['file'], item['line']))
+    rows = []
+    for (values, name, why), places in found.items():
+        state = why if len(places) == 1 else {'a guessed schema': 'guessed schemas'}.get(why, why.replace('a schema', 'schemas'))
+        where = f'enum {name} ' + ', '.join(f'{file}:{line}' for file, line in places) + (f', {state}' if why else '')
+        rows.append((values, where, tuple(dict.fromkeys(file for file, _ in places)), why in ('', 'a guessed schema')))
+    return rows
+
+
 def declaration_lines(graph, name):
     """`show NAME` (4.4): what the map already read about a name, ahead of who writes and reads it. For `Model.field`
     or `table.column`, each distinct declaration in the Prisma schemas and in the SQL files with the files that
-    declare it so (declarations that differ between files are lines of their own), the value sets read for it (an
-    enum of a schema in use, a CHECK, a TS type), the enum of each Prisma schema not in use that types the field
-    (`unused_enum_lines`), and the zod number schemas of an object key of the field's name (`zod_bounds`; only for a
-    model the map knows, `model_known`, and not for a field its Prisma models, SQL tables and TS types lack,
-    `field_absent`); for a bare name, the value of a module-level literal constant (an array of
-    literals too) and the members of a value set declared under that name. A value set or constant only test files
-    declare is left out (`is_test_file`); a CHECK that code builds as a string and runs (`$executeRawUnsafe`) is not
-    read: only `.sql` files give ranges and CHECK sets."""
+    declare it so (declarations that differ between files are lines of their own), the zod number schemas of an
+    object key of the field's name (`zod_bounds`; only for a model the map knows, `model_known`, and not for a field
+    its Prisma models, SQL tables and TS types lack, `field_absent`) and its value sets (`value_sets_named`: an enum
+    of a schema in use, a CHECK, a TS type, then the enum of each Prisma schema not in use that types the field); for
+    a bare name, the value of a JS/TS module-level literal constant, an array of literals too (a Python, C, C++ or C#
+    module constant gives none: their rows name a field), the members of each value set declared under that name (a
+    JS/TS set, a Prisma enum) and the keys and labels of each JS/TS table of that name the labels check reads
+    (`MapHandle.label_rows`). A value set, constant or table only test files declare is left out (`is_test_file`); a
+    CHECK that code builds as a string and runs (`$executeRawUnsafe`) is not read: only `.sql` files give ranges and
+    CHECK sets."""
     import json
 
-    def where(places):
-        return ', '.join(places[:3]) + (f' and {len(places) - 3} more' if len(places) > 3 else '')
     lines = []
     model, dot, field = name.partition('.')
     if dot and field and '.' not in field:
@@ -2251,60 +2375,30 @@ def declaration_lines(graph, name):
                             table_name = item.get('name') or item.get('table')
                             bounded.setdefault(f'{table_name}.{bound["column"]}: {low}{bound["column"]}{high}', []).append(
                                 f'CHECK {schema["file"]}:{bound["line"]}')
-        lines.extend(f'declared {name}: {text} ({where(places)})' for text, places in declared.items())
-        lines.extend(f'column {text} ({where(places)})' for text, places in sql.items())
-        lines.extend(f'range {text} ({where(places)})' for text, places in bounded.items())
+        lines.extend(f'declared {name}: {text} ({_where(places)})' for text, places in declared.items())
+        lines.extend(f'column {text} ({_where(places)})' for text, places in sql.items())
+        lines.extend(f'range {text} ({_where(places)})' for text, places in bounded.items())
         if not field_absent(graph, model, field):        # a key of a field the model lacks matches by its name alone
-            lines.extend(f'zod key {field} in {schema}: {bounds} (' + where([f'{file}:{line}' for line in at]) + ')'
+            lines.extend(f'zod key {field} in {schema}: {bounds} (' + _where([f'{file}:{line}' for line in at]) + ')'
                          for (file, schema, bounds), at in zod_bounds(graph, field).items())
-        sets = {}
-        for item in graph.value_sets():
-            if item['name'] == name and not _declared_by_tests(item):
-                sets.setdefault(' | '.join(map(str, item['values'])), []).append(item['where'])
-        lines.extend(f'values {name}: {values} ({where(places)})' for values, places in sets.items())
-        lines.extend(unused_enum_lines(graph, model, field))
+        lines.extend(f'values {name}: {" | ".join(map(str, values))} ({where})'
+                     for values, where, *_ in value_sets_named(graph, name))
         return lines
-    constants, sets, declared_at = {}, {}, set()
-    for item in graph.declarations(exported=False):
-        if item['name'] == name and not is_test_file(item['file']):
-            sets.setdefault(' | '.join(map(str, item['values'])), []).append(f'{item["file"]}:{item["line"]}')
-            declared_at.add((item['file'], item['line']))
+    constants, tables = {}, {}
+    declared_at = {(item['file'], item['line']) for item in graph.declarations(exported=False) if item['name'] == name}
     for row in graph.assignments():
         if row.get('target') == name and not row.get('field') and row.get('literal') and ':' not in row['node'] \
                 and not is_test_file(row['file']) and (row['file'], row['line']) not in declared_at:
             constants.setdefault(json.dumps(row['value'], ensure_ascii=False), []).append(f'{row["file"]}:{row["line"]}')
-    lines.extend(f'const {name} = {value} ({where(places)})' for value, places in constants.items())
-    lines.extend(f'values {name}: {values} ({where(places)})' for values, places in sets.items())
+    for row in graph.label_rows():          # a `{K: 'V'} as const` code object is a value set: its values line only
+        if row['name'] == name and (row['file'], row['line']) not in declared_at and not is_test_file(row['file']):
+            labels = ', '.join(f'{key} {label!r}' for key, label in row['values'].items())
+            tables.setdefault(labels, []).append(f'{row["file"]}:{row["line"]}')
+    lines.extend(f'const {name} = {value} ({_where(places)})' for value, places in constants.items())
+    lines.extend(f'values {name}: {" | ".join(map(str, values))} ({where})'
+                 for values, where, *_ in value_sets_named(graph, name))
+    lines.extend(f'table {name}: {labels} ({_where(places)})' for labels, places in tables.items())
     return lines
-
-
-def unused_enum_lines(graph, model, field):
-    """`values Model.field` lines of the Prisma enums that type the field in a schema the value gate does not read
-    (`MapHandle.value_sets` holds the enums of the schemas in use): each schema not in use (`prisma_schemas_in_use`:
-    a provider template such as `schema.sqlite.prisma`), and a guessed schema whose model a schema in use defines;
-    the enum's members and where it is declared, one line per enum and set (`archived` files left out, as there)."""
-    from flowguard.structure.readers.prisma import schema_folders
-    in_use, guessed = graph.prisma_schemas_in_use(), graph.prisma_schemas_guessed()
-    schemas = schema_folders(graph._live_prisma())
-    defined = {item['name'] for schema in schemas if schema['files'][0] in in_use and schema['files'][0] not in guessed
-               for item in schema['models']}
-    found = {}
-    for schema in schemas:
-        first = schema['files'][0]
-        if first in in_use and (first not in guessed or model not in defined):
-            continue                    # value_sets holds this schema's enums
-        why = 'a schema not in use' if first not in in_use else 'a guessed schema; a schema in use defines the model'
-        enums = {enum['name']: enum for enum in schema['enums']}
-        for item in schema['models']:
-            if item['name'] != model:
-                continue
-            for column in item['fields']:
-                enum = enums.get(column['type'])
-                if column['name'] == field and enum and enum['fields']:
-                    values = ' | '.join(member['name'] for member in enum['fields'])
-                    found.setdefault((values, enum['name'], why), []).append(f'{enum["file"]}:{enum["line"]}')
-    return [f'values {model}.{field}: {values} (enum {enum} {", ".join(places)}, {why if len(places) == 1 else why.replace("a schema", "schemas")})'
-            for (values, enum, why), places in found.items()]
 
 
 ZOD_BOUNDS = {'min': ('low', True), 'gte': ('low', True), 'gt': ('low', False), 'max': ('high', True),
