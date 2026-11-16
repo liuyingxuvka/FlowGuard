@@ -39,10 +39,25 @@ function run(job) {
       try {
         const result = ${job.fn}(...JSON.parse(${JSON.stringify(JSON.stringify(job.args))}));
         if (result === 0 && 1 / result === -Infinity) return {reason: 'negative zero is not compared'};
-        if (!(result === null || typeof result === 'boolean' || typeof result === 'string'
-              || (typeof result === 'number' && result === result && result !== Infinity && result !== -Infinity))) {
-          return {reason: 'only primitive JSON results are compared'};
-        }
+        // JSON data, as the recorder reads it: primitives, arrays and plain objects of them, read through descriptors.
+        const data = (value, budget, depth) => {
+          if (value === null || typeof value === 'boolean' || typeof value === 'string') return true;
+          if (typeof value === 'number') return value === value && value !== Infinity && value !== -Infinity
+            && !(value === 0 && 1 / value === -Infinity);
+          if (typeof value !== 'object' || depth > 6 || --budget.left < 0) return false;
+          const array = Array.isArray(value), prototype = Object.getPrototypeOf(value);
+          if (array ? prototype !== Array.prototype : prototype !== Object.prototype && prototype !== null) return false;
+          const own = Object.getOwnPropertyDescriptors(value);
+          if (Object.getOwnPropertySymbols(own).length) return false;
+          for (const key of Object.getOwnPropertyNames(own)) {
+            if (array && key === 'length') continue;
+            const field = own[key];
+            if (key.startsWith('$') || !('value' in field) || !field.enumerable || !data(field.value, budget, depth + 1)) return false;
+          }
+          if (array) for (let index = 0; index < value.length; index++) if (!own[index]) return false;
+          return true;
+        };
+        if (!data(result, {left: 200}, 0)) return {reason: 'only JSON data results are compared'};
         return {value: result};
       } catch (error) {
         return {error: {name: '' + (error?.name ?? 'Error'), message: '' + (error?.message ?? error)}};

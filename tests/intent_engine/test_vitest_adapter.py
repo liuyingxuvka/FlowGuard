@@ -2086,7 +2086,7 @@ def test_nonprimitive_arguments_are_untouched_and_the_real_value_is_returned(vit
     _commit(root, message='nonprimitive recording fixture')
     code, text = _vitest(root, vitest_home)
     assert code == 0 and _cli_fixture.unchecked(root)['IDENTITY (src/sample.ts:2)'] == [
-        'only primitive JSON arguments and results are recorded'], text
+        'only JSON data arguments and results are recorded'], text
 
 
 def test_a_recorded_function_keeps_its_properties_prototype_constructor_and_source_text(vitest_home):
@@ -2175,6 +2175,17 @@ def _said(lines, name):
 def _reasons(lines):
     """{what: reasons} of the not compared lines."""
     return {line.text: line.detail for line in lines if line.kind == 'not compared'}
+
+
+def test_a_function_that_takes_and_returns_json_data_is_compared_sealed(tmp_path):
+    # 4.3 compared only primitive results; a function that builds an object from a row is compared now.
+    _commit(tmp_path, {'src/edit.ts': 'export function edit(row: { id: string; n: number }) { return { id: row.id, value: row.n * 2 }; }\n'})
+    path = tmp_path / 'src/edit.ts'
+    path.write_text(path.read_text().replace('row.n * 2', 'row.n * 3'))
+    records = [dict(id='typescript/src/edit.ts:edit', args=[{'id': 'a', 'n': 2}], result={'id': 'a', 'value': 6})]
+    _, lines = _judged(tmp_path, records)
+    changed = [(line.kind, line.text) for line in lines if line.kind == 'changed']
+    assert len(changed) == 1 and 'was {"id": "a", "value": 4}, now {"id": "a", "value": 6}' in changed[0][1], lines
 
 
 def test_an_unchanged_copy_compared_on_some_inputs_is_not_called_not_compared(tmp_path):
@@ -2508,13 +2519,53 @@ def test_negative_zero_is_not_encoded_as_positive_zero(vitest_home):
     _commit(root, message='negative zero fixture')
     code, text = _vitest(root, vitest_home)
     unchecked = _cli_fixture.unchecked(root)
-    assert code == 0 and unchecked['IDENTITY_NUMBER (src/sample.ts:2)'] == ['only primitive JSON arguments and results are recorded'] \
-        and unchecked['NEGATIVE_NUMBER (src/sample.ts:4)'] == ['only primitive JSON arguments and results are recorded'], text
+    assert code == 0 and unchecked['IDENTITY_NUMBER (src/sample.ts:2)'] == ['only JSON data arguments and results are recorded'] \
+        and unchecked['NEGATIVE_NUMBER (src/sample.ts:4)'] == ['only JSON data arguments and results are recorded'], text
     from flowguard.intent.vitest import ADAPTER
     run = subprocess.run([_tool('node'), str(ADAPTER / 'sealed.mjs')],
                          input=json.dumps([dict(source='function f(x) { return -0; }', fn='f', args=[1])]),
                          capture_output=True, text=True, check=True, timeout=30)
     assert json.loads(run.stdout) == [{'reason': 'negative zero is not compared'}], run.stdout
+
+
+def test_json_data_arguments_and_results_are_recorded_and_reading_them_runs_no_project_code(vitest_home):
+    # Planning Tool's functions take rows and return objects: 4.3 recorded only primitives. Plain objects and arrays
+    # are recorded now; a getter, a proxy, a class instance or a $ key is not data, and telling so reads nothing.
+    root = vitest_home / 'json-data'
+    _commit(root, {
+        'package.json': '{"name":"json-data","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/sample.ts': '''
+            // flowguard: same TOTAL
+            export function total(order: { items: { n: number }[] }) { return { sum: order.items.reduce((a, b) => a + b.n, 0) }; }
+            // flowguard: same LABEL
+            export function label(x: any) { return 'x'; }
+        ''',
+        'tests/app.test.ts': '''
+            import {it,expect} from 'vitest'; import fs from 'node:fs'; import path from 'node:path';
+            import {total,label} from '../src/sample';
+            it('records data and leaves the rest alone', () => {
+              expect(total({items: [{n: 1}, {n: 2}]})).toEqual({sum: 3});
+              let reads = 0;
+              label({ get n() { reads += 1; return 1; } });
+              label(new Proxy({}, { ownKeys() { reads += 100; return []; }, getPrototypeOf() { reads += 100; return Object.prototype; },
+                                    getOwnPropertyDescriptor() { reads += 100; return undefined; } }));
+              label({ $num: 1 });
+              class Box { v = 1; }
+              label(new Box());
+              expect(reads).toBe(0);
+              const dir=process.env.FLOWGUARD_VITEST_OBS;
+              const records=fs.readdirSync(dir).filter(n=>n.endsWith('.jsonl')).flatMap(n=>
+                fs.readFileSync(path.join(dir,n),'utf8').trim().split('\\n').filter(Boolean).map(JSON.parse));
+              expect(records.filter(r=>'args' in r).map(r=>[r.id.split(':').pop(), r.args, r.result]))
+                .toEqual([['total', [{items: [{n: 1}, {n: 2}]}], {sum: 3}]]);
+              expect(records.filter(r=>r.reason).map(r=>r.reason)).toEqual(['only JSON data arguments and results are recorded']);
+            });
+        ''',
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='json data fixture')
+    code, text = _vitest(root, vitest_home)
+    assert code == 0 and re.search(r'Tests +\d+ passed', text), text
 
 
 def test_unsealable_imports_still_leave_real_primitive_calls_for_intent_rules(vitest_home):

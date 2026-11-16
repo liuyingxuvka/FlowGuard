@@ -20,6 +20,31 @@ const S = globalThis[KEY] ?? (globalThis[KEY] = { seen: new Map(), out: null, se
 S.originals ??= new WeakMap();      // each recorder's function, whose source its toString gives
 const primitive = (value) => value === null || typeof value === 'boolean' || typeof value === 'string'
   || (typeof value === 'number' && finite(value) && !(value === 0 && 1 / value === -Infinity));
+const isProxy = builtin?.('util').types.isProxy;
+const prototypeOf = Object.getPrototypeOf, descriptorsOf = Object.getOwnPropertyDescriptors;
+const descriptorOf = Object.getOwnPropertyDescriptor, ownKeys = Reflect.ownKeys, isArray = Array.isArray;
+const ObjectPrototype = Object.prototype, ArrayPrototype = Array.prototype;
+// JSON data FlowGuard may record: primitives, and arrays and plain objects of them (at most 200 values, 6 levels).
+// It is read through property descriptors only, so no project code runs: a proxy, a getter, a class instance, a
+// toJSON (also one a project set on Object or Array's prototype), a symbol key, a hole, undefined or -0 is no data.
+// A key that starts with $ is none either: FlowGuard's own encodings (`vitest.value`) use that prefix.
+function data(value, budget = { left: 200 }, depth = 0) {
+  if (primitive(value)) return true;
+  if (value === null || typeof value !== 'object' || depth > 6 || --budget.left < 0 || isProxy(value)) return false;
+  const array = isArray(value), prototype = prototypeOf(value);
+  if (array ? prototype !== ArrayPrototype : prototype !== ObjectPrototype && prototype !== null) return false;
+  if (descriptorOf(ObjectPrototype, 'toJSON') || (array && descriptorOf(ArrayPrototype, 'toJSON'))) return false;
+  const own = descriptorsOf(value);
+  for (const key of ownKeys(own)) {
+    if (typeof key === 'symbol') return false;
+    if (array && key === 'length') continue;
+    const field = own[key];
+    if (key.startsWith('$') || !('value' in field) || !field.enumerable) return false;
+    if (!data(field.value, budget, depth + 1)) return false;
+  }
+  if (array) for (let index = 0; index < value.length; index++) if (!own[index]) return false;
+  return true;
+}
 
 function write(record) {
   if (!dir) throw new Error('flowguard: FLOWGUARD_VITEST_OBS is not set; globalSetup did not run');
@@ -48,17 +73,17 @@ export function wrap(point, fn, release) {
     if (stopped || seen.size >= 20) return apply(fn, self, args);
     const start = now();
     let supported = true;
-    for (const arg of args) if (!primitive(arg)) { supported = false; break; }
+    for (const arg of args) if (!data(arg)) { supported = false; break; }
     const key = supported ? stringify(args) : null;
     const inputSeconds = (now() - start) / 1000;
     let result, threw = false, error;
     try { result = apply(fn, self, args); }
     catch (caught) { threw = true; error = caught; }
     const finish = now();
-    if (!supported || threw || !primitive(result)) {
+    if (!supported || threw || !data(result)) {
       if (!unsupported) {
         write({ id: point.id, reason: threw ? 'the real call raised; no exception object is inspected'
-          : 'only primitive JSON arguments and results are recorded' });
+          : 'only JSON data arguments and results are recorded' });
         unsupported = true;
       }
     } else if (!seen.has(key)) {
