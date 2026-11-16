@@ -1492,11 +1492,13 @@ def test_show_a_model_field_lists_sql_file_writes_and_counts_the_lines_it_leaves
     lines = text.splitlines()
     assert 'writes Employee.organizationalUnitId prisma/setup.sql:1 <module> (sql:insert)' in lines, text
     assert 'writes Employee.organizationalUnitId src/employee.ts:2 moveEmployee (update)' in lines, text
-    # "employeeDeferred" is no red line; the overflow names the command that prints the rest
-    assert len(lines) == 6 and lines[-1] == ('... 4 more lines: python -m flowguard show Employee.organizationalUnitId '
-                                             '--full lists them all'), text
+    # "employeeDeferred" is no red line; the overflow names the command that prints the rest. The field's
+    # declaration comes first, and the five names that only share a word with it are what is left out.
+    assert len(lines) == 6 and lines[2] == 'declared Employee.organizationalUnitId: String @map("organizational_unit_id") (prisma/schema.prisma:3)'
+    assert lines[-1] == ('... 5 more lines: python -m flowguard show Employee.organizationalUnitId '
+                         '--full lists them all'), text
     code, full = _flowguard(tmp_path, 'show', 'Employee.organizationalUnitId', '--full')
-    assert code == 0 and len(full.splitlines()) == 9 and 'employeeDeferred' in full and 'more lines' not in full, full
+    assert code == 0 and len(full.splitlines()) == 10 and 'employeeDeferred' in full and 'more lines' not in full, full
 
 
 def test_a_pair_operation_stays_in_production_code_and_in_its_own_package(tmp_path):

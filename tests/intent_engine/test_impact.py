@@ -134,6 +134,37 @@ def test_show_of_a_field_lists_its_models_readers_the_callers_of_its_writers_and
     assert 'reads Entry tests/entry.test.ts:1 fixture (findMany)' in lines, text       # every read of the model
 
 
+def test_show_of_a_name_starts_with_what_the_map_read_about_it(tmp_path):
+    # Planning Tool's docs said fte_share is 0..1 while the schemas declare it differently in places: show NAME first
+    # says how each schema and SQL file declares a field, the value set read for it, a constant's value and an
+    # enum's members, before who writes or reads it; a declaration that differs between files is a line of its own.
+    _commit(tmp_path, {
+        'prisma/schema.prisma': 'model Job {\n  id    String  @id\n  share Decimal @map("job_share")\n  state String\n  @@map("jobs")\n}\n',
+        'prisma/schema.sqlite.prisma': 'model Job {\n  id    String  @id\n  share Decimal @map("job_share")\n  state Int\n  @@map("jobs")\n}\n',
+        'db/setup.sql': "CREATE TABLE jobs (\n  id NVARCHAR(36) PRIMARY KEY,\n  job_share DECIMAL(6,4) NOT NULL,\n"
+                        "  state NVARCHAR(20) CHECK (state IN ('NEW', 'DONE'))\n);\n",
+        'app/limits.ts': "const MAX_SHARE = 2;\nexport const JobKind = { A: 'A', B: 'B' } as const;\n"
+                         "export function shareLimit(kind: string) { return kind === JobKind.A ? MAX_SHARE : 1; }\n",
+    })
+    code, text = _flowguard(tmp_path, 'show', 'Job.share')
+    lines = text.splitlines()
+    assert code == 0 and lines[2:4] == ['declared Job.share: Decimal @map("job_share") (prisma/schema.prisma:3, prisma/schema.sqlite.prisma:3)',
+                                        'column jobs.job_share DECIMAL(6,4) (db/setup.sql:3)'], text
+    code, text = _flowguard(tmp_path, 'show', 'Job.state')
+    lines = text.splitlines()
+    assert code == 0 and lines[2:6] == ['declared Job.state: String (prisma/schema.prisma:4)', 'declared Job.state: Int (prisma/schema.sqlite.prisma:4)',
+                                        'column jobs.state NVARCHAR(20) (db/setup.sql:4)', 'values Job.state: NEW | DONE (CHECK db/setup.sql:4)'], text
+    code, text = _flowguard(tmp_path, 'show', 'MAX_SHARE')
+    lines = text.splitlines()
+    # The map knows the name itself, so functions that merely share a word with it wait for --full, which it says.
+    assert code == 0 and lines[2:] == ['const MAX_SHARE = 2 (app/limits.ts:1)',
+                                       '... 1 more lines: python -m flowguard show MAX_SHARE --full lists them all'], text
+    code, text = _flowguard(tmp_path, 'show', 'MAX_SHARE', '--full')
+    assert code == 0 and 'shareLimit' in text and 'more lines' not in text, text
+    code, text = _flowguard(tmp_path, 'show', 'JobKind')
+    assert code == 0 and text.splitlines()[2:] == ['values JobKind: A | B (app/limits.ts:2)'], text
+
+
 def test_a_function_that_stops_writing_one_of_two_fields_gets_its_line_and_the_static_check_still_runs(tmp_path):
     # It still writes Entry.value, so the field it no longer writes is found among the baseline's rows only.
     _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'app/set.ts': _update('setBoth', "value: 1, note: 'n'")})

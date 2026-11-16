@@ -1,6 +1,6 @@
 # FlowGuard reference
 
-Start with `new-task`, run ordinary tests and inspect a finding with `show "what it decides"`. Register necessary agreements as the code grows. Do not model the development task.
+Start with `new-task`, run ordinary tests and inspect a finding with `show "what it decides"`. `show Model.field`, `show CONSTANT` or `show EnumName` first says how the schemas, SQL files and source declare it; trust that over a document's table. Register necessary agreements as the code grows. Do not model the development task.
 
 ## Executable two-copy example
 

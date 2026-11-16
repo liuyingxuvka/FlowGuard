@@ -576,7 +576,8 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False, last=False):
                 print('\n'.join(_candidate_lines(found, full, 'candidate ')))
             return 0
         words = tokens(query)
-        ranked = []
+        from .owners import declaration_lines       # what the map already read about the name comes first
+        ranked = [(3000 - order, line) for order, line in enumerate(declaration_lines(graph, query))]
         if re.fullmatch(r'[A-Za-z_]\w*\.[A-Za-z_]\w*', query):      # Model.field or table.column: who writes it
             written = graph.writes(query)
             for row in written:
@@ -614,8 +615,15 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False, last=False):
             item = graph.node(ident)
             ranked.extend((1000, f'{alias} -> {ident} {item["file"]}:{item["line"]}') for alias in aliases)
         ranked.sort(key=lambda row: (-row[0], row[1]))
+        left = []
+        if not full and any(score >= 3000 for score, _ in ranked):
+            # the map knows the name itself: names that merely share a word with it wait for --full, which it says
+            left = [row for row in ranked if row[0] < 1000]
+            ranked = [row for row in ranked if row[0] >= 1000]
         from .differences import display          # a structure line carries Chinese text: escape what the console cannot show
         lines = [f'show {query}'] + ([notice] if notice else []) + [line for _, line in ranked]
+        if left:
+            lines.append(f'... {len(left)} more lines: python -m flowguard show {_spelled(query)} --full lists them all')
         display('\n'.join(lines if full else _limit(lines, cfg.screen_lines,
                                                      f'python -m flowguard show {_spelled(query)} --full lists them all')))
     return 0

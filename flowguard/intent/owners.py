@@ -2505,6 +2505,59 @@ def _pair_fix(graph, owner):
             'which the next run shows as loosened')
 
 
+def declaration_lines(graph, name):
+    """`show NAME` (4.4): what the map already read about a name, ahead of who writes and reads it. For `Model.field`
+    or `table.column`, each distinct declaration in the Prisma schemas and in the SQL files with the files that
+    declare it so (declarations that differ between files are lines of their own), and the value sets read for it
+    (an enum, a CHECK, a TS type, a zod enum); for a bare name, the value of a module-level literal constant and the
+    members of a value set declared under that name."""
+    import json
+
+    def where(places):
+        return ', '.join(places[:3]) + (f' and {len(places) - 3} more' if len(places) > 3 else '')
+    lines = []
+    model, dot, field = name.partition('.')
+    if dot and field and '.' not in field:
+        declared, columns, tables = {}, {}, {model.casefold()}
+        for schema in graph.schemas():
+            for item in schema.get('models', ()) if schema['kind'] == 'prisma' else ():
+                for column in item.get('fields', ()):
+                    if item['name'] == model and column['name'] == field:
+                        tables.add((item.get('table') or model).casefold())
+                        text = column['type'] + ('[]' if column.get('list') else '') + ('?' if column.get('optional') else '')
+                        text += f' {column["attributes"]}' if column.get('attributes') else ''
+                        declared.setdefault(text, []).append(f'{schema["file"]}:{column["line"]}')
+                        columns.setdefault('', set()).add((column.get('column') or field).casefold())
+        wanted = columns.get('', set()) | {field.casefold()}
+        sql = {}
+        for schema in graph.schemas():
+            for table in schema.get('tables', ()) if schema['kind'] == 'sql' else ():
+                if table['name'].casefold() in tables:
+                    for column in table.get('columns', ()):
+                        if column['name'].casefold() in wanted:
+                            sql.setdefault(f'{table["name"]}.{column["name"]} {column.get("type") or "(no type)"}', []).append(
+                                f'{schema["file"]}:{column["line"]}')
+        lines.extend(f'declared {name}: {text} ({where(places)})' for text, places in declared.items())
+        lines.extend(f'column {text} ({where(places)})' for text, places in sql.items())
+        sets = {}
+        for item in graph.value_sets():
+            if item['name'] == name:
+                sets.setdefault(' | '.join(map(str, item['values'])), []).append(item['where'])
+        lines.extend(f'values {name}: {values} ({where(places)})' for values, places in sets.items())
+        return lines
+    constants = {}
+    for row in graph.assignments():
+        if row.get('target') == name and not row.get('field') and row.get('literal') and ':' not in row['node']:
+            constants.setdefault(json.dumps(row['value'], ensure_ascii=False), []).append(f'{row["file"]}:{row["line"]}')
+    lines.extend(f'const {name} = {value} ({where(places)})' for value, places in constants.items())
+    sets = {}
+    for item in graph.declarations(exported=False):
+        if item['name'] == name:
+            sets.setdefault(' | '.join(map(str, item['values'])), []).append(f'{item["file"]}:{item["line"]}')
+    lines.extend(f'values {name}: {values} ({where(places)})' for values, places in sets.items())
+    return lines
+
+
 def field_lines(graph, name, written):
     """`show Model.field` (4.6): the functions that read its model (`MapHandle.queries`; model-level, as the facts
     keep only a read's filter keys) or, in SQL, its table (`MapHandle.sql_reads`), the callers one level up of each
