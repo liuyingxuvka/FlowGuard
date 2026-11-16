@@ -103,9 +103,6 @@ export function Badge({ load }: { load: () => void }) {
         assert writes == [('Item', 'name', 'update'), ('Item', 'id', 'sql:insert'), ('Item', 'name', 'sql:insert')]
         values = sorted((row['value'], row['context']) for row in graph.literals(language='javascript'))
         assert values == [('Ok', 'return'), ('id', 'compare'), ('ok', 'return')]
-        groups = graph.literal_groups()
-        assert [group['key'] for group in groups] == ['ok']          # 'id' / 'ID' as keys never group
-        assert set(groups[0]['spellings']) == {'ok', 'Ok'}
         assert [(row['value'], row['context']) for row in graph.literals(language='tsx')] == [('ok', 'union'), ('warn', 'union')]
         tsx = graph.handlers(language='tsx')
         assert [(row['type'], row['non_raising'], row['key']) for row in tsx] == [('any', True, 'view.tsx:Badge:any')]
@@ -249,27 +246,6 @@ def test_a_copied_table_hides_no_gap_and_a_schema_of_another_database_is_no_refe
             ('prisma/migrations/', 'prisma/schema.prisma', 'sql-table', 'logs', ('<table>',), ()),
             ('prisma/rebuild.sql', 'prisma/schema.prisma', 'sql', 'items', ('name',), ()),
         ], found
-
-
-def test_label_groups_keep_codes_routes_and_test_spellings_apart(tmp_path):
-    # Planning Tool 0.6.28 listed 207 old label leads and none was a label spelled two ways: an enum code next to
-    # a key ('ACTIVE' / 'Active'), a route next to a key ('/admin' / 'admin'), or spellings only tests use.
-    with closing(project(tmp_path, {
-        'src/units.ts': '''export function label(type: string) {
-  if (type === 'MAIN_DEPARTMENT') { return 'Main Department'; }
-  if (type === 'main-department') { return 'Main department'; }
-  if (type === '/admin') { return 'admin'; }
-  return type === 'ACTIVE' ? 'Active' : 'active';
-}
-''',
-        'tests/units.test.ts': '''export function expectLabel(found: string) {
-  return found === 'My organization' || found === 'Admin';
-}
-''',
-        'src/nav.ts': "export const title = (mine: boolean) => mine ? 'My Organization' : 'Other';\n",
-    })) as graph:
-        groups = sorted((group['key'], sorted(group['spellings'])) for group in graph.literal_groups())
-        assert groups == [('active', ['Active', 'active']), ('maindepartment', ['Main Department', 'Main department'])], groups
 
 
 def test_delete_rules_follow_the_key_fields_and_match_relations_by_their_foreign_key(tmp_path):

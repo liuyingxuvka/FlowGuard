@@ -78,7 +78,7 @@ def check(cfg, *, everything=False, deep=False, base=None, before_main='', timeo
 
 def last(root, *, timeout=60):
     """What `python -m flowguard show --last` prints of the last run in `root`: its first line, every line with its
-    detail indented, the ignored count, the deprecated features and leads; as one text (escapes decoded)."""
+    detail indented, the ignored count and the unchanged points compared; as one text (escapes decoded)."""
     result = subprocess.run([sys.executable, '-c', _BOOT, SOURCE, 'FLOWGUARD_TEST_UNUSED:', '', '--root', str(root),
                              'show', '--last'], cwd=root, capture_output=True, text=True, timeout=timeout)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -91,14 +91,12 @@ KINDS = ('red', 'before', 'known', 'known fixed?', 'changed', 'impact', 'loosene
 
 def block(output):
     """The FlowGuard block a pytest run printed last on stdout (`output` the run, its stdout, or its stdout followed by
-    its stderr, whose deprecation notices then end the block): its first line and every line after it, each of one
-    of the block's shapes, in the order of the kinds, at most ten lines besides red, loosened and known fixed?."""
+    its stderr): its first line and every line after it, each of one of the block's shapes, in the order of the kinds,
+    at most ten lines besides red, loosened and known fixed?."""
     text = output.stdout if hasattr(output, 'stdout') else output
     lines = display_text(text).splitlines()
     start = next(index for index, line in enumerate(lines) if re.match(r'FlowGuard \d+\.\d+ \(', line))
     lines = lines[start:]
-    if not hasattr(output, 'stdout'):
-        lines = lines[:next((index for index, line in enumerate(lines) if line.startswith('deprecated: ')), len(lines))]
     assert all(SHAPE.match(line) for line in lines), lines
     order = [next(KINDS.index(kind) for kind in sorted(KINDS, key=len, reverse=True) if line.startswith(kind)) for line in lines[1:]]
     assert order == sorted(order), lines

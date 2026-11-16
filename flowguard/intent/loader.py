@@ -11,7 +11,7 @@ import traceback
 
 from . import api
 from .api import REMOVED, IntentError, Rule, States, removed
-from .flow import Flow, Read, Relation, _UNSET
+from .flow import Read, Relation, _UNSET
 from .config import intent_files, load_config, setup_path
 from .imports import prepare, source_spec
 from .sources import parse as parse_source

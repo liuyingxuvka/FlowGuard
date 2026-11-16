@@ -484,7 +484,7 @@ LAST = 'last_lines'
 def save_last(con, payload):
     """The last run's lines for `show --last` (a disposable key: the next run replaces it): a JSON object with the
     run's stamp, kind ('pytest', 'check', 'check --static', 'vitest'), baseline, title, seconds, every line as a
-    dict of `signals.Line`, the number of ignored members and the deprecated features it used."""
+    dict of `signals.Line`, the number of ignored members and the unchanged points it compared."""
     put_meta(con, LAST, json.dumps(payload, ensure_ascii=False, sort_keys=True))
 
 

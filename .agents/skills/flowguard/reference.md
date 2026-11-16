@@ -133,8 +133,7 @@ Read the FlowGuard block after the tests. Its first line counts each kind and Fl
 | `impact` | A changed function writes another set of fields, or an automatic structure check found something new. |
 | `loosened` | An `except=`, a removed or narrowed agreement, a changed or removed `known.toml` entry or a removed rule. |
 | `not compared` | A comparison was due but could not run in the closed environment; unverified, not success. |
-| `deprecated` | On stderr, after the block: a feature or spelling of the project that goes in 5.0, with its replacement. |
 
 The step after `->` says what is known and who decides; you choose when to raise an open question with the owner. `python -m flowguard show --last` prints every line of the last run with its details. Use `python -m flowguard show "what it decides"` for registered functions, fields, copies and rules; use `python -m flowguard check --static --all` for a deliberate structure review.
 
-The CLI prepares the project's import context. Direct Model/Engine instances remain fixed snapshots. Retained deprecated APIs still accept their existing inputs; this guide does not recommend adding new uses of them.
+The CLI prepares the project's import context. Direct Model/Engine instances remain fixed snapshots.

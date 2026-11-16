@@ -110,7 +110,7 @@ describe nothing).
   (member), `case` patterns (case), returned values through `?:`/and/or and lambda bodies (return), set
   literals and `set()`/`frozenset()` arguments (set) and `Literal[...]` members (union). Dict keys,
   `'key' in mapping`, logging/print calls, exception constructors and `raise` are never recorded; test
-  files contribute none. `literal_groups()` groups Python and TS/JS rows together.
+  files contribute none.
 - Agreement comments: `# flowguard: same NAME ref` on a function is a sensor with `owner=True`; `writers T.c f,path:g`
   and `together T.c M.f[=v] on=... except=path:f(why)` (also `// flowguard: ...` in TS/JS) are anchors of kind `owner`
   with `writers`, or `pairs`, `on` and `alone`. A 4.2 spelling (`sensor`, `owner`) is an `anchor_issues` row of code

@@ -301,14 +301,11 @@ def test_the_report_merges_the_map_checks_the_static_test_saved_and_fails_only_o
                             'also write Order.tax in save', ('shop/orders.ts:save',)),
                        Line('not compared', 'not compared:shop/legacy.ts', '', 'shop/legacy.ts', 'not a failure', ('shop/legacy.ts',),
                             ('cannot be parsed: line 3',))],
-                      2, run='check --static', stamp=0, baseline=head, kind='HEAD', title='FlowGuard', seconds=2.5,
-                      deprecated=['old spelling'])
-    notice = 'deprecated: old spelling goes in 5.0 -> do not use it'
-    static = dict(static, notices=[notice])           # the static test's notices, held for the end of the block
+                      2, run='check --static', stamp=0, baseline=head, kind='HEAD', title='FlowGuard', seconds=2.5)
     code, saved = _report(tmp_path, plan, package='web', records=records, static=static, in_test=True)
     block = _cli_fixture.block(saved['text'])
     assert code == 1 and (saved['status'], saved['red']) == (1, 1), saved       # the static test failed on its reds itself
-    assert saved['deprecated'] == [notice], saved          # the teardown prints them on stderr after the block
+    assert sorted(saved) == ['red', 'status', 'text'], saved          # what the teardown reads
     title = re.fullmatch(rf'FlowGuard {re.escape(signals.version())} \(since HEAD {head[:7]}\): 3 red, 1 not compared; ([0-9.]+) s', block[0])
     assert title and float(title[1]) >= 2.5, block                               # the static test's time counts
     assert block[1] == red and block[2].startswith(entry) and block[3:] == [
@@ -317,7 +314,6 @@ def test_the_report_merges_the_map_checks_the_static_test_saved_and_fails_only_o
     shown = _cli_fixture.last(tmp_path)
     assert shown.splitlines()[0].startswith('FlowGuard last run: vitest at ') and shown.splitlines()[1] == block[0], shown
     assert 'ignored: 2 (act = "ignore")' in shown, shown
-    assert 'deprecated features used (5.0): old spelling' in shown, shown
 
 
 def test_a_known_entry_this_run_speaks_for_keeps_its_own_line_beside_the_map_checks():
@@ -1454,9 +1450,9 @@ def test_a_run_that_filters_out_the_session_test_fails_with_its_red_in_the_block
 def test_a_vitest_run_says_each_removed_spelling_red_at_its_line_with_its_rewrite(vitest_home):
     # Review of 4.3: the session test discarded its report's stderr, so a deprecated spelling was said nowhere but in show
     # --last; 4.3 then said each notice once, after the block, also in a filtered run. 5.0 removed the 4.2 spellings
-    # (`// flowguard: sensor`, `owner NAME`): each is a red line of the block at its comment, its step the 4.3 comment,
-    # from the map checks of the static test, and no notice is said; a filtered run without the static test says that
-    # the map checks did not report, as for any red of a comment.
+    # (`// flowguard: sensor`, `owner NAME`) and the notices: each spelling is a red line of the block at its comment,
+    # its step the 4.3 comment, from the map checks of the static test; a filtered run without the static test says
+    # that the map checks did not report, as for any red of a comment.
     root = vitest_home / 'removed'
     _commit(root, {
         'package.json': '{"name":"removed","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
@@ -1476,7 +1472,6 @@ def test_a_vitest_run_says_each_removed_spelling_red_at_its_line_with_its_rewrit
         assert done.returncode == code and [line for line in _block(out) if line.startswith('red: ')] == wanted, (arguments, out, err)
         assert 'deprecated: ' not in out + err, (arguments, out, err)
     assert _block(out)[-1] == 'not compared: flowguard.static.test.mjs (map checks did not report to this vitest run) -> not a failure', out
-    assert 'deprecated features used' not in _cli_fixture.last(root), _cli_fixture.last(root)
 
 
 def test_a_known_site_is_touched_by_an_edit_of_its_text_and_not_by_an_edit_beside_it_as_in_pytest(vitest_home):
@@ -1623,7 +1618,6 @@ def test_the_observations_folder_reaches_every_worker_and_its_map_checks_join_th
                            'together Order.total: shop/orders.ts:save writes Order.total without Order.tax',
                            'also write Order.tax in save', ('shop/orders.ts:save',))],
                      0, run='check --static', stamp=0, baseline='0' * 40, kind='task', title='FlowGuard', seconds=0.5)
-    saved = dict(saved, notices=[])
     _commit(root, {
         'package.json': '{"name":"observed","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
         'src/a.ts': '// flowguard: same LIMIT\nexport function over(x: number) { return x > 3; }\n',

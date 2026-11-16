@@ -32,12 +32,12 @@ def _ordered(values):
                   if type(value) in (dict, list) else C._k(value))
 
 
-# ---- the nine kinds of line (4.3) ------------------------------------------------------------------
+# ---- the eight kinds of line (5.0) -----------------------------------------------------------------
 # Every finding reaches the agent as `Line`s of these kinds, in this order. `deliver` gives each member of a
 # finding its kind from the finding's family, whether this change added it (`Issue.fresh`), what this change
 # touches and the entries of `.flowguard/known.toml`; it reads no map, no Git and no file.
 
-KINDS = ('red', 'before', 'known', 'known fixed?', 'changed', 'impact', 'loosened', 'not compared', 'deprecated')
+KINDS = ('red', 'before', 'known', 'known fixed?', 'changed', 'impact', 'loosened', 'not compared')
 
 
 @dataclass(frozen=True)
@@ -238,7 +238,7 @@ def title(lines, *, baseline, kind, ahead=None, option='--flowguard-base', secon
     """The first line of a run: `FlowGuard 4.3 (since 99f025e): 1 red, 2 known; 3.4 s`. Every kind is counted before
     the budget, red always, the others when there are any; `seconds` is FlowGuard's own work in the run."""
     counts = Counter(line.kind for line in lines)
-    told = [f'{counts["red"]} red', *(f'{counts[kind]} {kind}' for kind in KINDS[1:] if kind != 'deprecated' and counts[kind])]
+    told = [f'{counts["red"]} red', *(f'{counts[kind]} {kind}' for kind in KINDS[1:] if counts[kind])]
     return f'FlowGuard {version()} ({baseline_label(baseline, kind, ahead, option)}): {", ".join(told)}; {seconds:.1f} s'
 
 
@@ -249,8 +249,8 @@ def render_block(lines, *, title, everything=False, files=()):
     line keeps at most 200 characters besides its paths (the middle of its text gives way, never its subject, places
     or step) and names at most three places; a place's path is its file name (the shortest unique end of the path
     where another path has that name, of the block or of the repository's file list `files`, read once per run).
-    `everything` (`--all`): every line, uncut. `deprecated` lines are never part of it."""
-    lines = sorted((line for line in lines if line.kind != 'deprecated'), key=lambda line: KINDS.index(line.kind))
+    `everything` (`--all`): every line, uncut."""
+    lines = sorted(lines, key=lambda line: KINDS.index(line.kind))
     names = _short_paths((path for line in lines for path in map(_path_of, line.places) if path), files)
     out = [title]
     if everything:
@@ -512,14 +512,13 @@ def collect(deliveries, found=None, *, everything=False):
     return lines, ignored
 
 
-def last_run(lines, ignored, *, run, stamp, baseline, kind, title, seconds, deprecated=(), compared=()):
+def last_run(lines, ignored, *, run, stamp, baseline, kind, title, seconds, compared=()):
     """What `cache.save_last` keeps of a run for `show --last`, in one shape for every run ('pytest', 'check',
-    'check --static', 'vitest'): its first line and seconds, every line, the ignored count, the deprecated features
-    it used and the unchanged points it compared."""
+    'check --static', 'vitest'): its first line and seconds, every line, the ignored count and the unchanged points
+    it compared."""
     from dataclasses import asdict
     return dict(stamp=stamp, run=run, baseline=baseline, baseline_kind=kind, title=title, seconds=seconds,
-                lines=[asdict(line) for line in lines], ignored=ignored, deprecated=list(deprecated),
-                compared=list(compared))
+                lines=[asdict(line) for line in lines], ignored=ignored, compared=list(compared))
 
 
 def changed_line(name, target, file, line, changes, compared, *, cause=None, why=''):

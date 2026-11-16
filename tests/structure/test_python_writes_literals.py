@@ -79,7 +79,7 @@ def test_sql_names_reads_written_tables_and_columns_through_the_statement_reader
     assert writes == {'sql:cache', 'col:k'}
 
 
-def test_python_literals_follow_the_ts_contexts_and_share_one_grouping(tmp_path):
+def test_python_literals_follow_the_ts_contexts(tmp_path):
     (tmp_path / 'shop.py').write_text(textwrap.dedent(SHOP).lstrip())
     (tmp_path / 'other.py').write_text("def name(kind):\n    return 'My organization' if kind else 'mine'\n")
     with closing(build(tmp_path)) as graph:
@@ -90,6 +90,4 @@ def test_python_literals_follow_the_ts_contexts_and_share_one_grouping(tmp_path)
         values = {value for value, _ in found}
         # Dict keys, `'id' in row`, logging, print, exception messages and subscripts are not decisions.
         assert not values & {'id', 'ID', 'Key', 'ignored %s', 'Logged', 'bad id', 'printed'}, found
-        groups = {group['key']: sorted(group['spellings']) for group in graph.literal_groups()}
-        assert groups['myorganization'] == ['My Organization', 'My organization']
-        assert groups['mine'] == ['Mine', 'mine'] and 'id' not in groups
+        assert {('My organization', 'return'), ('mine', 'return')} <= found, found      # other.py

@@ -92,7 +92,6 @@ def _block(text, *, everything=False):
         return _cli_fixture.block(text)[1:]
     lines = _text(text).splitlines()
     lines = lines[next(index for index, line in enumerate(lines) if re.match(r'FlowGuard \d+\.\d+ \(', line)):]
-    lines = lines[:next((index for index, line in enumerate(lines) if line.startswith('deprecated: ')), len(lines))]
     assert all(_cli_fixture.SHAPE.match(line) for line in lines), lines
     return lines[1:]
 
@@ -2185,25 +2184,22 @@ def test_fixed_16_the_declarations_that_differ_are_the_line_of_check_static_and_
     # the test prints nothing and fails with the same one line.
     observations = tmp_path / 'obs'
     run = _run_generated(root, generated, env=dict(FLOWGUARD_VITEST_OBS=str(observations)))
-    # stdout holds the stub runner's one line; stderr holds nothing: the project uses nothing deprecated, and a notice
-    # check does say goes to static.json for the plugin's block (design 4.7)
+    # stdout holds the stub runner's one line; stderr holds nothing
     assert run.returncode == 1 and (run.stdout.splitlines(), run.stderr.splitlines()) == (
         ['FAIL FlowGuard check --static: FlowGuard: 2 red, see the FlowGuard block at the end'], []), run
     # one shape: what show --last keeps of the run (`signals.last_run`), with the parts of its first line
     from flowguard.intent import signals
     from flowguard.intent.vitest import static_lines
     saved = json.loads((observations / 'static.json').read_text(encoding='utf-8'))
-    assert sorted(saved) == ['baseline', 'baseline_kind', 'compared', 'deprecated', 'ignored', 'lines', 'notices', 'run',
-                             'seconds', 'stamp', 'title', 'title_parts'], saved
-    assert saved['notices'] == [], saved      # the project uses nothing deprecated
+    assert sorted(saved) == ['baseline', 'baseline_kind', 'compared', 'ignored', 'lines', 'run', 'seconds', 'stamp', 'title',
+                             'title_parts'], saved
     assert [line['text'] for line in saved['lines'] if line['kind'] == 'red'] == [
         "values AuditEvent.severity: backend/src/services/authority/authority-integrity-repair.service.ts:repairOrganizationAuthority writes "
         "'WARN' outside 'INFO'|'WARNING'|'ERROR'|'CRITICAL'",
         "values AuditEvent.severity: backend/src/services/notice.service.ts:notice writes 'WARN' outside 'INFO'|'WARNING'|'ERROR'|'CRITICAL'"]
     head = _git(root, 'rev-parse', 'HEAD').strip()
     assert saved['title_parts'] == dict(baseline=head, kind='task', ahead=0, option='--base'), saved
-    assert (saved['run'], saved['baseline'], saved['baseline_kind'], saved['deprecated']) == (
-        'check --static', head, 'task', []), saved
+    assert (saved['run'], saved['baseline'], saved['baseline_kind']) == ('check --static', head, 'task'), saved
     assert saved['title'] == signals.title(static_lines(observations)['lines'], **saved['title_parts'], seconds=saved['seconds']), saved
     assert saved['seconds'] > 0 and saved['ignored'] == 0
     # the vitest report reads it as it is (`vitest.static_lines`), and show --last names the run

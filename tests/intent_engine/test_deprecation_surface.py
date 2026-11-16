@@ -1,5 +1,5 @@
-"""A removed spelling is red at its place with its rewrite (5.0; 4.3 printed a removal notice once per run), and
-FlowGuard's own work says no notice."""
+"""A removed spelling is red at its place with its rewrite (5.0; 4.3 printed a removal notice once per run, and 5.0
+removed the notices with what they announced), and FlowGuard's own copy discovery is a line of the block."""
 
 
 COPIES = {
@@ -26,10 +26,10 @@ COPIES = {
 }
 
 
-def test_no_deprecation_notice_for_the_copy_discovery_flowguard_makes_itself(tmp_path):
-    """A notice says that the project's own input uses a feature that goes in 5.0. Copy discovery and the
-    changed-alone comparison are FlowGuard's own work: a project that writes only 4.3 spellings sees no notice in
-    pytest, check or check --static, and show --last names no deprecated feature."""
+def test_copies_this_change_made_disagree_are_red_in_pytest_and_check_with_no_notice(tmp_path):
+    """Copy discovery and the changed-alone comparison are FlowGuard's own work: a project that writes only 4.3
+    spellings gets their red line in the block of pytest and check, and no notice on stderr in pytest, check or
+    check --static (4.3 said no deprecation notice for them either)."""
     from tests.intent_engine.test_unverified_outcome import _cli, _pytest, _project
     root = _project(tmp_path / 'p', COPIES)
     path = root / 'orders.py'
@@ -41,15 +41,13 @@ def test_no_deprecation_notice_for_the_copy_discovery_flowguard_makes_itself(tmp
                                      ('check --static', 0, _cli(root, 'check', '--static'))):
         assert result.returncode == red and ('red: same ACCEPT: ' in text) == bool(red), (run, text)
         assert 'deprecated:' not in result.stderr, (run, result.stderr)
-    result, text = _cli(root, 'show', '--last')
-    assert 'deprecated features used' not in text, text
 
 
 def test_a_pytest_session_says_each_removed_spelling_red_at_its_line_with_its_rewrite(tmp_path):
     """Review of 4.3: pytest captures its collection's output, so the notices of a deprecated spelling read there were lost
     unless pytest ran with -s; the session said them once on stderr after its block. 5.0 removed the 4.2 spellings
-    (`sensor`, `owner NAME` above a function): each is a red line of the block at its comment, its step the 4.3
-    comment, and no notice is said."""
+    (`sensor`, `owner NAME` above a function) and the notices: each spelling is a red line of the block at its
+    comment, its step the 4.3 comment."""
     import subprocess
     import sys
     from tests.intent_engine import _cli_fixture
@@ -79,5 +77,3 @@ def test_a_pytest_session_says_each_removed_spelling_red_at_its_line_with_its_re
         'red: comment app.py:1: sensor was removed in 5.0 -> write # flowguard: same LIMIT',
         'red: comment grace.py:1: owner NAME above a function was removed in 5.0 -> write # flowguard: same GRACE ref'], done.stdout
     assert 'deprecated' not in done.stdout + done.stderr, done.stdout + done.stderr
-    done = run('--root', str(root), 'show', '--last')
-    assert done.returncode == 0 and 'deprecated features used' not in done.stdout, done.stdout

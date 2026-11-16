@@ -368,7 +368,7 @@ def show_last(cfg, full=False):
     """`show --last`: which run it was and when (`FlowGuard last run: pytest at 2026-11-12 14:03:51`, local time), the
     run's first line, then every one of its lines (no budget, no cut, full paths) with its detail indented under
     it; how many members an `act = "ignore"` entry of known.toml covered, when any
-    did; the deprecated features the run used; and the unchanged points an explicit comparison compared. Read from
+    did; and the unchanged points an explicit comparison compared. Read from
     the cache (`cache.read_last`), without building the map."""
     from .differences import display
     from .signals import family_of
@@ -385,8 +385,6 @@ def show_last(cfg, full=False):
             lines.append(f'    finding {line["name"]}')
     if last['ignored']:
         lines.append(f'ignored: {last["ignored"]} (act = "ignore")')
-    if last['deprecated']:
-        lines.append('deprecated features used (5.0): ' + ', '.join(last['deprecated']))
     if last.get('compared'):
         lines.append('compared, unchanged:')
         lines.extend('    ' + text for text in last['compared'])
@@ -986,10 +984,9 @@ def check(cfg, *, everything=False, deep=False, base=None):
     Without `base` the first check of a task records HEAD as its baseline when none is recorded; a recorded one
     stays, as in pytest (`cache.task_start`)."""
     started, timing = time.time(), time.perf_counter()
-    from . import deprecation, signals
+    from . import signals
     from .differences import _source_index
     from .plugin import collect_signals
-    mark = deprecation.mark()
     start = cache.task_start(cfg, record=True) if base is None else (base, 'base', None)
     own = _Own()
     with collect_signals(everything=everything) as reports:
@@ -1028,7 +1025,7 @@ def check(cfg, *, everything=False, deep=False, base=None):
     heading = signals.title(lines, baseline=baseline if base is None else base, kind=kind, ahead=ahead, option='--base',
                             seconds=seconds)
     _keep_last(cfg, signals.last_run(lines, ignored, run='check', stamp=started, baseline=baseline, kind=kind, title=heading,
-                                     seconds=seconds, deprecated=deprecation.used(mark)))
+                                     seconds=seconds))
     status = int(any(line.kind == 'red' for line in lines))
     _show_signals(signals.render_block(lines, title=heading, everything=everything, files=files), status)
     return status
@@ -1059,21 +1056,11 @@ def static_check(cfg, *, everything=False, base=None):
     shortest end of its path that no other file of the repository has. With FLOWGUARD_LINES set (the static test
     inside a vitest run, `NPM_CHECK`) the payload `show --last` keeps (`signals.last_run`) and the parts of its first
     line (`title_parts`, the keywords of `signals.title`) go to that JSON file for the vitest report's block, and
-    nothing to stdout; its deprecation notices go there too (`notices`), and the vitest block prints them at its end.
-    Exit 1 for a red line only. Without `base` the first run of a task records HEAD as its baseline when none is
-    recorded; a recorded one stays, as in pytest (`cache.task_start`); the title names it as pytest does."""
-    from . import deprecation
-    if not os.environ.get('FLOWGUARD_LINES'):
-        return _static_check(cfg, everything=everything, base=base, notices=())
-    with deprecation.held() as notices:
-        return _static_check(cfg, everything=everything, base=base, notices=notices)
-
-
-def _static_check(cfg, *, everything, base, notices):
-    """`static_check`, with the deprecation notices it holds for static.json (`notices`)."""
+    nothing to stdout. Exit 1 for a red line only. Without `base` the first run of a task records HEAD as its baseline
+    when none is recorded; a recorded one stays, as in pytest (`cache.task_start`); the title names it as pytest
+    does."""
     started, timing = time.time(), time.perf_counter()
-    from . import anchors, deprecation, ledger as fallbacks, owners, signals
-    mark = deprecation.mark()
+    from . import anchors, ledger as fallbacks, owners, signals
     start = cache.task_start(cfg, record=True) if base is None else (base, 'base', None)
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
         index = anchors.collect(graph)
@@ -1092,7 +1079,7 @@ def _static_check(cfg, *, everything, base, notices):
         parts = dict(baseline=start[0], kind=start[1], ahead=start[2], option='--base')
         heading = signals.title(lines, **parts, seconds=seconds)
         payload = signals.last_run(lines, ignored, run='check --static', stamp=started, baseline=start[0], kind=start[1],
-                                   title=heading, seconds=seconds, deprecated=deprecation.used(mark))
+                                   title=heading, seconds=seconds)
         with graph.con:
             cache.save_structure(graph.con, found.summary)
             cache.save_last(graph.con, payload)
@@ -1102,8 +1089,7 @@ def _static_check(cfg, *, everything, base, notices):
         # its first line (`signals.title`)
         target = Path(target)
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(dict(payload, title_parts=parts, notices=list(notices)), ensure_ascii=False, sort_keys=True),
-                          encoding='utf-8')
+        target.write_text(json.dumps(dict(payload, title_parts=parts), ensure_ascii=False, sort_keys=True), encoding='utf-8')
     else:
         _show_signals(signals.render_block(lines, title=heading, everything=everything, files=files), status)
     return status

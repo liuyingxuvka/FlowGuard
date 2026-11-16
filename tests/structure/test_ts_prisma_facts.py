@@ -155,19 +155,18 @@ def test_typescript_catch_clauses_separate_handing_on_from_fallbacks(planning):
     assert planning.query_coverage()['complete']
 
 
-def test_literal_groups_show_the_label_drift_and_skip_keys_logs_and_errors(planning):
-    groups = {group['key']: group['spellings'] for group in planning.literal_groups()}
-    drift = groups['myorganization']
-    assert set(drift) == {'My Organization', 'My organization'}
-    assert {(row['file'], row['context']) for row in drift['My Organization']} == {
+def test_literals_keep_each_spelling_with_its_context_and_skip_keys_logs_and_errors(planning):
+    rows = planning.literals()
+    spelled = lambda value: {(row['file'], row['context']) for row in rows if row['value'] == value}
+    assert spelled('My Organization') == {
         ('backend/src/services/authority/organization-navigation.ts', 'union'),
         ('backend/src/services/authority/organization-navigation.ts', 'return')}
-    assert {row['context'] for row in drift['My organization']} == {'union', 'set'}
-    values = {row['value'] for row in planning.literals()}
+    assert {context for _, context in spelled('My organization')} == {'union', 'set'}
+    values = {row['value'] for row in rows}
     assert 'TEAM' not in values and 'DEPARTMENT' not in values           # object keys
     assert not any('synchronization failed' in value for value in values)  # error messages
     assert not any(value.startswith('Sync local') for value in values)    # logger.error(...)
-    assert 'My Unit' in values and 'myunit' not in groups                  # one spelling: no group
+    assert 'My Unit' in values
 
 
 def test_named_typescript_functions_have_python_style_shapes(planning):

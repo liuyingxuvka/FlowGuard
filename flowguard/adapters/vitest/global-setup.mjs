@@ -44,10 +44,9 @@ export function teardown() {
   }
   const saved = path.join(observations, 'report.json');
   if (exists(saved)) {
-    const { text, status, deprecated } = JSON.parse(read(saved, 'utf8'));
+    const { text, status } = JSON.parse(read(saved, 'utf8'));
     remove(observations, { recursive: true });
     if (text) print('\n' + text);
-    if (deprecated.length) console.error(deprecated.join('\n'));      // design 4.7: on stderr, after the block
     if (status === 1) process.exitCode = 1;
     return;
   }
@@ -60,6 +59,6 @@ export function teardown() {
   if (run.error) throw run.error;
   if (run.status !== 0 && run.status !== 1) throw new Error(`FlowGuard report exit ${run.status}:\n${output}`);
   if (run.stdout.trim()) print('\n' + run.stdout.trimEnd());
-  if (run.stderr.trim()) console.error(run.stderr.trimEnd());       // deprecated: lines
+  if (run.stderr.trim()) console.error(run.stderr.trimEnd());
   if (run.status === 1) process.exitCode = 1;
 }

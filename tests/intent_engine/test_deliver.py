@@ -1,4 +1,4 @@
-"""`signals.deliver`: one policy turns findings, what a change touches and known.toml entries into the nine kinds.
+"""`signals.deliver`: one policy turns findings, what a change touches and known.toml entries into the eight kinds.
 
 Every case is a synthetic `health.Issue` or `sources.Known`; deliver reads no map, no Git and no file.
 """

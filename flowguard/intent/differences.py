@@ -183,10 +183,8 @@ def _compatible(left, right):
                     for a, b in zip(left.parameters, right.parameters)))
 
 
-def _source_index(root, graph=None):
+def _source_index(root):
     from . import anchors
-    if graph is not None:
-        return anchors.collect(graph)
     from flowguard.map.common import DEFAULT_IGNORE, matches_any
     from flowguard.map.inventory import list_files
     from flowguard.structure import roots

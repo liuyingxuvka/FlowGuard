@@ -88,12 +88,11 @@ def test_an_explicit_comparison_prints_its_changes_and_keeps_the_points_it_found
     assert shown[shown.index('compared, unchanged:') + 1] == '    grace (policy.py:3): 1 inputs compared, none differs', shown
 
 
-# ---- the 4.3 block: one first line, the nine kinds, budgets (design 4.7) -----------------------------------------
+# ---- the 4.3 block: one first line, the eight kinds, budgets (design 4.7) -----------------------------------------
 
 import re as _re
 
 from flowguard import __version__
-from flowguard.intent import deprecation
 from flowguard.intent.signals import Line
 
 SHAPE = _re.compile(r'^(FlowGuard \d+\.\d+ \(|(red|before|known|known fixed\?|changed|impact|loosened|not compared): |\+\d+ more: )')
@@ -115,8 +114,7 @@ def test_the_first_line_counts_every_kind_before_the_budget_and_always_red():
     assert signals.title(lines, baseline='0123456789' * 4, kind='task', seconds=3.44) == \
         f'FlowGuard {VERSION} (since 0123456): 0 red, 1 known, 1 changed, 5 impact, 1 not compared; 3.4 s'
     assert signals.title([], baseline=None, kind=None, seconds=0) == f'FlowGuard {VERSION} (no baseline: nothing compared): 0 red; 0.0 s'
-    assert signals.title([Line('deprecated', 'x')], baseline='b' * 40, kind='HEAD', seconds=0.04) == \
-        f'FlowGuard {VERSION} (since HEAD bbbbbbb): 0 red; 0.0 s'
+    assert signals.title([], baseline='b' * 40, kind='HEAD', seconds=0.04) == f'FlowGuard {VERSION} (since HEAD bbbbbbb): 0 red; 0.0 s'
 
 
 def test_the_first_line_names_the_baseline_each_way_a_run_can_have_one():
@@ -307,23 +305,8 @@ def test_every_line_of_a_block_has_one_of_the_shapes_and_flowguard_text_is_ascii
         for everything in (False, True):
             block = _block(lines, everything=everything)
             assert all(SHAPE.match(line) for line in block), block
-            assert not any(line.startswith('deprecated') for line in block), block
             frame = [line for line in block if 'caf' not in line and '会' not in line]
             assert all(line.isascii() for line in frame), frame
-
-
-def test_a_deprecated_feature_says_so_once_per_process_and_each_run_names_what_it_used(capsys):
-    start = deprecation.mark()
-    for _ in range(3):
-        deprecation.warn('old spelling', 'new spelling')
-    deprecation.warn('other spelling')
-    # design 4.7: `deprecated: X goes in 5.0 -> Y`, on stderr, once per feature in a process
-    assert capsys.readouterr().err.splitlines() == ['deprecated: old spelling goes in 5.0 -> write new spelling',
-                                                    'deprecated: other spelling goes in 5.0 -> do not use it']
-    assert deprecation.used(start) == ['old spelling', 'other spelling']
-    later = deprecation.mark()
-    deprecation.warn('old spelling')
-    assert capsys.readouterr().err == '' and deprecation.used(later) == ['old spelling']
 
 
 def test_same_name_copies_are_worded_for_the_43_lines_without_choosing_a_copy():
