@@ -280,7 +280,8 @@ def test_show_names_the_zod_schema_object_each_key_belongs_to_and_says_the_key_m
         # `fte.refine((value) => value > 0)` rejects 0: the line names the refine it does not read (H1)
         f'zod key fteShare in allocationCreateSchema: 0 <= fteShare <= 2, and a refine that is not read may reject more ({allocation}:13)',
         f'zod key fteShare in batchAssignSchema: 0 <= fteShare <= 1 ({assignment}:11)',
-        f'zod key fteShare in lendingUpdateSchema: 0 < fteShare <= 1 ({personnel}:9)',
+        # `.refine(({ fteShare }) => fteShare !== 0)` of the object destructures the key: it is named too (K1)
+        f'zod key fteShare in lendingUpdateSchema: 0 < fteShare <= 1, and a refine that is not read may reject more ({personnel}:9)',
         f'zod key fteShare in capacityEntryCreateSchema: 0 <= fteShare <= MAX_FTE_SHARE=2.0 ({personnel}:18)',
         f'zod key fteShare in phases: 0 < fteShare <= 1 ({personnel}:22, {personnel}:23)'], text
     code, text = _flowguard(tmp_path, 'show', 'ProjectAssignment.fteShare')
@@ -601,6 +602,251 @@ export interface LendingAssignment extends AssignmentBase {
                           'zod key fte_share in capacityImportRowSchema: 0 <= fte_share <= 2 (backend/src/api/schemas/allocation.schemas.ts:4)'], lines
     assert not any(line.startswith('not on the map') for line in lines), lines
     assert shown('capacity_bookings.fte_ratio')[2] == 'not on the map: database table capacity_bookings has no column fte_ratio'
+
+
+PT_ZOD_CHECKS_SCHEMA = """datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Assignment {
+  id       String  @id
+  fteShare Decimal @map("fte_share")
+  @@map("assignments")
+}
+
+model CapacityCalendarEntry {
+  id       String @id
+  value    Float
+  unitType String @map("unit_type")
+  @@map("capacity_calendar_entries")
+}
+"""
+# Planning Tool's zod spellings (2026-11, K1): a shared constant a key narrows, widens or bounds by an imported
+# name (allocation.schemas.ts), a query key coerced and piped, the wrappers z.optional, z.nullable, z.nullish and
+# z.preprocess, a function's own `let` and a loop variable or catch parameter of the module constant's name
+# (project-forecast.ts), and the object refines of capacityEntryCreateSchema (personnel-mvp.schemas.ts:198-216): one
+# whose path and destructuring name the key, one of another key, a superRefine adding an issue at the key's path.
+PT_ZOD_CHECKS = {
+    'backend/src/api/schemas/allocation.schemas.ts': """import { z } from 'zod';
+import { MAX_IMPORTED_SHARE, MIN_IMPORTED_SHARE } from '../../utils/share-limits';
+
+const MAX_FTE_SHARE = 2.0;
+const fte = z.number().finite().min(0).max(MAX_FTE_SHARE);
+
+export const allocationLooseSchema = z.object({ fteShare: fte.max(3) }).strict();
+export const allocationNarrowSchema = z.object({ fteShare: fte.max(1) }).strict();
+export const allocationBelowSchema = z.object({ fteShare: fte.lt(2) }).strict();
+export const allocationPositiveSchema = z.object({ fteShare: z.number().min(0.1).positive() }).strict();
+export const allocationImportedSchema = z.object({ fteShare: fte.max(MAX_IMPORTED_SHARE) }).strict();
+export const allocationFloorSchema = z.object({ fteShare: z.number().min(MIN_IMPORTED_SHARE).min(0) }).strict();
+export const allocationQuerySchema = z.object({
+  fteShare: z.coerce.number().pipe(z.number().min(0).max(2)),
+}).strict();
+export const allocationPipedSchema = z.object({ fteShare: z.number().min(0).max(5).pipe(z.number().max(3)) }).strict();
+export const allocationTextSchema = z.object({ fteShare: z.string().pipe(z.coerce.number()) }).strict();
+export const allocationOptionalSchema = z.object({ fteShare: z.optional(z.number().min(0)) }).strict();
+export const allocationNullableSchema = z.object({ fteShare: z.nullable(fte.max(1)) }).strict();
+export const allocationNullishSchema = z.object({ fteShare: z.nullish(z.number().gt(0)) }).strict();
+export const allocationFormSchema = z.object({
+  fteShare: z.preprocess((value) => (value === '' ? undefined : Number(value)), z.number().min(0).max(9)),
+}).strict();
+""",
+    'backend/src/utils/project-forecast.ts': """import { z } from 'zod';
+
+const share = z.number().max(1);
+
+/** A function's own `let` holds its schema; a loop variable and a catch parameter hide the module's constant. */
+export function buildDraftSchema() {
+  let share = z.number().max(9);
+  return z.object({ fteShare: share });
+}
+
+export function firstShare(list: number[]) {
+  for (const share of list) {
+    return { fteShare: share };
+  }
+  return null;
+}
+
+export function recoveredShare() {
+  try { return null; } catch (share) { return { fteShare: share }; }
+}
+""",
+    'backend/src/api/schemas/personnel-mvp.schemas.ts': """import { z } from 'zod';
+import { MAX_CAPACITY_PERCENT } from '../../utils/capacity-limits';
+
+const MAX_CAPACITY_HOURS = 24;
+const dateRangeBaseSchema = z.object({ startDate: z.string(), endDate: z.string() });
+
+export const capacityEntryCreateSchema = dateRangeBaseSchema
+  .extend({
+    value: z.number().min(0, 'Capacity value must be non-negative.').max(MAX_CAPACITY_HOURS, `Capacity value cannot exceed ${MAX_CAPACITY_HOURS}h per day.`),
+    unitType: z.enum(['HOURS', 'PERCENT']),
+  })
+  .refine(({ startDate, endDate }) => startDate <= endDate, {
+    path: ['endDate'],
+    message: 'endDate must be greater than or equal to startDate.',
+  })
+  .refine(
+    ({ value, unitType }) => unitType !== 'PERCENT' || value <= MAX_CAPACITY_PERCENT,
+    { path: ['value'], message: `Percent value cannot exceed ${MAX_CAPACITY_PERCENT * 100}%.` },
+  );
+
+export const capacityEntryUpdateSchema = dateRangeBaseSchema
+  .partial()
+  .extend({ value: z.number().min(0).optional(), unitType: z.enum(['HOURS', 'PERCENT']).optional() })
+  .refine(({ startDate, endDate }) => !startDate || !endDate || startDate <= endDate, {
+    path: ['endDate'],
+    message: 'endDate must be greater than or equal to startDate.',
+  });
+
+export const capacityImportRowSchema = z.object({
+  value: z.coerce.number().min(0).max(MAX_CAPACITY_HOURS),
+  unitType: z.string(),
+}).superRefine((row, context) => {
+  if (row.unitType === 'PERCENT' && row.value > MAX_CAPACITY_PERCENT) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['value'], message: 'Percent value above the limit.' });
+  }
+});
+
+export const capacityListQuerySchema = z.object({
+  value: z.coerce.number().min(0).optional(),
+}).refine((query) => query.value !== 7, { message: 'A week has no eighth day.' });
+""",
+}
+
+
+def test_show_reads_every_check_of_a_zod_number_chain_zod_runs(tmp_path):
+    """Planning Tool (K1): zod runs every check of a key's chain, and the lines dropped some. `fte.max(3)` of
+    `const fte = z.number().min(0).max(2)` printed `<= 3`, as if the later bound replaced the earlier, where zod
+    rejects 2.5; `z.coerce.number().pipe(z.number().min(0).max(2))` printed `(no bounds)`, `.pipe(z.number().max(3))`
+    after `.max(5)` printed `<= 5`; `z.optional(...)`, `z.nullable(...)`, `z.nullish(...)` and `z.preprocess(fn,
+    ...)` printed nothing; a function's `let share` read the module's `const share`, and so did a `for (const share
+    of ...)` variable and a `catch (share)` parameter, in plain objects; and capacityEntryCreateSchema's value line
+    said nothing of the object refine at `path: ['value']` that rejects PERCENT values above 3. Now the stricter of
+    two bounds of one side holds where the line can compare them (numbers, a const with its value) and one it cannot
+    compare stays beside the other; wrappers and both schemas of a pipe are read; those bindings hide the module
+    constant; an object refine (or superRefine) that destructures the key or names it as its path is named on the
+    key's line, another adds nothing."""
+    _commit(tmp_path, {'backend/prisma/schema.prisma': PT_ZOD_CHECKS_SCHEMA, **PT_ZOD_CHECKS})
+
+    def zod(query):
+        code, text = _flowguard(tmp_path, 'show', query)
+        assert code == 0 and 'not on the map' not in text, text
+        return [line for line in text.splitlines() if line.startswith('zod')]
+    allocation, personnel, forecast = ('backend/src/api/schemas/allocation.schemas.ts',
+                                       'backend/src/api/schemas/personnel-mvp.schemas.ts', 'backend/src/utils/project-forecast.ts')
+    assert zod('Assignment.fteShare') == [
+        f'zod key fteShare in allocationLooseSchema: 0 <= fteShare <= MAX_FTE_SHARE=2.0 ({allocation}:7)',
+        f'zod key fteShare in allocationNarrowSchema: 0 <= fteShare <= 1 ({allocation}:8)',
+        f'zod key fteShare in allocationBelowSchema: 0 <= fteShare < 2 ({allocation}:9)',
+        f'zod key fteShare in allocationPositiveSchema: 0.1 <= fteShare ({allocation}:10)',
+        f'zod key fteShare in allocationImportedSchema: 0 <= fteShare <= MAX_FTE_SHARE=2.0 and <= MAX_IMPORTED_SHARE ({allocation}:11)',
+        f'zod key fteShare in allocationFloorSchema: MIN_IMPORTED_SHARE <= fteShare and >= 0 ({allocation}:12)',
+        f'zod key fteShare in allocationQuerySchema: 0 <= fteShare <= 2 ({allocation}:14)',
+        f'zod key fteShare in allocationPipedSchema: 0 <= fteShare <= 3 ({allocation}:16)',
+        # a string piped into a number is no number schema: allocationTextSchema has no line
+        f'zod key fteShare in allocationOptionalSchema: 0 <= fteShare ({allocation}:18)',
+        f'zod key fteShare in allocationNullableSchema: 0 <= fteShare <= 1 ({allocation}:19)',
+        f'zod key fteShare in allocationNullishSchema: 0 < fteShare ({allocation}:20)',
+        f'zod key fteShare in allocationFormSchema: 0 <= fteShare <= 9 ({allocation}:22)',
+        f'zod key fteShare in an unnamed object: fteShare <= 9 ({forecast}:8)']
+    assert zod('CapacityCalendarEntry.value') == [
+        f'zod key value in capacityEntryCreateSchema: 0 <= value <= MAX_CAPACITY_HOURS=24, and a refine that is not read '
+        f'may reject more ({personnel}:9)',
+        f'zod key value in capacityEntryUpdateSchema: 0 <= value ({personnel}:23)',
+        f'zod key value in capacityImportRowSchema: 0 <= value <= MAX_CAPACITY_HOURS=24, and a superRefine that is not '
+        f'read may reject more ({personnel}:30)',
+        f'zod key value in capacityListQuerySchema: 0 <= value ({personnel}:39)']
+
+
+def test_show_of_a_sql_table_reads_its_columns_as_the_columns_check_does(tmp_path):
+    """Planning Tool shape (K1): a SQL-only table whose Prisma-generated SQLite migration rebuilds it
+    (`CREATE TABLE "new_t"`, `DROP TABLE "t"`, `ALTER TABLE "new_t" RENAME TO "t"`) got `not on the map: database
+    table capacity_bookings has no column note` for the column the rebuild adds, and its zod key was withheld, while
+    the column the rebuild drops still counted. The columns now are those the columns check reads (`sql.describe`),
+    and an upgrade script's ALTER ADD of the table (docs/releases/.../app_database_upgrade.sql) still counts."""
+    _commit(tmp_path, {
+        'backend/prisma/schema.prisma': PT_ZOD_CHECKS_SCHEMA,
+        'backend/prisma/migrations/20260317073846_init/migration.sql': """CREATE TABLE "capacity_bookings" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "share" DECIMAL NOT NULL,
+    "legacy_code" INTEGER
+);
+""",
+        'backend/prisma/migrations/20260331085358_add_booking_note/migration.sql': """-- RedefineTables
+PRAGMA defer_foreign_keys=ON;
+PRAGMA foreign_keys=OFF;
+CREATE TABLE "new_capacity_bookings" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "share" DECIMAL NOT NULL,
+    "note" INTEGER NOT NULL DEFAULT 0
+);
+INSERT INTO "new_capacity_bookings" ("id", "share") SELECT "id", "share" FROM "capacity_bookings";
+DROP TABLE "capacity_bookings";
+ALTER TABLE "new_capacity_bookings" RENAME TO "capacity_bookings";
+PRAGMA foreign_keys=ON;
+PRAGMA defer_foreign_keys=OFF;
+""",
+        'docs/releases/azure-production-candidate/app_database_upgrade.sql': """IF COL_LENGTH(N'dbo.capacity_bookings', N'fte_ratio') IS NULL
+  ALTER TABLE [dbo].[capacity_bookings] ADD [fte_ratio] DECIMAL(6,4) NULL;
+""",
+        'backend/src/api/schemas/booking.schemas.ts': """import { z } from 'zod';
+
+export const bookingSchema = z.object({ note: z.number().min(0), fte_ratio: z.number().max(2), legacy_code: z.number().int() });
+""",
+    })
+
+    def shown(query):
+        code, text = _flowguard(tmp_path, 'show', query)
+        assert code == 0, text
+        return text.splitlines()
+    schemas = 'backend/src/api/schemas/booking.schemas.ts'
+    for query, line in (('capacity_bookings.note', f'zod key note in bookingSchema: 0 <= note ({schemas}:3)'),
+                        ('capacity_bookings.fte_ratio', f'zod key fte_ratio in bookingSchema: fte_ratio <= 2 ({schemas}:3)')):
+        lines = shown(query)
+        assert line in lines and not any(item.startswith('not on the map') for item in lines), (query, lines)
+    assert shown('capacity_bookings.legacy_code')[2] == (
+        'not on the map: database table capacity_bookings has no column legacy_code; the zod keys legacy_code of 1 '
+        'schema object are not listed, as a key matches by its name alone')
+
+
+def test_the_anchor_view_of_a_field_its_known_model_lacks_says_so_before_its_facts(tmp_path):
+    """The ANCHOR view (a field an agreement names) prints the `not on the map` line too, after the agreement's lines
+    and before the field's facts: a together agreement on Employee.fteShare, a field neither the Prisma model Employee nor the TS interface
+    Employee has (K1: no test held this line; dropping it from the ANCHOR facts passed every test)."""
+    _commit(tmp_path, {
+        'backend/prisma/schema.prisma': PT_ZOD_CHECKS_SCHEMA + """
+model Employee {
+  id           String @id
+  sapReference Int    @map("sap_reference")
+  @@map("employees")
+}
+""",
+        'frontend/src/types/domain.types.ts': 'export interface Employee {\n  id: string;\n  sapReference: number;\n}\n',
+        'backend/src/api/schemas/allocation.schemas.ts': """import { z } from 'zod';
+
+export const allocationCreateSchema = z.object({ fteShare: z.number().min(0).max(2) }).strict();
+""",
+        'backend/src/services/fte.service.ts': """// flowguard: together Employee.fteShare Assignment.fteShare on=update
+export async function setShare(prisma: any, id: string, share: number) {
+  await prisma.employee.update({ where: { id }, data: { fteShare: share } });
+  await prisma.assignment.updateMany({ where: { employeeId: id }, data: { fteShare: share } });
+}
+""",
+    })
+    code, text = _flowguard(tmp_path, 'show', 'Employee.fteShare')
+    lines = text.splitlines()
+    assert code == 0 and lines[0] == 'ANCHOR Employee.fteShare', text
+    absent = ('not on the map: Prisma model Employee and TS type Employee have no field fteShare; the zod keys fteShare '
+              'of 1 schema object are not listed, as a key matches by its name alone; Prisma models with a field '
+              'fteShare: Assignment')
+    # after the agreement's line, before the field's writes
+    at = lines.index(absent)
+    assert lines.count(absent) == 1 and lines[at - 1].startswith('together Employee.fteShare Assignment.fteShare on=update ') \
+        and lines[at + 1].startswith('writes Employee.fteShare '), text
+    assert not any(line.startswith('zod') for line in lines), text
 
 
 def test_show_of_an_anchored_field_cuts_its_facts_to_the_screen_and_full_lists_them(tmp_path):

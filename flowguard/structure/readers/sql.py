@@ -372,7 +372,9 @@ def describe(schemas) -> list[dict]:
     files, which are applied in folder order as one description. A table counts only once a
     CREATE TABLE in the description defines it (a CREATE TABLE ... AS SELECT with columns None: they are not
     spelled); ALTER ADD/DROP COLUMN, ALTER ... RENAME TO (SQLite's `CREATE TABLE "new_t"`, `DROP TABLE "t"`,
-    `ALTER TABLE "new_t" RENAME TO "t"`) and DROP TABLE then change it."""
+    `ALTER TABLE "new_t" RENAME TO "t"`) and DROP TABLE then change it. `altered` holds the columns an ALTER
+    ADD (or RENAME COLUMN) of the description gives a table it does not define, as an upgrade script does to a
+    table another file creates: {table: {column: name}}, casefolded keys as in `tables`."""
     grouped = {}
     for schema in schemas:
         if schema.get('kind') != 'sql':
@@ -381,7 +383,7 @@ def describe(schemas) -> list[dict]:
         grouped.setdefault(found.group('folder') + '/' if found else schema['file'], []).append(schema)
     out = []
     for ident, members in sorted(grouped.items()):
-        tables = {}
+        tables, altered = {}, {}
         for schema in sorted(members, key=lambda item: item['file']):
             events = [('create', t['line'], t) for t in schema['tables']] + [(c['verb'], c['line'], c) for c in schema['changes']]
             for verb, _, item in sorted(events, key=lambda event: event[1]):
@@ -398,6 +400,8 @@ def describe(schemas) -> list[dict]:
                     for name in item['drop']:
                         columns.pop(name.casefold(), None)
                     columns.update((c['name'].casefold(), c['name']) for c in item['add'])
+                elif key not in tables:             # an upgrade script's ALTER ADD of a table created elsewhere
+                    altered.setdefault(key, {}).update((c['name'].casefold(), c['name']) for c in item['add'])
                 if key in tables:                   # a later CHECK on a column replaces an earlier one
                     tables[key]['checks'].update((c['column'].casefold(), dict(c, file=schema['file']))
                                                  for c in item.get('checks', ()))
@@ -405,5 +409,5 @@ def describe(schemas) -> list[dict]:
                     tables[item['rename'].casefold()] = dict(tables.pop(key), name=item['rename'])
         # A CREATE TABLE whose table is not spelled may create any table: such a description lacks no table.
         out.append(dict(description=ident, files=sorted(item['file'] for item in members), tables=tables,
-                        partial=any(schema['unread'] for schema in members)))
+                        altered=altered, partial=any(schema['unread'] for schema in members)))
     return out
