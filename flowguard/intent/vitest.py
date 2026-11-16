@@ -1350,7 +1350,7 @@ def static_lines(observations):
     """The saved map checks of this vitest run (the `signals.last_run` payload with its `title_parts` that
     `check --static` writes for flowguard.static.test.mjs into the observations folder), its lines as `signals.Line`;
     None when the static test did not run in it. The report reads its lines, seconds, ignored count, deprecated
-    features, deprecation notices (`notices`, which the static test held for the end of the block) and hidden leads."""
+    features and deprecation notices (`notices`, which the static test held for the end of the block)."""
     from .signals import KINDS, Line
     path = Path(observations) / STATIC
     if not path.is_file():
@@ -1439,8 +1439,7 @@ def report(root, plan_path, observations, package=None, *, in_test=False, notice
     _save_last(cfg, signals.last_run(lines, ignored + (static['ignored'] if static else 0), run='vitest', stamp=time.time(),
                                      baseline=result['baseline'], kind=result['baseline_kind'], title=heading, seconds=seconds,
                                      deprecated=list(dict.fromkeys([*data['deprecated'], *deprecation.used(since),
-                                                                    *(static['deprecated'] if static else ())])),
-                                     hidden=static['hidden'] if static else ()))
+                                                                    *(static['deprecated'] if static else ())]))))
     status = 1 if red else 0
     deprecated = list(dict.fromkeys([*data['notices'], *notices, *(static['notices'] if static else ())]))
     if in_test:

@@ -13,7 +13,8 @@ from flowguard.intent.loader import load
 from flowguard.intent.signals import Line
 from flowguard.structure.store import connect
 from tests.intent_engine.test_plugin import run
-from tests.intent_engine.test_static_check import _commit
+from tests.intent_engine import _cli_fixture
+from tests.intent_engine.test_static_check import _commit, _static, _write
 
 
 def test_the_last_run_round_trips_through_the_cache_meta_and_is_none_before_any_run(tmp_path):
@@ -47,8 +48,6 @@ def test_show_last_prints_every_line_and_the_catalog_queries_read_the_catalog_an
         cache.save_last(con, dict(stamp=1.0, run='pytest', baseline='a' * 40, baseline_kind='task', seconds=0.5,
                                   title='FlowGuard 4.2 (since aaaaaaa): 1 red, 2 not compared; 0.5 s',
                                   lines=[asdict(line) for line in lines], ignored=2, deprecated=['sensor', 'owner writers='],
-                                  hidden=[dict(feature='old-value leads', text='old values 14 remain in 4 decisions'),
-                                          dict(feature='', text='STANDING copies changed; rule GRACE is unchanged')],
                                   compared=['K0 (knobs.py:2): 2 inputs compared, none differs']))
     assert cli.main(['--root', root, 'show', '--last']) == 0
     # No budget and no shortening: every line, its paths in full, its detail indented under it.
@@ -59,14 +58,12 @@ def test_show_last_prints_every_line_and_the_catalog_queries_read_the_catalog_an
         '    finding pair:A>B',          # the name known add takes; a line that is no finding has none
         'not compared: N -> not a failure', '    uses attribute close', 'not compared: M -> not a failure', '    uses attribute close',
         'ignored: 2 (act = "ignore")', 'deprecated features used (5.0): sensor, owner writers=',
-        'compared, unchanged:', '    K0 (knobs.py:2): 2 inputs compared, none differs',
-        'deprecated leads (5.0):', '    old-value leads: old values 14 remain in 4 decisions',
-        '    STANDING copies changed; rule GRACE is unchanged']
+        'compared, unchanged:', '    K0 (knobs.py:2): 2 inputs compared, none differs']
     assert cli.main(['--root', root, 'show', '--last', 'NAME']) == 2
     assert 'show --last takes no NAME' in capsys.readouterr().err
     # A run in which no entry ignored anything says nothing of ignoring.
     with closing(connect(cfg.cache / 'map.sqlite')) as con, con:
-        cache.save_last(con, dict(cache.read_last(cfg), ignored=0, deprecated=[], hidden=[], compared=[]))
+        cache.save_last(con, dict(cache.read_last(cfg), ignored=0, deprecated=[], compared=[]))
     assert cli.main(['--root', root, 'show', '--last']) == 0
     shown = capsys.readouterr().out.splitlines()
     assert shown[1:] == ['FlowGuard 4.2 (since aaaaaaa): 1 red, 2 not compared; 0.5 s',
@@ -89,6 +86,25 @@ def test_show_last_prints_every_line_and_the_catalog_queries_read_the_catalog_an
     # Any other query still needs a name and finds rules, functions and words as before.
     assert cli.main(['--root', root, 'show']) == 2
     assert 'show needs a rule, function, request id or words' in capsys.readouterr().err
+
+
+def test_the_leads_only_show_last_kept_are_gone_since_5_0(tmp_path):
+    """5.0 removed the leads 4.3 kept for `show --last` under `deprecated leads (5.0)`: an old value still spelled
+    elsewhere, a function whose old body an unchanged function still has, a label spelled a new way. A change that
+    made each of them gives no line, keeps no list of them, and show --last has no such section."""
+    _commit(tmp_path, {'limits.py': 'GRACE_DAYS = 14\n', 'reminders.py': 'def remind(days):\n    return days > 14\n',
+                       'fees.py': 'def late_fee(days, rate):\n    return (days - 3) * rate if days > 3 else 0\n',
+                       'legacy.py': 'def late_charge(days, rate):\n    return (days - 3) * rate if days > 3 else 0\n',
+                       'labels.py': "def home(kind):\n    return kind == 'My Organization'\n"})
+    _write(tmp_path, {'limits.py': 'GRACE_DAYS = 21\n', 'fees.py': 'def late_fee(days, rate):\n    return (days - 5) * rate if days > 5 else 0\n',
+                      'view.py': "def title(kind):\n    return 'My organization' if kind else ''\n"})
+    code, text = _static(tmp_path)
+    assert code == 0 and _cli_fixture.block(text)[1:] == [], text
+    last = cache.read_last(load_config(tmp_path))
+    assert sorted(last) == ['baseline', 'baseline_kind', 'compared', 'deprecated', 'ignored', 'lines', 'run', 'seconds', 'stamp',
+                            'title'], last
+    shown = _cli_fixture.last(tmp_path).splitlines()
+    assert shown[1:] == [last['title']], shown
 
 
 def test_without_a_catalog_file_show_rules_and_rule_names_find_what_they_found_before(tmp_path, capsys):

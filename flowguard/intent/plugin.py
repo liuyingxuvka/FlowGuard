@@ -567,7 +567,7 @@ class Observations:
         # The 4.3 lines (`signals.collect`): findings by (name, member), what was not compared and why, the changed
         # lines, and for `show --last` the unchanged points an explicit comparison compared.
         self.findings, self.unchecked, self.changes, self.compared = {}, {}, [], []
-        self.lines, self.ignored, self.hidden, self.carried = [], 0, [], set()
+        self.lines, self.ignored, self.carried = [], 0, set()
         self.copies = []            # the same-name findings of `_compare` (`signals.copies_issue`)
         self.issues = []            # other findings made whole: a source that failed at the baseline, catalog problems
         # what this session's own checks judged in full, for a known entry's `known fixed?` (`signals.deliver`): the
@@ -1051,7 +1051,6 @@ class Observations:
                 if collector is not None:
                     collector.static[key] = found
             self.structure = found.summary         # the session brief's count of open structure problems
-            self.hidden = list(found.hidden)
         elif catalog:
             # Without a change the map checks do not run; an invalid rules.toml or known.toml, or a known entry whose
             # site names nothing on the map, is red in every run (D4).
@@ -1139,7 +1138,7 @@ class Observations:
         return signals.last_run(self.lines, self.ignored, run='pytest', stamp=self.state.started,
                                 baseline=self.missing or self.runtime.baseline, kind=self.baseline_kind,
                                 title=self.block(seconds).partition('\n')[0], seconds=seconds,
-                                deprecated=deprecation.used(self.state.deprecations), hidden=self.hidden, compared=self.compared)
+                                deprecated=deprecation.used(self.state.deprecations), compared=self.compared)
 
     def _found(self, family, name, subject, what, step, *, function='', places=(), files=(), detail=()):
         """Add `what` to the finding (name, function) of this session; returns that key."""

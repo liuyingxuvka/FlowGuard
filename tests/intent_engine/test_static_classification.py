@@ -222,7 +222,7 @@ def test_declarations_that_already_differed_are_before_in_a_touched_file_and_new
         ('impact', "declarations Tone: app/c.ts:1 declares 'x' | 'y'; app/d.ts:1 declares 'x' | 'z'")]
 
 
-# ---- the [structure] section 5.0 removed, the deprecated heuristics, changed-alone ------------------------------
+# ---- the [structure] section 5.0 removed, a label spelled another way, changed-alone ----------------------------
 
 DECISION = '''
 [structure."uncreated:Ghost"]
@@ -235,14 +235,13 @@ source = { file = "docs/owner.md", text = "Ghost rows come from the nightly impo
 '''
 
 
-def test_label_spelling_leads_get_no_line_and_are_kept_for_show_last(tmp_path):
+def test_a_label_spelled_another_way_is_no_finding_and_no_line(tmp_path):
+    # 5.0 removed the label-spelling leads with the other leads only show --last kept: nothing keeps them any more.
     _commit(tmp_path, {'app/a.ts': "export function a(x: string) { return x === 'Open Case' ? 1 : 2; }\n"})
     _write(tmp_path, {'app/b.ts': "export function b(x: string) { return x === 'open case' ? 1 : 2; }\n"})
     found = _found(tmp_path)
-    hidden = [item for item in found.hidden if item['feature'] == 'label-spelling leads']
-    assert len(hidden) == 1 and "'open case'(app/b.ts:1, spelling added in this task)" in hidden[0]['text'], found.hidden
-    assert all(ord(character) < 128 for item in found.hidden for character in item['text'])
     assert not [issue for issue in found.issues if 'label' in issue.family] and not found.lines
+    assert not hasattr(found, 'hidden'), found
 
 
 LIMITS = '''# flowguard: owner LIMIT

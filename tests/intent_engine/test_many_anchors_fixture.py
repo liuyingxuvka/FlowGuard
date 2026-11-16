@@ -135,7 +135,4 @@ def test_a_copy_that_drifts_from_its_owner_is_red_at_both_places(shop):
     with sqlite3.connect(shop / '.flowguard/cache/map.sqlite') as connection:
         items = json.loads(connection.execute("SELECT v FROM meta WHERE k='runtime_observations'").fetchone()[0])['items']['items']
     assert not any('uses unavailable binding' in reason for item in items for reason in item.get('reasons', ())), items
-    shown = last(shop).splitlines()
-    leads = shown[shown.index('deprecated leads (5.0):') + 1:]
-    assert any('old values 3 remain in' in line and 'shop/kiosk.py:3' in line for line in leads), shown
     assert 'FAILED tests/intent/rules.py::STANDING_RULE[shop.preview.preview_allows:rows]' in text, text

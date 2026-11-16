@@ -1187,8 +1187,8 @@ class MapHandle:
 
     def numbers(self):
         """JS/TS number literals in comparisons (`===`, `<`, `>=`, ...) and `case` labels, in the literal
-        row shape: what an old-value lead looks for after a numeric constant changes. A comparison with
-        a constant's name (`rounded > LIMIT`, also imported) is a row with the folded value and `name`."""
+        row shape: the numbers a vitest comparison adds to a function's inputs. A comparison with a constant's
+        name (`rounded > LIMIT`, also imported) is a row with the folded value and `name`."""
         folded = [row for row in self._compared_values()
                   if isinstance(row['value'], (int, float)) and not isinstance(row['value'], bool)]
         return Rows(self._syntax('numbers') + folded)
@@ -1330,7 +1330,7 @@ class MapHandle:
         groups = {}
         for row in self.literals(language=language, contexts=contexts):
             if not isinstance(row['value'], str) or row['file'] in tests:
-                continue                    # numbers in comparisons serve old-value leads, not spellings
+                continue                    # numbers in comparisons are no spellings
             key = literal_key(row['value'])
             if key:
                 groups.setdefault((key, literal_shape(row['value'])), {}).setdefault(row['value'], []).append(row)

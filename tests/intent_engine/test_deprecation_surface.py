@@ -25,10 +25,10 @@ COPIES = {
 }
 
 
-def test_no_deprecation_notice_for_the_leads_and_the_copy_discovery_flowguard_makes_itself(tmp_path):
-    """A notice says that the project's own input uses a feature that goes in 5.0. Old-value and
-    similar-implementation leads and copy discovery are FlowGuard's own work: a project that writes only 4.3
-    spellings sees no notice in pytest, check or check --static, while show --last still keeps the leads."""
+def test_no_deprecation_notice_for_the_copy_discovery_flowguard_makes_itself(tmp_path):
+    """A notice says that the project's own input uses a feature that goes in 5.0. Copy discovery and the
+    changed-alone comparison are FlowGuard's own work: a project that writes only 4.3 spellings sees no notice in
+    pytest, check or check --static, and show --last names no deprecated feature."""
     from tests.intent_engine.test_unverified_outcome import _cli, _pytest, _project
     root = _project(tmp_path / 'p', COPIES)
     path = root / 'orders.py'

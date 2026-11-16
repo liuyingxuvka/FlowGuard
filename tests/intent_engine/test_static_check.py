@@ -120,12 +120,6 @@ def _last(root, prefix):
             for index, line in enumerate(shown) if line.startswith(prefix)]
 
 
-def _leads(root):
-    """The 5.0-deprecated leads of the last run in `root`, which only `show --last` prints, each `feature: text`."""
-    shown = _cli_fixture.last(root).splitlines()
-    return [line.strip() for line in shown[shown.index('deprecated leads (5.0):') + 1:]] if 'deprecated leads (5.0):' in shown else []
-
-
 def _names(root):
     """The finding names of the last run's lines in `root` (`cache.read_last`)."""
     return [line['name'] for line in cache.read_last(_config(root))['lines']]
@@ -2145,10 +2139,10 @@ def _run_generated(root, target, env=None):
                           env=environment)
 
 
-def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated_vitest_test(tmp_path):
-    # 4.3: the label drift is a 5.0-deprecated heuristic, a lead of show --last; the block, which the generated test
-    # prints (or, inside a vitest run with FlowGuard's plugin, writes to static.json for the plugin's block), has the
-    # declarations that differ.
+def test_fixed_16_the_declarations_that_differ_are_the_line_of_check_static_and_of_the_generated_vitest_test(tmp_path):
+    # The block, which the generated test prints (or, inside a vitest run with FlowGuard's plugin, writes to
+    # static.json for the plugin's block), has the declarations that differ. The label spelled another way in the
+    # same files was a lead of show --last until 5.0 removed the label-spelling leads: show --last has no such section.
     root = _planning(tmp_path / 'pt')
     frontend = root / 'frontend/src/utils/organization-navigation.ts'
     saved = frontend.read_bytes()
@@ -2161,9 +2155,7 @@ def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated
     assert code == 0 and len(differ) == 1 and differ[0].startswith('impact: declarations OrganizationNavigationLabel: '), text
     shown = _cli_fixture.last(root).splitlines()
     assert shown[0].startswith('FlowGuard last run: check --static at ') and shown[1] == _cli_fixture.block(text)[0], shown
-    drift = next(line for line in shown[shown.index('deprecated leads (5.0):'):] if 'My Organization' in line)
-    assert "'My Organization'(backend/src/services/authority/organization-navigation.ts:" in drift, drift
-    assert "'My organization'(frontend/src/utils/organization-navigation.ts:" in drift and 'spelling added in this task' in drift, drift
+    assert 'deprecated leads (5.0):' not in shown and not any('label spellings differ' in line for line in shown), shown
     code, text = _flowguard(root, 'init')
     assert code == 0 and 'Generated flowguard.static.test.mjs (vitest)' in text, text
     generated = root / 'flowguard.static.test.mjs'
@@ -2188,17 +2180,17 @@ def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated
     # the test prints nothing and fails with the same one line.
     observations = tmp_path / 'obs'
     run = _run_generated(root, generated, env=dict(FLOWGUARD_VITEST_OBS=str(observations)))
-    # stdout holds the stub runner's one line; stderr holds nothing: the label-spelling leads are FlowGuard's own and
-    # say no deprecation notice, and a notice check does say goes to static.json for the plugin's block (design 4.7)
+    # stdout holds the stub runner's one line; stderr holds nothing: the project uses nothing deprecated, and a notice
+    # check does say goes to static.json for the plugin's block (design 4.7)
     assert run.returncode == 1 and (run.stdout.splitlines(), run.stderr.splitlines()) == (
         ['FAIL FlowGuard check --static: FlowGuard: 2 red, see the FlowGuard block at the end'], []), run
     # one shape: what show --last keeps of the run (`signals.last_run`), with the parts of its first line
     from flowguard.intent import signals
     from flowguard.intent.vitest import static_lines
     saved = json.loads((observations / 'static.json').read_text(encoding='utf-8'))
-    assert sorted(saved) == ['baseline', 'baseline_kind', 'compared', 'deprecated', 'hidden', 'ignored', 'lines', 'notices', 'run',
+    assert sorted(saved) == ['baseline', 'baseline_kind', 'compared', 'deprecated', 'ignored', 'lines', 'notices', 'run',
                              'seconds', 'stamp', 'title', 'title_parts'], saved
-    assert saved['notices'] == [], saved      # FlowGuard's own leads say no notice
+    assert saved['notices'] == [], saved      # the project uses nothing deprecated
     assert [line['text'] for line in saved['lines'] if line['kind'] == 'red'] == [
         "values AuditEvent.severity: backend/src/services/authority/authority-integrity-repair.service.ts:repairOrganizationAuthority writes "
         "'WARN' outside 'INFO'|'WARNING'|'ERROR'|'CRITICAL'",
@@ -2208,7 +2200,7 @@ def test_fixed_16_the_label_drift_is_a_lead_in_check_static_and_in_the_generated
     assert (saved['run'], saved['baseline'], saved['baseline_kind'], saved['deprecated']) == (
         'check --static', head, 'task', []), saved
     assert saved['title'] == signals.title(static_lines(observations)['lines'], **saved['title_parts'], seconds=saved['seconds']), saved
-    assert saved['seconds'] > 0 and saved['ignored'] == 0 and any(lead['feature'] == 'label-spelling leads' for lead in saved['hidden'])
+    assert saved['seconds'] > 0 and saved['ignored'] == 0
     # the vitest report reads it as it is (`vitest.static_lines`), and show --last names the run
     assert [line.kind for line in static_lines(observations)['lines']].count('red') == 2
     shown = _cli_fixture.last(root).splitlines()
@@ -2274,74 +2266,34 @@ def test_check_static_says_known_fixed_for_a_ledger_finding_once_a_ledger_judges
         assert code == 0 and _block(text) == [fixed], (command, text)
 
 
-def test_the_files_init_writes_bring_no_label_spellings_of_their_own(tmp_path):
+def test_check_static_all_names_none_of_the_files_init_writes(tmp_path):
     _commit(tmp_path, {
         'package.json': '{"name": "app", "type": "module", "scripts": {"test": "vitest run"}, "devDependencies": {"vitest": "4.1.11"}}\n',
-        # Each spelling has the key and the kind (literal_shape) of one only init's files hold: 'python', '--root'
-        # and 'win32'. Without the exclusion each pair would be a new label lead.
+        # Each word is spelled as one of init's files spells it otherwise: 'python', '--root' and 'win32'.
         'src/flags.ts': "export function known(x: string): boolean {\n  return x === 'Python' || x === '--Root' || x === 'Win32';\n}\n",
     })
     code, text = _flowguard(tmp_path, 'init')
     assert code == 0 and 'Generated flowguard.static.test.mjs (vitest)' in text, text
     generated = (tmp_path / 'flowguard.vitest.mjs').read_text(encoding='utf-8')
     assert all(f"'{spelling}'" in generated for spelling in ('python', '--root', 'win32')), generated   # else the test says nothing
-    code, text = _static(tmp_path)          # init's 'python', '--root' and 'win32' are FlowGuard's, not the project's labels
-    assert code == 0 and not _lines(text, 'lead: label spellings differ'), text
+    code, text = _static(tmp_path)
+    assert code == 0, text
     code, text = _static(tmp_path, '--all')
     assert 'flowguard.static.test.mjs' not in text and 'flowguard.vitest.mjs' not in text, text
 
 
-def test_check_static_all_lists_label_spellings_the_baseline_already_had(tmp_path):
-    root = _planning(tmp_path / 'pt')
-    _commit(root, {})                          # both spellings are old: nothing new to report
-    code, text = _static(root)
-    assert code == 0 and _block(text) == [] and not [lead for lead in _leads(root) if 'label spellings differ' in lead], text
-    # --all keeps the old spellings for show --last (a 5.0-deprecated heuristic: a lead, no line of the block)
-    code, text = _static(root, '--all')
-    old = next(lead for lead in _leads(root) if 'label spellings differ' in lead and 'My Organization' in lead)
-    assert old.startswith('label-spelling leads: before: label spellings differ: '), old
-    assert "'My organization'(frontend/src/utils/organization-navigation.ts:" in old and 'spelling added in this task' not in old, old
-
-
-def test_check_static_all_puts_the_new_lead_first_and_names_the_command_that_lists_every_lead(tmp_path):
-    words = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel', 'India', 'Juliet', 'Kilo', 'Lima']
-    _commit(tmp_path, {
-        'src/upper.ts': ''.join(f"export function is{word}(x: string) {{ return x === '{word} Label'; }}\n" for word in words),
-        'src/lower.ts': ''.join(f"export function was{word}(x: string) {{ return x === '{word.lower()} label'; }}\n" for word in words),
-        'src/gamma.ts': "export function isGamma(x: string) { return x === 'Gamma Ray'; }\n",
-    })
-    # a label spelled another way ('Gamma ray'), not a key ('gamma-ray' is of another kind: literal_shape)
-    _write(tmp_path, {'src/ray.ts': "export function isRay(x: string) { return x === 'Gamma ray'; }\n"})
-    # 4.3: label spellings are a 5.0-deprecated heuristic, leads of show --last, which lists every one of them.
-    code, text = _static(tmp_path, '--all')
-    leads = _leads(tmp_path)
-    new = ["label-spelling leads: label spellings differ: 'Gamma Ray'(src/gamma.ts:1) and 'Gamma ray'(src/ray.ts:1, spelling added in this "
-           'task) -> use one spelling, or read both from one reference']
-    assert code == 0 and _block(text, everything=True) == [] and len(leads) == 13, text
-    assert [lead for lead in leads if 'spelling added in this task' in lead] == new, leads
-    assert all(lead.startswith('label-spelling leads: before: label spellings differ: ') for lead in leads if lead not in new), leads
-    code, text = _static(tmp_path)
-    assert code == 0 and _block(text) == [] and _leads(tmp_path) == new, text
-
-
-def test_the_overflow_of_a_run_against_base_names_that_base_in_the_command_that_lists_every_lead(tmp_path):
+def test_a_run_against_base_names_that_base_in_its_first_line(tmp_path):
     words = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel', 'India', 'Juliet', 'Kilo', 'Lima']
     _commit(tmp_path, {'src/upper.ts': ''.join(f"export function is{word}(x: string) {{ return x === '{word} Label'; }}\n"
                                                for word in words)})
     _write(tmp_path, {'src/lower.ts': ''.join(f"export function was{word}(x: string) {{ return x === '{word.lower()} label'; }}\n"
                                               for word in words)})
     _commit(tmp_path, message='twelve new spellings')
-    # Against HEAD nothing is new; against HEAD~1 the twelve spellings are: the listing command keeps that base.
     code, text = _static(tmp_path, '--base', 'HEAD~1')
     assert code == 0 and re.fullmatch(r'FlowGuard \d+\.\d+ \(since --base HEAD~1\): 0 red; \d+\.\d s', text.splitlines()[0]), text
-    leads = _leads(tmp_path)                # show --last lists every lead, against that base
-    assert len(leads) == 12 and all(lead.endswith(', spelling added in this task) -> use one spelling, or read both from one reference')
-                                    for lead in leads), leads
-    code, text = _static(tmp_path)
-    assert code == 0 and _leads(tmp_path) == [], text
 
 
-def test_a_pytest_session_against_flowguard_base_names_that_base_and_keeps_its_leads_for_show_last(tmp_path):
+def test_a_pytest_session_against_flowguard_base_names_that_base(tmp_path):
     words = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel', 'India', 'Juliet', 'Kilo', 'Lima']
     _commit(tmp_path, {'src/upper.ts': ''.join(f"export function is{word}(x: string) {{ return x === '{word} Label'; }}\n"
                                                for word in words),
@@ -2350,15 +2302,11 @@ def test_a_pytest_session_against_flowguard_base_names_that_base_and_keeps_its_l
     _write(tmp_path, {'src/lower.ts': ''.join(f"export function was{word}(x: string) {{ return x === '{word.lower()} label'; }}\n"
                                               for word in words)})
     _commit(tmp_path, message='twelve new spellings')
-    # The session compares with HEAD~1 and says so; its label-spelling leads (5.0-deprecated) get no line of the
-    # block: show --last lists all twelve, against that base.
+    # The session compares with HEAD~1 and says so.
     code, text = _pytest(tmp_path, '--flowguard-base', 'HEAD~1')
     base = _git(tmp_path, 'rev-parse', 'HEAD~1').strip()
     title, *lines = _cli_fixture.block(text)
     assert code == 0 and title.startswith(f'FlowGuard {signals.version()} (since --flowguard-base {base[:7]}): 0 red; ') and lines == [], text
-    shown = _cli_fixture.last(tmp_path).splitlines()
-    leads = shown[shown.index('deprecated leads (5.0):') + 1:]
-    assert len(leads) == 12 and all(line.startswith('    label-spelling leads: label spellings differ: ') for line in leads), shown
 
 
 def test_the_overflow_of_show_spells_a_phrase_query_so_cmd_exe_reads_it_too(tmp_path):
@@ -2530,50 +2478,6 @@ def test_the_session_brief_names_the_heaviest_open_structure_problems_in_one_lin
     assert code == 0 and len(after.splitlines()) - len(before.splitlines()) == 1, (before, after)
     assert after.splitlines()[-1] == ('0 open structure issues (1 other fields have multiple writers and no writer agreement); highest severity: write Job.status (last check; check --static --all lists every issue and next step)'), after
 
-
-# ---- R61: TS old values and unchanged look-alikes ----------------------------------------------------
-
-def test_a_changed_typescript_constant_and_function_lead_to_the_places_left_behind(tmp_path):
-    _commit(tmp_path, {
-        'src/policy.ts': '''
-            export const GRACE_DAYS = 14;
-            export function overdue(days: number) {
-              return days > GRACE_DAYS;
-            }
-        ''',
-        'src/reminders.ts': '''
-            export function remind(days: number) {
-              if (days > 14) { return 'late'; }
-              return 'fine';
-            }
-        ''',
-        'src/fees.ts': '''
-            export function lateFee(days: number, rate: number) {
-              const extra = days > 3 ? days - 3 : 0;
-              return Math.round(extra * rate * 100) / 100;
-            }
-        ''',
-        'src/legacy/fees.ts': '''
-            export function lateCharge(days: number, rate: number) {
-              const extra = days > 3 ? days - 3 : 0;
-              return Math.round(extra * rate * 100) / 100;
-            }
-        ''',
-    })
-    policy = tmp_path / 'src/policy.ts'
-    policy.write_text(policy.read_text().replace('= 14', '= 21'))
-    fees = tmp_path / 'src/fees.ts'
-    fees.write_text(fees.read_text().replace('days > 3 ? days - 3', 'days > 5 ? days - 5'))
-    code, text = _static(tmp_path)
-    # 5.0-deprecated heuristics: leads of show --last, no line of the block
-    assert code == 0 and _block(text) == [], text
-    assert 'deprecated:' not in text, text      # FlowGuard's own leads: the project uses nothing deprecated
-    leads = _leads(tmp_path)
-    assert 'old-value leads: old values 14 remain in 1 decisions: src/reminders.ts:2 -> if requirements changed, update them together' in leads, leads
-    alone = next(lead for lead in leads if lead.startswith('similar-implementation leads: lateFee'))
-    assert alone.startswith('similar-implementation leads: lateFee(src/fees.ts:1) changed; previously identical copies: 1 unchanged: '
-                            'src/legacy/fees.ts:1'), alone
-    assert '// flowguard: same LATEFEE ref' in alone, alone
 
 
 # ---- the ledger's TS catch fallbacks and a TS data owner, without pytest -----------------------------

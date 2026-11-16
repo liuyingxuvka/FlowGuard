@@ -177,22 +177,6 @@ def test_comparisons_with_constant_names_and_table_lookups_fold_through_imports(
     assert [issue.message for issue in index.issues] == ['src/fee.ts:15: sensor needs one NAME: // flowguard: sensor NAME']
 
 
-def test_check_static_old_value_lead_reads_the_folded_constant_names_too(tmp_path):
-    _commit(tmp_path, {
-        'src/limits.ts': 'export const LIMIT = 100;\n',
-        'src/a.ts': 'export function over(x: number): boolean {\n  return x > 100;\n}\n',
-        'src/b.ts': "import { LIMIT } from './limits';\n\nexport function full(y: number): boolean {\n  return y >= LIMIT;\n}\n",
-    })
-    (tmp_path / 'src/a.ts').write_text('export function over(x: number): boolean {\n  return x > 105;\n}\n', encoding='utf-8')
-    code, text = _flowguard(tmp_path, 'check', '--static')
-    # old values are a 5.0-deprecated heuristic: a lead of show --last, no line of the block, and FlowGuard's own, so
-    # no deprecation notice either
-    shown = _cli_fixture.last(tmp_path).splitlines()
-    assert code == 0 and text.splitlines()[1:] == [], text
-    assert '    old-value leads: old values 100 remain in 1 decisions: src/b.ts:4 -> if requirements changed, update them together' \
-        in shown[shown.index('deprecated leads (5.0):'):], shown
-
-
 # ---- the plan ----------------------------------------------------------------------------------------
 
 def test_prepare_is_off_without_a_ts_change_and_plans_anchored_and_changed_functions(tmp_path):
@@ -266,7 +250,6 @@ def test_the_plan_says_head_until_a_task_baseline_is_recorded(tmp_path):
     assert again['plan'] != answer['plan'] and (plan['baseline'], plan['baseline_kind']) == (head, 'task'), plan
 
 
-
 def _report(root, plan, *, package=None, records=(), static=None, in_test=False):
     """What the vitest plugin prints after the tests, here for a run whose tests made `records` (by default none) and
     whose static test saved `static` (a `signals.last_run` payload) or nothing. `in_test`: the session test's report,
@@ -319,7 +302,7 @@ def test_the_report_merges_the_map_checks_the_static_test_saved_and_fails_only_o
                        Line('not compared', 'not compared:shop/legacy.ts', '', 'shop/legacy.ts', 'not a failure', ('shop/legacy.ts',),
                             ('cannot be parsed: line 3',))],
                       2, run='check --static', stamp=0, baseline=head, kind='HEAD', title='FlowGuard', seconds=2.5,
-                      deprecated=['old spelling'], hidden=[dict(feature='similar-implementation leads', text='a lead')])
+                      deprecated=['old spelling'])
     notice = 'deprecated: old spelling goes in 5.0 -> do not use it'
     static = dict(static, notices=[notice])           # the static test's notices, held for the end of the block
     code, saved = _report(tmp_path, plan, package='web', records=records, static=static, in_test=True)
@@ -334,7 +317,7 @@ def test_the_report_merges_the_map_checks_the_static_test_saved_and_fails_only_o
     shown = _cli_fixture.last(tmp_path)
     assert shown.splitlines()[0].startswith('FlowGuard last run: vitest at ') and shown.splitlines()[1] == block[0], shown
     assert 'ignored: 2 (act = "ignore")' in shown, shown
-    assert 'deprecated features used (5.0): old spelling' in shown and 'deprecated leads (5.0):\n    similar-implementation leads: a lead' in shown, shown
+    assert 'deprecated features used (5.0): old spelling' in shown, shown
 
 
 def test_a_known_entry_this_run_speaks_for_keeps_its_own_line_beside_the_map_checks():
@@ -726,7 +709,6 @@ def test_init_finds_the_static_test_in_every_call_of_every_test_script(tmp_path)
         assert f'Generated {folder}/flowguard.static.test.mjs (vitest): {script} runs python -m flowguard check' in text, text
 
 
-
 def _says(text, folder, runs):
     """The line init printed for the static test of `folder`: which script runs it, or None for 'no script'."""
     line = next(line for line in text.splitlines() if line.startswith(f'Generated {folder}/flowguard.static.test.'))
@@ -1008,7 +990,6 @@ def test_init_reads_a_runner_started_through_node_and_spells_each_edit_the_way_j
         assert (f'{folder}/package.json script "test" runs jest with {option}, which init does not read '
                 f'({json.loads(start[folder])["scripts"]["test"]}): init cannot tell whether it runs '
                 f'flowguard.static.test.js; if it does not, add "&& {call}" to it yourself') in text, (folder, text)
-
 
 
 def test_an_es_module_jest_package_whose_script_sets_the_vm_flag_outside_jests_own_call_gets_an_es_module_test(tmp_path):

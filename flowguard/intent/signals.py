@@ -512,13 +512,13 @@ def collect(deliveries, found=None, *, everything=False):
     return lines, ignored
 
 
-def last_run(lines, ignored, *, run, stamp, baseline, kind, title, seconds, deprecated=(), hidden=(), compared=()):
+def last_run(lines, ignored, *, run, stamp, baseline, kind, title, seconds, deprecated=(), compared=()):
     """What `cache.save_last` keeps of a run for `show --last`, in one shape for every run ('pytest', 'check',
     'check --static', 'vitest'): its first line and seconds, every line, the ignored count, the deprecated features
-    it used, the 5.0-deprecated leads that got no line ({feature, text}) and the unchanged points it compared."""
+    it used and the unchanged points it compared."""
     from dataclasses import asdict
     return dict(stamp=stamp, run=run, baseline=baseline, baseline_kind=kind, title=title, seconds=seconds,
-                lines=[asdict(line) for line in lines], ignored=ignored, deprecated=list(deprecated), hidden=list(hidden),
+                lines=[asdict(line) for line in lines], ignored=ignored, deprecated=list(deprecated),
                 compared=list(compared))
 
 
@@ -877,142 +877,6 @@ def missing_start(commit):
     """The one line of a run whose recorded task start this repository lacks (a shallow clone, collected history,
     another clone's cache): it compares nothing, and new-task records HEAD."""
     return f'FlowGuard(recorded task baseline {commit[:7]} is not in this repository: old/new comparison is off; first run python -m flowguard new-task)'
-
-
-def stale_copies(graph, changes):
-    """Decision sites of the existing map that still spell an old value: the folded constant of a site,
-    a member of a tuple or set it tests, or a member of the tuple or dict constant it reads; in JS/TS
-    files the decision literals (comparisons, cases, returns, sets, unions). Field names are not required
-    to share a word. A lead, never equality evidence."""
-    import ast
-    import json
-    from decimal import Decimal, InvalidOperation
-    def equal(old, value):
-        if type(old) is str or type(value) is str:
-            return type(old) is type(value) and old == value
-        if type(old) is bool or type(value) is bool or type(value) not in (int, float, Decimal):
-            return False
-        try:
-            return Decimal(str(old)) == Decimal(str(value))
-        except (InvalidOperation, ValueError):
-            return False
-
-    def members(value):
-        if type(value) in (tuple, list, set, frozenset):
-            return [item for part in value for item in members(part)]
-        if type(value) is dict:
-            return [item for part in value.values() for item in members(part)]
-        return [value]
-
-    def held(old, value, vkind, identity):
-        if value:
-            if value not in direct_members:
-                try:
-                    folded = json.loads(value)
-                except ValueError:
-                    folded = value
-                direct_members[value] = tuple(members(folded))
-            if any(equal(old, item) for item in direct_members[value]):
-                return True
-        if identity not in constant_members:
-            base, bracket, key = (identity or '').partition('[')
-            if base in constants:
-                data = constants[base]
-                if bracket:
-                    try:
-                        index = ast.literal_eval(key.removesuffix(']'))
-                        data = data[index]
-                    except (ValueError, SyntaxError, KeyError, IndexError, TypeError):
-                        constant_members[identity] = ()
-                        return False
-                constant_members[identity] = tuple(members(data))
-            else:
-                constant_members[identity] = ()
-        return any(equal(old, item) for item in constant_members[identity])
-
-    def key(value, *, old=False):
-        """What equal() compares a value by, to narrow the scan: its text for a str, its decimal number for an
-        int, float or Decimal; None for a value equal() matches with nothing. `ANY` for an old value of another
-        type: every site is read for it. An int member keys by its exact number even where equal() cannot
-        read it, which only adds a candidate that held() then refuses."""
-        kind = type(value)
-        if kind is str:
-            return value
-        if kind is bool or kind not in (int, float, Decimal):
-            return ANY if old and kind is not bool else None
-        number = Decimal(value) if kind is int else Decimal(str(value))
-        return None if number.is_nan() else number
-
-    from flowguard.structure.readers.registry import ECMA, language_for
-    from .owners import named
-    ANY = object()
-    if 'stale_copy_facts' not in graph._derived:
-        sites = graph.con.execute('SELECT s.node,s.line,s.field,s.const,s.value,s.vkind,s.identity,s.file,n.line,n.end_line '
-                                  'FROM site s LEFT JOIN node n ON n.id = s.node ORDER BY s.file,s.line').fetchall()
-        constants = {}
-        for ident, sig in graph.con.execute("SELECT id, sig FROM node WHERE kind = 'const'"):
-            try:
-                constants[ident] = ast.literal_eval(sig)
-            except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
-                continue
-        # Without a direct value or a known constant, held() is false for every old value.
-        sites = [row for row in sites if row[4] or (row[6] or '').partition('[')[0] in constants]
-        # Facts and symbol associations only: old-value matching remains below, per change.
-        foreign = [(row, named(row['node'])) for row in [*graph.literals(), *graph.numbers()]
-                   if language_for(row['file']) in ECMA]
-        graph._derived['stale_copy_facts'] = sites, constants, foreign
-    else:
-        graph._mark_query('literals')  # cached facts still count in this predicate's query coverage
-    sites, constants, foreign = graph._derived['stale_copy_facts']
-    direct_members, constant_members = graph._derived.setdefault('stale_copy_members', ({}, {}))
-    if 'stale_copy_index' not in graph._derived:
-        # Which sites an old value can match: a site's direct members join by_key once held() has read them
-        # (until then the site is pending and read for every old value); a site with a known constant is read
-        # for every old value, so its constant is still read only when an old value first needs it.
-        foreign_by_key = {}
-        for position, (row, _) in enumerate(foreign):
-            if (found_key := key(row['value'])) is not None:
-                foreign_by_key.setdefault(found_key, []).append(position)
-        graph._derived['stale_copy_index'] = (
-            {}, [position for position, row in enumerate(sites) if (row[6] or '').partition('[')[0] in constants],
-            {position for position, row in enumerate(sites) if row[4]}, foreign_by_key, {}, {})
-    by_key, by_constant, pending, foreign_by_key, direct_keys, constant_keys = graph._derived['stale_copy_index']
-    found = {}
-    for change in changes:
-        old, own = change['before'], change.get('identity') or ''
-        wanted = key(old, old=True)
-        positions = range(len(sites)) if wanted is ANY else \
-            sorted(by_key.get(wanted, set()).union(by_constant, pending))
-        for position in positions:
-            target, line, field, literal, value, vkind, identity, file, start, end = sites[position]
-            if target == change.get('target') or own and (identity or '').startswith(own):
-                continue                    # the changed function and the readers of the changed constant
-            if wanted is not ANY and identity in constant_keys and position not in pending \
-                    and wanted not in direct_keys.get(position, ()) and wanted not in constant_keys[identity]:
-                continue                    # neither its value nor its constant has a member equal() can match
-            matched = held(old, value, vkind, identity)
-            if position in pending:
-                pending.discard(position)
-                keys = {found_key for item in direct_members[value] if (found_key := key(item)) is not None}
-                direct_keys[position] = keys
-                for found_key in keys:
-                    by_key.setdefault(found_key, set()).add(position)
-            if identity in constant_members and identity not in constant_keys:
-                constant_keys[identity] = {found_key for item in constant_members[identity] if (found_key := key(item)) is not None}
-            if not matched:
-                continue
-            big = bool(start and end and end - start >= 20 and line - start >= 3)
-            found[(file, line)] = dict(file=file, line=line, target=target, field=field, old=old,
-                                      identity=identity, big=big, kind='lead')
-        for position in range(len(foreign)) if wanted is ANY else foreign_by_key.get(wanted, ()):
-            row, target = foreign[position]
-            if target == change.get('target') or (row['file'], row['line']) == (change['file'], change['line']) \
-                    or not equal(old, row['value']):
-                continue
-            found[(row['file'], row['line'])] = dict(file=row['file'], line=row['line'], target=target,
-                                                    field=row['context'], old=old, identity='', big=False, kind='lead')
-    rows = sorted(found.values(), key=lambda row: (row['file'], row['line']))
-    return dict(total=len(rows), locations=rows, kind='lead')
 
 
 def class_label(atoms, truth, kinds, witness):

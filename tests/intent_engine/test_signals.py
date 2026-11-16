@@ -55,52 +55,6 @@ def test_same_name_lines_name_each_copy_where_it_first_differs_and_keep_it_apart
         '3 copies: 2 copies return False (reference a, c), 1 copies return True (b)'
 
 
-def test_demo_eight_lists_every_old_value_site_whatever_its_field_name(tmp_path):
-    """Round 20 removed the shared-field-word filter and the five-location cap of this lead."""
-    source = '''GRACE_DAYS=21
-LIMITS=(14, 30)
-def owner(days):
-    return days <= GRACE_DAYS
-def preview(days):
-    return days <= 14
-def renewal(overdue_days):
-    return overdue_days <= 14
-def standing(days):
-    return days <= LIMITS[0]
-'''
-    for name in ('booking', 'delivery'):
-        source += '\ndef '+name+'(days):\n'
-        source += ''.join(f'    work_{number} = {number}\n' for number in range(20))
-        source += '    if days <= 14:\n        return "grace"\n'
-        source += ''.join(f'    later_{number} = {number}\n' for number in range(20))
-        source += '    return "expired"\n'
-    # A field named nothing like `days` is listed too: without the field-word filter `amount <= 14` is a site.
-    source += '\ndef unrelated(amount):\n    return amount <= 14\n'
-    (tmp_path/'policy.py').write_text(source, encoding='utf-8')
-    change = dict(before=14, after=21, target='policy:owner', identity='policy:GRACE_DAYS')
-    lines = source.splitlines()
-    # Each site's line is the comparison that still holds the old value, inside its own function.
-    expected = {'policy:preview': 'return days <= 14', 'policy:renewal': 'return overdue_days <= 14',
-                'policy:standing': 'return days <= LIMITS[0]', 'policy:booking': 'if days <= 14:',
-                'policy:delivery': 'if days <= 14:', 'policy:unrelated': 'return amount <= 14'}
-    where = {}
-    for target, text in expected.items():
-        start = next(number for number, line in enumerate(lines) if line.startswith(f'def {target.partition(":")[2]}('))
-        where[target] = next(number for number, line in enumerate(lines) if number > start and line.strip() == text) + 1
-    with closing(build(tmp_path)) as graph:
-        report = signals.stale_copies(graph, [change])
-        assert report['kind'] == 'lead' and report['total'] == 6
-        assert {row['target']: row['line'] for row in report['locations']} == where, report['locations']
-        assert all(row['file'] == 'policy.py' for row in report['locations'])
-        assert {row['target'] for row in report['locations'] if row['big']} == {'policy:booking', 'policy:delivery'}
-        # the lead gets no line (D6): `show --last` keeps its text, every location named in full
-        from flowguard.intent.owners import _old_value_text
-        text = _old_value_text(report)
-        assert text.startswith('old values 14 remain in 6 decisions: ') and len(text.splitlines()) == 1
-        assert all(f"{row['file']}:{row['line']}" in text for row in report['locations'])
-        assert '…' not in text and '...' not in text
-
-
 def test_readable_labels_do_not_mutate_the_source_constant_environment():
     import ast
     from flowguard.intent import cells as C

@@ -63,17 +63,6 @@ def _check(root, *options, before_main=''):
     return result.returncode, _text(result)
 
 
-def _deprecated_leads(root):
-    """The 5.0-deprecated leads of the last run in `root`, which only `show --last` prints."""
-    shown = _cli_fixture.last(root).splitlines()
-    return shown[shown.index('deprecated leads (5.0):') + 1:] if 'deprecated leads (5.0):' in shown else []
-
-
-def _leads(root):
-    """The 5.0-deprecated leads of the last run in `root`, each `feature: text` (`show --last`)."""
-    return [lead.strip() for lead in _deprecated_leads(root)]
-
-
 def _block(text):
     """The FlowGuard block of a check's output: its first line and the lines after it of the block's shapes (stderr's
     notices and the observed pytest command follow it)."""
@@ -405,7 +394,7 @@ def test_pytest_names_every_copy_that_differs_from_the_owner_on_its_own_input(tm
 
 # ---- fixed examples 10 and 11: the KWP rounding copies ---------------------------------------------------
 
-def test_fixed_10_a_registered_owner_lists_the_other_six_kwp_copies_by_behavior(tmp_path):
+def test_fixed_10_the_unchanged_kwp_look_alikes_of_a_registered_owner_get_no_line(tmp_path):
     _commit(_kwp(tmp_path))
     owner = tmp_path / 'Step1/src/kwp_step1/matlab_fallbacks.py'
     lines = owner.read_text(encoding='utf-8').splitlines(True)
@@ -413,30 +402,12 @@ def test_fixed_10_a_registered_owner_lists_the_other_six_kwp_copies_by_behavior(
     lines[13] = '# flowguard: owner MATLAB_ROUND\n'
     owner.write_text(''.join(lines), encoding='utf-8')
     code, text = _check(tmp_path)
-    # copy discovery is a 5.0-deprecated heuristic: its leads are show --last's
+    # Copy discovery compares the look-alikes of the reference: copies the baseline already had, and look-alikes
+    # that are no diverged copy, are no finding (only a diverged copy, or a copy this change adds, is one).
     assert code == 0 and _block(text)[1:] == [], text
-    leads = [lead.strip().removeprefix('unregistered copy discovery: ') for lead in _deprecated_leads(tmp_path)]
-    header = next(line for line in leads if line.startswith('reference MATLAB_ROUND'))
-    assert 'Step1/src/kwp_step1/matlab_fallbacks.py:15' in header and 'has 6 suspected copies' in header, text
-    assert re.search('candidates: 6; time: \\d+\\.\\d\\d seconds', header) and '# flowguard: same MATLAB_ROUND' in header, text
-    same = next(line for line in leads if line.startswith('copy: 3 copies'))
-    assert 'not a proof' in same and all(place in same for place in (
-        'Step3/src/kwp_step3/technology.py:53', 'Step2/src/kwp_step2/try_data.py:15',
-        'Step10/step10_baublock_progress_maps.py:'))
-    assert 'only comparable JSON inputs count; call-site reachability was not checked' in header, header
-    half = [line for line in leads if 'value=-2.5 -> -2(reference returns -3)' in line]
-    assert len(half) == 1 and half[0].startswith('similar 2 copies:') and 'simulation_preparation.py:25' in half[0] \
-        and 'Step6a/kwp_step6a/config.py:' in half[0], text
-    # Grouped by the first difference; int(x + 0.5) and floor(x + 0.5) still differ on negative whole numbers.
-    assert 'these copies also differ on other representative values' in half[0], half[0]
-    legacy = next(line for line in leads if 'step2_demand_library.py' in line)
-    assert legacy.startswith('similar 1 copies:'), text
-    assert not any('value=nan' in line for line in leads), text
-    assert any(line.startswith('not compared:') and 'step2_demand_library.py' in line for line in leads), text
-    assert len([line for line in leads if re.match('(copy:|diverged copy|similar) ', line)]) == 3, text
 
 
-def test_fixed_11_three_changed_copies_name_the_four_left_behind(tmp_path):
+def test_fixed_11_three_changed_unregistered_copies_give_only_their_not_compared_line(tmp_path):
     _kwp(tmp_path)
     fixed = {}
     for relative, floor in (('Step1/src/kwp_step1/matlab_fallbacks.py', 'floor'), ('Step3/src/kwp_step3/technology.py', 'math.floor'),
@@ -453,88 +424,18 @@ def test_fixed_11_three_changed_copies_name_the_four_left_behind(tmp_path):
         (tmp_path / relative).write_text(text, encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 0, text
-    # No rules, so no pytest batch: the title still names the baseline the leads were compared with.
+    # No rules, so no pytest batch: the title still names the baseline the changed functions were compared with.
     title, *lines = _block(text)
     head = _git(tmp_path, 'rev-parse', 'HEAD').strip()
     assert re.fullmatch(rf'FlowGuard \d+\.\d+ \(since {head[:7]}\): 0 red, 7 not compared; \d+\.\d s', title), text
+    # None of the changed functions has a flowguard comment: the copy they left behind is no finding.
     assert lines == ['not compared: 7 functions (3/20 inputs not compared: non-finite JSON number) -> not a failure'], text
-    # similar implementations are a 5.0-deprecated heuristic: its lead is show --last's
-    lead = next(line.strip().removeprefix('similar-implementation leads: ') for line in _deprecated_leads(tmp_path) if 'changed behavior' in line)
-    assert '(3 locations) changed behavior' in lead and all(place in lead for place in (
-        'Step1/src/kwp_step1/matlab_fallbacks.py:15', 'Step3/src/kwp_step3/technology.py:53',
-        'Step10/step10_baublock_progress_maps.py:'))
-    twins, similar = lead.split('similar', 1)
-    assert '1 previously equivalent copies are unchanged: Step6a/kwp_step6a/config.py:' in twins, lead
-    assert all(place in similar for place in ('Step2/src/kwp_step2/simulation_preparation.py:25',
-                                              'Step2/src/kwp_step2/try_data.py:15', 'Step2/step2_demand_library.py:')), lead
-    assert '# flowguard: same MATLAB_ROUND ref' in lead
 
 
-# ---- fixed examples 8, 14 and 18: static leads ---------------------------------------------------------
-
-def test_fixed_8_one_changed_grace_copy_names_the_other_four(tmp_path):
-    source = 'LIMITS = (14, 30)\n\n'
-    source += 'def renewal(overdue_days: int) -> bool:\n    return overdue_days <= 14\n\n'
-    source += 'def quote(late: int) -> bool:\n    return not late > 14\n\n'
-    source += 'def standing(days: int) -> bool:\n    return days <= LIMITS[0]\n\n'
-    for name in ('booking', 'delivery'):
-        source += f'def {name}(days: int) -> str:\n' + ''.join(f'    work_{n} = {n}\n' for n in range(20))
-        source += '    if days <= 14:\n        return "grace"\n' + ''.join(f'    later_{n} = {n}\n' for n in range(20))
-        source += '    return "expired"\n\n'
-    source += 'def unrelated(amount: int) -> bool:\n    return amount <= 15\n'
-    (tmp_path / 'policy.py').write_text(source, encoding='utf-8')
-    _project(tmp_path, {'tests/test_case.py': 'from policy import renewal\ndef test_native():\n    assert renewal(0)\n'})
-    changed = source.replace('return overdue_days <= 14', 'return overdue_days <= 21')
-    (tmp_path / 'policy.py').write_text(changed, encoding='utf-8')
-    result = _pytest(tmp_path)
-    text = _text(result)
-    assert result.returncode == 0 and 'old values' not in result.stdout, text
-    # A 5.0-deprecated heuristic: the lead is no line of the block, show --last lists it.
-    lead = next(line for line in _deprecated_leads(tmp_path) if 'old values 14' in line)
-    expected = [f'policy.py:{number}' for number, line in enumerate(changed.splitlines(), 1)
-                if re.search(r'(<=|>) 14:?$|LIMITS\[0\]', line)]
-    assert len(expected) == 4 and 'remain in 4 decisions:' in lead, (expected, text)
-    assert all(place in lead for place in expected) and lead.count('(in a large function)') == 2, text
-    assert '…' not in lead and lead.startswith('    old-value leads: '), lead
+# ---- fixed example 18: look-alikes that share only a number ---------------------------------------------
 
 
-def test_fixed_14_a_rule_that_still_holds_the_old_value_is_a_lead(tmp_path):
-    policy = _project(tmp_path, {'policy.py': '''
-        GRACE_DAYS = 14
-
-        # flowguard: sensor STANDING
-        def standing(days: int) -> bool:
-            return days <= GRACE_DAYS
-    ''', 'tests/test_case.py': '''
-        from policy import standing
-        def test_native():
-            assert standing(0)
-    ''', 'tests/test_flowguard_intent.py': '''
-        def test_flowguard_intent(request):
-            from flowguard.intent.plugin import sentinel
-            sentinel(request.config)
-    ''', 'tests/intent/grace.py': '''
-        from flowguard.intent import rule, row
-
-
-        @rule("GRACE", decides="grace period", fields={"days": int}, anchor="STANDING",
-              source="assumed: a member keeps standing for fourteen days")
-        def GRACE(days):
-            return days <= 14
-
-
-        GRACE.rows(
-            row(days=15, expect=False, why="day fifteen is past the grace period"),
-            row(days=14, expect=True, why="the last grace day"),
-        )
-    '''}) / 'policy.py'
-    policy.write_text(policy.read_text(encoding='utf-8').replace('GRACE_DAYS = 14', 'GRACE_DAYS = 21'), encoding='utf-8')
-    text = _text(_pytest(tmp_path))
-    assert ('    old-value leads: rule GRACE still uses old value 14(tests/intent/grace.py decision line 7, regression row line 12): '
-            'if requirements changed, update the rule first') in _deprecated_leads(tmp_path), text
-
-
-def test_fixed_18_numbers_equal_only_at_zero_are_unrelated_and_dict_keys_never_drift(tmp_path):
+def test_fixed_18_numbers_equal_only_at_zero_are_unrelated(tmp_path):
     _project(tmp_path, {'money.py': '''
         def margin(price: float) -> float:
             return price * 0.2
@@ -542,34 +443,12 @@ def test_fixed_18_numbers_equal_only_at_zero_are_unrelated_and_dict_keys_never_d
 
         def tax(amount: float) -> float:
             return amount * 0.19
-
-
-        def keys(row):
-            return {'id': row, 'name': 'x'}
     ''', 'tests/test_case.py': 'def test_native():\n    assert True\n'})
     money = tmp_path / 'money.py'
-    money.write_text(money.read_text(encoding='utf-8').replace('def margin', '# flowguard: owner MARGIN\ndef margin')
-                     + "\n\ndef upper(row):\n    return {'ID': row}\n", encoding='utf-8')
+    money.write_text(money.read_text(encoding='utf-8').replace('def margin', '# flowguard: owner MARGIN\ndef margin'), encoding='utf-8')
     code, text = _check(tmp_path, '--all')
     assert code == 0, text
-    assert 'money.py:6' not in text and all(marker not in text for marker in ('suspected copy', 'suspected copies')) and 'spellings differ' not in text, text
-
-
-def test_a_new_spelling_of_a_label_is_a_lead_and_an_old_one_is_not(tmp_path):
-    _project(tmp_path, {'labels.py': '''
-        def home(kind):
-            if kind == 'My Organization':
-                return 'home'
-            return 'other'
-    '''})
-    code, text = _check(tmp_path)
-    assert _block(text)[1:] == [] and not _deprecated_leads(tmp_path), text
-    (tmp_path / 'view.py').write_text("def title(kind):\n    return 'My organization' if kind else ''\n", encoding='utf-8')
-    code, text = _check(tmp_path)
-    # label spellings are a 5.0-deprecated heuristic: a lead of show --last, no line of the block
-    assert code == 0 and _block(text)[1:] == [], text
-    lead = next(line for line in _deprecated_leads(tmp_path) if 'spellings differ' in line)
-    assert "'My Organization'(labels.py:2)" in lead and "'My organization'(view.py:2, spelling added in this task)" in lead, text
+    assert 'money.py:6' not in text and 'copies of MARGIN' not in text, text
 
 
 # ---- data owners ---------------------------------------------------------------------------------------
@@ -667,13 +546,13 @@ def test_reusing_static_findings_returns_its_findings_and_lines_without_mutating
     assert static == before
     assert found is not static
     assert found.issues == static.issues
-    assert all(line in found.lines for line in static.lines) and all(lead in found.hidden for lead in static.hidden)
+    assert all(line in found.lines for line in static.lines)
     assert found.known == static.known and static.ran <= found.ran
     assert found.summary == static.summary
     assert all(found.stats[key] == value for key, value in static.stats.items())
 
 
-def test_copy_discovery_uses_sealed_source_and_lists_what_it_cannot_run(tmp_path):
+def test_copy_discovery_uses_sealed_source_and_a_look_alike_it_cannot_run_leaves_it_incomplete(tmp_path, monkeypatch):
     _project(tmp_path, {'rules.py': '''
         # flowguard: owner HALF
         def half(value: float) -> float:
@@ -714,18 +593,26 @@ def test_copy_discovery_uses_sealed_source_and_lists_what_it_cannot_run(tmp_path
     assert result.returncode == 0, text
     compared = set(re.findall(r'SEALED (\w+)', result.stderr))
     assert {'half', 'same', 'spin', 'copied'} <= compared, result.stderr
-    # copy discovery is a 5.0-deprecated heuristic: its leads are show --last's, no line of the block
+    # copies the baseline already had are no finding of this change
     assert _block(text)[1:] == [], text
-    leads = [lead.strip().removeprefix('unregistered copy discovery: ') for lead in _deprecated_leads(tmp_path)]
-    copies = next(line for line in leads if line.startswith('before: copy:'))
-    assert 'rules.py:6' in copies and 'vendor_copy.py:4' in copies and 'not a proof' in copies, leads
-    unclear = next(line for line in leads if line.startswith('unavailable copies:'))
-    assert 'rules.py:10' in unclear and '0.5' in unclear and 'completion' in unclear, unclear
-    assert 'rules.py:16 (unsupported Import)' in unclear, unclear
-    assert 'vendor_copy.py:4' not in unclear, unclear
     # FlowGuard runs copy discovery itself: only the project's own 4.2 owner spelling is deprecated
     notices = [line for line in result.stderr.splitlines() if line.startswith('deprecated: ')]
     assert notices == ['deprecated: function owner goes in 5.0 -> write same NAME ref'], result.stderr
+    # spin (rules.py:10) does not complete and broken (rules.py:16) imports: copy discovery did not judge every
+    # look-alike, so it does not count as run (a known entry's `known fixed?` needs it); without them it does.
+    from contextlib import closing
+    from flowguard.intent import owners
+    from flowguard.intent.config import load_config
+    from flowguard.structure import build
+    monkeypatch.setattr(owners, 'TIMEOUT', 0.5)
+    def discovered():
+        cfg = load_config(tmp_path)
+        with closing(build(tmp_path, roots=cfg.roots)) as graph:
+            return owners.discover(cfg, graph, anchors.collect(graph), owners.Change(cfg, graph, None), everything=True)
+    assert owners.COPY_DISCOVERY not in discovered().ran
+    rules = tmp_path / 'rules.py'
+    rules.write_text(rules.read_text(encoding='utf-8').split('\n\n\ndef spin')[0] + '\n', encoding='utf-8')
+    assert owners.COPY_DISCOVERY in discovered().ran
 
 
 def test_manual_copy_discovery_does_not_execute_module_initialization_or_function_effects(tmp_path):
@@ -746,10 +633,6 @@ def test_manual_copy_discovery_does_not_execute_module_initialization_or_functio
     code, text = _check(tmp_path, '--all')
     assert code == 0 and _block(text)[1:] == [], text
     assert not marker.exists()
-    leads = [lead.strip().removeprefix('unregistered copy discovery: ') for lead in _deprecated_leads(tmp_path)]
-    assert any('peer.py:2' in line and 'copy:' in line for line in leads), leads
-    unavailable = next(line for line in leads if line.startswith('unavailable copies:'))
-    assert 'peer.py:4' in unavailable and 'uses ' in unavailable, leads
 
 
 def test_changed_alone_compares_baseline_source_without_importing_the_project(tmp_path):
@@ -758,7 +641,7 @@ def test_changed_alone_compares_baseline_source_without_importing_the_project(tm
     from flowguard.intent.config import load_config
     from flowguard.structure import build
     marker = tmp_path / 'initialized.txt'
-    source = f"open({str(marker)!r}, 'w').write('initialized')\ndef limit(value: int):\n    return value <= 3\n"
+    source = f"open({str(marker)!r}, 'w').write('initialized')\n# flowguard: same LIMIT\ndef limit(value: int):\n    return value <= 3\n"
     _project(tmp_path, {'policy.py': source, 'peer.py': 'def copy(value: int):\n    return value <= 3\n'})
     base = _git(tmp_path, 'rev-parse', 'HEAD').strip()
     (tmp_path / 'policy.py').write_text(source.replace('<= 3', '<= 4'), encoding='utf-8')
@@ -766,8 +649,10 @@ def test_changed_alone_compares_baseline_source_without_importing_the_project(tm
     with closing(build(tmp_path, roots=cfg.roots)) as graph:
         found = owners.changed_alone(cfg, graph, anchors.collect(graph), owners.Change(cfg, graph, base))
     assert not marker.exists()
-    # an unregistered copy gets no line, only show --last's lead (D6)
-    assert any('changed behavior' in lead['text'] and 'peer.py:1' in lead['text'] for lead in found.hidden), found
+    # the baseline source of limit agreed with the unregistered copy, the new one does not: limit's finding names it
+    issue = next(issue for issue in found.issues if issue.name == 'changed-alone:LIMIT')
+    assert [part[:3] for part in issue.parts] == [('policy:limit', 'policy.py:limit',
+                                                   'changed behavior; 1 copy that answered the same is unchanged: peer.py:copy')], issue
 
 
 def test_changed_alone_does_not_count_the_same_raised_exception_as_agreement(tmp_path):
@@ -784,7 +669,6 @@ def test_changed_alone_does_not_count_the_same_raised_exception_as_agreement(tmp
         found = owners.changed_alone(cfg, graph, anchors.collect(graph), owners.Change(cfg, graph, base))
     assert not found.issues
     assert any(line.kind == 'not compared' and 'same raised exception' in line.text for line in found.lines), found
-    assert not any('changed behavior' in lead['text'] for lead in found.hidden), found
 
 
 def test_a_new_copy_of_a_registered_owner_is_an_impact(tmp_path):
@@ -995,8 +879,18 @@ def test_copy_discovery_compares_on_the_codes_own_literals(tmp_path):
                                                           '# flowguard: owner TECHNOLOGY\ndef normalize_technology_name(value: object)'), encoding='utf-8')
     code, text = _check(tmp_path)
     assert code == 0 and _block(text)[1:] == [], text
-    forked = next(lead for lead in _leads(tmp_path) if lead.startswith('unregistered copy discovery: diverged copy 1 copies'))
-    assert 'Step1/src/kwp_step1/utils.py:' in forked and "-> 'district_heat'(reference returns 'waermenetze')" in forked, forked
+    # The copy in utils.py forks on a name only the copies' own tables spell: a copies finding of the reference (the
+    # baseline had it, so it is no line of this change).
+    from contextlib import closing
+    from flowguard.intent import owners
+    from flowguard.intent.config import load_config
+    from flowguard.structure import build
+    cfg = load_config(tmp_path)
+    with closing(build(tmp_path, roots=cfg.roots)) as graph:
+        found = owners.discover(cfg, graph, anchors.collect(graph), owners.Change(cfg, graph, owners.baseline(cfg)))
+    forked = next(issue for issue in found.issues if issue.name == 'copies:TECHNOLOGY')
+    assert 'diverged copy 1 copies' in forked.text and 'Step1/src/kwp_step1/utils.py:' in forked.text, forked
+    assert "-> 'district_heat'(reference returns 'waermenetze')" in forked.text, forked.text
 
 
 def _known_ignore(root, name, why):
@@ -1004,7 +898,7 @@ def _known_ignore(root, name, why):
     assert _cli_fixture.main(['--root', root, 'known', 'add', name, '--act', 'ignore', '--why', why]) == 0
 
 
-def test_a_changed_copy_keeps_its_lead_and_known_add_with_act_ignore_takes_its_copies_line_out(tmp_path):
+def test_known_add_with_act_ignore_takes_the_copies_line_of_a_changed_copy_out(tmp_path):
     body = ("export function total(items: number[], rate: number): number {{\n  let sum = 0;\n"
             "  for (const item of items) {{\n    if (item > {limit}) {{ sum += item * rate; }} else {{ sum += item; }}\n  }}\n"
             "  return Math.round(sum * 100) / 100;\n}}\n")
@@ -1012,33 +906,11 @@ def test_a_changed_copy_keeps_its_lead_and_known_add_with_act_ignore_takes_its_c
     (tmp_path / 'src/a.ts').write_text(body.format(limit=10).replace('* 100) / 100', '* 1000) / 1000'), encoding='utf-8')
     static = lambda: _check(tmp_path, '--static')
     code, text = static()
-    assert code == 0 and any(lead.startswith('similar-implementation leads: total(src/a.ts:1) changed;') for lead in _leads(tmp_path)), text
-    assert _block(text)[1:] == ['before: copies total at a.ts:total was broken at task start -> leave it unless your task is about it'], text
+    assert code == 0 and _block(text)[1:] == ['before: copies total at a.ts:total was broken at task start -> leave it unless your task is about it'], text
     _known_ignore(tmp_path, 'copies:total', 'the two totals round differently on purpose until the reports merge')
     code, text = static()
     assert code == 0 and _block(text)[1:] == ['loosened: known.copies-total added with act = "ignore" -> name it in your report; '
                                               "loosening an agreement is the owner's decision"], text
-
-
-def test_a_changed_method_lists_its_identical_unchanged_copy_beside_drifted_functions_of_its_name(tmp_path):
-    # Round 24 review: two drifted module-level `save` functions must not hide the changed-alone lead of a method
-    # named save, such as two identical repository methods.
-    body = ("export function save(items: number[], rate: number): number {{\n  let sum = 0;\n"
-            "  for (const item of items) {{\n    if (item > {limit}) {{ sum += item * rate; }} else {{ sum += item; }}\n  }}\n"
-            "  return Math.round(sum * 100) / 100;\n}}\n")
-    method = ("export class {name}Repo {{\n  save(row: any, db: any): any {{\n    const data = {{ ...row, updatedAt: new Date() }};\n"
-              "    if (!data.id) {{ throw new Error('no id'); }}\n    return db.{table}.update({{ where: {{ id: data.id }}, data }});\n"
-              "  }}\n}}\n")
-    _project(tmp_path, {'src/a.ts': body.format(limit=10), 'src/b.ts': body.format(limit=20),
-                        'src/repo/user.ts': method.format(name='User', table='row'),
-                        'src/repo/order.ts': method.format(name='Order', table='row')})
-    user = tmp_path / 'src/repo/user.ts'
-    user.write_text(user.read_text(encoding='utf-8').replace("throw new Error('no id')", "throw new Error('no user id')"),
-                    encoding='utf-8')
-    code, text = _check(tmp_path, '--static')
-    assert code == 0 and _block(text)[1:] == [], text
-    assert any(lead.startswith('similar-implementation leads: UserRepo.save(src/repo/user.ts:2) changed; previously identical copies: 1 '
-                               'unchanged: src/repo/order.ts:2') for lead in _leads(tmp_path)), text
 
 
 def test_a_copies_problem_lists_the_same_functions_after_a_file_is_mapped_again(tmp_path):
@@ -1066,8 +938,7 @@ def test_a_copies_problem_this_task_made_is_impact_and_known_add_with_act_ignore
     _project(tmp_path, {'src/a.ts': body.format(scale=100), 'src/b.ts': body.format(scale=100)})
     (tmp_path / 'src/a.ts').write_text(body.format(scale=1000), encoding='utf-8')
     code, text = _check(tmp_path, '--static')
-    assert code == 0 and any(lead.startswith('similar-implementation leads: save(src/a.ts:1) changed;') for lead in _leads(tmp_path)), text
-    assert _block(text)[1:] == [
+    assert code == 0 and _block(text)[1:] == [
         f'impact: copies save: {name}.ts:save has another body than the same-named save in src/{other}.ts -> fix it, or say why in your report'
         for name, other in (('a', 'b'), ('b', 'a'))], text
     _known_ignore(tmp_path, 'copies:save', 'the two save functions round to different units on purpose')
@@ -1115,44 +986,6 @@ def test_two_typescript_union_declarations_with_different_members_are_a_lead(tmp
     assert code == 0 and _block(text)[1:] == [
         "impact: declarations LendingStatus: backend/src/lending.ts:1 declares 'ACTIVE' | 'DRAFT' | 'ENDED'; frontend/src/lending.ts:1 declares "
         "'ACTIVE' | 'DRAFT' -> fix it, or say why in your report"], text
-
-
-def test_a_similar_implementation_lead_leaves_out_and_never_asks_to_register_the_copies_registered_with_it(tmp_path):
-    """A changed copy of `same ACCEPT` whose former twin is the registered reference: that name's comparison covers the
-    pair, so the lead names only the unregistered look-alike, under the registered name, and asks to mark only it."""
-    root = _project(tmp_path, {
-        'orders.py': '''
-            # flowguard: same ACCEPT ref
-            def accept(days: int) -> bool:
-                return days <= 3
-
-
-            # flowguard: same ACCEPT
-            def preview_accept(days: int) -> bool:
-                return days <= 3
-
-
-            def quote_accept(days: int) -> bool:
-                return days <= 3
-        ''',
-    })
-    orders = root / 'orders.py'
-    orders.write_text(orders.read_text().replace('def preview_accept(days: int) -> bool:\n    return days <= 3',
-                                                 'def preview_accept(days: int) -> bool:\n    return days <= 4'), encoding='utf-8')
-    _check(root, '--static')
-    leads = [lead for lead in _leads(root) if lead.startswith('similar-implementation leads: ')]
-    assert len(leads) == 1 and 'orders.py:2' not in leads[0] and 'PREVIEW_ACCEPT' not in leads[0] and ' ref' not in leads[0], leads
-    assert 'orders.py:11' in leads[0] and leads[0].endswith('write above each copy not marked yet: # flowguard: same ACCEPT)'), leads
-    # check compares the behaviour instead; none of its leads asks to register the registered copies either
-    _check(root)
-    assert not any('PREVIEW_ACCEPT' in lead for lead in _leads(root)), _leads(root)
-    # With the look-alike registered too, every former twin is covered: no lead at all.
-    orders.write_text(orders.read_text().replace('\ndef quote_accept', '# flowguard: same ACCEPT\ndef quote_accept'), encoding='utf-8')
-    _git(root, 'add', '.')
-    _git(root, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'mark the look-alike')
-    orders.write_text(orders.read_text().replace('return days <= 4', 'return days <= 5'), encoding='utf-8')
-    _check(root, '--static')
-    assert not any(lead.startswith('similar-implementation leads: ') for lead in _leads(root)), _leads(root)
 
 
 def test_a_copy_this_change_makes_diverge_from_the_reference_is_new_never_broken_at_task_start(tmp_path):

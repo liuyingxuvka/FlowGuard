@@ -545,22 +545,12 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
-["flowguard/intent/owners.py:_rule_declarations:(SyntaxError, UnicodeError)"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
 ["flowguard/intent/owners.py:changed_alone:SyntaxError"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
 ["flowguard/intent/owners.py:changed_alone:ValueError"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/owners.py:constant_changes:SyntaxError"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
@@ -656,26 +646,6 @@ reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；�
 rule = "旧账"
 
 ["flowguard/intent/runtime.py:_value:Exception"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/signals.py:stale_copies.equal:(InvalidOperation, ValueError)"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/signals.py:stale_copies.held:(ValueError, SyntaxError, KeyError, IndexError, TypeError)"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/signals.py:stale_copies.held:ValueError"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/intent/signals.py:stale_copies:(ValueError, TypeError, SyntaxError, MemoryError, RecursionError)"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"

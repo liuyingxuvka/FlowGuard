@@ -485,41 +485,6 @@ def test_fixed_7_rule_failure_preserves_its_independent_source_sentence(tmp_path
     assert '    STANDING_RULE source: At most three days.' in _last(tmp_path).splitlines()
 
 
-def test_fixed_8_old_values_in_four_copies_include_large_function_interiors(tmp_path):
-    source = '''def owner(days: int) -> bool:
-    return days <= 14
-def preview(days: int) -> bool:
-    return days <= 14
-def renewal(days: int) -> bool:
-    return days <= 14
-'''
-    for name in ('booking', 'delivery'):
-        source += '\ndef '+name+'(days: int) -> bool:\n'
-        source += ''.join(f'    work_{number} = {number}\n' for number in range(20))
-        source += '    if days <= 14:\n        return True\n'
-        source += ''.join(f'    later_{number} = {number}\n' for number in range(20))
-        source += '    return False\n'
-    policy = _project(tmp_path, source, '''
-        from policy import owner, preview, renewal, booking, delivery
-        def test_native():
-            assert owner(0) and preview(0) and renewal(0) and booking(0) and delivery(0)
-    ''')
-    changed = policy.read_text().replace('return days <= 14', 'return days <= 21', 1)
-    policy.write_text(changed)
-    locations = [f'policy.py:{number}' for number, line in enumerate(changed.splitlines(), 1) if 'days <= 14' in line]
-    assert len(locations) == 4
-    result = _run(tmp_path)
-    text = _text(result)
-    assert result.returncode == 0, text
-    # A 5.0-deprecated heuristic: no line of the block, the lead only in show --last; FlowGuard made it, the project uses
-    # nothing deprecated, so no deprecation notice.
-    assert 'old values' not in text and 'deprecated:' not in result.stderr, text
-    last = _last(tmp_path).splitlines()
-    leads = last[last.index('deprecated leads (5.0):') + 1:]
-    lead = next(line for line in leads if 'old values 14 remain in 4 decisions' in line)
-    assert all(location in lead for location in locations), last
-
-
 def test_fixed_9_reused_connection_calls_run_once_each_and_are_not_compared(tmp_path):
     policy = _project(tmp_path, '''
         import sqlite3

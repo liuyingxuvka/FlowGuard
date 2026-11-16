@@ -489,8 +489,7 @@ def copies(change, index, *, before=False):
     """Module-level functions with one name in different files, almost the same structure (3-gram shape
     similarity SIMILAR_COPY or more) but different bodies: copies that drifted apart. One issue per set of
     files (two files that share several such functions are one issue), its members compared with the one
-    in the first file by path. Issues only: a change gets the leads of `owners.changed_once`. A registered
-    sensor is not listed. `before`: the problems as they stood at the change's baseline (`_module_functions`)."""
+    in the first file by path. A registered sensor is not listed. `before`: the problems as they stood at the change's baseline (`_module_functions`)."""
     from flowguard.structure.store import shape_list
     from .owners import STRUCTURAL_COPIES
     found = _findings()

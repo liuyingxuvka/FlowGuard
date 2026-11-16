@@ -4,10 +4,8 @@ A function owner (`# flowguard: owner NAME`) is the reference its same-name sens
 existing same-name comparison checks those. Copy discovery runs unregistered look-alikes on the
 owner's case classes, through the runtime's source-only sealed executor, only in
 `check`. A data owner (`owner Table.column writers=...`) makes a write outside its writers a finding.
-Every finding names its members, those this change added fresh (`signals.deliver` gives each its line);
-static leads (an old value still elsewhere, also in rules; a new spelling of a label) never replay and get
-no line, only `show --last`. Grouping is a finite sample of representative values, never a proof of equal
-behavior.
+Every finding names its members, those this change added fresh (`signals.deliver` gives each its line).
+Grouping is a finite sample of representative values, never a proof of equal behavior.
 """
 from __future__ import annotations
 
@@ -21,10 +19,9 @@ import re
 import threading
 import time
 
-from flowguard.map.common import git_blob, git_renames, git_run, is_test_file, read_source, sha256_bytes
+from flowguard.map.common import git_blob, git_renames, git_run, is_test_file, read_source
 
 SIMILAR_SHAPE = 0.5          # 3-gram Jaccard of two function bodies that counts as a similar structure
-SIMILAR_FOREIGN = 0.8        # the same for JS/TS, whose copies are found by structure alone (no replay)
 TRIVIAL = {0, 1, -1, 2}      # numbers too common to tie two functions together
 TIMEOUT = 2.0                # seconds for one function's replay before it is listed as unclear
 PEERS = 40                   # look-alikes of one changed function replayed at most, the most similar first
@@ -33,15 +30,13 @@ PEERS = 40                   # look-alikes of one changed function replayed at m
 @dataclass
 class Findings:
     """What the map checks found, for the 4.3 lines (`signals.deliver`): the findings with their members, the lines
-    already of their kind, what this change touches and which families ran; the session brief's count of open
-    structure problems; and the leads that get no line, for `show --last`."""
+    already of their kind, what this change touches and which families ran; and the session brief's count of open
+    structure problems."""
     stats: dict = field(default_factory=dict)
     issues: list = field(default_factory=list)      # health.Issue: open structure problems, old ones too
     summary: dict | None = None                     # count and heaviest names for the session brief
     known: list = field(default_factory=list)       # sources.Known: the entries of known.toml, sites resolved
     lines: list = field(default_factory=list)       # signals.Line of their final kind (impact, loosened, not compared)
-    hidden: list = field(default_factory=list)      # {feature, text}: leads that get no line, only `show --last`
-                                                    # (feature: the 5.0-deprecated heuristic; '' for none)
     ran: set = field(default_factory=set)           # the families whose checks judged the whole project in this run
                                                     # (a known entry's `known fixed?`; `families_ran`)
     touched_functions: frozenset = frozenset()      # what this change edits or adds: a finding's member there is
@@ -51,7 +46,6 @@ class Findings:
         self.issues.extend(other.issues)
         self.known.extend(other.known)
         self.lines.extend(other.lines)
-        self.hidden.extend(other.hidden)
         self.ran |= other.ran
         self.touched_functions |= other.touched_functions
         self.touched_files |= other.touched_files
@@ -66,13 +60,6 @@ def _ascii(text):
                         ('\u2192', '->')):
         text = text.replace(wide, plain)
     return text
-
-
-def _hide(found, feature, text):
-    """Keep a lead that gets no 4.3 line for `show --last` (D6): `feature` names the 5.0-deprecated heuristic. FlowGuard
-    makes these leads itself, so they print no `deprecated:` notice: a notice says that the project's own input (a
-    comment spelling, a declaration, a command option) uses a feature that goes in 5.0."""
-    found.hidden.append(dict(feature=feature, text=_ascii(text)))
 
 
 def place(row):
@@ -148,7 +135,7 @@ class Change:
 
     def delta(self, files):
         """The map's delta rows of these files against the baseline, in their order; each file's rows are read
-        once per check (the touched functions and the changed-once leads both ask)."""
+        once per check."""
         missing = [file for file in dict.fromkeys(files) if file not in self._delta]
         if missing:
             found = dict(self.graph._file_deltas(self.baseline, missing))
@@ -308,16 +295,6 @@ class Change:
             return frozenset()
         return frozenset(name for node, names in self.calls(file, old=old).items()
                          if node == ident or qual and node.startswith(ident + '.') for name in names)
-
-    def rule_declarations(self):
-        """The intent source facts of this change, not an old-value matching result."""
-        if not hasattr(self, '_rules'):
-            self._rules = _rule_declarations(self.cfg)
-        return self._rules
-
-    def changed_python(self):
-        return sorted(file for file in self.files if file.endswith('.py') and file in self._modules
-                      and not is_test_file(file) and not (self.cfg.root / file).resolve().is_relative_to(self.cfg.intent))
 
 
 def named(ident):
@@ -1004,383 +981,7 @@ def owner_pairs(change, index):
     return found
 
 
-# ---- static leads: old values, rules that still hold them, new spellings ------------------------------
-
-def _value_kind(value):
-    return 'number' if type(value) in (int, float) else 'text' if type(value) is str else None
-
-
-def _differences(before, after):
-    """(old, new) pairs of two literal values: scalars, or the members of tuples, lists and dicts."""
-    if type(before) in (tuple, list) and type(after) in (tuple, list) and len(before) == len(after):
-        return [pair for a, b in zip(before, after) for pair in _differences(a, b)]
-    if type(before) is dict and type(after) is dict and before.keys() == after.keys():
-        return [pair for key in before for pair in _differences(before[key], after[key])]
-    if _value_kind(before) and _value_kind(before) == _value_kind(after) and before != after:
-        return [(before, after)]
-    return []
-
-
-_UNREADABLE = object()
-
-
-def _module_literals(tree):
-    from .cache import _literal
-    found = {}
-    for statement in tree.body:
-        targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target] \
-            if isinstance(statement, ast.AnnAssign) and statement.value is not None else []
-        for target in targets:
-            value = _literal(statement.value, _UNREADABLE)
-            if isinstance(target, ast.Name) and value is not _UNREADABLE:
-                found[target.id] = (value, statement.lineno)
-    return found
-
-
-def _foreign_constant_changes(change):
-    """The same for JS/TS files, from the map's facts: `const NAME = literal` constants and the decision
-    literals (comparisons, cases, returns, sets, unions) of a function whose shape is otherwise unchanged."""
-    from flowguard.structure.readers.registry import ECMA, language_for
-    out = []
-    for file in sorted(change.files):
-        if language_for(file) not in ECMA or is_test_file(file) or (new := change.graph.file_facts(file)) is None:
-            continue
-        old = change.old_facts(file)
-        if not old:
-            continue
-        from flowguard.structure.store import shape_list
-        module = change._modules[file]
-        nodes = [dict(qual=qual, kind=kind, sig=sig, line=line, shape=shape_list(blob) if isinstance(blob, bytes) else list(blob or ()))
-                 for qual, kind, sig, line, blob in change.graph.con.execute(
-                     'SELECT qual, kind, sig, line, shape FROM node WHERE file = ?', (file,))]
-        before = {node['qual']: node for node in old['nodes'] if node['kind'] == 'const'}
-        for node in nodes:
-            previous = before.get(node['qual'])
-            if node['kind'] != 'const' or previous is None:
-                continue
-            (a, first), (b, second) = _literal_text(previous['sig']), _literal_text(node['sig'])
-            for old_value, new_value in _differences(first, second) if a and b else ():
-                out.append(dict(name=node['qual'], before=old_value, after=new_value, file=file, line=node['line'],
-                                identity=module + ':' + node['qual'], target=''))
-        shapes = {node['qual']: list(node.get('shape') or ()) for node in old['nodes']}
-        now_shapes = {node['qual']: node['shape'] for node in nodes}
-        def by_function(facts):
-            rows = {}
-            for row in sorted([*facts.get('literals', ()), *facts.get('numbers', ())], key=lambda row: (row['line'], row['column'])):
-                rows.setdefault(named(row['node']), []).append(row)
-            return rows
-        old_rows, new_rows = by_function(old), by_function(new)
-        for ident in old_rows.keys() & new_rows.keys():
-            qual = ident.partition(':')[2]
-            first, second = old_rows[ident], new_rows[ident]
-            if not qual or len(first) != len(second) or shapes.get(qual) != now_shapes.get(qual):
-                continue
-            for x, y in zip(first, second):
-                for old_value, new_value in _differences(x['value'], y['value']):
-                    out.append(dict(name=qual + ' constant', before=old_value, after=new_value, file=file, line=y['line'],
-                                    identity='', target=ident))
-    return out
-
-
-def _literal_text(text):
-    """(readable, value) of a constant's source text; a JS/TS constant that is no literal takes no part in
-    old-value leads."""
-    from .cache import _literal
-    value = _literal(text, _UNREADABLE)
-    return (False, None) if value is _UNREADABLE else (True, value)
-
-
-def constant_changes(change):
-    """Literal values this change replaced: module constants (also inside tuples and dicts) and the
-    constants of a function whose structure is otherwise unchanged, in Python and JS/TS files. Read from
-    source, never run; each source text's constants are read once (`_source_constants`)."""
-    out = _foreign_constant_changes(change)
-    for file in change.changed_python():
-        blob = change.graph._baseline_object(change.baseline, file)
-        if blob is None:
-            continue
-        try:
-            new = read_source(change.cfg.root / file)
-            old_facts = _source_constants(change.graph, ['blob', blob], lambda: change.old_text(file))
-            new_facts = _source_constants(change.graph, ['text', sha256_bytes(new.encode('utf-8', 'surrogatepass'))], lambda: new)
-        except SyntaxError:
-            continue
-        module = change._modules[file]
-        before, after = old_facts['literals'], new_facts['literals']
-        for name in before.keys() & after.keys():
-            for old_value, new_value in _differences(before[name][0], after[name][0]):
-                out.append(dict(name=name, before=old_value, after=new_value, file=file, line=after[name][1],
-                                identity=module + ':' + name, target=''))
-        old_functions, new_functions = old_facts['functions'], new_facts['functions']
-        for qual in old_functions.keys() & new_functions.keys():
-            a, b = old_functions[qual], new_functions[qual]
-            if a['text'] == b['text']:
-                continue                    # the same lines: decorators, signature and body
-            first, second = a['constants'], b['constants']
-            if len(first) != len(second):
-                continue
-            differences = [(line, _differences(x, y)) for (_, x), (line, y) in zip(first, second)]
-            if not any(pairs for _, pairs in differences) or a['shape'] != b['shape']:
-                continue
-            for line, pairs in differences:
-                for old_value, new_value in pairs:
-                    out.append(dict(name=qual + ' constant', before=old_value, after=new_value, file=file, line=line,
-                                    identity='', target=module + ':' + qual))
-    return out
-
-
-CONSTANT_FACTS = 1          # the form of `_read_constants`; a new form never reads an older one
-
-
-def _source_constants(graph, source, text):
-    """The constants of one Python source text (`_read_constants`), read once per text and kept with the map's
-    other rebuildable facts. `source` names the text: a baseline blob, or the digest of a working-tree text;
-    `text()` gives it when it was not read before. A text that does not parse raises SyntaxError and is not kept.
-    Facts only: the comparison of two texts is never stored. The key holds the digest of the code that reads
-    the facts (this file and `runtime._functions`'s, as `reader_digest` does for the map's readers) and of
-    `structure/store.py`, whose `pack` format they are stored in, so an upgraded FlowGuard never reuses facts
-    an earlier version stored."""
-    import json
-    import sys
-    from pathlib import Path
-    from flowguard.map.common import content_digest
-    from flowguard.structure import store
-    if 'constant_facts_code' not in graph._derived:
-        from . import runtime
-        graph._derived['constant_facts_code'] = [content_digest(Path(__file__)), content_digest(Path(runtime.__file__)),
-                                                 content_digest(Path(store.__file__))]
-    identity = json.dumps([*source, CONSTANT_FACTS, sys.implementation.cache_tag, *graph._derived['constant_facts_code']],
-                          separators=(',', ':'))
-    key = 'constant_facts:' + sha256_bytes(identity.encode())
-    held = graph._derived.setdefault('constant_facts', {})
-    if key not in held:
-        row = graph.con.execute('SELECT v FROM meta WHERE k=?', (key,)).fetchone()
-        if row is None:
-            packed = store.pack(_read_constants(text()))
-            active = graph.con.in_transaction
-            from .cache import put_meta
-            put_meta(graph.con, key, packed)
-            if not active:
-                graph.con.commit()
-        else:
-            packed = row[0]
-        facts = store.unpack(packed)
-        held[key] = dict(literals={name: (_unpacked(value), line) for name, value, line in facts['literals']},
-                         functions={qual: dict(text=text_digest, shape=shape, constants=[(line, _unpacked(value)) for line, value in constants])
-                                    for qual, text_digest, shape, constants in facts['functions']})
-    return held[key]
-
-
-def _read_constants(text):
-    """What constant_changes compares in one source text: its module literals (`_module_literals`, in their
-    order) and, for each function `_functions` finds, the digest of its lines (decorators to last line), the
-    digest of its structure with constants reduced to their type (`_shape_key`) and its constants in
-    `ast.walk` order."""
-    from .runtime import _functions
-    tree = ast.parse(text)
-    lines = text.split('\n')
-    functions = []
-    for qual, node in dict(_functions(tree)).items():
-        start = min([node.lineno, *(d.lineno for d in node.decorator_list)]) - 1
-        span = lines[start:node.end_lineno]
-        functions.append([qual, sha256_bytes(_json_text([len(span), *span]).encode('utf-8', 'surrogatepass')),
-                          sha256_bytes(_shape_key(node).encode('utf-8', 'surrogatepass')),
-                          [[part.lineno, _packed(part.value)] for part in ast.walk(node) if isinstance(part, ast.Constant)]])
-    return dict(literals=[[name, _packed(value), line] for name, (value, line) in _module_literals(tree).items()],
-                functions=functions)
-
-
-def _json_text(value):
-    import json
-    return json.dumps(value, ensure_ascii=False, separators=(',', ':'))
-
-
-def _packed(value):
-    """A literal value in a JSON form that keeps its exact type (`_unpacked` reads it back)."""
-    kind = type(value)
-    if value is None or value is Ellipsis:
-        return [repr(value)]
-    if kind is bool or kind is str:
-        return [kind.__name__, value]
-    if kind is int:
-        return ['int', hex(value)]
-    if kind is float:
-        return ['float', value.hex()]
-    if kind is complex:
-        return ['complex', value.real.hex(), value.imag.hex()]
-    if kind is bytes:
-        return ['bytes', value.hex()]
-    if kind in (tuple, list, set):
-        return [kind.__name__, [_packed(part) for part in value]]
-    if kind is dict:
-        return ['dict', [[_packed(key), _packed(part)] for key, part in value.items()]]
-    raise TypeError('a literal of type ' + kind.__name__ + ' has no stored form')
-
-
-def _unpacked(data):
-    kind = data[0]
-    if kind in ('None', 'Ellipsis'):
-        return None if kind == 'None' else Ellipsis
-    if kind in ('bool', 'str'):
-        return data[1]
-    if kind == 'int':
-        return int(data[1], 16)
-    if kind == 'float':
-        return float.fromhex(data[1])
-    if kind == 'complex':
-        return complex(float.fromhex(data[1]), float.fromhex(data[2]))
-    if kind == 'bytes':
-        return bytes.fromhex(data[1])
-    if kind in ('tuple', 'list', 'set'):
-        return {'tuple': tuple, 'list': list, 'set': set}[kind](_unpacked(part) for part in data[1])
-    if kind == 'dict':
-        return {_unpacked(key): _unpacked(part) for key, part in data[1]}
-    raise ValueError('unknown stored literal form ' + repr(kind))
-
-
-_ABSENT = object()
-
-
-def _shape_key(function):
-    """A function's structure with each constant reduced to its type name, as one text (the same comparison
-    as `ast.dump` of that reduced tree): every part is written with its length, so two structures share a key
-    only when they are the same. Built without recursion, so a deep expression cannot exhaust the stack."""
-    parts, stack = [], [function]
-    while stack:
-        item = stack.pop()
-        if type(item) is str:
-            parts.append(f'{len(item)}:{item}')
-            continue
-        if isinstance(item, ast.Constant):
-            stack.append('C' + type(item.value).__name__)
-            continue
-        fields = ['N' + type(item).__name__]
-        for name in item._fields:
-            value = getattr(item, name, _ABSENT)
-            # As ast.dump: a missing field and a None one whose class default is None are both left out.
-            if value is _ABSENT or value is None and getattr(type(item), name, ...) is None:
-                fields.append('-')
-            elif type(value) is list:
-                fields.append('[' + str(len(value)))
-                fields.extend(part if isinstance(part, ast.AST) else 'v' + repr(part) for part in value)
-            elif isinstance(value, ast.AST):
-                fields.append(value)
-            else:
-                fields.append('v' + repr(value))
-        stack.extend(reversed(fields))
-    return ''.join(parts)
-
-
-def _rule_declarations(cfg):
-    """The rules in the intent folder, read from source and never run: for each file its path and tree,
-    and for each rule its id, predicate node, anchor names, `.rows(...)` calls and the constants of both."""
-    if not cfg.intent.is_dir():
-        return []
-    found = []
-    for path in sorted(cfg.intent.rglob('*.py')):
-        try:
-            tree = ast.parse(path.read_text(encoding='utf-8-sig'))
-        except (SyntaxError, UnicodeError):
-            continue        # the loader reports a rule file it cannot read
-        rules = {}
-        for node in ast.walk(tree):
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            for decorator in node.decorator_list:
-                name = decorator.func.attr if isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute) \
-                    else decorator.func.id if isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Name) else ''
-                if name == 'rule':
-                    arguments = [*decorator.args, *(k.value for k in decorator.keywords if k.arg == 'id')]
-                    identifier = arguments[0].value if arguments and isinstance(arguments[0], ast.Constant) else node.name
-                    anchor = next((k.value for k in decorator.keywords if k.arg == 'anchor'), None)
-                    named = [anchor] if isinstance(anchor, ast.Constant) else list(getattr(anchor, 'elts', ()))
-                    line = min([node.lineno, *(item.lineno for item in node.decorator_list)])  # as the loader counts it
-                    rules[node.name] = dict(id=identifier, node=node, line=line, rows=[],
-                                            anchors=[item.value for item in named if isinstance(item, ast.Constant)
-                                                     and isinstance(item.value, str)])
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == 'rows' \
-                    and isinstance(node.func.value, ast.Name) and node.func.value.id in rules:
-                rules[node.func.value.id]['rows'].append(node)
-        for item in rules.values():
-            # The constants rule_old_values compares with each old value: the predicate's (docstring aside)
-            # and those of its literal rows, collected once.
-            node = item['node']
-            body = node.body[1:] if ast.get_docstring(node) is not None else node.body
-            item['judged'] = [n for s in body for n in ast.walk(s) if isinstance(n, ast.Constant)]
-            item['literals'] = [n for call in item['rows'] for n in ast.walk(call) if isinstance(n, ast.Constant)]
-        found.append((path, list(rules.values())))
-    return found
-
-
-def rule_old_values(cfg, old, *, declarations=None):
-    """Rules in the intent folder whose predicate or literal rows still spell an old value."""
-    kind = _value_kind(old)
-    if kind is None:
-        return []
-    def holds(node):
-        return isinstance(node, ast.Constant) and _value_kind(node.value) == kind and node.value == old
-    found = []
-    for path, rules in _rule_declarations(cfg) if declarations is None else declarations:
-        for item in rules:
-            judged = sorted({n.lineno for n in item['judged'] if holds(n)})
-            rows = sorted({n.lineno for n in item['literals'] if holds(n)})
-            if judged or rows:
-                parts = ([f'decision line {", ".join(map(str, judged))}'] if judged else []) + \
-                        ([f'regression row line {", ".join(map(str, rows))}'] if rows else [])
-                found.append(f'rule {item["id"]} still uses old value {old!r}({cfg.rel(path)} {", ".join(parts)}): if requirements changed, update the rule first')
-    return found
-
-
-def copies_without_rule(change, index):
-    """A changed function that is a rule's anchor or one of its same-name copies, in a change that does not
-    touch that rule's file: the requirement may have changed without its rule. A lead with both next steps.
-    Changed means its body, a constant it reads or a function it calls changed against the baseline."""
-    found = Findings()
-    rules = [(path, item) for path, items in change.rule_declarations() for item in items if item['anchors']]
-    if not change.baseline or not rules:
-        return found
-    impact = change.impact()
-    moved = set(impact['dirty']) | set(impact['callers'])
-    copies = {}
-    for anchor in index.entries:
-        if anchor.kind == 'sensor' and anchor.source_role == 'production' and anchor.target in moved:
-            copies.setdefault(anchor.name, []).append(anchor)
-    for path, item in rules:
-        file = change.cfg.rel(path)
-        changed = [anchor for name in item['anchors'] for anchor in copies.get(name, ())]
-        if not changed or file in change.files:
-            continue
-        names = ', '.join(dict.fromkeys(anchor.name for anchor in changed))
-        places = ', '.join(dict.fromkeys(f'{anchor.file}:{anchor.qual}' for anchor in changed))
-        _hide(found, '', f'{names} copies at {places} changed; rule {item["id"]} is unchanged -> if requirements changed, first use '
-                         f'python -m flowguard req add to store the new owner words, then update rule {file}:{item["line"]}; otherwise '
-                         'confirm that this code change is correct')       # no 4.3 line and no deprecation (D6): `show --last` only
-    return found
-
-
-def _old_value_text(lead):
-    """The text of an old-value lead (`signals.stale_copies`) for `show --last`."""
-    def shown(value):
-        return repr(value) if isinstance(value, str) else str(value)
-    values = ', '.join(dict.fromkeys(shown(row['old']) for row in lead['locations']))
-    return (f'old values {values} remain in {lead["total"]} decisions: '
-            + '  '.join(f'{row["file"]}:{row["line"]}' + (' (in a large function)' if row.get('big') else '') for row in lead['locations'])
-            + ' -> if requirements changed, update them together')
-
-
-def old_value_leads(change):
-    """Each replaced value that other decisions and rules still spell; a lead, not a verdict."""
-    from .signals import stale_copies
-    found = Findings()
-    for item in constant_changes(change):
-        lead = stale_copies(change.graph, [item])
-        if lead['total']:
-            _hide(found, 'old-value leads', _old_value_text(lead))
-        for text in rule_old_values(change.cfg, item['before'], declarations=change.rule_declarations()):
-            _hide(found, 'old-value leads', text)
-    return found
-
+# ---- declarations of one name that differ -------------------------------------------------------------
 
 def _declarations(graph):
     """Named value sets the map reads: union type aliases (`type X = 'a' | 'b'`, `X = Literal[...]`) and
@@ -1502,124 +1103,12 @@ def _declared(change, name, file, *, field, then):
     return change.held(('declared', name, file, field, then), held)
 
 
-def literal_drift(change, *, everything=False):
-    """A label spelled a new way (case, spaces, punctuation aside) that this change adds to a group of
-    spellings: only a spelling the baseline code never used is reported. Two declarations of one name
-    with different members are part of the same lead family."""
-    found = declarations_differ(change)
-    if not change.files and not everything:
-        return found
-    groups = _project_spellings(change, change.graph.literal_groups())
-    if not groups:
-        return found
-    before = {row['value'] for file in change.files for row in change.old_part(file, 'literals') or ()}
-    before |= {row['value'] for group in groups for rows in group['spellings'].values() for row in rows
-               if row['file'] not in change.files}
-    for group in groups:
-        fresh = [value for value in group['spellings'] if value not in before]
-        if not fresh and not everything:
-            continue
-        parts = []
-        for value, rows in group['spellings'].items():
-            places = ', '.join(f'{row["file"]}:{row["line"]}' for row in rows)
-            parts.append(f'{value!r}({places}' + (', spelling added in this task' if value in fresh else '') + ')')
-        # --all also lists the spellings the baseline already had, as the old ledger.
-        _hide(found, 'label-spelling leads', ('' if fresh else 'before: ') + 'label spellings differ: ' + ' and '.join(parts)
-              + ' -> use one spelling, or read both from one reference')
-    return found
-
-
-def _project_spellings(change, groups):
-    """The label groups without the spellings of FlowGuard's own generated files (`init` writes '-3', '-c',
-    '--root' into them), keeping the groups that still have two spellings."""
-    from .config import init_generated
-    own = {}
-    def project(row):
-        if row['file'] not in own:
-            path = change.cfg.root / row['file']
-            own[row['file']] = not (path.is_file() and init_generated(path))
-        return own[row['file']]
-    kept = []
-    for group in groups:
-        spellings = {value: [row for row in rows if project(row)] for value, rows in group['spellings'].items()}
-        spellings = {value: rows for value, rows in spellings.items() if rows}
-        if len(spellings) >= 2:
-            kept.append(dict(group, spellings=spellings))
-    return kept
-
-
-def changed_once(change, index=None):
-    """A changed function whose baseline body (the fingerprint without name and docstring) an unchanged
-    function still has: the copy this edit probably also needed. Static; `check` compares behavior. A copy
-    registered with the changed function as copies of one same name (`index`, the flowguard comments) is not
-    counted: that name's comparison already covers them, and the lead never asks to register what is registered
-    (`_lock_hint`)."""
-    from flowguard.structure.readers.registry import ECMA, language_for
-    from flowguard.structure.store import shape_list
-    found = Findings()
-    registered = {anchor.target: anchor.name for anchor in index.entries if anchor.kind == 'sensor'} if index is not None else {}
-    foreign = sorted(file for file in change.files if language_for(file) in ECMA and not is_test_file(file)
-                     and file in change._modules)
-    files = change.changed_python() + foreign
-    if not files:
-        return found
-    delta = change.delta(files)
-    touched = {row[0] for row in delta}
-    shapes = None
-    for ident, kind, old_fp, new_fp, _, _ in delta:
-        if kind != 'changed' or not old_fp or '<anonymous' in ident:
-            continue
-        twins = [(other, file, line) for other, file, line in change.graph.con.execute(
-            "SELECT id, file, line FROM node WHERE fp = ? AND kind IN ('function', 'method') ORDER BY id", (old_fp,))
-            if other not in touched]
-        node = change.graph.node(ident) or {}
-        similar = []
-        if language_for(node.get('file') or '') in ECMA:
-            # JS/TS functions cannot be run here: structure alone (the 3-gram shape before the edit) finds them.
-            if shapes is None:
-                shapes = [(other, file, line, set(shape_list(blob) if isinstance(blob, bytes) else blob or ()))
-                          for other, file, line, blob in change.graph.con.execute(
-                              "SELECT id, file, line, shape FROM node WHERE kind IN ('function', 'method') AND shape IS NOT NULL")
-                          if language_for(file or '') in ECMA and not is_test_file(file or '')]
-            qual = ident.partition(':')[2]
-            old_shape = set(next((item.get('shape') or () for item in change.old_facts(node['file']).get('nodes', ())
-                                  if item['qual'] == qual), ()))
-            known = {other for other, _, _ in twins}
-            similar = [(other, file, line) for other, file, line, shape in shapes
-                       if other not in touched and other not in known and old_shape and shape
-                       and len(old_shape & shape) / len(old_shape | shape) >= SIMILAR_FOREIGN]
-        own = registered.get(ident)
-        # copies registered with this function are compared as that name
-        twins = [item for item in twins if not (own and registered.get(item[0]) == own)]
-        similar = [item for item in similar if not (own and registered.get(item[0]) == own)]
-        if twins or similar:
-            marked = [registered[other] for other in (ident, *(item[0] for item in [*twins, *similar])) if other in registered]
-            name = marked[0] if marked else ident.partition(':')[2].rpartition('.')[2].strip('_').upper()
-            comment = '//' if similar or language_for(node.get('file') or '') in ECMA else '#'
-            parts = ([f'previously identical copies: {len(twins)} unchanged: ' + '  '.join(f'{file}:{line}' for _, file, line in twins)] if twins else []) \
-                + ([f'similar structure (shape similarity at least {SIMILAR_FOREIGN:g}): {len(similar)} also unchanged: '
-                    + '  '.join(f'{file}:{line}' for _, file, line in similar)] if similar else [])
-            _hide(found, 'similar-implementation leads', f'{ident.partition(":")[2]}({node.get("file")}:{node.get("line")}) changed; '
-                  + '; '.join(parts) + _lock_hint(comment, name, bool(marked)))
-    return found
-
-
 def _counted(number, noun, plural=None):
     """`1 reader`, `2 readers`, `1 copy`, `3 copies`: a count with its noun in the number it needs."""
     return f'{number} ' + (noun if number == 1 else plural or noun + 's')
 
 
-def _lock_hint(comment, name, marked):
-    """How a similar-implementation lead says to register its copies as copies of `name`: the reference and the copy
-    when neither is registered yet, else only the copies not marked (`marked`: one of them is registered already)."""
-    if marked:
-        return f'(update them together when required; to lock them, write above each copy not marked yet: {comment} flowguard: same {name})'
-    return (f'(update them together when required; to lock them, write above the reference: {comment} flowguard: same {name} ref, '
-            f'above the copy: {comment} flowguard: same {name})')
-
-
 # ---- what this change loosened, and the fields it newly writes (4.3) ----------------------------------
-
 
 
 def _agreements(rows, moved=None):
@@ -1816,10 +1305,9 @@ def field_impact(change, index):
 
 def static_findings(cfg, graph, index, base=None, *, everything=False, replay=False):
     """The one assembly of owner and structure findings. Without replay (pytest, `check --static`): owner
-    writes and pairs, values outside declared sets, old values (rules too), new spellings, unchanged copies
-    of a changed function's old body, deletes that leave children, missing columns and the open structure
-    problems (`health`). `replay` (`check`) runs copy discovery and the changed-alone comparison instead
-    of the static copy lead. `everything` (`--all`) reads every label spelling and look-alike, not only those this
+    writes and pairs, values outside declared sets, declarations of one name that differ, deletes that leave
+    children, missing columns and the open structure problems (`health`). `replay` (`check`) also runs copy
+    discovery and the changed-alone comparison. `everything` (`--all`) compares every look-alike, not only those this
     change touches. The catalog's findings (`sources.findings`), what the change loosened, the fields it newly
     writes and the documents that describe code it edits (`docs.findings`) join the same list."""
     from . import health, sources
@@ -1832,13 +1320,8 @@ def static_findings(cfg, graph, index, base=None, *, everything=False, replay=Fa
     from . import docs                  # a document's text that describes code this change edits
     found.extend(docs.findings(change, touched_functions(change), everything=everything))
     found.extend(health.values(change))
-    if change.baseline:
-        found.extend(old_value_leads(change))
-        found.extend(copies_without_rule(change, index))
-        if not replay:
-            found.extend(changed_once(change, index))
     if change.baseline or everything:
-        found.extend(literal_drift(change, everything=everything))
+        found.extend(declarations_differ(change))
     found.extend(health.deletes(change)).extend(health.columns(change))
     found.extend(health.delete_rules(change))
     found.extend(copies).extend(health.writers(change, index)).extend(health.uncreated(change))
@@ -2009,6 +1492,24 @@ def _functions(graph, cfg):
     return rows
 
 
+_UNREADABLE = object()
+
+
+def _module_literals(tree):
+    """A module's top-level `NAME = literal` constants, {name: (value, line)}, read from source and never run: the
+    tables `_own_literals` takes the members of."""
+    from .cache import _literal
+    found = {}
+    for statement in tree.body:
+        targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target] \
+            if isinstance(statement, ast.AnnAssign) and statement.value is not None else []
+        for target in targets:
+            value = _literal(statement.value, _UNREADABLE)
+            if isinstance(target, ast.Name) and value is not _UNREADABLE:
+                found[target.id] = (value, statement.lineno)
+    return found
+
+
 def _own_literals(node, constants):
     """The strings and numbers a function's own code spells: its constants (no docstring) and the
     members of the module constants it reads (an alias table's keys and values)."""
@@ -2104,18 +1605,21 @@ def _classes(cfg, anchor, literals=()):
     return D._with_representatives(rows, kinds, points, [], extra), kinds, ''
 
 
-def _category(same, total, shape, shared):
+def _category(same, total, shape):
+    """A look-alike that answers as the reference on `same` of `total` representative values: a copy (all of them), a
+    diverged copy (at least half, with a similar body `shape`), or None."""
     if same == total:
         return 'copy'
     if 2 * same >= total and shape >= SIMILAR_SHAPE:
         return 'diverged copy'
-    return 'similar' if shared else None
+    return None
 
 
 def discover(cfg, graph, index, change, *, everything=False):
     """Unregistered look-alikes of each function owner, grouped by their results on its classes: a `copies:` finding
-    of each diverged copy and each copy this change adds beside a reference the baseline had, and leads for `show
-    --last`."""
+    of each diverged copy and each copy this change adds beside a reference the baseline had. A reference whose
+    classes cannot be built or that cannot run itself, and a look-alike that cannot run or has no comparable input,
+    leave copy discovery incomplete (`COPY_DISCOVERY` is not in `found.ran`)."""
     found = Findings()
     owners = _references(index)
     if not owners:
@@ -2146,29 +1650,19 @@ def discover(cfg, graph, index, change, *, everything=False):
         rows, kinds, reason = _classes(cfg, owner, list(dict.fromkeys(
             value for row in (home, *shown) for value in row['literals'])))
         label = f'{owner.name} ({owner.file}:{owner.target_line})'
-        if reason:
-            _hide(found, 'unregistered copy discovery', f'reference {label} suspected copy {len(shown)} copies were not compared: {reason}')
-            complete = False
-            continue
-        reference, why = _replay(home, rows, names)
+        reference = None if reason else _replay(home, rows, names)[0]
         if reference is None:
-            _hide(found, 'unregistered copy discovery', f'reference {label} cannot run itself; copies were not compared: {why}')
             complete = False
             continue
-        groups, unclear, partial = {}, [], []
+        groups, unclear = {}, False
         for row in shown:
-            result, why = _replay(row, rows, names)
-            if result is None:
-                unclear.append(f'{row["file"]}:{row["line"]} ({why})')
-                continue
-            outcomes = result['now']
+            result, _ = _replay(row, rows, names)
+            outcomes = result['now'] if result is not None else ()
             compared = [_same(a, b) for a, b in zip(outcomes, reference['now']) if _same(a, b) is not None]
-            if missing := _not_compared(outcomes, reference['now']):
-                partial.append(f'{row["file"]}:{row["line"]} ({missing})')
             if not compared:
-                unclear.append(f'{row["file"]}:{row["line"]} (no comparable inputs)')
+                unclear = True          # it cannot run, or has no comparable input
                 continue
-            category = _category(sum(compared), len(compared), _similarity(row['shape'], home['shape']), bool(row['constants'] & home['constants']))
+            category = _category(sum(compared), len(compared), _similarity(row['shape'], home['shape']))
             if category is None:
                 continue
             # Grouped by the first difference from the owner in the fixed representative order.
@@ -2176,17 +1670,7 @@ def discover(cfg, graph, index, change, *, everything=False):
                           for a, b in [(outcomes[index], reference['now'][index])] if _same(a, b) is False), None)
             groups.setdefault((category, first), []).append((row, outcomes))
         complete = complete and not unclear
-        seconds = time.perf_counter() - started
-        total = sum(len(group) for group in groups.values()) + len(unclear)
-        if not total:
-            continue
-        def lead(text):
-            _hide(found, 'unregistered copy discovery', text)
-        lead(f'reference {label} has {total} suspected copies (candidates: {len(candidates)}; time: {seconds:.2f} seconds; '
-                           f'{len(rows)} representative values; only comparable JSON inputs count; call-site reachability was not checked)'
-                           f'-> choose one for each copy: call the reference; or write above the copy: # flowguard: same {owner.name}; '
-                           f'or, for copies meant to differ, python -m flowguard known add copies:{owner.name} --act ignore --why TEXT records that')
-        order = {'copy': 0, 'diverged copy': 1, 'similar': 2}
+        order = {'copy': 0, 'diverged copy': 1}
         for (category, _), group in sorted(groups.items(), key=lambda item: (order[item[0][0]], item[1][0][0]['id'])):
             members = [row for row, _ in group]
             places = '  '.join(f'{row["file"]}:{row["line"]}' for row in members)
@@ -2198,7 +1682,6 @@ def discover(cfg, graph, index, change, *, everything=False):
                 text = (f'{category} {len(members)} copies: {_example(rows, names, group[0][1], reference["now"])}: {places}'
                         + ('(same first difference; these copies also differ on other representative values)' if apart else ''))
             fresh = [row for row in members if row['id'] in added]
-            lead(('before: ' if everything and not new_owner and not fresh else '') + text)
             # The 4.3 finding: a copy of the reference is a `copies:` member (a structure finding, never red, D1); one this
             # change adds or edits is new (its baseline version is not compared here, so it never was broken at the task
             # start), the reference and the copies the baseline had as they were are old (the agreement is the current one).
@@ -2217,10 +1700,6 @@ def discover(cfg, graph, index, change, *, everything=False):
                 found.issues.append(Issue(f'copies:{owner.name}', LINES_ONLY, f'copy {owner.name}', f'reference {label}: {text}',
                                           f'call {owner.qual}', frozenset(row['id'] for row in members),
                                           frozenset(row['file'] for row in members), **facts))
-        if unclear:
-            lead(f'unavailable copies: {len(unclear)} copies: ' + '  '.join(unclear))
-        if partial:
-            lead('not compared: ' + '  '.join(partial))
     found.stats.update(copy_candidates=candidates_seen, copy_seconds=time.perf_counter() - started)
     if complete:
         found.ran.add(COPY_DISCOVERY)
@@ -2276,7 +1755,8 @@ def _owner_at_baseline(change, owner):
 
 def changed_alone(cfg, graph, index, change):
     """A changed function whose old version agreed with unchanged look-alikes on every representative
-    value, while the new one differs: those copies probably needed the same change. Owners make it red."""
+    value, while the new one differs: those copies probably needed the same change. When one of the changed
+    functions has a flowguard comment (`same NAME`), that name's `changed-alone:` finding (red) names them."""
     from . import cells as C
     from .anchors import Parameter, parameter_kind, _annotation
     found = Findings()
@@ -2336,59 +1816,40 @@ def changed_alone(cfg, graph, index, change):
         if mine is None or not mine['compared'] or not any(_same(a, b) is False for a, b in zip(mine['before'], mine['now'])):
             continue            # no comparable old version, or the edit kept every representative's result
         examined += 1
-        twins, similar = [], []
+        twins = []
         for peer in peers:
-            theirs, why = _replay(peer, rows, row['simple'])
-            if theirs is not None and (missing := _not_compared(mine['before'], theirs['now'])):
+            theirs, _ = _replay(peer, rows, row['simple'])
+            if theirs is None:
+                continue
+            if missing := _not_compared(mine['before'], theirs['now']):
                 found.lines.append(_not_compared_line(peer, missing))
-            comparison = [_same(a, b) for a, b in zip(mine['before'], theirs['now']) if _same(a, b) is not None] if theirs else []
-            if comparison and all(comparison):
-                if any(_same(a, b) is False for a, b in zip(mine['now'], theirs['now'])):
-                    twins.append(peer)
-            else:
-                similar.append((peer, why if theirs is None else ''))
-        if twins or similar:
-            alone[row['id']] = (row, sorted(twins, key=lambda peer: peer['id']),
-                                sorted(similar, key=lambda item: item[0]['id']))
+            comparison = [_same(a, b) for a, b in zip(mine['before'], theirs['now']) if _same(a, b) is not None]
+            if comparison and all(comparison) and any(_same(a, b) is False for a, b in zip(mine['now'], theirs['now'])):
+                twins.append(peer)
+        if twins:
+            alone[row['id']] = (row, sorted(twins, key=lambda peer: peer['id']))
     merged = {}
-    for row, twins, similar in alone.values():     # several edits that left the same copies behind: one line
-        key = (tuple(peer['id'] for peer in twins), tuple(peer['id'] for peer, _ in similar))
-        merged.setdefault(key, (twins, similar, []))[2].append(row)
-    for twins, similar, changed in merged.values():
+    for row, twins in alone.values():     # several edits that left the same copies behind: one finding
+        merged.setdefault(tuple(peer['id'] for peer in twins), (twins, []))[1].append(row)
+    for twins, changed in merged.values():
         # The owner among the changed is the one named: its copies follow it, as the same-name red says.
         owned = [item for item in changed if item['id'] in anchored and anchored[item['id']].owner]
         row = owned[0] if owned else min(changed, key=lambda item: (len(item['qual']), item['qual']))
         anchor = anchored[row['id']] if owned else next((anchored[item['id']] for item in changed if item['id'] in anchored), None)
-        if anchor:
-            # a look-alike registered under the changed function's name is compared as that name: no lead names it
-            similar = [(peer, why) for peer, why in similar if not (peer['id'] in anchored and anchored[peer['id']].name == anchor.name)]
-            if not twins and not similar:
-                continue
-        marked = [anchored[peer['id']].name for peer in [*twins, *(peer for peer, _ in similar)] if peer['id'] in anchored]
-        name = anchor.name if anchor else marked[0] if marked else row['qual'].strip('_').upper()
-        parts = []
-        if twins:
-            parts.append(f'{len(twins)} previously equivalent copies are unchanged: ' + '  '.join(f'{peer["file"]}:{peer["line"]}' for peer in twins))
-        if similar:
-            parts.append(f'similar (structure or shared constant): {len(similar)} copies also unchanged: '
-                         + '  '.join(f'{peer["file"]}:{peer["line"]}' + (f'(unavailable: {why})' if why else '') for peer, why in similar))
-        text = (', '.join(f'{item["qual"]} ({item["file"]}:{item["line"]})' for item in changed)
-                + (f' ({len(changed)} locations)' if len(changed) > 1 else '') + ' changed behavior; ' + '; '.join(parts))
-        if anchor and twins:
-            # The owner is the reference: its copies follow it, and a copy that left it goes back to it. Without
-            # one among them no copy is chosen: an intended change goes to every copy, any other is undone.
-            owner = next((peer for peer in twins if peer['id'] in anchored and anchored[peer['id']].owner
-                          and anchored[peer['id']].name == anchor.name), None)
-            quals = ', '.join(item['qual'] for item in changed)
-            if anchor.owner:
-                step = f'update together, or call {row["qual"]}'
-            elif owner:
-                step = f'make {quals} match reference {owner["qual"]}({owner["file"]}:{owner["line"]})'
-            else:
-                step = f'first decide which copy is correct: for an intended change, update together or call {row["qual"]}; otherwise make {quals} return to the original behavior'
-            found.issues.append(_changed_alone_issue(anchor, changed, twins, _ascii(step)))
+        if anchor is None:
+            continue            # only a changed function with a flowguard comment has a finding
+        # The owner is the reference: its copies follow it, and a copy that left it goes back to it. Without
+        # one among them no copy is chosen: an intended change goes to every copy, any other is undone.
+        owner = next((peer for peer in twins if peer['id'] in anchored and anchored[peer['id']].owner
+                      and anchored[peer['id']].name == anchor.name), None)
+        quals = ', '.join(item['qual'] for item in changed)
+        if anchor.owner:
+            step = f'update together, or call {row["qual"]}'
+        elif owner:
+            step = f'make {quals} match reference {owner["qual"]}({owner["file"]}:{owner["line"]})'
         else:
-            _hide(found, 'similar-implementation leads', text + _lock_hint('#', name, bool(anchor or marked)))
+            step = f'first decide which copy is correct: for an intended change, update together or call {row["qual"]}; otherwise make {quals} return to the original behavior'
+        found.issues.append(_changed_alone_issue(anchor, changed, twins, _ascii(step)))
     found.stats.update(changed_examined=examined, changed_seconds=time.perf_counter() - started)
     return found
 
