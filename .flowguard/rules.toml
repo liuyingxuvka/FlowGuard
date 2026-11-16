@@ -24,3 +24,11 @@ source = 'R58 "你用中文跟我交流，怎么刚才又给我写了一大堆�
 [rule.no-harm]
 text = "FlowGuard never changes how the maintained software works: it acts only inside test runs, never in builds, the dev server or production."
 source = 'R85 "咱们得保证 FlowGuard 不会影响已有软件自身的功能，不能说用 FlowGuard 维护之后，这个软件就不好用了"'
+
+[rule.report-open-matters]
+text = "In a maintained project, matters the owner has not decided stay recorded and FlowGuard reports what needs a decision; maintenance neither decides nor fixes them on the side."
+source = 'R95 "就发现有冲突，可以先先留在里头。FlowGuard 软工具只要现在是报报告这边有那个需要决定的就行，好吗？"'
+
+[rule.upgrade-consent]
+text = "Rewriting a project's FlowGuard comments and files into a new release's form during an upgrade has the owner's yes."
+source = 'R95 "就是你需要的过程当中把旧的版本变成新的，要主人同意的话，呃，当然当然就是要做"'
