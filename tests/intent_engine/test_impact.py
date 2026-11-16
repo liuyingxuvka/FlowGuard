@@ -277,7 +277,8 @@ def test_show_names_the_zod_schema_object_each_key_belongs_to_and_says_the_key_m
     allocation, assignment, personnel = (f'backend/src/api/schemas/{name}.schemas.ts' for name in ('allocation', 'assignment', 'personnel-mvp'))
     assert [line for line in text.splitlines() if line.startswith('zod')] == [
         f'zod key fteShare in allocationPeriodSchema: 0 <= fteShare <= 2 ({allocation}:8)',
-        f'zod key fteShare in allocationCreateSchema: 0 <= fteShare <= 2 ({allocation}:13)',
+        # `fte.refine((value) => value > 0)` rejects 0: the line names the refine it does not read (H1)
+        f'zod key fteShare in allocationCreateSchema: 0 <= fteShare <= 2, and a refine that is not read may reject more ({allocation}:13)',
         f'zod key fteShare in batchAssignSchema: 0 <= fteShare <= 1 ({assignment}:11)',
         f'zod key fteShare in lendingUpdateSchema: 0 < fteShare <= 1 ({personnel}:9)',
         f'zod key fteShare in capacityEntryCreateSchema: 0 <= fteShare <= MAX_FTE_SHARE=2.0 ({personnel}:18)',
@@ -290,6 +291,350 @@ def test_show_names_the_zod_schema_object_each_key_belongs_to_and_says_the_key_m
                         'with a field fteShare: Assignment'), text
     # no line claims the map knows the name: the functions that share a word with it are listed, not held for --full
     assert any('roundFteShare' in line for line in lines) and 'more lines' not in text, text
+
+
+PT_ZOD_BOUNDS_SCHEMA = """datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Employee {
+  id           String       @id
+  sapReference Int          @map("sap_reference")
+  assignments  Assignment[]
+  @@map("employees")
+}
+
+model Assignment {
+  id         String   @id
+  employeeId String   @map("employee_id")
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  fteShare   Decimal  @map("fte_share")
+  @@map("assignments")
+}
+
+model Opportunity {
+  id                   String @id
+  responsibleSapNumber Int?   @map("responsible_sap_number")
+  @@map("opportunities")
+}
+
+model Project {
+  id          String       @id
+  pspElements PspElement[]
+  @@map("projects")
+}
+
+model PspElement {
+  id        String  @id
+  projectId String  @map("project_id")
+  project   Project @relation(fields: [projectId], references: [id])
+  @@map("psp_elements")
+}
+"""
+# Planning Tool's zod schemas as its files spell them (2026-11, H1): int32 bounds held by negative constants
+# (business-data-foundation.ts, personnel-mvp.schemas.ts), a z.coerce.number() constant of a query filter
+# (business-data.schemas.ts), array and object keys whose nested schemas hold numbers and strings (import.schemas.ts,
+# assignment.schemas.ts, central-employee.service.ts), a shared const a key narrows or refines (allocation.schemas.ts),
+# a function's own schema constant and a parsed value returned under a key (project-forecast.ts), and a schema
+# object written inline in a route (validateBody(z.object({...}))).
+PT_ZOD_BOUNDS = {
+    'backend/src/utils/business-data-foundation.ts': """import { z } from 'zod';
+
+const MIN_SIGNED_INT32 = -2147483648;
+const MAX_SIGNED_INT32 = 2147483647;
+// Central personnel numbers are signed INTs, including existing negative placeholders.
+const RESPONSIBLE_SAP_NUMBER_SCHEMA = z.number().finite().int()
+  .min(MIN_SIGNED_INT32).max(MAX_SIGNED_INT32).nullable().optional();
+
+export const OPPORTUNITY_CREATE_SCHEMA = z.object({
+  name: z.string().trim().min(1).max(200),
+  responsibleSapNumber: RESPONSIBLE_SAP_NUMBER_SCHEMA,
+}).strict();
+""",
+    'backend/src/api/schemas/personnel-mvp.schemas.ts': """import { z } from 'zod';
+
+/** SQL Server INT max value (2^31 - 1). */
+const MIN_SAP_REFERENCE = -2_147_483_648;
+const MAX_SAP_REFERENCE = 2_147_483_647;
+const MIN_PLACEHOLDER = (-1);
+const MAX_PLACEHOLDER = 99 as const;
+
+const sapReferenceSchema = z.number().int()
+  .min(MIN_SAP_REFERENCE, `SAP reference must not be below ${MIN_SAP_REFERENCE}.`)
+  .max(MAX_SAP_REFERENCE, `SAP reference must not exceed ${MAX_SAP_REFERENCE}.`);
+
+export const employeeCreateSchema = z.object({
+  firstName: z.string().min(1).max(255),
+  sapReference: sapReferenceSchema.optional(),
+});
+
+export const placeholderSchema = z.object({
+  sapReference: z.number().int().min(MIN_PLACEHOLDER).max(MAX_PLACEHOLDER),
+});
+""",
+    'backend/src/api/schemas/business-data.schemas.ts': """import { z } from 'zod';
+
+const SAP_NUMBER = z.coerce.number().int().min(-2147483648).max(2147483647);
+
+/** List/count filters use relation predicates rather than duplicate-producing joins. */
+export const BUSINESS_LIST_SCHEMA = z.object({
+  search: z.string().trim().max(200).optional(),
+  responsibleSapNumber: SAP_NUMBER.optional(),
+  page: z.coerce.number().int().min(1).max(100000).default(1),
+}).strict();
+""",
+    'backend/src/api/schemas/import.schemas.ts': """import { z } from 'zod';
+
+export const commitProjectsSchema = z.object({
+  fileId: z.string().uuid('Invalid file ID.'),
+  projects: z.array(z.object({
+    tempId: z.string().min(1),
+    pspElements: z.array(z.object({
+      tempId: z.string().min(1),
+      hierarchyLevel: z.number().int().min(0),
+      defaultArea: z.object({
+        name: z.string().min(1),
+      }).nullable(),
+    })),
+  })).min(1),
+});
+""",
+    'backend/src/api/schemas/assignment.schemas.ts': """import { z } from 'zod';
+
+const MAX_BATCH_SIZE = 50;
+
+export const batchAssignSchema = z.object({
+  assignments: z
+    .array(
+      z.object({
+        employeeId: z.string().trim().min(1, 'Employee ID is required'),
+        fteShare: z.number().min(0, 'FTE share must be >= 0').max(1, 'FTE share must be <= 1'),
+      }).strict(),
+    )
+    .min(1, 'At least one assignment is required')
+    .max(MAX_BATCH_SIZE, `Maximum ${MAX_BATCH_SIZE} assignments per batch`),
+}).strict();
+""",
+    'backend/src/services/central-employee.service.ts': """import { z } from 'zod';
+
+const homeUnitPreviewSchema = z.object({
+  purpose: z.literal('employee-home-unit-preview'),
+  employee: z.object({
+    id: z.string(), sapReference: z.number().int(), organizationalUnitId: z.string(),
+  }),
+});
+""",
+    'backend/src/api/schemas/allocation.schemas.ts': """import { z } from 'zod';
+
+const fte = z.number().finite().min(0).max(2);
+const shares = z.number().array();
+
+export const allocationNarrowSchema = z.object({ fteShare: fte.max(1) }).strict();
+export const allocationPositiveSchema = z.object({ fteShare: fte.gt(0).optional() }).strict();
+export const allocationCreateSchema = z.object({
+  fteShare: fte.refine((value) => value > 0, 'A new allocation must be greater than zero.'),
+}).strict();
+export const allocationRoundedSchema = z.object({
+  fteShare: fte.superRefine((value, context) => undefined).transform((value) => Math.round(value * 100) / 100),
+}).strict();
+export const allocationSeriesSchema = z.object({ fteShare: shares }).strict();
+""",
+    'backend/src/utils/project-forecast.ts': """import { z } from 'zod';
+
+const fteShare = z.number().max(9);
+const projectProbabilitySchema = z.number().min(0).max(100).nullable();
+
+/** A schema a function builds for its own range. */
+export function buildAssignmentSchema(max: number) {
+  const share = z.number().min(0).max(max);
+  return z.object({ fteShare: share });
+}
+
+/** A parameter hides the module's constant of its name; another function's constant is not seen. */
+export function wrapShare(fteShare: z.ZodTypeAny) {
+  return z.object({ fteShare: fteShare });
+}
+export function otherSchema() {
+  return z.object({ fteShare: share });
+}
+
+export function buildProjectForecast(probability: number | null, fte: number) {
+  const storedProbability = projectProbabilitySchema.parse(probability);
+  const fteShare = z.number().parse(fte);
+  return { probability: storedProbability, fteShare: fteShare };
+}
+""",
+    'backend/src/api/routes/allocation.routes.ts': """import { z } from 'zod';
+
+router.post('/allocations/preview', validateBody(z.object({ fteShare: z.number().min(0).max(2) })), previewAllocation);
+""",
+}
+
+
+def test_show_reads_a_zod_key_s_own_number_chain_with_the_constants_it_names(tmp_path):
+    """Planning Tool (H1): `show Opportunity.responsibleSapNumber` printed `MIN_SIGNED_INT32 <= ... <=
+    MAX_SIGNED_INT32=2147483647` (a negative constant lost its value), `show Project.pspElements` `1 <= pspElements`
+    (a nested `z.string().min(1)` read as an array key's bound), `show Assignment.fteShare` `0 <= fteShare <= 2` for
+    `fte.refine((value) => value > 0)` and nothing for a `z.coerce.number()` key. A zod line is now printed only for a
+    key whose own schema chain is a number schema (`z.number(`, `z.coerce.number(`, directly or through a const of
+    the file the key sees, a function's own const too); its bounds are the const's chain with the key's chain after
+    it, a later bound replacing an earlier one of the same side; a numeric const keeps its value as spelled; a
+    refine, superRefine or transform is named, not read."""
+    _commit(tmp_path, {'backend/prisma/schema.prisma': PT_ZOD_BOUNDS_SCHEMA, **PT_ZOD_BOUNDS})
+
+    def zod(query):
+        code, text = _flowguard(tmp_path, 'show', query)
+        assert code == 0 and 'not on the map' not in text, text
+        return [line for line in text.splitlines() if line.startswith('zod')]
+    foundation, personnel, business, allocation, forecast, routes = (
+        'backend/src/utils/business-data-foundation.ts', 'backend/src/api/schemas/personnel-mvp.schemas.ts',
+        'backend/src/api/schemas/business-data.schemas.ts', 'backend/src/api/schemas/allocation.schemas.ts',
+        'backend/src/utils/project-forecast.ts', 'backend/src/api/routes/allocation.routes.ts')
+    assert zod('Opportunity.responsibleSapNumber') == [
+        f'zod key responsibleSapNumber in BUSINESS_LIST_SCHEMA: -2147483648 <= responsibleSapNumber <= 2147483647 ({business}:8)',
+        'zod key responsibleSapNumber in OPPORTUNITY_CREATE_SCHEMA: MIN_SIGNED_INT32=-2147483648 <= responsibleSapNumber'
+        f' <= MAX_SIGNED_INT32=2147483647 ({foundation}:11)']
+    # a negative, parenthesised or `as const` constant keeps its value as spelled; a nested number key of an object
+    # key is a line of its own, under the object it belongs to
+    assert zod('Employee.sapReference') == [
+        f'zod key sapReference in employeeCreateSchema: MIN_SAP_REFERENCE=-2_147_483_648 <= sapReference <= MAX_SAP_REFERENCE=2_147_483_647 ({personnel}:15)',
+        f'zod key sapReference in placeholderSchema: MIN_PLACEHOLDER=-1 <= sapReference <= MAX_PLACEHOLDER=99 ({personnel}:19)',
+        'zod key sapReference in employee: sapReference (no bounds) (backend/src/services/central-employee.service.ts:6)']
+    # an array or object key is no number: the bounds of its nested schemas and its length are not its bounds
+    assert zod('Project.pspElements') == zod('Employee.assignments') == zod('Assignment.employee') == []
+    assert zod('Assignment.fteShare') == [
+        f'zod key fteShare in an unnamed object: 0 <= fteShare <= 2 ({routes}:3)',
+        f'zod key fteShare in allocationNarrowSchema: 0 <= fteShare <= 1 ({allocation}:6)',
+        f'zod key fteShare in allocationPositiveSchema: 0 < fteShare <= 2 ({allocation}:7)',
+        f'zod key fteShare in allocationCreateSchema: 0 <= fteShare <= 2, and a refine that is not read may reject more ({allocation}:9)',
+        f'zod key fteShare in allocationRoundedSchema: 0 <= fteShare <= 2, and a superRefine and a transform that are '
+        f'not read may reject more ({allocation}:12)',
+        'zod key fteShare in batchAssignSchema: 0 <= fteShare <= 1 (backend/src/api/schemas/assignment.schemas.ts:10)',
+        # a function's own const; a parameter of the name hides the module's const, a parsed value is no schema
+        f'zod key fteShare in an unnamed object: 0 <= fteShare <= max ({forecast}:9)']
+
+
+def test_show_of_a_field_its_known_model_lacks_lists_no_zod_key_and_says_so(tmp_path):
+    """Planning Tool (H1): `show Employee.fteShare` printed ten `zod key fteShare in ...` lines and nothing else of
+    the field, though neither the Prisma model Employee nor the TS interface Employee has one, and held every
+    word-matched line back for --full as if the map knew the name. A field the Prisma models and SQL tables of a
+    known model lack (and its TS types: a member, or members not all read, counts as having it) now gets no zod
+    line and a `not on the map` line saying so; the model's other names keep their lines: a SQL table, a Prisma
+    `@@map` table and a class of the map are known models (`owners.model_known`)."""
+    _commit(tmp_path, {
+        'backend/prisma/schema.prisma': """datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Employee {
+  id           String @id
+  sapReference Int    @map("sap_reference")
+  @@map("employees")
+}
+
+model Assignment {
+  id       String  @id
+  fteShare Decimal @map("fte_share")
+  @@map("assignments")
+}
+
+model Demand {
+  id String @id
+  @@map("demands")
+}
+
+model LendingAssignment {
+  id String @id
+  @@map("lending_assignments")
+}
+""",
+        'backend/prisma/capacity-setup.sql': """CREATE TABLE capacity_bookings (
+  id NVARCHAR(36) PRIMARY KEY,
+  fte_share DECIMAL(6,4) NOT NULL CHECK (fte_share >= 0 AND fte_share <= 2)
+);
+""",
+        'backend/src/api/schemas/allocation.schemas.ts': """import { z } from 'zod';
+
+export const allocationCreateSchema = z.object({ fteShare: z.number().min(0).max(2) }).strict();
+export const capacityImportRowSchema = z.object({ fte_share: z.coerce.number().min(0).max(2) });
+""",
+        'frontend/src/types/domain.types.ts': """export interface Employee {
+  id: string;
+  sapReference: number;
+}
+
+export interface Demand {
+  id: string;
+  fteShare: number;
+}
+
+export interface LendingAssignment extends AssignmentBase {
+  id: string;
+}
+""",
+        'frontend/src/utils/add-project-quantity.ts': 'export function roundFteShare(value: number): number { return Math.round(value * 100) / 100; }\n',
+        'tools/capacity_report.py': 'class CapacityRow:\n    fteShare = 0.0\n',
+    })
+
+    def shown(query):
+        code, text = _flowguard(tmp_path, 'show', query)
+        assert code == 0, text
+        return text.splitlines()
+    zod = 'zod key fteShare in allocationCreateSchema: 0 <= fteShare <= 2 (backend/src/api/schemas/allocation.schemas.ts:3)'
+    lines = shown('Employee.fteShare')
+    assert not [line for line in lines if line.startswith('zod')], lines
+    assert lines[2] == ('not on the map: Prisma model Employee and TS type Employee have no field fteShare; the zod keys '
+                        'fteShare of 1 schema object are not listed, as a key matches by its name alone; Prisma models '
+                        'with a field fteShare: Assignment'), lines
+    # no line claims the map knows the name: the functions that share a word with it are listed, not held for --full
+    assert any('roundFteShare' in line for line in lines) and not any('more lines' in line for line in lines), lines
+    # a TS type of the name with the member, or one that extends another, counts as having it
+    for query in ('Demand.fteShare', 'LendingAssignment.fteShare', 'assignments.fteShare', 'CapacityRow.fteShare'):
+        lines = shown(query)
+        assert zod in lines and not any(line.startswith('not on the map') for line in lines), (query, lines)
+    # a SQL table no Prisma model maps: its column, CHECK range and zod key; a column it lacks is said so
+    lines = shown('capacity_bookings.fte_share')
+    assert lines[2:5] == ['column capacity_bookings.fte_share DECIMAL(6,4) (backend/prisma/capacity-setup.sql:3)',
+                          'range capacity_bookings.fte_share: 0 <= fte_share <= 2 (CHECK backend/prisma/capacity-setup.sql:3)',
+                          'zod key fte_share in capacityImportRowSchema: 0 <= fte_share <= 2 (backend/src/api/schemas/allocation.schemas.ts:4)'], lines
+    assert not any(line.startswith('not on the map') for line in lines), lines
+    assert shown('capacity_bookings.fte_ratio')[2] == 'not on the map: database table capacity_bookings has no column fte_ratio'
+
+
+def test_show_of_an_anchored_field_cuts_its_facts_to_the_screen_and_full_lists_them(tmp_path):
+    """Planning Tool (H1): `show Employee.sapReference`, which a together agreement anchors, printed 50 lines ending
+    with `... 21 more lines: python -m flowguard show Employee.sapReference --full lists them all`; no test had more
+    facts than the screen holds. The ANCHOR view cuts the field's declaration, zod and write lines to `screen_lines`
+    and says how many --full adds; --full lists them all."""
+    seeds = ''.join(f"""  await prisma.employee.upsert({{ where: {{ id: 'e{number}' }}, update: {{}},
+    create: {{ id: 'e{number}', sapReference: {1000 + number} }} }});
+""" for number in range(1, 6))
+    _commit(tmp_path, {
+        'pyproject.toml': '[tool.flowguard]\nscreen_lines = 4\n',
+        'backend/prisma/schema.prisma': PT_ZOD_BOUNDS_SCHEMA,
+        'backend/prisma/seed.ts': f'export async function main(prisma: any) {{\n{seeds}}}\n',
+        'backend/src/services/sap-number-renumber.service.ts': """// flowguard: together Employee.sapReference Opportunity.responsibleSapNumber on=update
+export async function renumberSapNumber(prisma: any, id: string, oldNumber: number, newNumber: number) {
+  await prisma.employee.update({ where: { id }, data: { sapReference: newNumber } });
+  await prisma.opportunity.updateMany({ where: { responsibleSapNumber: oldNumber }, data: { responsibleSapNumber: newNumber } });
+}
+""",
+    })
+    writes = [f'writes Employee.sapReference backend/prisma/seed.ts:{3 + 2 * number} (call line {2 + 2 * number}) main (upsert:create)'
+              for number in range(5)]
+    facts = ['declared Employee.sapReference: Int @map("sap_reference") (backend/prisma/schema.prisma:8)', *writes,
+             'writes Employee.sapReference backend/src/services/sap-number-renumber.service.ts:3 renumberSapNumber (update)']
+    code, text = _flowguard(tmp_path, 'show', 'Employee.sapReference')
+    lines = text.splitlines()
+    assert code == 0 and lines[0] == 'ANCHOR Employee.sapReference', text
+    start = lines.index(facts[0])
+    assert lines[start:start + 4] == [*facts[:3], '... 4 more lines: python -m flowguard show Employee.sapReference --full lists them all'], text
+    code, text = _flowguard(tmp_path, 'show', 'Employee.sapReference', '--full')
+    lines = text.splitlines()
+    start = lines.index(facts[0])
+    assert code == 0 and lines[start:start + len(facts)] == facts and 'more lines' not in text, text
 
 
 def test_show_leaves_out_the_value_sets_and_constants_only_test_files_declare(tmp_path):

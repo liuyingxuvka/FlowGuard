@@ -547,22 +547,32 @@ def _write_line(row):
 
 
 def _unknown_model(graph, query):
-    """The line of `show Model.field` for a model the map does not know (`owners.model_known`) whose field name the
-    map knows, from zod keys of that name or the fields of other Prisma models: those are not facts about this model;
-    '' otherwise."""
-    from .owners import model_known, zod_bounds
+    """The `not on the map` line of `show Model.field` for a model the map does not know (`owners.model_known`), or
+    one whose Prisma models, SQL tables and TS types it knows have no such field (`owners.field_absent`): zod keys of
+    that name and the fields of other Prisma models are not facts about this field; '' otherwise, and for an
+    unknown model whose field name the map does not know either."""
+    from .owners import field_absent, model_known, zod_bounds
     model, _, field = query.partition('.')
-    if model_known(graph, model):
+    known = model_known(graph, model)
+    absent = field_absent(graph, model, field) if known else []
+    if known and not absent:
         return ''
     models = sorted({item['name'] for schema in graph.schemas() if schema['kind'] == 'prisma'
                      for item in schema.get('models', ()) if any(column['name'] == field for column in item.get('fields', ()))})
     keys = zod_bounds(graph, field)
-    if not models and not keys:
+    if not absent and not models and not keys:
         return ''
+    if absent:
+        tables = sum(item.startswith('database table ') for item in absent)
+        noun = 'column' if tables == len(absent) else 'field or column' if tables else 'field'
+        what = (', '.join(absent[:-1]) + ' and ' + absent[-1] if len(absent) > 1 else absent[0]) + \
+            f' {"have" if len(absent) > 1 else "has"} no {noun} {field}'
+    else:
+        what = f'no Prisma model, database table, TS type or class {model}'
     objects = len({(file, schema) for file, schema, _ in keys})
-    return (f'not on the map: no Prisma model, database table, TS type or class {model}; '
-            + (f'the zod keys {field} of {objects} schema objects are not listed, as a key matches by its name alone' if keys else '')
-            + ('; ' if keys and models else '') + (f'Prisma models with a field {field}: {", ".join(models)}' if models else ''))
+    return (f'not on the map: {what}'
+            + (f'; the zod keys {field} of {objects} schema object{"s" if objects != 1 else ""} are not listed, as a key matches by its name alone' if keys else '')
+            + (f'; Prisma models with a field {field}: {", ".join(models)}' if models else ''))
 
 
 def show(cfg, query=None, *, full=False, last=False):
@@ -651,8 +661,9 @@ def show(cfg, query=None, *, full=False, last=False):
                 display('\n'.join(owned))
             if FIELD_QUERY.fullmatch(query):        # what the map read about the field and who writes it, as the facts
                 agreed = agreement_writes(graph, index, query)      # branch says; a write listed above once only
-                facts = [*declaration_lines(graph, query), *(_write_line(row) for row in graph.writes(query)
-                         if (row['file'], row['line'], row['function'], row['kind']) not in agreed)]
+                facts = [*filter(None, [_unknown_model(graph, query)]), *declaration_lines(graph, query),
+                         *(_write_line(row) for row in graph.writes(query)
+                           if (row['file'], row['line'], row['function'], row['kind']) not in agreed)]
                 facts = [line for line in dict.fromkeys(facts) if line not in owned]
                 if facts:
                     display('\n'.join(facts if full else _limit(
