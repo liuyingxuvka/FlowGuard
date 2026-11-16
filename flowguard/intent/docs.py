@@ -22,6 +22,26 @@ from flowguard.map.common import git_run, read_source
 MARKER = re.compile(r'<!--\s*flowguard:\s*about\s+(\S+?)\s*-->')
 HEADING = re.compile(r'(#{1,6})\s')
 REVIEW = 'reread that text and correct it if it no longer holds'
+FENCE = re.compile(r' {0,3}(`{3,}|~{3,})')
+SPAN = re.compile(r'(`+)(?!`).*?(?<!`)\1(?!`)')
+
+
+def _outside_code(text):
+    """The lines of a Markdown text with its code blanked out: the lines of a fenced code block, and each inline code
+    span on one line. A marker written as code, as a guide shows the syntax, is text a reader sees, not a comment."""
+    lines, fence = [], None
+    for line in text.splitlines():
+        opening = FENCE.match(line)
+        if fence is not None:
+            if opening and opening[1][0] == fence[0] and len(opening[1]) >= len(fence) and not line[opening.end():].strip():
+                fence = None
+            lines.append('')
+        elif opening and not (opening[1][0] == '`' and '`' in line[opening.end():]):
+            fence = opening[1]
+            lines.append('')
+        else:
+            lines.append(SPAN.sub(lambda match: ' ' * len(match[0]), line))
+    return lines
 
 
 def documents(root):
@@ -38,20 +58,20 @@ def documents(root):
 def markers(text):
     """[(site, line, span)] of the `about` markers of a document's text: `span` is the text the marker describes, the
     lines after it to the next marker or heading; when a heading follows the marker, that heading's section, to the
-    next heading of its level or above."""
-    lines = text.splitlines()
+    next heading of its level or above. A marker or heading inside code (`_outside_code`) is none."""
+    lines, plain = text.splitlines(), _outside_code(text)
     found = []
-    for index, line in enumerate(lines):
+    for index, line in enumerate(plain):
         match = MARKER.search(line)
         if not match:
             continue
         start = index + 1
         while start < len(lines) and not lines[start].strip():
             start += 1
-        heading = HEADING.match(lines[start]) if start < len(lines) else None
+        heading = HEADING.match(plain[start]) if start < len(lines) else None
         end = start + 1 if heading else start
-        while end < len(lines) and not MARKER.search(lines[end]):
-            other = HEADING.match(lines[end])
+        while end < len(lines) and not MARKER.search(plain[end]):
+            other = HEADING.match(plain[end])
             if other and (not heading or len(other[1]) <= len(heading[1])):
                 break
             end += 1
@@ -125,15 +145,15 @@ KINDS = ('fields', 'values', 'functions', 'constants')
 def regions(text):
     """[(kind, argument, line, start, end, body)] of a document's generated regions: `line` is the marker's line
     (1-based), the body the lines from `start` to `end` (0-based, `end` the end marker's index, or None when the
-    region has no end marker)."""
-    lines = text.splitlines()
+    region has no end marker). A marker inside code (`_outside_code`) is none."""
+    lines, plain = text.splitlines(), _outside_code(text)
     found = []
-    for index, line in enumerate(lines):
+    for index, line in enumerate(plain):
         match = GENERATE.search(line)
         if match:
-            end = next((other for other in range(index + 1, len(lines)) if END.search(lines[other])
-                        or GENERATE.search(lines[other])), None)
-            if end is not None and not END.search(lines[end]):
+            end = next((other for other in range(index + 1, len(lines)) if END.search(plain[other])
+                        or GENERATE.search(plain[other])), None)
+            if end is not None and not END.search(plain[end]):
                 end = None
             found.append((match[1], match[2], index + 1, index + 1, end,
                           '\n'.join(lines[index + 1:end]).strip('\n') if end is not None else ''))

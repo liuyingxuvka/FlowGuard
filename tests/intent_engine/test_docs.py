@@ -85,6 +85,34 @@ def test_a_new_marker_that_names_nothing_is_red_and_an_old_one_whose_code_this_c
                                    'update that text and its marker, or remove them'], text
 
 
+def test_a_marker_written_as_code_is_text_not_a_marker(tmp_path):
+    # FlowGuard's own guide shows the syntax in code spans; 4.4 read them as markers and its own run was red.
+    guide = '''# Markers
+
+Put `<!-- flowguard: about path:symbol -->` above a text; a list goes between
+``<!-- flowguard: generate KIND ARG -->`` and `<!-- flowguard: end -->`.
+
+```markdown
+<!-- flowguard: about app/a.ts:missing -->
+## Not a heading either
+<!-- flowguard: generate fields Missing -->
+```
+
+~~~
+<!-- flowguard: about app/gone.ts -->
+~~~
+'''
+    _commit(tmp_path, {'app/a.ts': CODE, 'docs/rates.md': DOC})
+    _write(tmp_path, {'docs/guide.md': guide, 'app/a.ts': CODE.replace('x * 2', 'x * 3')})
+    code, text = _static(tmp_path)
+    assert code == 0 and [line for line in _block(text) if 'guide.md' in line or 'about ' in line] == [], text
+    from flowguard.intent.docs import markers, regions
+    assert markers(guide) == [] and regions(guide) == []
+    # A real marker after a closed fence counts, and a `#` line inside a fence does not end its heading's section.
+    after = guide + '\n<!-- flowguard: about app/a.ts:rate -->\n## Rate\n\n```sh\n# a comment\n```\nStill the rate.\n\n## Next\n'
+    assert markers(after) == [('app/a.ts:rate', 16, '## Rate\n\n```sh\n# a comment\n```\nStill the rate.')]
+
+
 def test_a_known_entry_may_name_a_whole_document(tmp_path):
     # Planning Tool's team instructions point to files that are gone (K8): the entry names the document itself.
     known = ('[known.stale-pointers]\nsites = ["docs/rates.md"]\nwhy = "It points to files that are gone"\n'
