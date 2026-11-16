@@ -210,3 +210,58 @@ def test_a_region_this_change_writes_that_cannot_be_generated_is_red(tmp_path):
         'red: generate fields Missing: generate fields Missing: no Prisma model Missing -> correct the marker at jobs.md:3',
         'red: generate routes app: generate routes: the kinds are fields, values, functions, constants -> correct the marker at jobs.md:6',
         'red: generate values JobKind: generate values JobKind has no <!-- flowguard: end --> marker -> correct the marker at jobs.md:9'], text
+
+
+# ---- module contracts and their connections (R98) ---------------------------------------------------------------
+# The owner: hang what AI found on the code; a module's contract says what it connects to, and a change reminds the
+# agent of the connected places. A text about a file or folder is that module's contract.
+
+CALLER = '''import { rate } from './a';
+export function charge(x: number) { return rate(x) + 1; }
+'''
+CONTRACT = '''# Billing
+
+<!-- flowguard: about app/b.ts -->
+Billing charges the rate plus one.
+'''
+
+
+def test_a_change_names_the_contracts_of_the_modules_its_edited_functions_connect_to(tmp_path):
+    from tests.intent_engine.test_static_check import _flowguard
+    _commit(tmp_path, {'app/a.ts': CODE, 'app/b.ts': CALLER, 'docs/billing.md': CONTRACT})
+    _write(tmp_path, {'app/a.ts': CODE.replace('x * 2', 'x * 3')})
+    code, text = _static(tmp_path)
+    lines = [line for line in _block(text) if 'billing.md' in line]
+    assert code == 0 and lines == ['impact: billing.md:3 describes app/b.ts, whose app/b.ts:charge calls app/a.ts:rate, '
+                                   'which this change edits -> reread that text and correct it if it no longer holds'], text
+    # A function nobody else calls connects to nothing; a change that also corrects the contract has nothing to say.
+    _write(tmp_path, {'app/a.ts': CODE.replace('x + 1', 'x + 2')})
+    assert [line for line in _block(_static(tmp_path)[1]) if 'billing.md' in line] == []
+    _write(tmp_path, {'app/a.ts': CODE.replace('x * 2', 'x * 3'),
+                      'docs/billing.md': CONTRACT.replace('the rate plus one', 'three times plus one')})
+    assert [line for line in _block(_static(tmp_path)[1]) if 'billing.md' in line] == []
+    # show PATH prints a module's contracts and connections, with theirs.
+    _write(tmp_path, {'app/a.ts': CODE, 'docs/billing.md': CONTRACT})
+    code, out = _flowguard(tmp_path, 'show', 'app/b.ts')
+    assert code == 0 and out.splitlines() == ['module app/b.ts: 1 file, 1 function', 'described by docs/billing.md:3',
+                                              'calls app/a.ts (1 call)'], out
+    code, out = _flowguard(tmp_path, 'show', 'app/a.ts')
+    assert code == 0 and out.splitlines() == [
+        'module app/a.ts: 1 file, 2 functions',
+        'described by no text: put <!-- flowguard: about app/a.ts --> above the Markdown text that is its contract',
+        'called by app/b.ts (1 call; described by docs/billing.md:3)'], out
+
+
+def test_a_folder_is_a_module_and_a_folder_with_no_mapped_file_is_red(tmp_path):
+    from tests.intent_engine.test_static_check import _flowguard
+    folder = '# App\n\n<!-- flowguard: about app/ -->\nThe app folder holds the rates and billing.\n'
+    _commit(tmp_path, {'app/a.ts': CODE, 'app/b.ts': CALLER, 'docs/app.md': folder})
+    _write(tmp_path, {'app/b.ts': CALLER.replace('+ 1', '+ 2')})
+    code, text = _static(tmp_path)
+    assert code == 0 and [line for line in _block(text) if 'app.md' in line] == [
+        'impact: app.md:3 describes app/, which this change edits -> reread that text and correct it if it no longer holds'], text
+    code, out = _flowguard(tmp_path, 'show', 'app')
+    assert code == 0 and out.splitlines()[:2] == ['module app/: 2 files, 3 functions', 'described by docs/app.md:3'], out
+    _write(tmp_path, {'app/b.ts': CALLER, 'docs/app.md': folder + '\n<!-- flowguard: about lib/ -->\nGone.\n'})
+    code, text = _static(tmp_path)
+    assert code == 1 and any(line.startswith('red: about lib/: site lib/: no mapped file in this folder') for line in _block(text)), text

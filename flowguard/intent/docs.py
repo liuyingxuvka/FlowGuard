@@ -9,6 +9,11 @@ block says so with an `impact` line, never a red one: the text may now be out of
 A marker this change writes with a site that names nothing is red; one that an earlier change left so, or whose site
 this change removed, is an `impact` line when this change touches it, and `check --all` lists every one.
 
+A text whose site is a file or a folder (`backend/src/services/`) is that module's contract (R98). A change that edits
+a function another module calls, or that calls into another module, names the contracts of those modules too, once
+each, when the change leaves their text as it was: the connected module may now work differently. `show PATH` of a
+file or folder prints its contracts and the modules it calls and is called by, with theirs (`module_lines`).
+
 A list the code already holds is generated instead: the lines between `<!-- flowguard: generate KIND ARG -->` and
 `<!-- flowguard: end -->` are written from the map by `python -m flowguard docs` (`rewrite`), and a run whose region
 differs from what the map gives now names it with an `impact` line."""
@@ -90,16 +95,17 @@ def findings(change, touched, *, everything=False):
     found = Findings()
     if not change.baseline:
         return found
-    graph, resolve = change.graph, None
+    graph, resolve, linked = change.graph, None, None       # both read once, when a marker needs them
     for document in documents(graph.root):
         then = change.old_text(document)
         before = {(site, span) for site, _, span in markers(then)} if then is not None else set()
         sites_then = {site for site, _ in before}
         for site, line, span in markers(read_source(graph.root / document)):
             path = site.rpartition(':')[0] or site
-            if ':' not in site:             # a file's path alone: the text describes the whole file
-                nodes, files = set(), {site}
-                problem = '' if (graph.root / site).is_file() else f'site {site}: no such file in this repository'
+            if ':' not in site:             # a file's or a folder's path alone: the text is that module's contract
+                nodes, files = set(), module_files(graph, site)
+                problem = '' if files else (f'site {site}: no mapped file in this folder' if site.endswith('/')
+                                            else f'site {site}: no such file in this repository')
             else:
                 if resolve is None:
                     resolve = site_resolver(graph, change)
@@ -108,7 +114,7 @@ def findings(change, touched, *, everything=False):
             if problem:
                 if site not in sites_then:          # this change wrote the marker
                     found.issues.append(_input(f'docs:{place}', f'about {site}', place, [problem],
-                                               f'name one function, constant or Model.field, or a file, in the marker at {place}',
+                                               f'name one function, constant or Model.field, a file or a folder (path/), in the marker at {place}',
                                                [document]))
                 elif everything or path in change.baseline_paths():
                     found.lines.append(Line('impact', f'docs:{place}', '', f'{place} describes {site}, which names nothing now',
@@ -118,6 +124,16 @@ def findings(change, touched, *, everything=False):
             if edited and (site, span) in before:
                 found.lines.append(Line('impact', f'docs:{place}', '', f'{place} describes {site}, which this change edits',
                                         REVIEW, (place,), ()))
+            elif ':' not in site and (site, span) in before:
+                if linked is None:
+                    linked = _linked(graph, touched)
+                links = [(other, how, node) for other, (how, node, path) in linked.items() if path in files]
+                if links:
+                    other, how, node = links[0]
+                    found.lines.append(Line('impact', f'docs:{place}', '', f'{place} describes {site}, whose '
+                                            f'{_site_of(graph, other)} {how} {_site_of(graph, node)}, which this change edits',
+                                            REVIEW, (place,), tuple(f'{_site_of(graph, other)} {how} {_site_of(graph, node)}'
+                                                                    for other, how, node in links)))
         regions_then = {(kind, argument) for kind, argument, *_ in regions(then)} if then is not None else set()
         for line, kind, argument, problem in stale(graph, document, read_source(graph.root / document)):
             place = f'{document}:{line}'
@@ -131,6 +147,79 @@ def findings(change, touched, *, everything=False):
                 found.lines.append(Line('impact', f'docs:{place}', '', f'{place} generate {kind} {argument} is out of date',
                                         'python -m flowguard docs rewrites it', (place,), ()))
     return found
+
+
+# ---- modules: their contracts and connections (R98) ---------------------------------------------------------------
+
+def module_files(graph, site):
+    """The mapped files a module site covers: a file's path, that file; a folder's (`path/`), every mapped file under
+    it. Empty when there is none."""
+    if site.endswith('/'):
+        return {path for (path,) in graph.con.execute('SELECT path FROM file') if path.startswith(site)}
+    return {site} if (graph.root / site).is_file() else set()
+
+
+def _file_of(graph, node):
+    row = graph.con.execute('SELECT file FROM node WHERE id = ?', (node,)).fetchone()
+    return row[0] if row else ''
+
+
+def _site_of(graph, node):
+    """A function node as `path:qual`, the way a site names it."""
+    row = graph.con.execute('SELECT file, qual FROM node WHERE id = ?', (node,)).fetchone()
+    return f'{row[0]}:{row[1]}' if row else node
+
+
+def _linked(graph, touched):
+    """{function of another file: (how, edited function, its file)} for the functions this change edits (`touched`): the
+    functions of other files that call one ('calls') and those one calls ('is called by'), by the map's call edges and
+    the JS/TS calls it resolves by name (`MapHandle.call_index`), first edited function by id."""
+    if not touched:
+        return {}
+    down, up = graph.call_index()
+    linked = {}
+    for node in sorted(touched):
+        home = _file_of(graph, node)
+        for others, how in ((up.get(node, {}), 'calls'), (down.get(node, {}), 'is called by')):
+            for other in sorted(others):
+                path = _file_of(graph, other)
+                if other not in touched and path not in ('', home):
+                    linked.setdefault(other, (how, node, path))
+    return linked
+
+
+def module_lines(graph, site):
+    """`show PATH` of a file or folder (R98): the texts that describe it, then each module (file) it calls or is
+    called by, with the number of calls and the texts that describe that module; [] when no mapped file is there."""
+    files = module_files(graph, site)
+    if not files:
+        return []
+    contracts = {}          # file -> the places of the markers whose file or folder site covers it
+    for document in documents(graph.root):
+        for marked, line, _ in markers(read_source(graph.root / document)):
+            if ':' not in marked:
+                for path in module_files(graph, marked):
+                    contracts.setdefault(path, []).append(f'{document}:{line}')
+    functions = {node: item for node, item in graph.functions().items() if '<' not in item['qual']}
+    mine = [node for node, item in functions.items() if item['file'] in files]
+    down, up = graph.call_index()
+    outward, inward = {}, {}
+    for node in mine:
+        for others, into in ((down.get(node, {}), outward), (up.get(node, {}), inward)):
+            for other in others:
+                path = functions[other]['file'] if other in functions else ''
+                if path and path not in files:
+                    into[path] = into.get(path, 0) + 1
+    def described(path):
+        places = contracts.get(path, [])
+        return f'; described by {", ".join(dict.fromkeys(places))}' if places else ''
+    own = list(dict.fromkeys(place for path in sorted(files) for place in contracts.get(path, [])))
+    lines = [f'module {site}: {len(files)} file{"s" * (len(files) != 1)}, {len(mine)} function{"s" * (len(mine) != 1)}']
+    lines += [f'described by {place}' for place in own] or ['described by no text: put <!-- flowguard: about '
+                                                           f'{site} --> above the Markdown text that is its contract']
+    lines += [f'calls {path} ({count} call{"s" * (count != 1)}{described(path)})' for path, count in sorted(outward.items())]
+    lines += [f'called by {path} ({count} call{"s" * (count != 1)}{described(path)})' for path, count in sorted(inward.items())]
+    return lines
 
 
 # ---- generated regions --------------------------------------------------------------------------------------------

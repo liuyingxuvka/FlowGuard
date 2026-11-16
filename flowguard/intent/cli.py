@@ -563,6 +563,13 @@ def show(cfg, query=None, *, draft=None, gaps=None, full=False, last=False):
             from .differences import display
             display('\n'.join(_copy_pointers(graph, index, anchors, [], data['summary'], [], query, full)))
             return 0
+        from .docs import module_lines
+        site = query.rstrip('/') + '/' if (cfg.root / query).is_dir() else query
+        if ((cfg.root / query).is_dir() or '/' in query and (cfg.root / query).is_file()) \
+                and (module := module_lines(graph, site)):
+            from .differences import display        # R98: a module's contracts and connections
+            display('\n'.join(module))
+            return 0
         node = graph.node(graph.canonical(query) or query)
         if node:
             print(f'{query} {node["file"]}:{node["line"]}\n{node["sig"]}\n{node["doc"]}')
