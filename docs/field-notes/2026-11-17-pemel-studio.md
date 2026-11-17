@@ -326,3 +326,29 @@ that CLI parsing accepts it with a synthetic local fixture. A Cloud wrapper
 could report its own skill and CLI versions together before recommending
 commands. Keep maintenance notes and copied skill bundles easy to identify
 when they are older than the installed tool.
+
+## Show an untyped integration boundary as a coverage gap
+
+In the first installed-engine acceptance, the production adapter stopped
+before any forward evaluation. The caller still used a private parameter
+factory name from an older adapter. Its receiver was typed as `Any`, so the
+normal type check could pass. The preceding 90 affected application tests had
+passed, and FlowGuard reported zero red agreements, 32 impacts and 63
+unavailable comparisons. Those tests covered the application callbacks and
+synthetic state transitions. The failing call needed the actual installed
+adapter. The repair switched both call sites to the current factory and used
+the real adapter type at the two integration boundaries.
+
+When a changed production call crosses an `Any` or dynamically loaded boundary,
+show whether the callee could be resolved and whether a registered test used
+the installed implementation. A small fixture can remove or rename a factory
+while leaving a passing fake in the earlier test. The report should then point
+to the unverified receiving type and the nearest existing smoke test. This
+would help an agent choose one real call and avoid rerunning a large workload.
+
+The Japanese GUI review also found a program-owned failure message with no
+catalogue entry. Static agreement and ordinary test success covered a different
+boundary. Teams could register a narrow link from message descriptor producers
+to their existing catalogue checks. Preserve user-entered text as opaque. The
+tool can flag a missing installed-language key without storing document content
+or trying to translate it.
