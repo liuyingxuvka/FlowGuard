@@ -94,11 +94,12 @@ def git_head(root) -> str | None:
 
 
 def git_path_object(root, revision: str, relative: str) -> str | None:
-    """The object id of `relative` at a tree-ish, or in the index (stage 0) when revision is ":".
+    """The blob id of the file `relative` at a tree-ish, or in the index (stage 0) when revision is ":".
 
-    None only when Git lists no such path there. Git lists entries with ls-tree and ls-files, which exit 0 with
-    no entry for an absent path and fail with Git's message for a tree or index it cannot read; rev-parse
-    --verify exits 1 for both, so it never answers this question."""
+    None when Git lists no file there: no entry, or one that is no file (a folder, whose tree took the place of a
+    file of that name in an earlier commit or will in a later one, or a submodule's commit). Git lists entries with
+    ls-tree and ls-files, which exit 0 with no entry for an absent path and fail with Git's message for a tree or
+    index it cannot read; rev-parse --verify exits 1 for both, so it never answers this question."""
     relative = Path(relative).as_posix()  # Git lists names with "/", relative to root
     if revision == ":":
         literal = {**os.environ, "GIT_LITERAL_PATHSPECS": "1"}  # the name is one file, never a glob pattern
@@ -109,7 +110,9 @@ def git_path_object(root, revision: str, relative: str) -> str | None:
         description, _, name = row.partition(b"\t")
         fields = description.split()
         if os.fsdecode(name) == relative and (revision != ":" or fields[2] == b"0"):
-            return os.fsdecode(fields[field])
+            # ls-tree: mode, type, object; ls-files --stage: mode, object, stage (a submodule's mode is 160000)
+            is_file = fields[1] == b"blob" if revision != ":" else fields[0] != b"160000"
+            return os.fsdecode(fields[field]) if is_file else None
     return None
 
 
@@ -117,8 +120,8 @@ def git_path_object(root, revision: str, relative: str) -> str | None:
 def git_blob(root, revision: str, relative: str) -> bytes | None:
     """The raw bytes of `relative` at a commit, or in the index when revision is ":", in a known Git repository.
 
-    None only when that path is not there; a commit missing from this clone, a tree Git cannot read or a failing
-    Git raises."""
+    None only when no file is there (no entry, a folder or a submodule, `git_path_object`); a commit missing from
+    this clone, a tree Git cannot read or a failing Git raises."""
     if revision != ":" and git_run(root, "rev-parse", "-q", "--verify", revision + "^{commit}", allowed=(0, 1)).returncode:
         raise MapError(f"commit {revision} is not in the Git repository at {root}")
     found = git_path_object(root, revision, relative)
@@ -132,8 +135,8 @@ def git_blobs(root, revision: str, relatives) -> dict[str, bytes | None]:
     with one commit check, one listing per batch of paths and one `cat-file --batch` in place of three Git runs per
     path. Only what this batch reads as git_blob does is given: a path a listing of several paths reads otherwise
     (a folder another path lies in, `..` or a magic name Git rewrites), an object that is no blob, and every path of
-    a commit, listing or batch Git cannot read are left out, for git_blob to read alone, and fail on with Git's
-    message, when its caller reads it."""
+    a commit, listing or batch Git cannot read are left out, for git_blob to read alone when its caller reads it:
+    None for a folder or a submodule, which is no file there, else Git's message."""
     wanted = {relative: Path(relative).as_posix() for relative in dict.fromkeys(relatives)}
     if not wanted or git_run(root, "rev-parse", "-q", "--verify", revision + "^{commit}", allowed=(0, 1)).returncode:
         return {}

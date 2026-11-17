@@ -173,8 +173,10 @@ def test_baseline_tree_keeps_nested_project_and_literal_file_identity(tmp_path):
         facts = graph._baseline_facts('HEAD', name, 'literal_module')
         assert [node['qual'] for node in facts['nodes']] == ['eligible']
     with closing(build(root)) as graph:
-        with pytest.raises(MapError):
-            graph._baseline_facts('HEAD', 'inside', 'not_a_file')
+        # A folder of the baseline where a file is asked is no file there (5.0, Planning Tool 2026-11-17: 4.3 failed
+        # in git cat-file, and the frontend tests of a task whose work tree had a file of that name did not start).
+        assert graph._baseline_facts('HEAD', 'inside', 'not_a_file') == {}
+        assert [node['qual'] for node in graph._baseline_facts('HEAD', f'inside/{name}', 'inside_module')['nodes']] == ['eligible']
 
 
 def test_a_few_kinds_of_baseline_records_give_what_the_whole_records_give(tmp_path, monkeypatch):

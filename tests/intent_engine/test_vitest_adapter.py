@@ -2952,3 +2952,25 @@ def test_the_plan_key_covers_the_modules_of_the_records_the_plan_keeps(tmp_path,
         assert vitest._key(cfg, 'c' * 40, [], 'task') != before, module.__name__
         monkeypatch.setattr(Path, 'read_bytes', real)
     assert vitest._key(cfg, 'c' * 40, [], 'task') == before
+
+
+def test_a_task_start_folder_where_the_work_tree_now_has_a_file_of_that_name_starts_the_tests(tmp_path):
+    """Planning Tool (2026-11-17), FlowGuard 5.0: the frontend tests did not start because prepare read a component
+    folder of the task-start commit as a file (`git cat-file failed ...: bad file`), and check --static stopped the
+    same way. A folder there is no file at the task start: the file of that name is new, and its function is
+    observed; a file that became a folder of that name is read as removed."""
+    _commit(tmp_path, {'package.json': '{"name": "shop", "type": "module"}\n',
+                       'src/components/card.ts/index.ts': 'export function card(x: number) { return x + 1; }\n',
+                       'src/components/panel.ts': 'export function panel(x: number) { return x + 2; }\n'})
+    code, out = _flowguard(tmp_path, 'new-task')
+    assert code == 0, out
+    shutil.rmtree(tmp_path / 'src/components/card.ts')
+    (tmp_path / 'src/components/panel.ts').unlink()
+    _write(tmp_path, {'src/components/card.ts': 'export function card(x: number) { return x + 3; }\n',
+                      'src/components/panel.ts/index.ts': 'export function panel(x: number) { return x + 4; }\n'})
+    plan = _prepare(tmp_path)
+    assert plan['status'] == 'on', plan
+    observed = json.loads(Path(plan['plan']).read_text(encoding='utf-8'))
+    assert 'src/components/card.ts' in json.dumps(observed), observed
+    code, out = _flowguard(tmp_path, 'check', '--static')
+    assert code == 0 and 'cat-file' not in out and out.splitlines()[0].startswith('FlowGuard '), out

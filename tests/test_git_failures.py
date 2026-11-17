@@ -75,7 +75,7 @@ def test_the_batch_blob_reader_gives_each_path_what_the_single_reader_gives(tmp_
     the path as given, also for a name with glob characters, a link and a folder below the repository's top; after
     a new commit it reads that commit's bytes. A path it cannot read as `git_blob` does (a folder, also one another
     path lies in, a missing blob, every path of a missing commit or tree) is left out, so that `git_blob` reads it
-    alone and fails with Git's message only where its caller reads it."""
+    alone where its caller reads it: None for a folder, which is no file there, else Git's message."""
     from flowguard.map.common import git_blobs
     root = _committed_shelf_project(tmp_path)
     write(root, 'shelf/a*b.py', 'star\n') if os.name != 'nt' else None
@@ -98,8 +98,7 @@ def test_the_batch_blob_reader_gives_each_path_what_the_single_reader_gives(tmp_
     assert git_blobs(root, 'HEAD', []) == {}
     assert git_blobs(root, 'HEAD', ['shelf/catalog.py', 'shelf']) == {'shelf/catalog.py': b'VALUE = 1\n'}
     assert git_blobs(root, 'HEAD', ['shelf']) == {}
-    with pytest.raises(MapError, match='git cat-file failed'):
-        git_blob(root, 'HEAD', 'shelf')
+    assert git_blob(root, 'HEAD', 'shelf') is None        # a folder is no file there (5.0; 4.3 failed in cat-file)
     assert git_blobs(root, 'f' * 40, ['shelf/loans.py']) == {}
     with pytest.raises(MapError, match='is not in the Git repository'):
         git_blob(root, 'f' * 40, 'shelf/loans.py')
@@ -117,3 +116,21 @@ def test_the_batch_blob_reader_gives_each_path_what_the_single_reader_gives(tmp_
     assert git_blobs(root, 'HEAD', ['shelf/loans.py', 'shelf/absent.py']) == {}
     with pytest.raises(MapError, match=tree):
         git_blob(root, 'HEAD', 'shelf/absent.py')
+
+
+def test_a_folder_or_a_submodule_where_a_file_is_asked_is_no_file_there(tmp_path):
+    """Planning Tool (2026-11-17), FlowGuard 5.0: a component folder of the task-start commit, read as a file, ended
+    the frontend tests before they ran: `git cat-file failed ...: fatal: git cat-file <tree id>: bad file`. At a
+    commit or in the index, a folder or a submodule where a file is asked is no file there (None), as for a path Git
+    does not list; a tree or blob Git cannot read still stops the reader with Git's message (the tests above)."""
+    from flowguard.map.common import git_blobs, git_path_object
+    root = _committed_shelf_project(tmp_path)
+    commit = _git(root, 'rev-parse', 'HEAD').decode().strip()
+    _git(root, 'update-index', '--add', '--cacheinfo', '160000', commit, 'shelf/vendor')      # a submodule's commit
+    _git(root, 'commit', '-qm', 'submodule')
+    for revision in ('HEAD', ':'):
+        assert git_path_object(root, revision, 'shelf') is None and git_blob(root, revision, 'shelf') is None, revision
+        assert git_path_object(root, revision, 'shelf/vendor') is None, revision
+        assert git_blob(root, revision, 'shelf/vendor') is None, revision
+        assert git_blob(root, revision, 'shelf/loans.py') == b'def value(): return 1\n', revision
+    assert git_blobs(root, 'HEAD', ['shelf/vendor', 'shelf/loans.py']) == {'shelf/loans.py': b'def value(): return 1\n'}

@@ -403,12 +403,14 @@ class MapHandle:
             return git_path_object(self.root, revision, path)
         trees = self._derived.setdefault('baseline_objects', {})
         if revision not in trees:
-            listing = git_run(self.root, 'ls-tree', '-r', '-t', '-z', revision).stdout
+            listing = git_run(self.root, 'ls-tree', '-r', '-z', revision).stdout
             objects = {}
             for row in listing.split(b'\0'):
                 if row:
                     description, _, name = row.partition(b'\t')
-                    objects[os.fsdecode(name)] = description.split()[2].decode()
+                    _, kind, found = description.split()
+                    if kind == b'blob':     # a file; a folder or a submodule's commit is none (git_path_object)
+                        objects[os.fsdecode(name)] = found.decode()
             trees[revision] = objects
         return trees[revision].get(Path(path).as_posix())
 
