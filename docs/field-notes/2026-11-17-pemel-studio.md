@@ -162,3 +162,54 @@ reference if the artifact is useful for inspection. Keep both the PDF
 body and customer inputs out of the FlowGuard store. This would let one
 agreement name the screen and export outcomes without making FlowGuard
 render documents or interpret technical values.
+
+## High priority: make task handoffs point to the evidence they count
+
+FlowGuard's task baseline helped us separate a completed Simulation change from
+the next Comparison change. The final focused run on 5.0.1 passed 41 pytest
+cases. FlowGuard reported zero red agreements, 38 impacts and 129 unavailable
+comparisons in 14.5 seconds. The handoff then recorded a new baseline and
+reported `6 still red: python -m flowguard show --last`. The stored last-run
+result still contained the zero-red summary. All six items came from older
+ordinary test readings, outside the focused run. One was a deliberately
+deselected real-engine test. We kept the older failures as follow-up evidence.
+
+The counts come from two stores. In `intent/cli.py`, `_brief` combines
+`_brief_reds` from the retained readings with `_last_reds` from the most
+recent result. `show_last` displays only that recent result. Give the two
+counts distinct labels, and give each a route that shows exactly the items
+counted. For retained failures, show the test ID, last observed outcome,
+baseline or source identity when available, and whether the latest run
+selected it. Keep the recently completed run's agreement outcome visible.
+An interrupted run should carry its own completion status. A filtered run
+should leave unselected outcomes historical, and a complete collection of
+an edited file can retire removed test IDs.
+
+A small regression fixture can reproduce the handoff without Qt. Record a
+failed ordinary test, run a passing subset from a different file, make a
+commit and call `new-task`. The brief should still point to the recorded
+failure, under a historical label. Its advertised detail view should show the
+failed test and state that this test was outside the last selection. Then
+rerun it successfully or complete a collection with the old test ID removed,
+and check that its current-failure count clears. Keep the original observation
+available for audit.
+
+## Next: check the boundary between opening a dialog and starting work
+
+A native Comparison test clicked Run and held the first synthetic member
+active. Its first assertion expected the data-import entry to turn off and
+failed when the entry remained available. The desktop design intentionally
+allows opening the dialog during an ordinary heavy task and refuses actions
+that start another task. Calibration has a distinct rule that also refuses
+opening the import dialog. The corrected assertion pairs the available entry
+with refused worker admission and a refused independent simulation in the
+same active-batch state.
+
+Start with a small, opt-in acceptance pattern for existing intent tests.
+Record the owning task state, boundary identifier, allow/refuse decision,
+reason key and whether a new worker started. Bind opening the import dialog
+and starting an import to separate anchors while keeping their shared
+admission owner visible. A focused test should detect both over-blocking a
+safe entry and admitting a second worker. The Qt test can retain ownership
+of clicks and widgets. FlowGuard can report the exact boundary on which the
+decision disagreed with the cited rule.
