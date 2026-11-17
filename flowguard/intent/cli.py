@@ -765,12 +765,24 @@ def _last_run_lines(cfg, graph, query, name, site_names, *, held, full, hidden=N
 FIELD_QUERY = re.compile(r'[A-Za-z_]\w*\.[A-Za-z_]\w*')     # Model.field or table.column
 
 
-def _write_line(row):
-    """A `show Model.field` line of one write (`MapHandle.writes` row)."""
+def _write_line(row, mark=''):
+    """A `show Model.field` line of one write (`MapHandle.writes` row), with what `_test_marks` says of its test file
+    (`mark`) as a `test ... reaches a writer` line says it."""
     where = f'{row["file"]}:{row["line"]}' + (f' (call line {row["call_line"]})' if row['call_line'] != row['line'] else '')
     unclear = f'; unclear: {row["reason"]}' if row['unclear'] else ''
     return (f'writes {row["model"] or row["table"]}.{row["field"] or row["db_column"]} {where} {row["function"]} '
-            f'({row["kind"]}{unclear})')
+            f'({row["kind"]}{unclear})' + (f' ({mark})' if mark else ''))
+
+
+def _write_lines(cfg, rows):
+    """`_write_line` of each write, a write in a test file that the project's test scope leaves out, or in a folder its
+    scripts run as a suite that reaches real databases and services, marked so (gate-5: Planning Tool's `show
+    Assignment.fteShare` listed `writes ... backend/tests/integration/dashboard.routes.test.ts:146 ... ensureFixtures
+    (create)` among the production writers, while only the `test ... reaches a writer` lines, which the default view
+    cuts, said that PT's agents may not run that suite)."""
+    from flowguard.map.common import is_test_file
+    marks = _test_marks(cfg, sorted({row['file'] for row in rows if is_test_file(row['file'])}))
+    return [_write_line(row, marks.get(row['file'], '')) for row in rows]
 
 
 def _unknown_model(graph, query):
@@ -810,25 +822,39 @@ NODE_VIEWS = 3          # the functions an exact name names that `show NAME` pri
 
 
 def _described_places(graph, query, name, *, site, target, file):
-    """[(file, names)] of the functions, methods and constants a `show NAME` names, for the texts that describe them
-    (`docs.described_by`): a site query's node or, naming none, its file and symbol; a map id's node; else each one
-    whose qual or declared name (`anchors._declared_name`, `service.save`) is the query or, for a name without a dot,
-    ends in it, when there are at most NODE_VIEWS of them (a generic name's texts would be every file's)."""
+    """([(file, names, node)], models) of what a `show NAME` names, for the texts that describe it
+    (`docs.described_by`): the functions, methods and constants, a site query's node or, naming none, its file and
+    symbol (no node); a map id's node; else each one whose qual or declared name (`anchors._declared_name`,
+    `service.save`) is the query or, for a name without a dot, ends in it, when there are at most NODE_VIEWS of them (a
+    generic name's texts would be every file's); for a `Model.field` or `table.column`, each Prisma schema that
+    declares the field it names (`owners.mapped_fields`) with that field's spelling, no node. `models` holds the
+    Prisma models whose `generate fields` region describes the query: the model of each such field, or the model the
+    query names."""
     from .anchors import _declared_name
+    from .owners import mapped_fields
     from ..structure import store
+    fields = {spelled: (model, field) for spelled, (model, field) in mapped_fields(graph, name).items()}
+    declaring = [(schema['file'], f'{item["name"]}.{entry["name"]}') for schema in graph.schemas() if schema['kind'] == 'prisma'
+                 for item in schema.get('models', ()) for entry in item.get('fields', ())
+                 if fields.get(f'{item["name"]}.{entry["name"]}') == (item['name'], entry['name'])]
     if site and target is None:
-        return [(file, {name})]
+        here = [spelled for path, spelled in declaring if path == file]
+        return [(file, {name, *here}, None)], {spelled.partition('.')[0] for spelled in here}
+    if fields:
+        return [(path, {spelled}, None) for path, spelled in declaring], {model for model, _ in fields.values()}
+    models = {name} if any(item['name'] == name for schema in graph.schemas() if schema['kind'] == 'prisma'
+                          for item in schema.get('models', ())) else set()
     node = target or graph.node(graph.canonical(query) or query)
-    rows = graph.con.execute("SELECT file, qual, kind, raw FROM node WHERE id = ? AND kind IN ('function', 'method', 'const')",
+    rows = graph.con.execute("SELECT id, file, qual, kind, raw FROM node WHERE id = ? AND kind IN ('function', 'method', 'const')",
                              (node['id'],)).fetchall() if node else graph.con.execute(
-        "SELECT file, qual, kind, raw FROM node WHERE (short = ? OR short LIKE ?) AND kind IN ('function', 'method', 'const')",
+        "SELECT id, file, qual, kind, raw FROM node WHERE (short = ? OR short LIKE ?) AND kind IN ('function', 'method', 'const')",
         (query.rpartition('.')[2], query.rpartition('.')[2] + '@%')).fetchall()     # `save@12`: a name used twice
     found = []
-    for path, qual, kind, raw in rows:      # a constant is declared by its qual
+    for ident, path, qual, kind, raw in rows:      # a constant is declared by its qual
         names = {qual, qual if kind == 'const' else _declared_name(path, qual, store.unpack(raw) if raw else {})}
         if node or query in names or '.' not in query and any(item.rpartition('.')[2] == query for item in names):
-            found.append((path, names))
-    return found if len(found) <= NODE_VIEWS else []
+            found.append((path, names, ident))
+    return (found if len(found) <= NODE_VIEWS else []), models
 
 
 def _node_lines(graph, node, header, *, full, again, writes=None, callers=None):
@@ -922,7 +948,9 @@ def _held_methods(graph, name):
     employeeService.update` ranks `employee.service.ts:update` first among the methods named update. A member the
     reader names only through its holder (`member`: an arrow function or function expression that is a property or
     a class field, `getAll: (params) => ...`, whose node is `<anonymous@33,11>`) is named by that member's name, so
-    each member a holder line counts is found (`owners.method_holders`)."""
+    each member a holder line counts is found (`owners.method_holders`). So is a member whose name a module function
+    of that file has too, which the map names by its line (`sliceDateRangeByMonth@490`: gate-0, `show
+    capacityService.sliceDateRangeByMonth`, as a generated functions region writes it, was not on the map)."""
     from flowguard.structure import store
     holder, dot, method = name.casefold().rpartition('.')
     if not dot or not holder or '.' in holder or not method:
@@ -930,7 +958,7 @@ def _held_methods(graph, name):
     held = set()
     for ident, qual, raw in graph.con.execute(
             "SELECT id, qual, raw FROM node WHERE kind IN ('function', 'method') AND (short = ? COLLATE NOCASE "
-            "OR qual LIKE '%<anonymous@%')", (method,)):
+            "OR short LIKE ? OR qual LIKE '%<anonymous@%')", (method, method + '@%')):
         data = store.unpack(raw) if raw else {}
         own = data.get('holder') or (qual.rpartition('.')[0] if '.' in qual else '')
         spelled = data.get('member') or data.get('name') or qual.rpartition('.')[2]
@@ -1038,17 +1066,19 @@ def show(cfg, query=None, *, full=False, last=False):
         from .docs import described_by, module_lines
         # A module's view and the texts that describe it (R98); a function's, method's or constant's texts (5.0 gate).
         module = module_lines(graph, path + '/' if (cfg.root / path).is_dir() else path) if path is not None else None
-        described = module[1] if module else described_by(graph, _described_places(graph, query, name, site=site, target=target,
-                                                                                    file=spot))
+        described = module[1] if module else described_by(graph, *_described_places(graph, query, name, site=site,
+                                                                                     target=target, file=spot))
         concerning, listed, known = _concerning(cfg, data, graph, index, query, path=path, node=target,
                                                 anchored={query} if anchors else (),
                                                 symbol=name if site and target is None else None, full=full, hidden=hidden,
                                                 described=described)
         from .differences import display        # a known entry's words may hold what the console cannot show
-        if anchors:         # an anchor's view begins as every other view: its header and the map notice (gate-6)
-            print('\n'.join([f'show {query}', *([notice] if notice else [])]))
-            if concerning:
-                display('\n'.join(concerning))
+        # Every view begins with its header, the map notice and what concerns the query (gate-6: an anchor's view; gate-4:
+        # a site query, a map id and a module or document view began with their node or module line, the Map line in
+        # their middle).
+        opening = [f'show {query}', *([notice] if notice else []), *concerning]
+        if anchors:
+            display('\n'.join(opening))
             print('\n'.join(pointers))
             from .owners import agreement_writes, declaration_lines, show_lines
             if owned := show_lines(cfg, graph, index, query):     # writes outside its writers, look-alikes
@@ -1056,8 +1086,8 @@ def show(cfg, query=None, *, full=False, last=False):
             if FIELD_QUERY.fullmatch(query):        # what the map read about the field and who writes it, as the facts
                 agreed = agreement_writes(cfg, graph, index, query)      # branch says; a write listed above once only
                 facts = [*filter(None, [_unknown_model(graph, query)]), *declaration_lines(graph, query),
-                         *(_write_line(row) for row in graph.writes(query)
-                           if (row['file'], row['line'], row['function'], row['kind']) not in agreed)]
+                         *_write_lines(cfg, [row for row in graph.writes(query)
+                                             if (row['file'], row['line'], row['function'], row['kind']) not in agreed])]
                 facts = [line for line in dict.fromkeys(facts) if line not in owned]
                 if facts:
                     display('\n'.join(facts if full else _limit(
@@ -1079,12 +1109,11 @@ def show(cfg, query=None, *, full=False, last=False):
                 display('\n'.join(copies))
             return 0
         if module is not None:          # R98: a module's contracts and connections, the texts right after its entries
-            display('\n'.join([*module[0], *concerning, *module[2]]))
+            display('\n'.join([*opening, *module[0], *module[2]]))
             return 0
         node = target or (None if site else graph.node(graph.canonical(query) or query))
         if node:
-            display('\n'.join([*_node_lines(graph, node, query, full=full, again=query), *([notice] if notice else []),
-                               *concerning]))
+            display('\n'.join([*opening, *_node_lines(graph, node, query, full=full, again=query)]))
             # A function an anchor marks is bound already: its reason not to search names no binding step.
             found = graph.search_homes(node['id'], k=None,
                                        bound=any(anchor.target == node['id'] for anchor in index.entries))
@@ -1107,8 +1136,8 @@ def show(cfg, query=None, *, full=False, last=False):
             written = graph.writes(name)
             # In the map's order (file, then line as a number), unclear ones last: each write ranks a little below the
             # one before it, all within (1998, 2000].
-            ranked.extend((2000 - bool(row['unclear']) - order / len(written), _write_line(row))
-                          for order, row in enumerate(written))
+            ranked.extend((2000 - bool(row['unclear']) - order / len(written), line)
+                          for order, (row, line) in enumerate(zip(written, _write_lines(cfg, written))))
             unknown = _unknown_model(graph, name)
             from . import health, owners as checks       # several files write it and nobody owns it: say so first
             change = checks.Change(cfg, graph, None)
@@ -1138,7 +1167,8 @@ def show(cfg, query=None, *, full=False, last=False):
             decided.setdefault(ident, []).append((field or '') + ' ' + (identity or ''))
         exact = []          # the functions, methods and classes the name or `object.method` names
         for ident, item in owners.items():
-            names = {ident.casefold(), item['qual'].casefold(), item['qual'].rsplit('.', 1)[-1].casefold()}
+            last = item['qual'].rsplit('.', 1)[-1]          # a member the map names by its line, `name@490`, is name
+            names = {ident.casefold(), item['qual'].casefold(), last.casefold(), re.sub(r'@\d+$', '', last).casefold()}
             score = 1000 if name.casefold() in names or ident in held else 0
             # Only an owner whose text can hold a query word is split into words (may_share is exact).
             if any(may_share(words, text) for text in decided.get(ident, ())):
@@ -1167,7 +1197,7 @@ def show(cfg, query=None, *, full=False, last=False):
             unknown = f'not on the map: no function, class, type, constant, enum, Prisma model or field, or SQL table or column is named {name}'
         ranked.sort(key=lambda row: (-row[0], row[1]))
         matches = [line for score, line in ranked if score < 1000]
-        head = [f'show {query}', *([notice] if notice else []), *concerning, *([unknown] if unknown else []), *views,
+        head = [*opening, *([unknown] if unknown else []), *views,
                 *(line for score, line in ranked if score >= 1000)]
         complete = [*head, *([f'word matches: the {_counted(len(matches), "line")} below only share'
                               f'{"s" if len(matches) == 1 else ""} a word with {query}'] if matches else []), *matches]
@@ -1181,7 +1211,7 @@ def show(cfg, query=None, *, full=False, last=False):
         view = head if knows else complete
         if len(view) > cfg.screen_lines or (knows and matches):
             kept = view[:cfg.screen_lines - 1]
-            marker = bool(notice) + len(concerning)         # the index of the last run's count line, when it has one
+            marker = len(opening) - 1           # the index of the last run's count line, when it has one
             adds = len(complete) - len(kept) + (hidden[0] - 1 if hidden and marker >= len(kept) else 0)
             sharing = f', {len(matches)} of them only share{"s" if len(matches) == 1 else ""} a word with {query}' \
                 if matches and len(head) >= len(kept) else ''

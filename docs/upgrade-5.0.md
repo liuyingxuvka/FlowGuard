@@ -179,7 +179,7 @@ red: ledger.toml: [unverified] was removed in 5.0 -> delete the section; nothing
 
 ### What the map knows about a name
 
-`python -m flowguard show NAME` starts, after the entries and agreements that concern the name, with what the map read about it. `Model.field` gives the Prisma declarations, the SQL columns, the value sets, the `CHECK` ranges and the zod bounds, those of the schema objects named after the model first; `table.column` answers with the Prisma field its `@@map` and `@map` map to it, as `Model.field` does (`show assignments.fte_share` prints the lines below). In a project with a Prisma schema, one migration and one zod schema:
+`python -m flowguard show NAME` starts, after the entries and agreements that concern the name, with what the map read about it. `Model.field` gives the Prisma declarations, the SQL columns, the value sets, the `CHECK` ranges and the zod bounds, those of the field's own schema objects first, each schema object belonging to the model whose name is the longest model name its camel-case words hold (`lendingAssignmentCreateSchema` to LendingAssignment, not Assignment); `table.column` answers with the Prisma field its `@@map` and `@map` map to it, as `Model.field` does (`show assignments.fte_share` prints the lines below). In a project with a Prisma schema, one migration and one zod schema:
 
 ```text
 show Assignment.fteShare
@@ -199,7 +199,7 @@ table assignments: 3 columns (backend/prisma/migrations/ as its migrations leave
 Assignment on the map: 0 writes in 0 functions, 0 reads in 0 functions: python -m flowguard show Assignment.FIELD lists the writes and reads of one
 ```
 
-A function's name gives its node view: its id and place, its signature, the fields it writes and the functions that call it through a call the map resolved. An object literal or class that holds functions gives its place and members. A name the map does not know gets one `not on the map` line, and a misspelt field names the model's nearest field.
+A function's name gives its node view: its id and place, its signature, the fields it writes and the functions that call it through a call the map resolved; `object.method` gives the method also when a module function of the file has its name, as a generated region names it (`show capacityService.sliceDateRangeByMonth`). A write in a test file that the test scope leaves out, or that a script runs as a suite that reaches real databases and services, says so on its `writes` line as on its `test ... reaches a writer` line. An object literal or class that holds functions gives its place and members. A name the map does not know gets one `not on the map` line, and a misspelt field names the model's nearest field.
 
 ### Lists generated from the code
 
@@ -221,6 +221,8 @@ impact: assignments.md:8 generate fields Assignment is out of date -> python -m 
 
 A relation field has no column: its cell names the model (`| demand | Demand? | relation Demand |`). `functions path` names each function and method of the file as a flowguard comment or `show` does, `capacityService.sliceDateRangeByMonth` for a method of an exported object, with its whole signature as declared, and leaves out what another function holds: a closure, a callback, an object literal's method.
 
+A region holds only what the map knows: names, signatures, values, fields, types and columns. Prose such as the Purpose column of a hand-written function list has no place in it; keep it outside the region, in a text or a table of its own above or below it, when you replace such a list by a region. A region that lists a file's functions or constants, or a model's fields, is a text that describes them: `show` of that file, of a name it lists or of a field of that model says `described by docs/FUNCTION_INVENTORY.md:307 (generate functions backend/src/services/central-employee.service.ts)`, and the module view gives such a file no `described by no text` advice.
+
 A region is named when the change edits what it is written from, or the region or its marker. One this change writes that cannot be generated is red: `red: generate values Nope: no value set of that name -> correct the marker at lists.md:12`. Write around a region, not inside it.
 
 ### Texts tied to the code they describe
@@ -240,9 +242,11 @@ A text about a file or a folder (`<!-- flowguard: about backend/src/report.ts --
 impact: report.md:3 describes backend/src/report.ts, whose backend/src/report.ts:overbooked calls backend/src/share.ts:totalShare, which this change edits -> reread that text and correct it if it no longer holds
 ```
 
-`python -m flowguard show backend/src/share.ts` lists a module's contracts and connections:
+`python -m flowguard show backend/src/share.ts` lists a module's contracts and connections, after the header and the Map line every view begins with:
 
 ```text
+show backend/src/share.ts
+Map: prisma 1/1 parsed; typescript 2/2 parsed; static facts, foreign native-home execution not verified.
 module backend/src/share.ts: 1 file, 1 function
 described by no text: put <!-- flowguard: about backend/src/share.ts --> above the Markdown text that is its contract
 called by backend/src/report.ts (1 call; described by docs/report.md:3)
@@ -251,12 +255,14 @@ called by backend/src/report.ts (1 call; described by docs/report.md:3)
 The connections are the calls the map resolved, never a method matched by its name alone. Each text the module has comes right after its known entries with the site its marker names, and a connected module's text says so when its marker names a folder. With `<!-- flowguard: about backend/src/ -->` in `docs/report.md` and `<!-- flowguard: about backend/src/share.ts:totalShare -->` in `docs/assignments.md`:
 
 ```text
-module backend/src/share.ts: 1 file, 1 function
+show backend/src/share.ts
+Map: prisma 1/1 parsed; typescript 2/2 parsed; static facts, foreign native-home execution not verified.
 described by docs/report.md:3 (about backend/src/)
+module backend/src/share.ts: 1 file, 1 function
 called by backend/src/report.ts (1 call; described by docs/report.md:3 about backend/src/)
 ```
 
-`show totalShare` begins with the texts whose marker names the function, its file or a folder holding it, after its known entries (it has none) and before its node view, and `show docs/assignments.md` lists a document's markers and generated regions:
+`show totalShare` begins with the texts whose marker names the function, its file or a folder holding it (a marker on a symbol only when `check --static` resolves its site to that function: `backend/src/share.ts:sumShares` describes nothing), after its known entries (it has none) and before its node view, and `show docs/assignments.md` lists a document's markers and generated regions:
 
 ```text
 show totalShare
@@ -266,6 +272,8 @@ described by docs/report.md:3 (about backend/src/)
 ```
 
 ```text
+show docs/assignments.md
+Map: prisma 1/1 parsed; typescript 2/2 parsed; static facts, foreign native-home execution not verified.
 document docs/assignments.md
 docs/assignments.md:3 describes backend/src/share.ts:totalShare
 docs/assignments.md:8 generate fields Assignment is out of date -> python -m flowguard docs rewrites it
@@ -312,13 +320,16 @@ Without `--id` such an entry is `matter` (then `matter-2`, ...).
 `show NAME`, `show PATH`, a rule's and a flow's view begin with what is already known and decided about the query: the `known.toml` entries in the brief's words, the texts that describe it, the intent rules and the `rules.toml` rules they cite, the flowguard comment agreements, and the last run's lines there (five without `--full`):
 
 ```text
-module fees.py: 1 file, 3 functions
+show fees.py
 known.same-fee: open question for the owner: Which daily late fee is right, 2 or 3? (python -m flowguard show known.same-fee)
 same FEE ref fees.py:2
 same FEE fees.py:7
 together Job.status Job.closed_at fees.py:11
+module fees.py: 1 file, 3 functions
 described by no text: put <!-- flowguard: about fees.py --> above the Markdown text that is its contract
 ```
+
+Every view begins so: the `show QUERY` header, the Map line when the map reads more than Python, what concerns the query, then the view's own lines (a site's or a map id's node view, a module's or a document's lines).
 
 `show same-fee`, an entry's bare id, prints the entry, and `show "late fee"` also lists the entries whose why or ask shares those words.
 
@@ -343,12 +354,14 @@ The brief still has at most eight lines. It counts the generated regions the las
 | `not compared: totalShare (share.ts:1) (only primitive JSON arguments and results are recorded) -> not a failure` | `changed: totalShare (share.ts:1): (rows=[{"fteShare": 0.5}, {"fteShare": 0.25}]) was 0.75, now 0.8; ...` |
 | SQL inside a string literal of a SQL file (`EXEC(N'ALTER TABLE ... ADD ...')`) was read as SQL that runs. | It is not read: a column, a `CHECK` or a write that only such SQL adds is not declared, so the columns check may give one more `before` line. A string ends where its dialect ends it (`E'it\'s'`, a dump's `'O\'Brien'`). SQL in Python string literals and TS/JS raw SQL is read as before. |
 | A label-table disagreement was a `before` line for any edit of a file that holds one of its tables. | Only when the change edits the declaration lines of one of its tables; a change that adds a table or changes its keys or labels gets an `impact` line. |
+| A one-line edit of the assignments CHECK in Planning Tool's azure-sql-setup.sql: `FlowGuard 4.3 (since 139895c): 0 red, 7 before`, `before: declarations CapacityCalendarEntry.entryType at azure-sql-setup.sql:775 was broken at task start`, `before: declarations DeputyAssignment.role at azure-sql-setup.sql:114 ...` and five more, six of them about other tables. | A declarations or columns finding is touched through a SQL file only when the change edits a statement of its table there (CREATE, ALTER or DROP TABLE, the CHECKs they hold): `0 red, 1 before`, the file's columns line, which names assignments; an edit of a comment outside the statements gives none. |
+| `show typescript/backend/src/utils/capacity-conversion.ts:convertPercentToHours`, a map id, began with its node line, signature and doc, then the Map line. | `show typescript/backend/src/utils/capacity-conversion.ts:convertPercentToHours`, the Map line and what concerns it (its known entries, the texts that describe it), then the node view. The views new in 5.0, a site `path:symbol`, a file, a folder and a document, begin the same way. |
 | `check --static --all`: `before: no writers agreement for Job.status at close.py:close was broken at task start -> leave it unless your task is about it` | `before: Job.status has no writers agreement and 3 files write it, close.py:close among them; so at task start -> leave it unless your task is about it`, the files that wrote it at task start, not a writer the change adds. The other families still say `was broken at task start`. |
 | `show` of a TS/JS function or anchor printed `not searched: not searched: ... -> bind the real decision site` and `copy search unavailable: ...`; an anchor on a Python function printed `copy search unavailable: not searched: no readable decision sites -> bind the real decision function`. | One line, `copies not searched: ...`, without a bind step for a TS/JS function or a Python function an anchor already marks: `copies not searched: no readable decision sites`. An agreement on a TS and a TSX copy: `copies not searched: the map reads no decision sites in typescript and tsx code`, once. |
 | `show Project.lifecycleStatusId` of a TS/JS writers agreement: `anchor Project.lifecycleStatusId -> typescript/backend/src/services/project.service.ts: backend/src/services/project.service.ts:1`, `owner Project.lifecycleStatusId backend/src/services/project.service.ts:1; writers=typescript/backend/src/services/project.service.ts:create,typescript/backend/src/services/project.service.ts:update`, then `Project.lifecycleStatusId: historical observations (not a new verification)`, `results: {}; 0 distinct observed outputs`, `rules: ` and `info: not referenced by a current model: Project.lifecycleStatusId`, all under the header `ANCHOR Project.lifecycleStatusId`. A `same` reference read `owner FEE fees.py:2; ...`. | `show Project.lifecycleStatusId` and the map notice, as every view begins, then `anchor Project.lifecycleStatusId -> backend/src/services/project.service.ts:1` and `writers Project.lifecycleStatusId projectService.create,projectService.update backend/src/services/project.service.ts:1`, the 4.3 comment spelling at the agreement's place, then its fix, declaration and writes; no empty observation lines or `rules: `, and for no agreement (`same`, writers or together) a `not referenced` line. A `same` reference reads `same FEE ref fees.py:2; ...`. |
 | `show`'s node view cut a function's signature at 160 characters, also inside a word (`buildLendingSummaryForWindow( lendingAssignments: Array<{ ... fteShare: Prisma.Decimal; valid`). | The whole declaration header, as the source spells it. |
 | A long `not compared` line was cut at 200 characters wherever that fell, also inside an item's name or place. | Paths and places do not count toward the 200 characters, the reasons are shortened first, and items that leave no room are counted (`not compared: 3 functions (...) -> not a failure`). A single item keeps its name and place. |
-| `not compared: TimeRangeSelector (TimeRangeSelector.tsx:39) (unsupported jsx_element) -> not a failure`; in Python `unsupported With`. | The construct in words: `(holds a JSX element, which the sealed comparison does not run)`, `holds a with statement, ...`. |
+| `not compared: TimeRangeSelector (TimeRangeSelector.tsx:39) (unsupported jsx_element) -> not a failure`; in Python `unsupported With`. | The construct in a few words: `(holds a JSX element)`, `is async`, `holds a with statement`; the line keeps whole reasons, `not compared: 3 functions: TimeRangeSelector (...), loadPlanning (...) and PlanningGrid (...) (holds a JSX element, or is async) -> not a failure`. |
 | `show Assignment.fteShare` listed `test backend/tests/integration/lending.routes.test.ts reaches a writer of Assignment.fteShare` like a unit test. | `... reaches a writer of Assignment.fteShare (a suite that reaches real databases and services: backend/package.json script "test:integration" runs tests/integration)`; a test the test scope leaves out says `(left out of the test scope: ...)`. |
 | `show batchAssignSchema` of a zod constant: `word matches: the 191 lines below only share a word with batchAssignSchema`. | `const batchAssignSchema = z.object(...) (backend/src/api/schemas/assignment.schemas.ts:21)` and its keys' zod lines; the names that share a word wait for `--full`. |
 
@@ -379,3 +392,6 @@ These are corrections within the existing contract, separate from the new behavi
 - Only the writers family states what held at task start; labels, delete, together and the other families still say `was broken at task start`.
 - After the upgrade the brief shows no structure or region line until the first `check`, `python -m flowguard docs` run, or pytest run while the task has changed code, because its saved counts moved to a new key; the first run also rebuilds the map.
 - Generated regions cover four kinds; routes, environment variables and package scripts are not generated. A Markdown document that is neither UTF-8 nor UTF-16 is named only when a change edits it.
+- `show` of a constant does not name its users: `show batchAssignSchema` does not name the route that applies it (`validateBody(batchAssignSchema)`), and `show MAX_FTE_SHARE` no reader.
+- A zod validator that a route applies is not linked to the model the route's service writes: a field's own schema objects are found by their name alone, so `lendingCreateSchema`, which Planning Tool's lending routes validate before LendingAssignment.fteShare is written, is among the keys of other schema objects in `show LendingAssignment.fteShare`.
+- A `known` line that comes from an entry's finding names the finding's places: an edit of a site of the entry that is no place of the finding (`fees.py:close`) names every place of the finding (`at fees.py:late_fee, fees.py:preview_fee`) without a count, where `check --static` names the edited site (`at fees.py:close (1 of 3 sites)`).

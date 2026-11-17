@@ -358,13 +358,41 @@ def _short_path(path):
     return path if name in ('', '.') else name
 
 
+def _sql_tables_edited(change, file):
+    """The tables (casefolded) whose statements this change edits in one SQL file (gate-7, R99: a one-line edit of
+    Planning Tool's assignments CHECK in azure-sql-setup.sql gave `before` lines for the declarations of six other
+    tables of that file and for its columns finding): a table whose CREATE TABLE, ALTER TABLE or DROP TABLE lines
+    (`sql.table_statements`, a comment inside them too) differ from the baseline's, or that the baseline file lacks;
+    every table of the file when the baseline lacks the file (under its name before a rename). No table without a
+    baseline, or when the change leaves the file as it was or removes it. Read once per file."""
+    from flowguard.map.common import normalize_newlines
+    from ..structure.readers.sql import table_statements
+
+    def edited():
+        if not change.baseline or file not in change.files or not (change.graph.root / file).is_file():
+            return frozenset()
+        now = table_statements(normalize_newlines((change.graph.root / file).read_bytes()).decode('utf-8-sig', errors='replace'))
+        raw = change.graph._baseline_bytes(change.baseline, {new: old for old, new in change.renamed().items()}.get(file, file))
+        then = table_statements(normalize_newlines(raw).decode('utf-8-sig', errors='replace')) if raw is not None else {}
+        return frozenset(table for table in now.keys() | then.keys() if now.get(table) != then.get(table))
+    return change.held(('sql tables edited', file), edited)
+
+
+def sql_touched(change, files, tables):
+    """The files of a finding about `tables` (casefolded names) that this change touches it through: a SQL file only
+    when the change edits a statement of one of those tables in it (`_sql_tables_edited`), any other file as it is
+    (gate-7: an old problem of one table is not pushed by an edit of another table's statements in the same file)."""
+    return frozenset(file for file in files if not file.endswith('.sql') or _sql_tables_edited(change, file) & tables)
+
+
 def _gap_key(item):
     return item['table'].casefold(), item['description'], item['schema']
 
 
 def columns(change):
     """Columns (and tables) one description has and another lacks (`MapHandle.schema_gaps()`): one issue per pair of
-    descriptions with every table and column, new when this change adds a gap."""
+    descriptions with every table and column, new when this change adds a gap; a SQL description touches it only
+    where this change edits the statements of one of those tables (`sql_touched`)."""
     found = _findings()
     found.ran.add('columns')
     gaps = change.graph.schema_gaps()
@@ -400,7 +428,8 @@ def columns(change):
         text = f'Columns missing between descriptions: {description} against {schema}: ' + '; '.join(parts)
         step = f'add the missing columns and tables; if this description is obsolete, mark it unused or remove it ({description})'
         found.issues.append(Issue(f'columns:{description}~{schema}', 3, f'missing columns {_short_path(description)}',
-                                  text, step, frozenset(), _schema_files(change.graph, schema, description),
+                                  text, step, frozenset(), sql_touched(change, _schema_files(change.graph, schema, description),
+                                                                       {item['table'].casefold() for item in items}),
                                   family='columns', subject=f'columns {description} against {schema}',
                                   parts=(('', description, 'lacks ' + '; '.join(_ascii_part(part) for part in parts), step),),
                                   fresh=frozenset({''}) if fresh else frozenset()))

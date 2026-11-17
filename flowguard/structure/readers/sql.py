@@ -380,6 +380,20 @@ def line_of(text: str, offset: int) -> int:
     return text.count('\n', 0, offset) + 1
 
 
+def table_statements(text: str) -> dict:
+    """{table (casefolded): [the lines of each statement that defines it]}: its CREATE TABLE, ALTER TABLE (a CHECK
+    it adds too) and DROP TABLE statements, each from its first line to its last as the file spells them, a comment
+    inside them too, in file order (gate-7: an edit of one table's statements touches the findings of that table,
+    not those of every table of the file). A statement inside a string literal defines nothing (`statements`)."""
+    lines, found = text.splitlines(), {}
+    for row in statements(text):
+        if row['verb'] in ('create', 'copy', 'alter', 'drop'):
+            # a DROP TABLE or CREATE TABLE ... AS statement is read on its first line
+            first, last = line_of(text, row['offset']), line_of(text, row['end'] if 'end' in row else row['offset'])
+            found.setdefault(row['table'].casefold(), []).append(tuple(lines[first - 1:last]))
+    return found
+
+
 def extract(root, rel, data, module, is_test):
     """Tables and columns a SQL file declares (create, alter add/drop/rename, drop, and a column's new type by an
     alter column, `retype`), the tables a CREATE TABLE ... AS SELECT copies (a `copy` change: columns unread), the

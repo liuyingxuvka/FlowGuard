@@ -314,47 +314,73 @@ def _linked(graph, touched):
     return linked
 
 
-def _about_markers(graph):
-    """([(document, line, site)] of the about markers of every document the repository holds, [what is wrong with each
-    document whose bytes are no UTF-8 or UTF-16 text: its markers are not read])."""
-    found, unread = [], []
+def _marks(graph):
+    """([(document, line, site)] of the about markers of every document the repository holds, [(document, line, kind,
+    argument)] of its generated regions, [what is wrong with each document whose bytes are no UTF-8 or UTF-16 text:
+    its markers are not read])."""
+    found, generating, unread = [], [], []
     for name in documents(graph.root):
         text, problem = document(name, (graph.root / name).read_bytes())
         if problem:
             unread.append(f'{problem}; its about markers are not read')
         found.extend((name, line, site) for site, line, _ in markers(text))
-    return found, unread
+        generating.extend((name, line, kind, argument) for kind, argument, line, *_ in regions(text))
+    return found, generating, unread
 
 
-def described_by(graph, places):
-    """`show NAME` of a function, method or constant (5.0 gate: Planning Tool's `show resolveFullPspNumber` did not
-    say that a text describes it): `described by DOC:LINE (about SITE)` for each about marker whose site names one of
-    `places`, [(file, names)]: `file:name` for one of its names, that file, or a folder holding it; then a line for each
-    document whose markers cannot be read. Nothing is read when `places` is empty."""
-    if not places:
+def described_by(graph, places, models=()):
+    """`show NAME` of a function, method, constant or Model.field (5.0 gate: Planning Tool's `show
+    resolveFullPspNumber` did not say that a text describes it): `described by DOC:LINE (about SITE)` for each about
+    marker whose site names one of `places`, [(file, names, node)]: that file, a folder holding it, or `file:name` for
+    one of its names that the one reading of a site (`sources.site_resolver`, as `check --static` reads the marker)
+    resolves without a problem, to that node when the place has one (GA-0: a marker `capacity.service.ts:getUtilization`,
+    which names nothing because the method is `capacityService.getUtilization`, describes nothing); and `described by
+    DOC:LINE (generate KIND ARG)` for each generated region that lists one (gate-5): a `functions` or `constants` region
+    of that file that writes a row of one of its names (`listed`), a `fields` region of one of `models`. In document and
+    line order, then a line for each document whose markers cannot be read. Nothing is read when there is no place and
+    no model."""
+    if not places and not models:
         return []
-    found, unread = _about_markers(graph)
-    lines = []
+    from .sources import site_resolver
+    found, generating, unread = _marks(graph)
+    resolve, rows, lines = None, {}, []
     for name, line, site in found:
         path, colon, symbol = site.rpartition(':')
-        if any(path == file and symbol in names if colon else site == file or site.endswith('/') and file.startswith(site)
-               for file, names in places):
-            lines.append(f'described by {name}:{line} (about {site})')
-    return list(dict.fromkeys(lines)) + unread
+        if colon:
+            hits = [node for file, names, node in places if path == file and symbol in names]
+            if not hits:
+                continue
+            resolve = resolve or site_resolver(graph)
+            nodes, _, problem = resolve(site)
+            if problem or not any(node is None or node in nodes for node in hits):
+                continue
+        elif not any(site == file or site.endswith('/') and file.startswith(site) for file, _, _ in places):
+            continue
+        lines.append((name, line, f'about {site}'))
+    for name, line, kind, argument in generating:
+        if kind == 'fields' and argument in models or kind in ('functions', 'constants') and any(
+                file == argument and names & rows.setdefault((kind, file), listed(graph, kind, file))
+                for file, names, _ in places):
+            lines.append((name, line, f'generate {kind} {argument}'))
+    order = {name: index for index, name in enumerate(dict.fromkeys(item[0] for item in [*found, *generating]))}
+    lines.sort(key=lambda item: (order[item[0]], item[1]))
+    return list(dict.fromkeys(f'described by {name}:{line} ({what})' for name, line, what in lines)) + unread
 
 
 def module_lines(graph, site):
     """`show PATH` of an existing file or folder (R98), as (its first line, the texts that describe it, the rest):
-    `described by DOC:LINE (about SITE)` for each marker whose file or folder site covers a file of it, with the site
-    it names; then each module (file) it calls or is called by, with the number of calls and the texts that describe
-    that module (a folder's site named). The calls are those the map resolved (`MapHandle.resolved_calls`), from any
-    function of those files, a callback too: `logger.warn(...)` on a `logger` imported from the module that defines it
-    counts, a JS/TS member call matched by its name alone (`rows.find`, `days.get`) does not. What is no module says so
-    in its first line: a Markdown file is a document (`document docs/notes/roles.md`), whose about markers (`DOC:LINE
-    describes SITE`, and whether the site names nothing) and generated regions (`DOC:LINE generate KIND ARG` and
-    whether it is up to date) follow; a file the map does not read is no source file (`pyproject.toml`); a folder
-    without a file the map reads has none, with the number of Markdown documents under it. The repository's root folder
-    `./` holds every mapped file; no about marker names it."""
+    `described by DOC:LINE (about SITE)` for each marker whose file or folder site covers a file of it, with the site it
+    names, and `described by DOC:LINE (generate KIND path)` for each generated region that lists the functions or
+    constants of one of its files (gate-5: such a file gets no `described by no text` advice); then each module (file)
+    it calls or is called by, with the number of calls and the texts that describe that module (a folder's site named, a
+    region's kind: `described by DOC:LINE generate functions`). The calls are those the map resolved
+    (`MapHandle.resolved_calls`), from any function of those files, a callback too: `logger.warn(...)` on a `logger`
+    imported from the module that defines it counts, a JS/TS member call matched by its name alone (`rows.find`,
+    `days.get`) does not. What is no module says so in its first line: a Markdown file is a document (`document
+    docs/notes/roles.md`), whose about markers (`DOC:LINE describes SITE`, and whether the site names nothing) and
+    generated regions (`DOC:LINE generate KIND ARG` and whether it is up to date) follow; a file the map does not read
+    is no source file (`pyproject.toml`); a folder without a file the map reads has none, with the number of Markdown
+    documents under it. The repository's root folder `./` holds every mapped file; no about marker names it."""
     if site.endswith('.md'):
         return [f'document {site}'], [], document_lines(graph, site)
     if site.endswith('/'):          # the repository's root folder `./` holds every mapped file
@@ -368,11 +394,14 @@ def module_lines(graph, site):
     else:
         files = {site}
     contracts = {}          # file -> (place, site) of the markers whose file or folder site covers it
-    found, unread = _about_markers(graph)
+    found, generating, unread = _marks(graph)
     for name, line, marked in found:
         if ':' not in marked:
             for path in module_files(graph, marked):
                 contracts.setdefault(path, []).append((f'{name}:{line}', marked))
+    for name, line, kind, argument in generating:      # gate-5: a region that lists a file's functions or constants
+        if kind in ('functions', 'constants'):
+            contracts.setdefault(argument, []).append((f'{name}:{line}', f'generate {kind} {argument}'))
     functions = graph.functions()
     mine = [node for node, item in functions.items() if item['file'] in files]       # a callback's calls count too
     named = sum('<' not in functions[node]['qual'] for node in mine)
@@ -384,10 +413,11 @@ def module_lines(graph, site):
                 path = functions[other]['file'] if other in functions else ''
                 if path and path not in files:
                     into[path] = into.get(path, 0) + 1
-    def described(path):            # a folder's text says which folder it describes
-        places = [place + (f' about {marked}' if marked != path else '') for place, marked in contracts.get(path, [])]
+    def described(path):            # a folder's text says which folder it describes, a region its kind
+        places = [place + (f' {marked.rpartition(" ")[0]}' if marked.startswith('generate ') else
+                           f' about {marked}' if marked != path else '') for place, marked in contracts.get(path, [])]
         return f'; described by {", ".join(dict.fromkeys(places))}' if places else ''
-    own = list(dict.fromkeys(f'described by {place} (about {marked})'
+    own = list(dict.fromkeys(f'described by {place} ({marked if marked.startswith("generate ") else "about " + marked})'
                              for path in sorted(files) for place, marked in contracts.get(path, [])))
     head = [f'module {site}: {len(files)} file{"s" * (len(files) != 1)}, {named} function{"s" * (named != 1)}']
     rest = [] if own or site == './' else [       # no marker names the root
@@ -469,7 +499,6 @@ def generated(graph, kind, argument):
     left out), each by the name a flowguard comment or `show` resolves (`anchors._declared_name`: `service.save` for
     a member of an object, never a line number) with its whole signature as declared, and `constants path` the
     module-level literal constants with their values of one file."""
-    import json
     if kind not in KINDS:
         return '', f'the kinds are {", ".join(KINDS)}'
     if kind == 'fields':
@@ -515,33 +544,50 @@ def generated(graph, kind, argument):
     if not (graph.root / argument).is_file():
         return '', 'no such file in this repository'
     if kind == 'functions':
-        from ..structure import store
-        from .anchors import _declared_name
-        own = [item for item in graph.functions().values() if item['file'] == argument]
-
-        def start(item):
-            return item['line'], item.get('column') or 0
-
-        def end(item):
-            return item['end_line'] or item['line'], item.get('end_column') or 0
-
-        def nested(item):          # inside another function or method of the file: a closure, a callback
-            return any(other is not item and start(other) <= start(item) and end(item) <= end(other)
-                       and (start(other), end(other)) != (start(item), end(item)) for other in own)
-        raw = {node: store.unpack(data) if data else {} for node, data in graph.con.execute(
-            'SELECT id, raw FROM node WHERE file = ?', (argument,))}
-        rows = sorted((item['line'], _declared_name(argument, item['qual'], raw.get(item['id'], {})), item['sig'])
-                      for item in own if not nested(item))
-        rows = [row for row in rows if '<' not in row[1]]
+        rows = _function_rows(graph, argument)
         if not rows:
             return '', f'the map reads no functions in {argument}'
         lines = [f'| `{_cell(qual)}` | `{_cell(" ".join(sig.split()))}` |' for _, qual, sig in rows]
         return '\n'.join(['| Function | Signature |', '|---|---|', *lines]), ''
-    rows = sorted((row['line'], row['target'], json.dumps(row['value'], ensure_ascii=False)) for row in graph.assignments()
-                  if row['file'] == argument and ':' not in row['node'] and not row.get('field') and row.get('literal'))
+    rows = _constant_rows(graph, argument)
     if not rows:
         return '', f'no module-level literal constant in {argument}'
     return '\n'.join(['| Constant | Value |', '|---|---|', *(f'| `{_cell(name)}` | `{_cell(value)}` |' for _, name, value in rows)]), ''
+
+
+def _function_rows(graph, path):
+    """[(line, name, signature)] of a `functions path` region: the functions and methods of the file that no other
+    function holds, each by the name a flowguard comment or `show` resolves (`anchors._declared_name`)."""
+    from ..structure import store
+    from .anchors import _declared_name
+    own = [item for item in graph.functions().values() if item['file'] == path]
+
+    def start(item):
+        return item['line'], item.get('column') or 0
+
+    def end(item):
+        return item['end_line'] or item['line'], item.get('end_column') or 0
+
+    def nested(item):          # inside another function or method of the file: a closure, a callback
+        return any(other is not item and start(other) <= start(item) and end(item) <= end(other)
+                   and (start(other), end(other)) != (start(item), end(item)) for other in own)
+    raw = {node: store.unpack(data) if data else {} for node, data in graph.con.execute(
+        'SELECT id, raw FROM node WHERE file = ?', (path,))}
+    rows = sorted((item['line'], _declared_name(path, item['qual'], raw.get(item['id'], {})), item['sig'])
+                  for item in own if not nested(item))
+    return [row for row in rows if '<' not in row[1]]
+
+
+def _constant_rows(graph, path):
+    """[(line, name, value as JSON)] of a `constants path` region: the module-level literal constants of the file."""
+    import json
+    return sorted((row['line'], row['target'], json.dumps(row['value'], ensure_ascii=False)) for row in graph.assignments()
+                  if row['file'] == path and ':' not in row['node'] and not row.get('field') and row.get('literal'))
+
+
+def listed(graph, kind, path):
+    """The names a `functions path` or `constants path` region writes a row for, as `generated` writes them."""
+    return {name for _, name, _ in (_function_rows if kind == 'functions' else _constant_rows)(graph, path)}
 
 
 def stale(graph, document, text):

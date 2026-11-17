@@ -304,6 +304,30 @@ def test_the_not_compared_line_names_up_to_three_items_and_the_most_common_reaso
     assert said.count('->') == 1 and sourced[0].detail == ('assumed -> confirm against actual owner words',)
 
 
+def test_the_not_compared_line_says_each_reason_the_sealed_comparison_gives_once_and_whole():
+    """5.0 gate (GB-3): every reason ended `, which the sealed comparison does not run`, so the line of Planning Tool's
+    TimeRangeSelector, loadPlanning and PlanningGrid repeated that clause for each reason and cut through the first one
+    (`(holds a JSX element, which the sealed comparison do... is async, which the sealed comparison does not run)`). A
+    reason names the construct in a few words, as the TS and Python sealed readers give it; the line keeps whole
+    reasons and cuts at item boundaries."""
+    from flowguard.intent.runtime import sealed
+    from flowguard.intent.vitest import sealed_source
+    jsx = sealed_source(b'export function TimeRangeSelector() { return <div role="group" />; }\n', 'src/T.tsx', 'TimeRangeSelector')[1]
+    late = sealed_source(b'export async function loadPlanning(month: string) { return month; }\n', 'src/p.ts', 'loadPlanning')[1]
+    held = sealed('def total(path):\n    with open(path) as handle:\n        return 1\n', 'total', ['x'], {})['reason']
+    assert (jsx, late, held) == ('holds a JSX element', 'is async', 'holds a with statement')
+    places = ('frontend/src/components/timeline/TimeRangeSelector.tsx:39', 'frontend/src/services/api/planning.api.ts:12',
+              'frontend/src/components/planning/PlanningGrid.tsx:88', 'backend/reports/total.py:3')
+    items = [signals.not_compared(f'{name} ({place})', [reason], function=f'm:{name}', places=(place,))
+             for name, place, reason in zip(('TimeRangeSelector', 'loadPlanning', 'PlanningGrid', 'total'), places,
+                                            (jsx, late, jsx, held))]
+    assert _block(items[:1])[1] == 'not compared: TimeRangeSelector (TimeRangeSelector.tsx:39) (holds a JSX element) -> not a failure'
+    assert _block(items[:3])[1] == (
+        'not compared: 3 functions: TimeRangeSelector (TimeRangeSelector.tsx:39), loadPlanning (planning.api.ts:12) and '
+        'PlanningGrid (PlanningGrid.tsx:88) (holds a JSX element, or is async) -> not a failure')
+    assert _block(items)[1] == 'not compared: 4 functions (holds a JSX element, is async, or 1 other reason) -> not a failure'
+
+
 def test_the_not_compared_line_never_cuts_through_an_item():
     """Planning Tool (5.0 review, pt:F17): a vitest run after two `same ISO_WEEK_NUMBER` marks said `not compared: 3 items:
     ISO_WEEK_NUMBER (AbsenceCalendarCard.tsx:134), ISO_WEEK_NUMBER (UtilizationTool...mjs (not reached ...)`: its paths

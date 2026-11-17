@@ -1686,6 +1686,101 @@ def test_an_old_label_disagreement_is_a_lead_only_when_the_change_edits_a_table_
     _write(tmp_path, {card: PT_CHART_CARD.replace("  { value: 'YEAR', label: 'Year' },\n", "  { label: 'Year', value: 'YEAR' },\n")})
     assert labels() == [f'before: labels GRANULARITY_OPTIONS at {toolbar}:GRANULARITY_OPTIONS']
 
+PT_SQL_SCHEMA = """datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+enum AppRole {
+  ADMIN
+  PLANNER
+  VIEWER
+}
+
+enum DeputyRole {
+  DEPUTY
+  LEAD
+}
+
+model Assignment {
+  id       String  @id
+  fteShare Decimal @map("fte_share")
+  @@map("assignments")
+}
+
+model UserRole {
+  id   String  @id
+  role AppRole
+  note String?
+  @@map("user_roles")
+}
+
+model DeputyAssignment {
+  id   String     @id
+  role DeputyRole
+  @@map("deputy_assignments")
+}
+"""
+PT_SQL_SETUP = """CREATE TABLE [dbo].[user_roles] (
+    [id] NVARCHAR(36) NOT NULL,
+    [role] NVARCHAR(20) NOT NULL,
+    CONSTRAINT [CK_user_roles_role] CHECK ([role] IN ('ADMIN', 'PLANNER'))
+);
+GO
+
+CREATE TABLE [dbo].[deputy_assignments] (
+    [id] NVARCHAR(36) NOT NULL,
+    [role] NVARCHAR(20) NOT NULL,
+    CONSTRAINT [CK_deputy_assignments_role] CHECK ([role] IN ('DEPUTY'))
+);
+GO
+
+CREATE TABLE [dbo].[assignments] (
+    [id] NVARCHAR(36) NOT NULL,
+    [fte_share] DECIMAL(6,4) NOT NULL,
+    CONSTRAINT [CK_assignments_fte_share] CHECK ([fte_share] >= 0.0000 AND [fte_share] <= 2.0000)
+);
+GO
+
+ALTER TABLE [dbo].[assignments] ADD CONSTRAINT [CK_assignments_id] CHECK ([id] <> '');
+GO
+"""
+
+
+def test_an_old_problem_of_a_sql_description_is_a_lead_only_when_the_change_edits_that_tables_statements(tmp_path):
+    """Planning Tool (5.0 gate, gate-7, R99): a one-line edit of the assignments CHECK in azure-sql-setup.sql, the edit
+    known.fte-share-range leads to, printed 7 `before` lines: the declarations of CapacityCalendarEntry.entryType,
+    DeputyAssignment.role, UserRole.role and four more tables of that file, and its file-level columns finding, though
+    the change touched none of those tables. A declarations or columns finding of a SQL description is touched only
+    when the change edits a statement of its table there (its CREATE TABLE, ALTER TABLE or a CHECK in them, a comment
+    inside too), as the labels fix did for label tables; `check --static --all` still lists every one."""
+    setup, schema = 'backend/prisma/azure-sql-setup.sql', 'backend/prisma/schema.prisma'
+    _commit(tmp_path, {schema: PT_SQL_SCHEMA, setup: PT_SQL_SETUP})
+
+    def leads(*options):
+        code, text = _flowguard(tmp_path, 'check', '--static', *options)
+        assert code == 0, text
+        if not options:
+            text = _flowguard(tmp_path, 'show', '--last')[1]
+        return sorted(line.partition(' was ')[0].replace(setup, 'azure-sql-setup.sql')
+                      for line in text.splitlines() if line.startswith('before: '))
+    every = [f'before: columns azure-sql-setup.sql against {schema} at azure-sql-setup.sql',
+             'before: declarations DeputyAssignment.role at azure-sql-setup.sql:11',
+             'before: declarations UserRole.role at azure-sql-setup.sql:4']
+    assert leads('--all') == every
+    for old, new in (('[fte_share] <= 2.0000', '[fte_share] <= 1.0000'), ('DECIMAL(6,4)', 'DECIMAL(7,4)'),
+                     ("CHECK ([id] <> '')", "CHECK ([id] <> '-')")):
+        _write(tmp_path, {setup: PT_SQL_SETUP.replace(old, new)})
+        assert leads() == [], new
+    # An edit of the user_roles statement, a comment inside it too, touches that table's findings only.
+    _write(tmp_path, {setup: PT_SQL_SETUP.replace("[role] NVARCHAR(20) NOT NULL,\n    CONSTRAINT [CK_user_roles",
+                                                  "[role] NVARCHAR(20) NOT NULL, -- the app role\n    CONSTRAINT [CK_user_roles")})
+    assert leads() == [every[0], every[2]]
+    # An edit of the Prisma schema touches the findings as before.
+    _write(tmp_path, {setup: PT_SQL_SETUP, schema: PT_SQL_SCHEMA.replace('  VIEWER\n', '  VIEWER\n  // read only\n')})
+    assert leads() == every
+
+
 def test_show_of_a_ts_function_or_anchor_says_once_that_the_map_reads_no_decision_sites_there(tmp_path):
     """Planning Tool (5.0 review, pt:F12): `show typescript/backend/src/services/employee.service.ts:update` printed
     `not searched: not searched: no readable decision sites -> bind the real decision function -> bind the real decision
@@ -2282,11 +2377,11 @@ def test_show_of_an_exact_function_or_object_method_name_prints_its_node_view_be
                         f'flowguard show MODEL.FIELD lists the writes and reads of one; python -m flowguard show '
                         f'typescript/{employee}:update --full names them all)'), lines
     assert not [line for line in lines if 'central-employee.service.ts:update ' in line], lines
-    node = _shown_lines(tmp_path, f'typescript/{employee}:update', '--full')
-    assert node[:3] == [f'typescript/{employee}:update {employee}:2', 'async update(prisma: any, id: string, input: any) ',
-                        'writes 5 fields: CentralEmployee.email, CentralEmployee.name, Employee.fteShare, Employee.name, '
-                        'Employee.organizationalUnitId (python -m flowguard show MODEL.FIELD lists the writes and reads of one)'], node
-    assert node[4].startswith('Map: ') and '' not in node, node
+    node = _shown_lines(tmp_path, f'typescript/{employee}:update', '--full')     # header and Map line first (gate-4)
+    assert node[0] == f'show typescript/{employee}:update' and node[1].startswith('Map: ') and '' not in node, node
+    assert node[2:5] == [f'typescript/{employee}:update {employee}:2', 'async update(prisma: any, id: string, input: any) ',
+                         'writes 5 fields: CentralEmployee.email, CentralEmployee.name, Employee.fteShare, Employee.name, '
+                         'Employee.organizationalUnitId (python -m flowguard show MODEL.FIELD lists the writes and reads of one)'], node
     # a generic name that names more functions than the views hold lists them, and its word matches wait too
     lines = _shown_lines(tmp_path, 'update')
     assert lines[2:] == [f'typescript/backend/src/services/{name}.service.ts:update backend/src/services/{name}.service.ts:{line}'
@@ -2438,6 +2533,37 @@ def test_show_of_a_field_lists_the_zod_keys_of_its_own_schema_objects_first_then
     assert zod('LendingAssignment.fteShare') == [f'the 9 {ZOD_OTHERS}', phase, *allocations, batch, edit, create, *lending]
 
 
+def test_a_zod_schema_object_belongs_to_the_longest_model_name_its_words_hold(tmp_path):
+    """5.0 gate (GB-2): a schema object counted as a model's own when its lower-cased name held the model's name, so
+    Planning Tool's five Prisma models whose names end in Assignment would all give their schemas to Assignment: a
+    `lendingAssignmentCreateSchema` put a lending check back among `show Assignment.fteShare`'s own lines. A schema
+    object belongs to the model whose name is the longest model name its camel-case words hold as consecutive
+    words (LendingAssignment, not Assignment); only those are the field's own. `batchAssignSchema` holds the word
+    assign, not assignment: it belongs to no model."""
+    lending = 'backend/src/api/schemas/lending-assignment.schemas.ts'
+    _commit(tmp_path, {**GB_FILES, lending: """import { z } from 'zod';
+
+export const lendingAssignmentCreateSchema = z.object({
+  fteShare: z.number().gt(0).lte(1),
+});
+"""})
+    utilization = 'backend/src/api/schemas/employee-utilization.schemas.ts'
+    own = f'zod key fteShare in lendingAssignmentCreateSchema: 0 < fteShare <= 1 ({lending}:4)'
+
+    def zod(query):
+        code, text = _flowguard(tmp_path, 'show', query, '--full')
+        assert code == 0 and 'not on the map' not in text, text
+        return [line for line in text.splitlines() if line.startswith('zod ') or line.endswith(ZOD_OTHERS)]
+    lines = zod('Assignment.fteShare')
+    assert lines[:3] == [
+        f'zod key fteShare in assignmentEditSchema: MIN_FTE_SHARE=0 <= fteShare <= MAX_FTE_SHARE=2.0 ({utilization}:7)',
+        f'zod key fteShare in createAssignmentSchema: MIN_FTE_SHARE=0 <= fteShare <= MAX_FTE_SHARE=2.0 ({utilization}:15)',
+        f'the 8 {ZOD_OTHERS}'], lines
+    assert own in lines[3:], lines
+    lines = zod('LendingAssignment.fteShare')
+    assert lines[:2] == [own, f'the 9 {ZOD_OTHERS}'], lines
+
+
 def test_show_of_a_module_constant_whose_value_is_a_call_prints_its_declaration_and_its_zod_keys(tmp_path):
     """Planning Tool (5.0 gate, gate-4): `show batchAssignSchema`, an exported zod constant, printed `word matches:
     the 191 lines below only share a word` and 20 unrelated callbacks: no declaration, no range. A JS/TS module-level
@@ -2526,6 +2652,26 @@ def test_show_of_a_field_marks_the_tests_its_project_runs_against_real_databases
         "test legacy/test_close_legacy.py reaches a writer of Account.status (left out of the test scope: pytest's testpaths, "
         'python_files and norecursedirs do not take it)',
         'test tests/test_service.py reaches a writer of Account.status'], text
+
+
+def test_show_of_a_field_marks_each_write_in_a_test_its_project_leaves_out_or_runs_against_real_databases(tmp_path):
+    """Planning Tool (5.0 gate, gate-5): only the `test ... reaches a writer` lines, which the default view of `show
+    Assignment.fteShare` cuts, said that backend/tests/integration is a suite against real databases; the `writes`
+    lines the view does show, `writes Assignment.fteShare backend/tests/integration/dashboard.routes.test.ts:146 (call
+    line 141) ensureFixtures (create)`, sat among the production writers with no mark. A write in a test file carries
+    the mark its reach line carries; a write in a test the scope takes, and a production write, carry none."""
+    fixture = ("import { PrismaClient } from '@prisma/client';\nconst prisma = new PrismaClient();\n"
+               "async function ensureFixtures() {\n  await prisma.assignment.create({ data: { id: 'a', fteShare: 0.5 } });\n}\n"
+               'export const ready = ensureFixtures;\n')
+    _commit(tmp_path, {**GB_FILES, 'backend/tests/integration/dashboard.routes.test.ts': fixture,
+                       'backend/tests/unit/fixtures.test.ts': fixture.replace('ensureFixtures', 'unitFixtures')})
+    code, text = _flowguard(tmp_path, 'show', 'Assignment.fteShare')
+    assert code == 0, text
+    assert [line for line in text.splitlines() if line.startswith('writes ')] == [
+        'writes Assignment.fteShare backend/src/services/assignment.service.ts:4 assignBatch (create)',
+        'writes Assignment.fteShare backend/tests/integration/dashboard.routes.test.ts:4 ensureFixtures (create) (a suite that '
+        'reaches real databases and services: backend/package.json script "test:integration" runs tests/integration)',
+        'writes Assignment.fteShare backend/tests/unit/fixtures.test.ts:4 unitFixtures (create)'], text
 
 
 def test_show_of_a_bare_field_name_names_the_prisma_models_that_declare_it(tmp_path):

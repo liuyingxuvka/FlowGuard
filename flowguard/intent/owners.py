@@ -1039,7 +1039,8 @@ def declarations_differ(change):
     """Two declarations of one name (union type or enum) with different members, and the declarations of one
     database field (`MapHandle.field_declarations`: each Prisma schema's enum, each SQL CHECK, a JS/TS
     declaration of the enum's name) with different values: a `declarations:` finding of the files declaring it, new
-    when a file declares that name otherwise than the baseline code did (`_declared`)."""
+    when a file declares that name otherwise than the baseline code did (`_declared`); a SQL file touches a field's
+    finding only where this change edits the statements of the field's table (`health.sql_touched`, gate-7)."""
     found = Findings()
     found.ran.add('declarations')
     named = [(name, items, ' -> keep one definition and reference it elsewhere; use different names if intentionally different') for name, items in _declarations(change.graph).items()]
@@ -1063,6 +1064,11 @@ def _declarations_issue(change, name, items, step, *, field=False):
     fresh = bool(change.baseline) and bool(change.baseline_paths()) and any(
         _declared(change, name, file, field=field, then=True) != _declared(change, name, file, field=field, then=False)
         for file in sorted(files))
+    if field:           # a SQL file touches a field's declarations where this change edits its table's statements
+        from .health import sql_touched
+        model = name.partition('.')[0]
+        tables = {table for table, models in change.graph._models().by_table.items() if model in models}
+        files = sql_touched(change, files, tables | {model.casefold()})
     return Issue(f'declarations:{name}', LINES_ONLY, f'declarations {name}', f'declarations differ: {name}: {first}:{line} {what}',
                  step, frozenset(), files, family='declarations', subject=f'declarations {name}',
                  parts=(('', f'{first}:{line}', what, step),), fresh=frozenset({''}) if fresh else frozenset())
@@ -2365,22 +2371,38 @@ def mapped_fields(graph, name):
     return found
 
 
-def _own_schema(schema, models):
-    """Is a zod schema object named after one of `models` (its name holds the model's name in any letter case:
-    `lendingAssignmentCreateSchema` for LendingAssignment, `createAssignmentSchema` for Assignment)?"""
-    return any(model.casefold() in schema.casefold() for model in models)
+CAMEL_WORDS = re.compile(r'[A-Z]+(?![a-z])|[A-Z]?[a-z]+|[0-9]+')     # `PSPElement`: PSP, Element
+
+
+def _schema_models(schema, models):
+    """The models of `models` a zod schema object belongs to (gate-3, GB-2): of those whose camel-case words its name
+    holds as consecutive words, in any letter case, the one with the longest name (`lendingAssignmentCreateSchema`
+    holds Assignment and LendingAssignment and belongs to LendingAssignment; `createAssignmentSchema` belongs to
+    Assignment; `batchAssignSchema`, whose words are batch, assign and schema, to none); each of several equally
+    long ones."""
+    words = [word.casefold() for word in CAMEL_WORDS.findall(schema)]
+    held = []
+    for model in dict.fromkeys(models):
+        parts = [word.casefold() for word in CAMEL_WORDS.findall(model)]
+        if parts and any(words[start:start + len(parts)] == parts for start in range(len(words) - len(parts) + 1)):
+            held.append(model)
+    longest = max(map(len, held), default=0)
+    return {model for model in held if len(model) == longest}
 
 
 def _zod_lines(graph, names, models):
     """The `zod key` lines of `declaration_lines` for the object keys `names` (`zod_bounds`, matched by the name
-    alone): those of the schema objects named after one of `models` (`_own_schema`, gate-3) first, then one line that
-    says the others are keys of the same name in other schema objects, then those; in file and line order."""
+    alone): those of the field's own schema objects first, the ones that belong to one of `models` among the map's
+    Prisma models and `models` (`_schema_models`, gate-3), then one line that says the others are keys of the same name
+    in other schema objects, then those; in file and line order."""
     keys = {}
     for key in dict.fromkeys(names):
         keys.update(zod_bounds(graph, key))
+    every = [*models, *(item['name'] for schema in graph.schemas() if schema['kind'] == 'prisma'
+                        for item in schema.get('models', ()))]
     own, other = [], []
     for (file, schema, key, bounds), at in sorted(keys.items(), key=lambda item: (item[0][0], item[1][0])):
-        (own if _own_schema(schema, models) else other).append(
+        (own if _schema_models(schema, every) & set(models) else other).append(
             f'zod key {key} in {schema}: {bounds} (' + _where([f'{file}:{line}' for line in at]) + ')')
     if not other:
         return own
@@ -2394,9 +2416,9 @@ def declaration_lines(graph, name):
     or `table.column`, the Prisma fields it names (`mapped_fields`: by the model's name or `@@map` table, the field's
     name or `@map` column), each distinct declaration in the Prisma schemas and in the SQL files with the files that
     declare it so (declarations that differ between files are lines of their own), the zod number schemas of an
-    object key of the field's name and of each Prisma field's name (`_zod_lines`: the schema objects named after the
-    model first; only for a model the map knows, `model_known`, and not for a field its Prisma models, SQL tables and
-    TS types lack, `field_absent`) and its value sets and those of each Prisma field (`value_sets_named`: an enum of a
+    object key of the field's name and of each Prisma field's name (`_zod_lines`: the schema objects that belong to the
+    model first, by the longest model name their name holds; only for a model the map knows, `model_known`, and not
+    for a field its Prisma models, SQL tables and TS types lack, `field_absent`) and its value sets and those of each Prisma field (`value_sets_named`: an enum of a
     schema in use, a CHECK, a TS type, then the enum of each Prisma schema not in use that types the field); for a
     bare name, the value of a JS/TS module-level literal constant, an array of literals too, and of a module-level
     object whose every value is a literal and that no labels or values line shows (`const HOURS_PER_PERIOD = { DAY: 8,

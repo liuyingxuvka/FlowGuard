@@ -2863,7 +2863,7 @@ def test_a_construct_the_sealed_comparison_does_not_run_is_named_in_words_in_its
     }
     for rel, (data, name, words) in cases.items():
         source, reason = sealed_source(data, rel, name)
-        assert not source and reason == words + ', which the sealed comparison does not run', (rel, reason)
+        assert not source and reason == words, (rel, reason)
         assert '_' not in reason, reason        # no parser node type (jsx_element, await_expression)
 
 

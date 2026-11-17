@@ -852,29 +852,32 @@ def test_show_of_a_name_or_path_begins_with_the_known_entries_and_rules_that_con
     lines = shown('ISO_WEEKS_IN_YEAR')
     assert lines[:5] == ['show ISO_WEEKS_IN_YEAR', NOTICE, LEAVE, RULE, CITED] and lines[5].startswith('anchor ISO_WEEKS_IN_YEAR -> '), lines
     assert SAME not in lines
-    # The module branch (a file, a folder, a document): every entry with a site there, the rules anchored there and the
-    # flowguard comments written there; a document, which its header calls one, also lists the entries and rules.toml
-    # rules that quote it, and puts no about marker for itself. A folder without a file the map reads says so instead
-    # of a module view, and lists no word look-alikes (Planning Tool's docs/requirements gave render_collectors.cjs).
-    assert shown('docs/requests.md') == ['document docs/requests.md', OPEN]
-    assert shown('docs/requirements.md') == ['document docs/requirements.md', OPEN, ASKED, LEAVE, CITED, HOURS]
-    assert shown('docs') == ['folder docs/: no source file the map reads; 2 Markdown documents', OPEN, ASKED, LEAVE, CITED,
-                             HOURS]
-    assert shown('backend/prisma/schema.prisma')[:3] == ['module backend/prisma/schema.prisma: 1 file, 0 functions', OPEN,
-                                                         IGNORE]
+    # The module branch (a file, a folder, a document), under the same header and map notice (gate-4): every entry with
+    # a site there, the rules anchored there and the flowguard comments written there, then the module's own line; a
+    # document, which that line calls one, also lists the entries and rules.toml rules that quote it, and puts no about
+    # marker for itself. A folder without a file the map reads says so instead of a module view, and lists no word
+    # look-alikes (Planning Tool's docs/requirements gave render_collectors.cjs).
+    assert shown('docs/requests.md') == ['show docs/requests.md', NOTICE, OPEN, 'document docs/requests.md']
+    assert shown('docs/requirements.md') == ['show docs/requirements.md', NOTICE, OPEN, ASKED, LEAVE, CITED, HOURS,
+                                             'document docs/requirements.md']
+    assert shown('docs') == ['show docs', NOTICE, OPEN, ASKED, LEAVE, CITED, HOURS,
+                             'folder docs/: no source file the map reads; 2 Markdown documents']
+    assert shown('backend/prisma/schema.prisma')[:5] == ['show backend/prisma/schema.prisma', NOTICE, OPEN, IGNORE,
+                                                         'module backend/prisma/schema.prisma: 1 file, 0 functions']
     lines = shown('backend/src/utils/capacity-conversion.ts')
-    assert lines[:4] == ['module backend/src/utils/capacity-conversion.ts: 1 file, 1 function', ASKED, FIX,
+    assert lines[:6] == ['show backend/src/utils/capacity-conversion.ts', NOTICE, ASKED, FIX,
+                         'module backend/src/utils/capacity-conversion.ts: 1 file, 1 function',
                          'described by no text: put <!-- flowguard: about backend/src/utils/capacity-conversion.ts --> '
                          'above the Markdown text that is its contract'], lines
     # A folder with a trailing slash or a leading ./, as a shell completes it, is that folder.
-    folder = ['module backend/src/utils/: 2 files, 2 functions', ASKED, FIX, LEAVE, RULE, CITED, SAME]
+    folder = [NOTICE, ASKED, FIX, LEAVE, RULE, CITED, SAME, 'module backend/src/utils/: 2 files, 2 functions']
     for query in ('backend/src/utils', 'backend/src/utils/', './backend/src/utils/', './backend/src/utils'):
-        assert shown(query)[:7] == folder, query
-    # The plain node branch: the map's id of the object method its site names.
-    lines = shown('typescript/backend/src/services/capacity.service.ts:updateCalendarEntry')
-    at = lines.index(NOTICE)
-    assert lines[0].startswith('typescript/backend/src/services/capacity.service.ts:updateCalendarEntry '
-                               'backend/src/services/capacity.service.ts:') and lines[at + 1:at + 3] == [ASKED, FIX], lines
+        assert shown(query)[:9] == [f'show {query}', *folder], query
+    # The plain node branch: the map's id of the object method its site names, its node view after what concerns it.
+    query = 'typescript/backend/src/services/capacity.service.ts:updateCalendarEntry'
+    lines = shown(query)
+    assert lines[:4] == [f'show {query}', NOTICE, ASKED, FIX] and lines[4].startswith(
+        f'{query} backend/src/services/capacity.service.ts:'), lines
     # Nothing concerns these: no known or rule line (project-requests names another field of that model); the map knows
     # no such name and says so.
     assert shown('frobnicateWidgets') == ['show frobnicateWidgets', NOTICE, 'not on the map: no function, class, type, '
@@ -928,9 +931,8 @@ def test_show_of_a_site_as_known_toml_writes_it_gives_its_symbol_s_facts(tmp_pat
     # A function or object method site is the map node of that file: its signature, then what concerns the site.
     query = 'backend/src/services/capacity.service.ts:capacityService.updateCalendarEntry'
     lines = shown(query)
-    assert lines[:2] == [f'{query} backend/src/services/capacity.service.ts:5',
+    assert lines[:6] == [f'show {query}', NOTICE, ASKED, FIX, f'{query} backend/src/services/capacity.service.ts:5',
                          'async updateCalendarEntry(entryId: string, value: number) '], lines
-    assert lines[lines.index(NOTICE) + 1:lines.index(NOTICE) + 3] == [ASKED, FIX], lines
 
 
 def test_an_object_method_query_ranks_that_object_s_method_first(tmp_path, capsys):
@@ -1058,12 +1060,16 @@ def test_show_lists_the_flowguard_comment_agreements_that_concern_a_function_fil
     assert PSP not in shown('pspElementService.move')
     assert shown('getIsoWeekCountInYear')[:3] == ['show getIsoWeekCountInYear', AGREED_NOTICE, SAME]
     # A file or folder: the agreements written there.
-    assert shown('backend/src/services/project.service.ts')[:2] == [
-        'module backend/src/services/project.service.ts: 1 file, 2 functions', WRITERS]
-    assert shown('backend/src/services/employee-home-unit.service.ts')[:3] == [
-        'module backend/src/services/employee-home-unit.service.ts: 1 file, 1 function', HOME_KNOWN, HOME]
-    assert shown('backend/src/utils/calendar-iso.ts')[:2] == ['module backend/src/utils/calendar-iso.ts: 1 file, 1 function', SAME]
-    assert shown('backend/src/services')[:5] == ['module backend/src/services/: 3 files, 5 functions', HOME_KNOWN, HOME, WRITERS, PSP]
+    assert shown('backend/src/services/project.service.ts')[:4] == [
+        'show backend/src/services/project.service.ts', AGREED_NOTICE, WRITERS,
+        'module backend/src/services/project.service.ts: 1 file, 2 functions']
+    assert shown('backend/src/services/employee-home-unit.service.ts')[:5] == [
+        'show backend/src/services/employee-home-unit.service.ts', AGREED_NOTICE, HOME_KNOWN, HOME,
+        'module backend/src/services/employee-home-unit.service.ts: 1 file, 1 function']
+    assert shown('backend/src/utils/calendar-iso.ts')[:4] == ['show backend/src/utils/calendar-iso.ts', AGREED_NOTICE, SAME,
+                                                              'module backend/src/utils/calendar-iso.ts: 1 file, 1 function']
+    assert shown('backend/src/services')[:7] == ['show backend/src/services', AGREED_NOTICE, HOME_KNOWN, HOME, WRITERS, PSP,
+                                                 'module backend/src/services/: 3 files, 5 functions']
     # A field: every agreement that names it as its field or partner, in either spelling; the anchor view of an
     # agreement's own field lists it once, as before.
     for query in ('Employee.organizationalUnitId', 'employees.organizational_unit_id'):
@@ -1188,15 +1194,15 @@ def test_a_rule_or_flow_view_and_a_python_rule_home_begin_with_what_concerns_the
     # look-alike's trailing space.
     lines = shown('Hire.status')
     assert lines[:2] == ['show Hire.status', STATES] and lines.count(STATES) == 1 and STATES + ' ' not in lines, lines
-    assert shown('app/decision.py')[:2] == ['module app/decision.py: 1 file, 1 function', STATES]
+    assert shown('app/decision.py')[:3] == ['show app/decision.py', STATES, 'module app/decision.py: 1 file, 1 function']
     for query in ('app', 'app/', './app'):
-        assert shown(query)[:10] == ['module app/: 4 files, 4 functions', SHARE, FEE_COPIES, PREVIEW, INVOICE,
+        assert shown(query)[:11] == [f'show {query}', SHARE, FEE_COPIES, PREVIEW, INVOICE,
                                      'rule FEE: late fee', STATES, 'rule INVOICE: flow', 'same FEE app/fees.py:2',
-                                     'same FEE app/fees.py:7'], query
+                                     'same FEE app/fees.py:7', 'module app/: 4 files, 4 functions'], query
     # A file at the repository's root is a PATH query too.
     (tmp_path / 'fees.py').write_text('# flowguard: same FEE\ndef old_fee(days):\n    return 2 * days\n', encoding='utf-8')
-    assert shown('fees.py')[:4] == ['module fees.py: 1 file, 1 function', 'rule FEE: late fee', 'rule INVOICE: flow',
-                                    'same FEE fees.py:2']
+    assert shown('fees.py')[:5] == ['show fees.py', 'rule FEE: late fee', 'rule INVOICE: flow', 'same FEE fees.py:2',
+                                    'module fees.py: 1 file, 1 function']
 
 
 def test_a_why_or_ask_names_only_what_the_production_code_declares_in_that_case(tmp_path, capsys):
@@ -1391,7 +1397,8 @@ def test_a_rule_s_view_lists_the_entries_of_its_anchors_and_a_class_lists_its_me
     hold = ('known.hire-hold: left as it is: A hold keeps the hire open until it is returned '
             '(python -m flowguard show known.hire-hold)')
     lines = shown('app.decision:Hire')
-    assert lines[0].startswith('app.decision:Hire app/decision.py:1') and hold in lines, lines
+    assert lines[:2] == ['show app.decision:Hire', hold] and any(     # what concerns it, then its node view (gate-4)
+        line.startswith('app.decision:Hire app/decision.py:1') for line in lines[2:]), lines
     assert hold not in shown('app.limits:share_ok')
 
 
@@ -1416,14 +1423,18 @@ def test_a_document_or_a_path_the_map_does_not_read_says_what_it_is_and_lists_th
         ask   = "Are the four admin roles of docs/notes/admin_roles.md planned work, or dropped?"
     '''})
     _, shown = _shown(tmp_path, capsys, files)
-    assert shown('docs/notes/admin_roles.md') == ['document docs/notes/admin_roles.md', ROLES]
-    assert shown('docs/notes') == ['folder docs/notes/: no source file the map reads; 1 Markdown document', ROLES]
+    def unmapped(query):            # the view without its Map line
+        return [line for line in shown(query) if not line.startswith('Map: ')]
+    assert unmapped('docs/notes/admin_roles.md') == ['show docs/notes/admin_roles.md', ROLES, 'document docs/notes/admin_roles.md']
+    assert unmapped('docs/notes') == ['show docs/notes', ROLES,
+                                      'folder docs/notes/: no source file the map reads; 1 Markdown document']
     assert ROLES not in shown('docs/requests.md')
     for path in ('pyproject.toml', 'docker-compose.yml'):
-        assert shown(path) == [f'{path}: no source file the map reads, and no Markdown document'], path
+        assert unmapped(path) == [f'show {path}', f'{path}: no source file the map reads, and no Markdown document'], path
     # The repository's root holds every mapped file, and no about marker can name it.
     lines = shown('.')
-    assert lines[0].startswith('module ./: ') and ROLES in lines and not [line for line in lines if 'about ./' in line], lines
+    assert lines[0] == 'show .' and any(line.startswith('module ./: ') for line in lines) and ROLES in lines \
+        and not [line for line in lines if 'about ./' in line], lines
 
 
 def test_a_known_entry_s_bare_id_is_that_entry_and_words_find_the_entries_sharing_them(tmp_path, capsys):

@@ -66,7 +66,7 @@ def opaque(expected, observed):
         actual = A.observe(root, index.entries[0], {'expected': 'W', 'observed': 'W'})
     # The same-file helper enters the sealed environment with the function; its `with open` is refused
     # before it runs, even though the declared return permits several kinds and no result is guessed.
-    assert actual.status == 'grey' and actual.reasons == ('holds a with statement, which the sealed comparison does not run',), actual.reasons
+    assert actual.status == 'grey' and actual.reasons == ('holds a with statement',), actual.reasons
     assert actual.value is None
     loaded = sys.modules[index.entries[0].module]
     assert Path(loaded.__file__).resolve() == root / index.entries[0].file

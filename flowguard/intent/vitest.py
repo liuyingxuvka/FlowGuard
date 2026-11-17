@@ -297,7 +297,7 @@ def sealed_source(data, rel, name, read=None, tables=None):
                 return '', BINDING + shadowed[0]
             if function['is_async'] or 'generator' in node.type or bad:
                 said = UNRUN_CONSTRUCTS[bad] if bad else 'is a generator' if 'generator' in node.type else 'is async'
-                return '', said + ', which the sealed comparison does not run'
+                return '', said
             code = stripped(node)
             pieces.append(code if function['form'] == 'function' else f'const {current} = {code};')
             pending.extend(text(child, source) for child in walk(node)
@@ -517,7 +517,8 @@ def _constants_changed(before, now, old_constants, new_constants):
 ABSENT = 'function absent at baseline'
 BINDING = 'uses imported or mutable binding '      # the reason `sealed_source` gives, then the binding's name
 # The constructs `sealed_source` does not run, by the parser's node type, and the words its reason names each by
-# (gate-7: a reason named the node type, `unsupported jsx_element`).
+# (gate-7: a reason named the node type, `unsupported jsx_element`), a few words and no clause every reason would
+# repeat (GB-3: `, which the sealed comparison does not run` filled the not compared line).
 UNRUN_CONSTRUCTS = {'enum_declaration': 'holds an enum', 'internal_module': 'holds a namespace',
                     'decorator': 'holds a decorator', 'jsx_element': 'holds a JSX element',
                     'jsx_self_closing_element': 'holds a JSX element', 'meta_property': 'reads new.target or import.meta',

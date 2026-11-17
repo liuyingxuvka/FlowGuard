@@ -429,6 +429,32 @@ def test_a_functions_region_names_each_function_as_show_does_with_its_whole_sign
     assert _flowguard(tmp_path, 'docs')[1].splitlines() == ['no generated region is out of date']
 
 
+def test_each_name_a_functions_region_writes_resolves_in_show_also_beside_a_module_function_of_that_name(tmp_path):
+    """Planning Tool (5.0 gate, gate-0): the capacity.service.ts region writes `capacityService.sliceDateRangeByMonth`,
+    but `show capacityService.sliceDateRangeByMonth` said `not on the map` and listed the method only among the word
+    matches, because the map names a member whose name a module function of that file has too by its line
+    (`sliceDateRangeByMonth@490`). Each name a row writes is one show resolves: the method's node view, the module
+    function's and the method's for the name they share, as for a method whose name no module function has."""
+    from flowguard.intent.docs import regions
+    from tests.intent_engine.test_static_check import _flowguard
+    _commit(tmp_path, {'backend/src/services/capacity.service.ts': PT_SERVICE,
+                       'docs/FUNCTION_INVENTORY.md': '# Inventory\n\n<!-- flowguard: generate functions '
+                                                     'backend/src/services/capacity.service.ts -->\n<!-- flowguard: end -->\n'})
+    assert _flowguard(tmp_path, 'docs')[0] == 0
+    body = regions((tmp_path / 'docs/FUNCTION_INVENTORY.md').read_text(encoding='utf-8'))[0][5]
+    names = [row.split('`')[1] for row in body.splitlines()[2:]]
+    assert names == ['sliceDateRangeByMonth', 'buildLendingSummaryForWindow', 'applyEmailTemplate',
+                     'capacityService.sliceDateRangeByMonth', 'capacityService.getHolidayOverlap'], body
+    lines = {'sliceDateRangeByMonth': ['3', '20'], 'buildLendingSummaryForWindow': ['7'], 'applyEmailTemplate': ['14'],
+             'capacityService.sliceDateRangeByMonth': ['20'], 'capacityService.getHolidayOverlap': ['24'],
+             'getHolidayOverlap': ['24']}
+    for name in [*names, 'getHolidayOverlap']:
+        code, text = _flowguard(tmp_path, 'show', name)
+        views = [line for line in text.splitlines() if line.startswith('typescript/backend/src/services/capacity.service.ts:')]
+        assert code == 0 and 'not on the map' not in text and 'word matches' not in text, (name, text)
+        assert [line.rpartition(':')[2] for line in views] == lines[name], (name, text)
+
+
 def test_a_region_this_change_writes_that_cannot_be_generated_is_red(tmp_path):
     _commit(tmp_path, {'prisma/schema.prisma': SCHEMA, 'app/jobs.ts': SOURCE, 'docs/jobs.md': '# Jobs\n'})
     _write(tmp_path, {'docs/jobs.md': '# Jobs\n\n<!-- flowguard: generate fields Missing -->\n<!-- flowguard: end -->\n\n'
@@ -576,12 +602,14 @@ def test_a_change_names_the_contracts_of_the_modules_its_edited_functions_connec
     assert [line for line in _block(_static(tmp_path)[1]) if 'billing.md' in line] == []
     # show PATH prints a module's contracts and connections, with theirs.
     _write(tmp_path, {'app/a.ts': CODE, 'docs/billing.md': CONTRACT})
+    # Each view begins with its header and the Map line, then what concerns the module, then the module itself (gate-4).
     code, out = _flowguard(tmp_path, 'show', 'app/b.ts')
-    assert code == 0 and out.splitlines() == ['module app/b.ts: 1 file, 1 function', 'described by docs/billing.md:3 (about app/b.ts)',
-                                              'calls app/a.ts (1 call)'], out
+    notice = 'Map: typescript 2/2 parsed; static facts, foreign native-home execution not verified.'
+    assert code == 0 and out.splitlines() == ['show app/b.ts', notice, 'described by docs/billing.md:3 (about app/b.ts)',
+                                              'module app/b.ts: 1 file, 1 function', 'calls app/a.ts (1 call)'], out
     code, out = _flowguard(tmp_path, 'show', 'app/a.ts')
     assert code == 0 and out.splitlines() == [
-        'module app/a.ts: 1 file, 2 functions',
+        'show app/a.ts', notice, 'module app/a.ts: 1 file, 2 functions',
         'described by no text: put <!-- flowguard: about app/a.ts --> above the Markdown text that is its contract',
         'called by app/b.ts (1 call; described by docs/billing.md:3)'], out
 
@@ -660,24 +688,25 @@ def test_show_names_the_texts_that_describe_a_function_its_file_or_folder_and_a_
     services = 'described by docs/FUNCTION_INVENTORY.md:3 (about backend/src/services/)'
     conversion = 'described by docs/FUNCTION_INVENTORY.md:8 (about backend/src/utils/capacity-conversion.ts)'
     psp = 'described by docs/schema-documentation.md:3 (about backend/src/services/demand.service.ts:resolveFullPspNumber)'
+    region = 'described by docs/FUNCTION_INVENTORY.md:13 (generate functions backend/src/utils/capacity-conversion.ts)'
     lines = show('convertPercentToHours')
-    assert lines[:3] == ['show convertPercentToHours', 'known.percent-scale: asked the owner on 2026-11-15, no answer yet: '
+    assert lines[:4] == ['show convertPercentToHours', 'known.percent-scale: asked the owner on 2026-11-15, no answer yet: '
                          'Which scale does the database store? (python -m flowguard show known.percent-scale)',
-                         conversion], lines
+                         conversion, region], lines
     # Each copy's file is under the services folder; one copy's own text names it as a site.
     lines = show('resolveFullPspNumber')
     assert lines[:3] == ['show resolveFullPspNumber', services, psp], lines
     lines = show('backend/src/services/utilization-grid.service.ts:resolveFullPspNumber')
     assert lines.index(services) > 0 and psp not in lines, lines
     # The module view says which site each text names, its own and a connected module's.
-    assert show('backend/src/utils/') == ['module backend/src/utils/: 1 file, 2 functions',
+    assert show('backend/src/utils/') == ['show backend/src/utils/',
                                           'known.percent-scale: asked the owner on 2026-11-15, no answer yet: Which scale '
                                           'does the database store? (python -m flowguard show known.percent-scale)',
-                                          conversion,
+                                          conversion, region, 'module backend/src/utils/: 1 file, 2 functions',
                                           'called by backend/src/services/project-timeline.service.ts (1 call; described '
                                           'by docs/FUNCTION_INVENTORY.md:3 about backend/src/services/)']
     # A document lists its markers with the site each names, and its regions with whether each is up to date.
-    inventory = ['document docs/FUNCTION_INVENTORY.md',
+    inventory = ['show docs/FUNCTION_INVENTORY.md', 'document docs/FUNCTION_INVENTORY.md',
                  'docs/FUNCTION_INVENTORY.md:3 describes backend/src/services/',
                  'docs/FUNCTION_INVENTORY.md:8 describes backend/src/utils/capacity-conversion.ts',
                  'docs/FUNCTION_INVENTORY.md:16 describes backend/src/utils/gone.ts, which names nothing: site '
@@ -686,13 +715,139 @@ def test_show_names_the_texts_that_describe_a_function_its_file_or_folder_and_a_
                  '-> python -m flowguard docs rewrites it']
     assert show('docs/FUNCTION_INVENTORY.md') == inventory
     assert _flowguard(tmp_path, 'docs')[0] == 1         # the schema document's region has no end
-    assert show('docs/FUNCTION_INVENTORY.md') == [*inventory[:3], inventory[3].replace(':16 ', ':20 '),   # 4 rows written
+    assert show('docs/FUNCTION_INVENTORY.md') == [*inventory[:4], inventory[4].replace(':16 ', ':20 '),   # 4 rows written
                                                   'docs/FUNCTION_INVENTORY.md:13 generate functions '
                                                   'backend/src/utils/capacity-conversion.ts is up to date']
     assert show('docs/schema-documentation.md') == [
-        'document docs/schema-documentation.md',
+        'show docs/schema-documentation.md', 'document docs/schema-documentation.md',
         'docs/schema-documentation.md:3 describes backend/src/services/demand.service.ts:resolveFullPspNumber',
         'docs/schema-documentation.md:8 generate values Missing cannot be written: no <!-- flowguard: end --> marker ends it']
+
+
+PT_CENTRAL_SERVICE = """export const centralEmployeeService = {
+  async findAll(params: { search?: string; includeInactive?: boolean }) {
+    return [params];
+  },
+
+  async remove(id: string, alsoLocal = false) {
+    return { id, alsoLocal };
+  },
+};
+"""
+PT_LIMITS = "export const MAX_FTE_SHARE = 2;\nexport const PROBABILITY_STEPS = [0, 50, 100];\n"
+PT_GATE_INVENTORY = """# Function Inventory
+
+### capacity.service.ts — `capacityService`
+
+<!-- flowguard: about backend/src/services/capacity.service.ts:getHolidayOverlap -->
+getHolidayOverlap counts the holidays of a period.
+
+<!-- flowguard: about backend/src/services/capacity.service.ts:capacityService.sliceDateRangeByMonth -->
+The service slices a date range by month.
+
+### central-employee.service.ts — `centralEmployeeService`
+
+<!-- flowguard: generate functions backend/src/services/central-employee.service.ts -->
+<!-- flowguard: end -->
+
+### limits.ts
+
+<!-- flowguard: generate constants backend/src/utils/limits.ts -->
+<!-- flowguard: end -->
+"""
+PT_GATE_SCHEMA_DOC = "# Schema\n\n<!-- flowguard: generate fields Assignment -->\n<!-- flowguard: end -->\n"
+
+
+def test_show_says_a_text_describes_a_name_only_through_a_marker_check_accepts_or_a_region_that_lists_it(tmp_path):
+    """Planning Tool (5.0 gate, GA-0 and gate-5). `show getUtilization` said `described by docs/ga-check.md:21 (about
+    backend/src/services/capacity.service.ts:getUtilization)`, a marker that `check --static` rejects because the
+    method's name is `capacityService.getUtilization`: show matched the marker's symbol against the map's qual, while
+    the one reading of a site (`sources.site_resolver`) requires the declared name. And `show
+    backend/src/services/central-employee.service.ts` said `described by no text: put <!-- flowguard: about ... -->`
+    although docs/FUNCTION_INVENTORY.md:307 generates its functions list. Now show names a marker only when it resolves
+    to the name, and a generated region that lists a file's functions or constants or a model's fields describes that
+    file, its listed names and that model, in show's described-by lines and the module view."""
+    from tests.intent_engine.test_static_check import _flowguard
+    capacity, central = 'backend/src/services/capacity.service.ts', 'backend/src/services/central-employee.service.ts'
+    _commit(tmp_path, {capacity: PT_SERVICE, central: PT_CENTRAL_SERVICE, 'backend/src/utils/limits.ts': PT_LIMITS,
+                       'backend/prisma/schema.prisma': PT_RELATIONS, 'docs/FUNCTION_INVENTORY.md': '# Function Inventory\n'})
+    _write(tmp_path, {'docs/FUNCTION_INVENTORY.md': PT_GATE_INVENTORY, 'docs/schema.md': PT_GATE_SCHEMA_DOC})
+    code, text = _static(tmp_path)
+    reds = [line for line in _block(text) if line.startswith('red:')]
+    assert code == 1 and len(reds) == 1 and reds[0].startswith(f'red: about {capacity}:getHolidayOverlap: site ') \
+        and reds[0].endswith('in the marker at FUNCTION_INVENTORY.md:5'), text
+
+    def described(query):
+        code, out = _flowguard(tmp_path, 'show', query)
+        assert code == 0, out
+        return [line for line in out.splitlines() if line.startswith('described by')]
+    for query in ('getHolidayOverlap', 'capacityService.getHolidayOverlap', f'{capacity}:capacityService.getHolidayOverlap',
+                  f'{capacity}:sliceDateRangeByMonth'):
+        assert described(query) == [], query
+    slicing = f'described by docs/FUNCTION_INVENTORY.md:8 (about {capacity}:capacityService.sliceDateRangeByMonth)'
+    assert described('capacityService.sliceDateRangeByMonth') == [slicing]
+    assert described('sliceDateRangeByMonth') == [slicing]          # the helper's and the method's view, as gate-0
+    assert described(f'{capacity}:capacityService.sliceDateRangeByMonth') == [slicing]
+    code, out = _flowguard(tmp_path, 'show', 'docs/FUNCTION_INVENTORY.md')
+    assert f'docs/FUNCTION_INVENTORY.md:5 describes {capacity}:getHolidayOverlap, which names nothing: site {capacity}:' \
+           'getHolidayOverlap names nothing' in out, out
+    # A region describes the file it lists, each name it lists and the model whose fields it lists.
+    functions = f'described by docs/FUNCTION_INVENTORY.md:13 (generate functions {central})'
+    constants = 'described by docs/FUNCTION_INVENTORY.md:18 (generate constants backend/src/utils/limits.ts)'
+    fields = 'described by docs/schema.md:3 (generate fields Assignment)'
+    assert described(central) == [functions]
+    code, out = _flowguard(tmp_path, 'show', central)
+    assert code == 0 and 'described by no text' not in out, out
+    assert described('centralEmployeeService.findAll') == [functions]
+    assert described(f'{central}:centralEmployeeService.remove') == [functions]
+    assert described('MAX_FTE_SHARE') == [constants] and described('backend/src/utils/limits.ts') == [constants]
+    assert described('Assignment.fteShare') == [fields] and described('assignments.fte_share') == [fields]
+    assert described('backend/prisma/schema.prisma:Assignment.demandId') == [fields]
+    assert described('Demand.assignments') == [] and described('applyEmailTemplate') == []
+    # A module view names a connected module's region too.
+    _write(tmp_path, {'backend/src/services/staffing.service.ts': (
+        "import { centralEmployeeService } from './central-employee.service';\n"
+        'export async function staff() {\n  return centralEmployeeService.findAll({});\n}\n')})
+    code, out = _flowguard(tmp_path, 'show', 'backend/src/services/staffing.service.ts')
+    assert f'calls {central} (1 call; described by docs/FUNCTION_INVENTORY.md:13 generate functions)' in out.splitlines(), out
+
+
+def test_every_view_begins_with_its_header_the_map_line_and_what_concerns_the_query(tmp_path):
+    """Planning Tool (5.0 gate, gate-4): `show backend/src/utils/capacity-conversion.ts:convertPercentToHours` began
+    with its node line, signature and caller; the Map line, the known entry and the text that describes it came after,
+    and there was no `show NAME` header. A module view (`module ...`) and a document view (`document ...`) had neither.
+    Each view, a site, a map id, a file, a folder and a document, now begins with the header, the Map line, then the
+    known entries, texts, rules, agreements and last-run lines that concern it; its node or module view follows."""
+    from tests.intent_engine.test_static_check import _flowguard
+    known = ('[known.percent-scale]\nsites = ["backend/src/utils/capacity-conversion.ts:convertPercentToHours"]\n'
+             'why = "PERCENT rows are read on two scales"\nact = "ask"\nask = "Which scale does the database store?"\n'
+             'asked = "2026-11-15"\n')
+    _commit(tmp_path, {'backend/src/utils/capacity-conversion.ts': PT_CONVERSION, 'docs/FUNCTION_INVENTORY.md': PT_INVENTORY,
+                       'backend/src/services/project-timeline.service.ts': PT_TIMELINE, '.flowguard/known.toml': known})
+    notice = 'Map: typescript 2/2 parsed; static facts, foreign native-home execution not verified.'
+    entry = ('known.percent-scale: asked the owner on 2026-11-15, no answer yet: Which scale does the database store? '
+             '(python -m flowguard show known.percent-scale)')
+    conversion = 'described by docs/FUNCTION_INVENTORY.md:8 (about backend/src/utils/capacity-conversion.ts)'
+    region = 'described by docs/FUNCTION_INVENTORY.md:13 (generate functions backend/src/utils/capacity-conversion.ts)'
+
+    def show(query):
+        code, out = _flowguard(tmp_path, 'show', query)
+        assert code == 0, out
+        return out.splitlines()
+    site = 'backend/src/utils/capacity-conversion.ts:convertPercentToHours'
+    lines = show(site)
+    assert lines[:6] == [f'show {site}', notice, entry, conversion, region,
+                         f'{site} backend/src/utils/capacity-conversion.ts:1'], lines
+    ident = 'typescript/backend/src/utils/capacity-conversion.ts:convertPercentToHours'
+    assert show(ident)[:6] == [f'show {ident}', notice, entry, conversion, region,
+                               f'{ident} backend/src/utils/capacity-conversion.ts:1']
+    assert show('backend/src/utils/capacity-conversion.ts')[:6] == [
+        'show backend/src/utils/capacity-conversion.ts', notice, entry, conversion, region,
+        'module backend/src/utils/capacity-conversion.ts: 1 file, 2 functions']
+    assert show('backend/src/services')[:3] == ['show backend/src/services', notice,
+                                                'described by docs/FUNCTION_INVENTORY.md:3 (about backend/src/services/)']
+    assert show('docs/FUNCTION_INVENTORY.md')[:3] == ['show docs/FUNCTION_INVENTORY.md', notice,
+                                                      'document docs/FUNCTION_INVENTORY.md']
 
 
 def test_outside_git_show_and_docs_read_the_documents_the_maps_walk_finds(tmp_path):
@@ -718,7 +873,8 @@ def test_a_folder_is_a_module_and_a_folder_with_no_mapped_file_is_red(tmp_path):
     assert code == 0 and [line for line in _block(text) if 'app.md' in line] == [
         'impact: app.md:3 describes app/, which this change edits -> reread that text and correct it if it no longer holds'], text
     code, out = _flowguard(tmp_path, 'show', 'app')
-    assert code == 0 and out.splitlines()[:2] == ['module app/: 2 files, 3 functions', 'described by docs/app.md:3 (about app/)'], out
+    assert code == 0 and [line for line in out.splitlines() if not line.startswith('Map: ')] == [
+        'show app', 'described by docs/app.md:3 (about app/)', 'module app/: 2 files, 3 functions'], out
     _write(tmp_path, {'app/b.ts': CALLER, 'docs/app.md': folder + '\n<!-- flowguard: about lib/ -->\nGone.\n'})
     code, text = _static(tmp_path)
     assert code == 1 and any(line.startswith('red: about lib/: site lib/: no mapped file in this folder') for line in _block(text)), text
@@ -773,12 +929,12 @@ def test_a_module_connects_only_through_the_calls_the_map_resolved(tmp_path):
     def show(path):
         code, out = _flowguard(tmp_path, 'show', path)
         assert code == 0, out
-        return out.splitlines()
+        return [line for line in out.splitlines() if not line.startswith('Map: ')]
     assert show('backend/src/utils/') == [
-        'module backend/src/utils/: 1 file, 1 function', 'described by docs/utils.md:3 (about backend/src/utils/)',
-        'called by backend/src/services/capacity.service.ts (1 call)']
+        'show backend/src/utils/', 'described by docs/utils.md:3 (about backend/src/utils/)',
+        'module backend/src/utils/: 1 file, 1 function', 'called by backend/src/services/capacity.service.ts (1 call)']
     assert show('frontend/src/components/AbsenceSyncDialog.tsx') == [
-        'module frontend/src/components/AbsenceSyncDialog.tsx: 1 file, 1 function',
+        'show frontend/src/components/AbsenceSyncDialog.tsx', 'module frontend/src/components/AbsenceSyncDialog.tsx: 1 file, 1 function',
         'described by no text: put <!-- flowguard: about frontend/src/components/AbsenceSyncDialog.tsx --> above the '
         'Markdown text that is its contract']
     # An edit of allocationService.get connects to no utility; one of the resolved caller names the contract.

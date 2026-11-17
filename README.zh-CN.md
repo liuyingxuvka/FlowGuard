@@ -71,7 +71,7 @@ FlowGuard 5.0 删除了 4.2 的注释写法（`sensor NAME`、`owner NAME`、`ow
 
 ## 文档与代码挂钩
 
-在描述代码的 Markdown 文字上方写 `<!-- flowguard: about path:symbol -->`（或只写文件路径）。改动改了那段代码却没改这段文字时，运行会用一行 `impact` 点出这段文字。描述一个文件或 `folder/` 的文字就是这个模块的契约：它调用的函数或调用它的函数改了，也会点出它；`python -m flowguard show PATH` 列出模块的契约和连接；函数或常量的 `show NAME` 以及文档的 `show` 列出把它们联系起来的文字和标记。代码里已有的清单放在 `<!-- flowguard: generate fields Model -->`（或 `values NAME`、`functions path`、`constants path`）和 `<!-- flowguard: end -->` 之间，由 `python -m flowguard docs` 写入。`python -m flowguard show Model.field`（或它的 `table.column`）开头先列出 Prisma schema、SQL 文件和 zod schema 如何声明这个字段，以模型命名的 zod schema 排在前面；以它为准，而不是文档里的表格。
+在描述代码的 Markdown 文字上方写 `<!-- flowguard: about path:symbol -->`（或只写文件路径）。改动改了那段代码却没改这段文字时，运行会用一行 `impact` 点出这段文字。描述一个文件或 `folder/` 的文字就是这个模块的契约：它调用的函数或调用它的函数改了，也会点出它；`python -m flowguard show PATH` 列出模块的契约和连接；函数或常量的 `show NAME` 以及文档的 `show` 列出把它们联系起来的文字和标记；标记只有在 `check --static` 把它的位置解析到这个名字时才算，列出某个文件的函数或常量、或某个模型字段的生成区也算描述它们的文字。代码里已有的清单放在 `<!-- flowguard: generate fields Model -->`（或 `values NAME`、`functions path`、`constants path`）和 `<!-- flowguard: end -->` 之间，由 `python -m flowguard docs` 写入。生成区只放 map 知道的内容，Purpose 这类说明文字放在生成区之外。`python -m flowguard show Model.field`（或它的 `table.column`）开头先列出 Prisma schema、SQL 文件和 zod schema 如何声明这个字段，这个字段自己的 zod schema 排在前面（每个 schema 对象归属于它的驼峰词里包含的最长模型名）；以它为准，而不是文档里的表格。
 
 ## 其他检查与语言
 
