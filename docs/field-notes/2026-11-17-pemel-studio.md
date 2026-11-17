@@ -269,3 +269,41 @@ variables in `intent/sites.py`. The wording confused that instrumentation
 step with the application's own calibration. Describe the missing
 observation in Python terms, and make the affected test and field easy
 to identify. The ordinary pytest outcome can still be shown alongside it.
+
+## Show what makes a copy finding actionable
+
+A later desktop run passed 142 focused tests in 38.74 seconds. FlowGuard
+spent 17.0 seconds and reported zero red agreements, 10 impacts and 88
+unavailable comparisons. Its first impact grouped three private AST helpers.
+Inspection confirmed that they walk the same assignment pattern. Their
+failure text belongs to three different callers: a build script, the
+application's reader for user-supplied model files, and its reader for an
+installed resource. The finding led us to check whether the helpers could
+share an owner. The one-line summary showed the matching names and paths,
+but left the relevant difference and package boundaries to manual inspection.
+
+Keep the structural copy discovery. On demand, show the matched body regions,
+the small differences, the known callers and whether all members have a legal
+common import owner. Mark uncertainty when the package graph cannot establish
+that. Give the summary lower urgency when it only establishes resemblance.
+A recorded agreement or different results on a shared input would justify
+stronger wording. An isolated build script and a runtime package are a useful
+synthetic example for exercising the distinction.
+
+## Let a bounded integration check carry its own evidence
+
+In a separate presentation utility outside the instrumented application test
+run, five synthetic checks passed before the first actual invocation failed
+at its JSON reader: the caller used the wrong keyword for a size limit. The
+failure occurred before the utility loaded its larger inputs. A sixth test
+called the real reader with a tiny local JSON file and checked both the exact
+bound and the rejected over-bound call. This caught the missing interface
+coverage without a full run or access to the real inputs.
+
+A focused check could distinguish a caller exercised against a fake from the
+same caller exercised against the real bounded reader. Let teams bind that
+existing test to the call boundary and show its exact test result alongside
+the static finding. The observation can record the operation name, code
+identity, input size category and outcome without retaining input content.
+Keep this optional and bounded by the changed call; broad automatic execution
+would add cost and could start operations that the task does not own.
