@@ -134,3 +134,22 @@ Link failed test IDs even when the agreement count is zero. For desktop
 tests, named evidence at the input-delivery and command-admission boundaries
 makes the same observation useful for refused commands: a key can be
 delivered, the command can be correctly refused, and no task should start.
+
+## Attach independent checks to generated artifacts
+
+A Japanese report PDF rendered the heading `12,345 h` correctly on screen,
+but three readers could not extract the number. A six-file Qt probe varied
+the font shaping strategy and direct versus recorded painting. Both normal
+painting paths lost digits from the text layer. Using the Qt style that
+prefers unshaped glyphs where the script permits it preserved the digits
+in both paths. The development regression now exercises mixed-script
+running text and a numeric heading.
+
+Add an optional way for an existing test to attach an artifact kind,
+locale, observed property and verifier name to its result. For this case
+the observed property is the exact numeric text recovered from PDF, and a
+separate screenshot checks presentation. Attach a digest or a local
+reference if the artifact is useful for inspection. Keep both the PDF
+body and customer inputs out of the FlowGuard store. This would let one
+agreement name the screen and export outcomes without making FlowGuard
+render documents or interpret technical values.
