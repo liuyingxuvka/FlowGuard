@@ -94,6 +94,14 @@ def _simple(value):
                     for name in operations))
 
 # The closed environment has values, never a project module or its live globals.
+# The statements and expressions a sealed function may not hold, by their syntax class, and the words a reason names
+# each by (gate-7: a reason named the class, `unsupported With`).
+UNRUN_PARTS = {ast.Import: 'holds an import', ast.ImportFrom: 'holds an import', ast.ClassDef: 'holds a class definition',
+               ast.Global: 'holds a global statement', ast.Nonlocal: 'holds a nonlocal statement', ast.Yield: 'holds a yield',
+               ast.YieldFrom: 'holds a yield', ast.Await: 'holds an await', ast.Try: 'holds a try statement',
+               ast.With: 'holds a with statement', ast.AsyncWith: 'holds a with statement'}
+
+
 class Refused(BaseException):
     pass
 
@@ -561,9 +569,8 @@ def _closed(source, qual, imports=None):
                 return None
             return found if id(found) in spaces and spaces[id(found)] is found else None
         for part in ast.walk(n):
-            if isinstance(part, (ast.Import, ast.ImportFrom, ast.ClassDef, ast.Global, ast.Nonlocal,
-                                 ast.Yield, ast.YieldFrom, ast.Await, ast.Try, ast.With, ast.AsyncWith)):
-                raise Refused('unsupported ' + type(part).__name__)
+            if type(part) in UNRUN_PARTS:
+                raise Refused(UNRUN_PARTS[type(part)] + ', which the sealed comparison does not run')
             if isinstance(part, ast.Name) and part.id.startswith('__'):
                 raise Refused('uses ' + part.id)
             if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load) and part.id in blocked - local:

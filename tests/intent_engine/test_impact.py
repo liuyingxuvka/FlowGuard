@@ -496,16 +496,17 @@ def test_show_reads_a_zod_key_s_own_number_chain_with_the_constants_it_names(tmp
         'backend/src/utils/business-data-foundation.ts', 'backend/src/api/schemas/personnel-mvp.schemas.ts',
         'backend/src/api/schemas/business-data.schemas.ts', 'backend/src/api/schemas/allocation.schemas.ts',
         'backend/src/utils/project-forecast.ts', 'backend/src/api/routes/allocation.routes.ts')
+    # (gate-3) the schema objects named after the model come first, then those that share the key's name only
     assert zod('Opportunity.responsibleSapNumber') == [
-        f'zod key responsibleSapNumber in BUSINESS_LIST_SCHEMA: -2147483648 <= responsibleSapNumber <= 2147483647 ({business}:8)',
         'zod key responsibleSapNumber in OPPORTUNITY_CREATE_SCHEMA: MIN_SIGNED_INT32=-2147483648 <= responsibleSapNumber'
-        f' <= MAX_SIGNED_INT32=2147483647 ({foundation}:11)']
+        f' <= MAX_SIGNED_INT32=2147483647 ({foundation}:11)',
+        f'zod key responsibleSapNumber in BUSINESS_LIST_SCHEMA: -2147483648 <= responsibleSapNumber <= 2147483647 ({business}:8)']
     # a negative, parenthesised or `as const` constant keeps its value as spelled; a nested number key of an object
     # key is a line of its own, under the object it belongs to
     assert zod('Employee.sapReference') == [
         f'zod key sapReference in employeeCreateSchema: MIN_SAP_REFERENCE=-2_147_483_648 <= sapReference <= MAX_SAP_REFERENCE=2_147_483_647 ({personnel}:15)',
-        f'zod key sapReference in placeholderSchema: MIN_PLACEHOLDER=-1 <= sapReference <= MAX_PLACEHOLDER=99 ({personnel}:19)',
-        'zod key sapReference in employee: sapReference (no bounds) (backend/src/services/central-employee.service.ts:6)']
+        'zod key sapReference in employee: sapReference (no bounds) (backend/src/services/central-employee.service.ts:6)',
+        f'zod key sapReference in placeholderSchema: MIN_PLACEHOLDER=-1 <= sapReference <= MAX_PLACEHOLDER=99 ({personnel}:19)']
     # an array or object key is no number: the bounds of its nested schemas and its length are not its bounds
     assert zod('Project.pspElements') == zod('Employee.assignments') == zod('Assignment.employee') == []
     assert zod('Assignment.fteShare') == [
@@ -601,8 +602,10 @@ export interface LendingAssignment extends AssignmentBase {
         assert zod in lines and not any(line.startswith('not on the map') for line in lines), (query, lines)
     # a SQL table no Prisma model maps: its column, CHECK range and zod key; a column it lacks is said so
     lines = shown('capacity_bookings.fte_share')
-    assert lines[2:5] == ['column capacity_bookings.fte_share DECIMAL(6,4) (backend/prisma/capacity-setup.sql:3)',
+    # (gate-3) capacityImportRowSchema is not named after capacity_bookings: a line says its key matches by the name only
+    assert lines[2:6] == ['column capacity_bookings.fte_share DECIMAL(6,4) (backend/prisma/capacity-setup.sql:3)',
                           'range capacity_bookings.fte_share: 0 <= fte_share <= 2 (CHECK backend/prisma/capacity-setup.sql:3)',
+                          'the zod line below is a key of the same name in another schema object, matched by the name only',
                           'zod key fte_share in capacityImportRowSchema: 0 <= fte_share <= 2 (backend/src/api/schemas/allocation.schemas.ts:4)'], lines
     assert not any(line.startswith('not on the map') for line in lines), lines
     assert shown('capacity_bookings.fte_ratio')[2] == 'not on the map: database table capacity_bookings has no column fte_ratio'
@@ -1005,7 +1008,7 @@ export async function setShare(prisma: any, id: string, share: number) {
     })
     code, text = _flowguard(tmp_path, 'show', 'Employee.fteShare')
     lines = text.splitlines()
-    assert code == 0 and lines[0] == 'ANCHOR Employee.fteShare', text
+    assert code == 0 and lines[0] == 'show Employee.fteShare' and lines[1].startswith('Map: '), text
     absent = ('not on the map: Prisma model Employee and TS type Employee have no field fteShare; the zod keys fteShare '
               'of 1 schema object are not listed, as a key matches by its name alone; Prisma models with a field '
               'fteShare: Assignment')
@@ -1041,7 +1044,7 @@ export async function renumberSapNumber(prisma: any, id: string, oldNumber: numb
              'writes Employee.sapReference backend/src/services/sap-number-renumber.service.ts:3 renumberSapNumber (update)']
     code, text = _flowguard(tmp_path, 'show', 'Employee.sapReference')
     lines = text.splitlines()
-    assert code == 0 and lines[0] == 'ANCHOR Employee.sapReference', text
+    assert code == 0 and lines[0] == 'show Employee.sapReference' and lines[1].startswith('Map: '), text
     start = lines.index(facts[0])
     assert lines[start:start + 4] == [*facts[:3], '... 4 more lines: python -m flowguard show Employee.sapReference --full lists them all'], text
     code, text = _flowguard(tmp_path, 'show', 'Employee.sapReference', '--full')
@@ -1141,8 +1144,9 @@ export async function softDelete(prisma: any, id: string) {
     })
     code, text = _flowguard(tmp_path, 'show', 'CentralEmployee.orgUnitId')
     lines = text.splitlines()
-    assert code == 0 and lines[0] == 'ANCHOR CentralEmployee.orgUnitId' and lines[2].startswith('together CentralEmployee.orgUnitId'), text
-    facts = lines[3:7]          # the agreement holds (the two updates select their own records): no fix line
+    assert code == 0 and lines[0] == 'show CentralEmployee.orgUnitId' and lines[1].startswith('Map: ') and lines[3].startswith(
+        'together CentralEmployee.orgUnitId'), text
+    facts = lines[4:8]          # the agreement holds (the two updates select their own records): no fix line
     assert not [line for line in lines if line.startswith(('missing ', 'fix: '))], text
     assert facts == [
         'declared CentralEmployee.orgUnitId: String? @map("org_unit_id") (backend/prisma/central/schema.prisma:8)',
@@ -1151,7 +1155,7 @@ export async function softDelete(prisma: any, id: string) {
         'writes CentralEmployee.orgUnitId backend/src/services/employee-home-unit.service.ts:4 changeEmployeeHomeUnit (updateMany)'], text
     code, text = _flowguard(tmp_path, 'show', 'Project.lifecycleStatusId')
     lines = text.splitlines()
-    assert code == 0 and lines[0] == 'ANCHOR Project.lifecycleStatusId', text
+    assert code == 0 and lines[0] == 'show Project.lifecycleStatusId' and lines[1].startswith('Map: '), text
     assert 'outside writers: backend/src/services/project.service.ts:7 softDelete (update)' in lines, text
     # the writers' own writes are listed; softDelete's, named above as outside the writers, is not listed again
     assert [line for line in lines if line.startswith(('declared ', 'writes '))] == [
@@ -1441,7 +1445,7 @@ export async function renumberSapNumber(prisma: any, id: string, oldNumber: numb
     })
     code, text = _flowguard(tmp_path, 'show', 'Project.leaderId')
     lines = text.splitlines()
-    assert code == 0 and lines[0] == 'ANCHOR Project.leaderId', text
+    assert code == 0 and lines[0] == 'show Project.leaderId' and lines[1].startswith('Map: '), text
     start = lines.index('together Project.leaderId ProjectMember.* backend/src/services/project-member.service.ts:2')
     assert lines[start + 1:start + 4] == [
         'missing ProjectMember.*: backend/src/services/migration.service.ts:3 importProjects (create)',
@@ -1709,10 +1713,11 @@ def test_show_of_a_ts_function_or_anchor_says_once_that_the_map_reads_no_decisio
     assert text.count('not searched') == 1 and 'bind' not in text, text
     code, text = _flowguard(tmp_path, 'show', 'ISO_WEEKS_IN_YEAR')
     lines = text.splitlines()
-    assert code == 0 and lines[0] == 'ANCHOR ISO_WEEKS_IN_YEAR', text
-    assert lines[-3:] == ['info: not referenced by a current model: ISO_WEEKS_IN_YEAR',
-                          'copies not searched: the map reads no decision sites in typescript code',
-                          'copies not searched: the map reads no decision sites in tsx code'], text
+    # (gate-6) an agreement's view begins as every view does, says nothing of a model, and names the languages whose
+    # decision sites the map does not read in one line
+    assert code == 0 and lines[0] == 'show ISO_WEEKS_IN_YEAR' and lines[1].startswith('Map: '), text
+    assert lines[-1] == 'copies not searched: the map reads no decision sites in typescript and tsx code', text
+    assert text.count('not searched') == 1 and 'not referenced by a current model' not in text, text
     assert not [line for line in lines if line.startswith('rules:')] and 'bind' not in text, text
     code, text = _flowguard(tmp_path, 'show', 'app.policy:describe')
     assert code == 0 and text.count('not searched') == 1 and \
@@ -2058,8 +2063,8 @@ export async function renumberSapNumber(prisma: any, id: string, oldNumber: numb
     empty = ('historical observations', 'distinct observed outputs', 'no inputs', 'not referenced by a current model')
     code, text = _flowguard(tmp_path, 'show', 'Project.lifecycleStatusId')
     lines = text.splitlines()
-    assert code == 0 and lines[:3] == [
-        'ANCHOR Project.lifecycleStatusId', 'anchor Project.lifecycleStatusId -> backend/src/services/project.service.ts:1',
+    assert code == 0 and lines[0] == 'show Project.lifecycleStatusId' and lines[1].startswith('Map: ') and lines[2:4] == [
+        'anchor Project.lifecycleStatusId -> backend/src/services/project.service.ts:1',
         'writers Project.lifecycleStatusId projectService.create,projectService.update backend/src/services/project.service.ts:1'], text
     assert [line for line in lines if line.startswith(('outside writers: ', 'fix: '))] == [
         'outside writers: backend/src/services/import.service.ts:7 ImportService.commitProjects (update)',
@@ -2068,7 +2073,7 @@ export async function renumberSapNumber(prisma: any, id: string, oldNumber: numb
     assert '<anonymous' not in text and not [line for line in lines if any(part in line for part in empty)], text
     code, text = _flowguard(tmp_path, 'show', 'Employee.sapReference')
     lines = text.splitlines()
-    assert code == 0 and lines[1] == 'anchor Employee.sapReference -> backend/src/services/sap-number-renumber.service.ts:1', text
+    assert code == 0 and lines[2] == 'anchor Employee.sapReference -> backend/src/services/sap-number-renumber.service.ts:1', text
     assert not [line for line in lines if any(part in line for part in empty)], text
     code, text = _flowguard(tmp_path, 'check', '--static', '--all')
     assert code == 0 and [line.partition(' was ')[0] for line in text.splitlines() if ' writers ' in line] == [
@@ -2085,8 +2090,8 @@ export async function renumberSapNumber(prisma: any, id: string, oldNumber: numb
     # a bound Python anchor without decision sites: no binding step, in its ANCHOR view and in its function's view
     code, text = _flowguard(tmp_path, 'show', 'LATE_FEE')
     lines = text.splitlines()
-    assert code == 0 and lines[-2:] == ['info: not referenced by a current model: LATE_FEE',
-                                        'copies not searched: no readable decision sites'], text
+    assert code == 0 and lines[-1] == 'copies not searched: no readable decision sites', text
+    assert 'not referenced by a current model' not in text, text
     assert 'historical observations' not in text and 'bind' not in text, text
     code, text = _flowguard(tmp_path, 'show', 'app.rates:late_fee')
     assert code == 0 and 'copies not searched: no readable decision sites' in text.splitlines() and 'bind' not in text, text
@@ -2318,6 +2323,209 @@ def test_show_of_a_prisma_model_or_table_name_prints_its_declarations_and_counts
     assert lines[5] == ('Employee on the map: 1 write in 1 function, 0 reads in 0 functions: python -m flowguard show '
                         'Employee.FIELD lists the writes and reads of one'), lines
     assert not [line for line in _shown_lines(tmp_path, 'convertCapacityValue') if line.startswith(('model ', 'table '))]
+
+
+GB_SCHEMA = """datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Assignment {
+  id              String  @id
+  fteShare        Decimal @map("fte_share")
+  internalOrderId String? @map("internal_order_id") @db.NVarChar(36)
+  @@map("assignments")
+}
+
+model LendingAssignment {
+  id       String  @id
+  fteShare Decimal @map("fte_share")
+  @@map("lending_assignments")
+}
+
+model AbsencePhase {
+  id       String  @id
+  fteShare Decimal @map("fte_share")
+  @@map("absence_phases")
+}
+"""
+# Planning Tool's schema objects as its files spell them (5.0 gate, T10): the assignment schemas of
+# employee-utilization.schemas.ts, absencePhaseSchema of personnel-mvp.schemas.ts, PT_ZOD's allocation, batch and
+# lending schemas; its init migration and an upgrade script that adds a column to a table the migration creates; a
+# service whose module-level constant is a call; a backend package whose scripts run tests/unit and, as a suite that
+# reaches real databases, tests/integration, with a vitest config whose test.include takes only `*.test.ts`.
+GB_FILES = {
+    **PT_ZOD,
+    'backend/prisma/schema.prisma': GB_SCHEMA,
+    'backend/src/api/schemas/employee-utilization.schemas.ts': """import { z } from 'zod';
+
+const MIN_FTE_SHARE = 0;
+const MAX_FTE_SHARE = 2.0;
+
+const assignmentEditSchema = z.object({
+  fteShare: z
+    .number()
+    .min(MIN_FTE_SHARE)
+    .max(MAX_FTE_SHARE),
+});
+
+export const createAssignmentSchema = z.object({
+  employeeId: z.string().uuid(),
+  fteShare: z.number().min(MIN_FTE_SHARE).max(MAX_FTE_SHARE),
+});
+""",
+    'backend/src/api/schemas/absence.schemas.ts': """import { z } from 'zod';
+
+const absencePhaseSchema = z
+  .object({
+    fteShare: z.number().gt(0).lte(1),
+  })
+  .strict();
+""",
+    'backend/prisma/migrations/20260317073846_init/migration.sql': """CREATE TABLE "assignments" (
+    "id" TEXT NOT NULL,
+    "fte_share" DECIMAL NOT NULL,
+    CONSTRAINT "assignments_fte_share_check" CHECK ("fte_share" >= 0 AND "fte_share" <= 2)
+);
+""",
+    'backend/prisma/upgrade-internal-orders.sql': 'ALTER TABLE assignments ADD legacy_order_code NVARCHAR(20) NULL;\n',
+    'backend/src/services/assignment.service.ts': """export const assignmentCache = new Map<string, number>();
+
+export async function assignBatch(prisma: any, share: number) {
+  await prisma.assignment.create({ data: { id: '1', fteShare: share } });
+}
+""",
+    'backend/package.json': '{"name": "backend", "scripts": {"test": "vitest run", "test:unit": "vitest run tests/unit", '
+                            '"test:integration": "vitest run tests/integration"}, "devDependencies": {"vitest": "^3.2.4"}}\n',
+    'backend/vitest.config.mjs': "import { defineConfig } from 'vitest/config';\n"
+                                 "export default defineConfig({ test: { include: ['tests/**/*.test.ts'] } });\n",
+    **{f'backend/tests/{name}': "import { assignBatch } from '../../src/services/assignment.service';\n"
+                                'export const used = assignBatch;\n'
+       for name in ('unit/assignment.service.test.ts', 'integration/assignment.routes.test.ts', 'support/seed-assignments.ts')},
+}
+ZOD_OTHERS = 'zod lines below are keys of the same name in other schema objects, matched by the name only'
+
+
+def test_show_of_a_field_lists_the_zod_keys_of_its_own_schema_objects_first_then_those_matched_by_name(tmp_path):
+    """Planning Tool (5.0 gate, gate-3): `show LendingAssignment.fteShare` listed the 0..2 keys of the allocation,
+    employee-utilization and utilization-grid schemas beside the lending ones, and `show Assignment.fteShare` the lending
+    and absence-phase checks, each as if it held for the field. The keys of the schema objects named after the model
+    (the name holds the model's name in any letter case) come first; the others follow one line that says they are
+    keys of the same name in other schema objects, matched by the name only. Nothing is dropped."""
+    _commit(tmp_path, GB_FILES)
+    allocation, assignment, personnel, utilization, absence = (
+        f'backend/src/api/schemas/{name}.schemas.ts'
+        for name in ('allocation', 'assignment', 'personnel-mvp', 'employee-utilization', 'absence'))
+    edit = f'zod key fteShare in assignmentEditSchema: MIN_FTE_SHARE=0 <= fteShare <= MAX_FTE_SHARE=2.0 ({utilization}:7)'
+    create = f'zod key fteShare in createAssignmentSchema: MIN_FTE_SHARE=0 <= fteShare <= MAX_FTE_SHARE=2.0 ({utilization}:15)'
+    phase = f'zod key fteShare in absencePhaseSchema: 0 < fteShare <= 1 ({absence}:5)'
+    allocations = [f'zod key fteShare in allocationPeriodSchema: 0 <= fteShare <= 2 ({allocation}:8)',
+                   f'zod key fteShare in allocationCreateSchema: 0 <= fteShare <= 2, and a refine that is not read may '
+                   f'reject more ({allocation}:13)']
+    batch = f'zod key fteShare in batchAssignSchema: 0 <= fteShare <= 1 ({assignment}:11)'
+    lending = [f'zod key fteShare in lendingUpdateSchema: 0 < fteShare <= 1, and a refine that is not read may reject more '
+               f'({personnel}:9)',
+               f'zod key fteShare in capacityEntryCreateSchema: 0 <= fteShare <= MAX_FTE_SHARE=2.0 ({personnel}:18)',
+               f'zod key fteShare in phases: 0 < fteShare <= 1 ({personnel}:22, {personnel}:23)']
+
+    def zod(query):
+        code, text = _flowguard(tmp_path, 'show', query, '--full')
+        assert code == 0 and 'not on the map' not in text, text
+        return [line for line in text.splitlines() if line.startswith('zod ') or line.endswith(ZOD_OTHERS)]
+    assert zod('Assignment.fteShare') == [edit, create, f'the 7 {ZOD_OTHERS}', phase, *allocations, batch, *lending]
+    assert zod('AbsencePhase.fteShare') == [phase, f'the 8 {ZOD_OTHERS}', *allocations, batch, edit, create, *lending]
+    # no schema object is named after LendingAssignment (lendingUpdateSchema is not): every key follows the line
+    assert zod('LendingAssignment.fteShare') == [f'the 9 {ZOD_OTHERS}', phase, *allocations, batch, edit, create, *lending]
+
+
+def test_show_of_a_module_constant_whose_value_is_a_call_prints_its_declaration_and_its_zod_keys(tmp_path):
+    """Planning Tool (5.0 gate, gate-4): `show batchAssignSchema`, an exported zod constant, printed `word matches:
+    the 191 lines below only share a word` and 20 unrelated callbacks: no declaration, no range. A JS/TS module-level
+    constant whose value is a call prints one line with its place, the value cut to its first call (`z.object(...)`
+    of `z.object({...}).strict()`, `requireAtLeastOneValue(...)` of a helper wrapping the object, a `new` expression
+    with its type arguments); a zod object adds the zod lines of its number keys, nested ones too; the names that only
+    share a word wait for --full."""
+    _commit(tmp_path, GB_FILES)
+    assignment, personnel = 'backend/src/api/schemas/assignment.schemas.ts', 'backend/src/api/schemas/personnel-mvp.schemas.ts'
+
+    def shown(query, *options):
+        code, text = _flowguard(tmp_path, 'show', query, *options)
+        assert code == 0 and 'not on the map' not in text, text
+        return text.splitlines()
+    lines = shown('batchAssignSchema')
+    assert lines[2:4] == [f'const batchAssignSchema = z.object(...) ({assignment}:3)',
+                          f'zod key fteShare in batchAssignSchema: 0 <= fteShare <= 1 ({assignment}:11)'], lines
+    assert len(lines) == 5 and lines[4].startswith('... 2 more lines, 1 of them only shares a word with batchAssignSchema'), lines
+    assert not any(line.startswith('word matches') for line in lines), lines
+    # --full lists the function that shares a word, after its line
+    full = shown('batchAssignSchema', '--full')
+    assert full[:4] == lines[:4] and full[4].startswith('word matches: ') and any('assignBatch' in line for line in full[5:]), full
+    assert shown('lendingUpdateSchema')[2:4] == [
+        f'const lendingUpdateSchema = requireAtLeastOneValue(...) ({personnel}:6)',
+        f'zod key fteShare in lendingUpdateSchema: 0 < fteShare <= 1, and a refine that is not read may reject more ({personnel}:9)']
+    lines = shown('assignmentCache')
+    assert lines[2] == 'const assignmentCache = new Map<string, number>(...) (backend/src/services/assignment.service.ts:1)', lines
+    assert not any(line.startswith('zod ') for line in lines), lines
+
+
+def test_show_of_a_table_column_answers_with_the_prisma_field_mapped_to_it(tmp_path):
+    """code-0 (5.0 docs review): `show assignments.fte_share` gave only the SQL column and CHECK lines, and a column only
+    a Prisma `@map` declares (Planning Tool's assignments.internal_order_id) or only an upgrade script's ALTER TABLE
+    ADD adds got `not on the map: no function, class, ... is named assignments.internal_order_id`. `table.column` now
+    answers with the Prisma field `@@map` and `@map` map to it, as `show Model.field` does, and an upgrade script's
+    ALTER TABLE ADD gives the column's line."""
+    _commit(tmp_path, GB_FILES)
+    migration = 'backend/prisma/migrations/20260317073846_init/migration.sql'
+
+    def shown(query):
+        code, text = _flowguard(tmp_path, 'show', query, '--full')
+        assert code == 0 and 'not on the map' not in text, text
+        return text.splitlines()
+    lines = shown('assignments.fte_share')
+    assert lines[2:6] == ['declared Assignment.fteShare: Decimal @map("fte_share") (backend/prisma/schema.prisma:8)',
+                          f'column assignments.fte_share DECIMAL ({migration}:3)',
+                          f'range assignments.fte_share: 0 <= fte_share <= 2 (CHECK {migration}:4)',
+                          'zod key fteShare in assignmentEditSchema: MIN_FTE_SHARE=0 <= fteShare <= MAX_FTE_SHARE=2.0 '
+                          '(backend/src/api/schemas/employee-utilization.schemas.ts:7)'], lines
+    # its writes and reads are the Prisma field's, as show Assignment.fteShare lists them
+    field = shown('Assignment.fteShare')
+    assert [line for line in lines if line.startswith(('writes ', 'reads ', 'zod ', 'the '))] == \
+        [line for line in field if line.startswith(('writes ', 'reads ', 'zod ', 'the '))], (lines, field)
+    assert 'writes Assignment.fteShare backend/src/services/assignment.service.ts:4 assignBatch (create)' in lines, lines
+    assert shown('assignments.internal_order_id')[2] == \
+        'declared Assignment.internalOrderId: String? @map("internal_order_id") @db.NVarChar(36) (backend/prisma/schema.prisma:9)'
+    assert shown('assignments.legacy_order_code')[2] == \
+        'column assignments.legacy_order_code NVARCHAR(20) (backend/prisma/upgrade-internal-orders.sql:1)'
+
+
+def test_show_of_a_field_marks_the_tests_its_project_runs_against_real_databases_or_leaves_out(tmp_path):
+    """Planning Tool (5.0 gate, gate-7): `show Assignment.fteShare` listed backend/tests/integration/* as `test ...
+    reaches a writer` like any unit test, though the backend runs that folder only through its "test:integration"
+    script, against real databases. A test file in a folder that a test script of its package runs as such a suite
+    (init's reading of the scripts), or one the project's test scope leaves out (vitest's test.include and
+    test.exclude, pytest's testpaths, python_files and norecursedirs), says so on its line."""
+    _commit(tmp_path / 'ts', GB_FILES)
+    code, text = _flowguard(tmp_path / 'ts', 'show', 'Assignment.fteShare', '--full')
+    assert code == 0, text
+    assert [line for line in text.splitlines() if line.startswith('test ')] == [
+        'test backend/tests/integration/assignment.routes.test.ts reaches a writer of Assignment.fteShare (a suite that '
+        'reaches real databases and services: backend/package.json script "test:integration" runs tests/integration)',
+        'test backend/tests/support/seed-assignments.ts reaches a writer of Assignment.fteShare (left out of the test scope: '
+        'test.include and test.exclude of backend/vitest.config.mjs do not take it)',
+        'test backend/tests/unit/assignment.service.test.ts reaches a writer of Assignment.fteShare'], text
+    _commit(tmp_path / 'py', {
+        'pyproject.toml': '[tool.pytest.ini_options]\npythonpath = ["."]\ntestpaths = ["tests"]\n',
+        'app/__init__.py': '',
+        'app/model.py': 'class Account:\n    status: str\n',
+        'app/service.py': 'from app.model import Account\n\n\ndef close(account: Account):\n    account.status = "closed"\n',
+        'tests/test_service.py': 'from app.service import close\n\n\ndef test_close():\n    assert close is not None\n',
+        'legacy/test_close_legacy.py': 'from app.service import close\n\n\ndef test_close():\n    assert close is not None\n',
+    })
+    code, text = _flowguard(tmp_path / 'py', 'show', 'Account.status', '--full')
+    assert code == 0 and [line for line in text.splitlines() if line.startswith('test ')] == [
+        "test legacy/test_close_legacy.py reaches a writer of Account.status (left out of the test scope: pytest's testpaths, "
+        'python_files and norecursedirs do not take it)',
+        'test tests/test_service.py reaches a writer of Account.status'], text
 
 
 def test_show_of_a_bare_field_name_names_the_prisma_models_that_declare_it(tmp_path):

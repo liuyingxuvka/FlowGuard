@@ -692,7 +692,8 @@ def test_a_known_entry_naming_an_old_same_name_disagreement_is_its_known_line_in
     policy.write_text(policy.read_text().replace('    return 52\n', '    return 50 + 2\n', 1))     # one site, same answers
     result = _run(root)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert block(result)[1:] == ['known: known.iso-weeks at policy.py:weeks, policy.py:iso_weeks: Has 2025 52 or 53 ISO weeks? '
+    # code-1: the line names the finding's place this change touched, with the count of its places
+    assert block(result)[1:] == ['known: known.iso-weeks at policy.py:weeks (1 of 2 places): Has 2025 52 or 53 ISO weeks? '
                                  '-> an open question for the owner, not asked yet'], result.stdout
     shown = last(root).splitlines()
     assert '    ask: Has 2025 52 or 53 ISO weeks?' in shown, shown

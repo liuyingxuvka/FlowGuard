@@ -102,9 +102,9 @@ def test_body_import_is_rejected_before_it_can_load_a_dependency(tmp_path, monke
     monkeypatch.chdir(root)
     observed = anchors.observe(root, index.entries[0], {'x': 1})
     # The source is refused before its body import can initialize the dependency.
-    assert observed.status == 'grey' and observed.reasons == ('unsupported Import',)
+    assert observed.status == 'grey' and observed.reasons == ('holds an import, which the sealed comparison does not run',)
     candidate = (root / index.entries[0].file).read_text(encoding='utf-8')
-    assert sealed(candidate, 'decision', [1], {}) == {'status': 'unavailable', 'reason': 'unsupported Import'}
+    assert sealed(candidate, 'decision', [1], {}) == {'status': 'unavailable', 'reason': 'holds an import, which the sealed comparison does not run'}
     assert 'r19_side_effect' not in sys.modules and not (root / 'dependency.marker').exists()
 
 

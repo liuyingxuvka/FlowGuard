@@ -113,6 +113,19 @@ def _known_sites(entry, touched_functions, touched_files):
     return f'known.{entry.id} at {", ".join(named)}{counted}{_asked(entry)}', tuple(named)
 
 
+def _finding_places(entry, places, touched_functions, touched_files):
+    """(places, count) of a known line that an entry's finding gives (code-1): the finding's places this change
+    touches, a place being touched when it is one of the entry's sites and this change touches that site
+    (`Known.resolved`), with how many places the finding names when it names others (`at fees.py:preview_fee (1 of 2
+    places)`), as `_known_sites` names the touched sites; every place when it touches none (`--all`, or a site of the
+    entry that is no place of the finding)."""
+    sites = dict(zip(entry.sites, entry.resolved))
+    touched = [place for place in places if place in sites and (sites[place][0] & touched_functions
+                                                                or sites[place][1] & touched_files)]
+    named = tuple(touched) or tuple(places)
+    return named, f' ({len(named)} of {len(places)} places)' if len(named) < len(places) else ''
+
+
 def _known_detail(entry):
     return tuple(f'{key}: {getattr(entry, key)}' for key in ('why', 'ask', 'fix', 'source') if getattr(entry, key))
 
@@ -126,7 +139,8 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
     it gets its family's new kind (impact), unless an ignore entry covers it. Every other member counts when this
     change touches it (its function; for a file-level member, one of the finding's files), and with `everything`
     always: a known entry naming its finding gives a `known` line when the change also touches the entry's sites
-    (else nothing: `known` needs the entry's sites touched, `before` no entry), an ignore entry alone counts it,
+    (else nothing: `known` needs the entry's sites touched, `before` no entry), naming the finding's places this
+    change touches with their count (`_finding_places`), an ignore entry alone counts it,
     and without an entry it is `before`. An ignore entry covers only a family that may be ignored, and an entry
     of another act beside it keeps the member shown. Fields several files write without an agreement (family 'writers')
     have no line of their own except with `everything`. A known entry whose finding belongs to a family that ran
@@ -188,8 +202,10 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
             elif shown and (everything or (function in touched_functions if function else bool(issue.files & touched_files))):
                 for entry in speaking:
                     if everything or entry.nodes & touched_functions or entry.files & touched_files:
-                        lines.append(Line('known', f'known.{entry.id}', function, f'known.{entry.id}' + (f' at {where}' if where else '')
-                                          + _asked(entry), _known_step(entry), places, _known_detail(entry)))
+                        named, counted = _finding_places(entry, places, touched_functions, touched_files)
+                        lines.append(Line('known', f'known.{entry.id}', function, f'known.{entry.id}'
+                                          + (f' at {", ".join(named)}{counted}' if named else '') + _asked(entry),
+                                          _known_step(entry), named, _known_detail(entry)))
                         said.add(entry.id)
                 if not speaking and issue.held:     # a fact that held, not an agreement that was broken
                     lines.append(Line('before', issue.name, function,

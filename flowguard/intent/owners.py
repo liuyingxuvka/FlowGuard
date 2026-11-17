@@ -2346,22 +2346,70 @@ def _spelled_value(written):
     return '(not a literal)' if written is None else written
 
 
+def mapped_fields(graph, name):
+    """{`Model.field`: (model, field)} of the Prisma fields a `Model.field` or `table.column` names, in the schemas'
+    order: a model by its name or its `@@map` table, a field by its name or its `@map` column, compared casefolded
+    but a model's and a field's own name (code-0: `show assignments.fte_share` answers with Assignment.fteShare as
+    `show Assignment.fteShare` does); {} for a name without one dot."""
+    model, dot, field = name.partition('.')
+    if not dot or not field or '.' in field:
+        return {}
+    folded, column = model.casefold(), field.casefold()
+    found = {}
+    for schema in graph.schemas():
+        for item in schema.get('models', ()) if schema['kind'] == 'prisma' else ():
+            if item['name'] == model or (item.get('table') or '').casefold() == folded:
+                for entry in item.get('fields', ()):
+                    if entry['name'] == field or (entry.get('column') or '').casefold() == column:
+                        found.setdefault(f'{item["name"]}.{entry["name"]}', (item['name'], entry['name']))
+    return found
+
+
+def _own_schema(schema, models):
+    """Is a zod schema object named after one of `models` (its name holds the model's name in any letter case:
+    `lendingAssignmentCreateSchema` for LendingAssignment, `createAssignmentSchema` for Assignment)?"""
+    return any(model.casefold() in schema.casefold() for model in models)
+
+
+def _zod_lines(graph, names, models):
+    """The `zod key` lines of `declaration_lines` for the object keys `names` (`zod_bounds`, matched by the name
+    alone): those of the schema objects named after one of `models` (`_own_schema`, gate-3) first, then one line that
+    says the others are keys of the same name in other schema objects, then those; in file and line order."""
+    keys = {}
+    for key in dict.fromkeys(names):
+        keys.update(zod_bounds(graph, key))
+    own, other = [], []
+    for (file, schema, key, bounds), at in sorted(keys.items(), key=lambda item: (item[0][0], item[1][0])):
+        (own if _own_schema(schema, models) else other).append(
+            f'zod key {key} in {schema}: {bounds} (' + _where([f'{file}:{line}' for line in at]) + ')')
+    if not other:
+        return own
+    said = ('the zod line below is a key of the same name in another schema object' if len(other) == 1 else
+            f'the {len(other)} zod lines below are keys of the same name in other schema objects') + ', matched by the name only'
+    return [*own, said, *other]
+
+
 def declaration_lines(graph, name):
     """`show NAME` (4.4): what the map already read about a name, ahead of who writes and reads it. For `Model.field`
-    or `table.column`, each distinct declaration in the Prisma schemas and in the SQL files with the files that
+    or `table.column`, the Prisma fields it names (`mapped_fields`: by the model's name or `@@map` table, the field's
+    name or `@map` column), each distinct declaration in the Prisma schemas and in the SQL files with the files that
     declare it so (declarations that differ between files are lines of their own), the zod number schemas of an
-    object key of the field's name (`zod_bounds`; only for a model the map knows, `model_known`, and not for a field
-    its Prisma models, SQL tables and TS types lack, `field_absent`) and its value sets (`value_sets_named`: an enum
-    of a schema in use, a CHECK, a TS type, then the enum of each Prisma schema not in use that types the field); for
-    a bare name, the value of a JS/TS module-level literal constant, an array of literals too, and of a module-level
+    object key of the field's name and of each Prisma field's name (`_zod_lines`: the schema objects named after the
+    model first; only for a model the map knows, `model_known`, and not for a field its Prisma models, SQL tables and
+    TS types lack, `field_absent`) and its value sets and those of each Prisma field (`value_sets_named`: an enum of a
+    schema in use, a CHECK, a TS type, then the enum of each Prisma schema not in use that types the field); for a
+    bare name, the value of a JS/TS module-level literal constant, an array of literals too, and of a module-level
     object whose every value is a literal and that no labels or values line shows (`const HOURS_PER_PERIOD = { DAY: 8,
-    WEEK: 40 }`; a Python, C, C++ or C# module constant gives none: their rows name a field), the members of each value
-    set declared under that name (a JS/TS set, a Prisma enum) and the keys and labels of each JS/TS table of that name
-    the labels check reads (`MapHandle.labels_read`; another module-level object gives no line), each label as the
-    source spells it. A value set, constant or table only test files declare is left out (`is_test_file`); a CHECK that
-    code builds as a string and runs (`$executeRawUnsafe`) is not read: only `.sql` files give ranges and CHECK sets. A
-    column line gives the type each SQL description (`sql.describe`, as the columns check reads them: a file, or a
-    Prisma migrations folder as its migrations leave it, archives left out) ends with, at its last declaration."""
+    WEEK: 40 }`; a Python, C, C++ or C# module constant gives none: their rows name a field), the declaration of a
+    module-level constant whose value is a call (`_called_constants`: `const batchAssignSchema = z.object(...)`, with
+    the zod lines of the keys of the schema object of that name), the members of each value set declared under that
+    name (a JS/TS set, a Prisma enum) and the keys and labels of each JS/TS table of that name the labels check reads
+    (`MapHandle.labels_read`; another module-level object gives no line), each label as the source spells it. A value
+    set, constant or table only test files declare is left out (`is_test_file`); a CHECK that code builds as a string
+    and runs (`$executeRawUnsafe`) is not read: only `.sql` files give ranges and CHECK sets. A column line gives the
+    type each SQL description (`sql.describe`, as the columns check reads them: a file, or a Prisma migrations folder
+    as its migrations leave it, archives left out) ends with, at its last declaration, and the type an upgrade
+    script's ALTER TABLE ADD gives a table another file creates (`added`)."""
     import json
     from ..structure.readers.sql import describe
 
@@ -2370,26 +2418,34 @@ def declaration_lines(graph, name):
     if dot and field and '.' not in field:
         if not model_known(graph, model):
             return lines
-        declared, columns, tables = {}, {}, {model.casefold()}
+        mapped = mapped_fields(graph, name)
+        declared, tables, wanted = {}, {model.casefold()}, {field.casefold()}
         for schema in graph.schemas():
             for item in schema.get('models', ()) if schema['kind'] == 'prisma' else ():
                 for column in item.get('fields', ()):
-                    if item['name'] == model and column['name'] == field:
-                        tables.add((item.get('table') or model).casefold())
+                    spelled = f'{item["name"]}.{column["name"]}'
+                    if mapped.get(spelled) == (item['name'], column['name']):
+                        tables.add((item.get('table') or item['name']).casefold())
                         text = column['type'] + ('[]' if column.get('list') else '') + ('?' if column.get('optional') else '')
                         text += f' {column["attributes"]}' if column.get('attributes') else ''
-                        declared.setdefault(text, []).append(f'{schema["file"]}:{column["line"]}')
-                        columns.setdefault('', set()).add((column.get('column') or field).casefold())
-        wanted = columns.get('', set()) | {field.casefold()}
+                        declared.setdefault((spelled, text), []).append(f'{schema["file"]}:{column["line"]}')
+                        wanted.add((column.get('column') or column['name']).casefold())
         sql, bounded = {}, {}
         # Each SQL description's column as the columns check reads it (`sql.describe` of the files that are not
-        # `archived`): the type its last declaration gives, a migrations folder's rebuilds applied (pt-smoke-1).
+        # `archived`): the type its last declaration gives, a migrations folder's rebuilds applied (pt-smoke-1), and
+        # the column an upgrade script adds to a table another file creates (code-0).
         for description in describe([schema for schema in graph.schemas() if not graph.archived(schema['file'])]):
             for key, table in description['tables'].items():
                 if key in tables:
                     for column, last in table['declared'].items():
                         if column in wanted:
                             sql.setdefault(f'{table["name"]}.{table["columns"][column]} {last["type"] or "(no type)"}',
+                                           []).append(f'{last["file"]}:{last["line"]}')
+            for key, added in description['added'].items():
+                if key in tables:
+                    for column, last in added.items():
+                        if column in wanted:
+                            sql.setdefault(f'{last["table"]}.{last["name"]} {last["type"] or "(no type)"}',
                                            []).append(f'{last["file"]}:{last["line"]}')
         for schema in graph.schemas():
             if schema['kind'] != 'sql':
@@ -2403,15 +2459,16 @@ def declaration_lines(graph, name):
                             table_name = item.get('name') or item.get('table')
                             bounded.setdefault(f'{table_name}.{bound["column"]}: {low}{bound["column"]}{high}', []).append(
                                 f'CHECK {schema["file"]}:{bound["line"]}')
-        lines.extend(f'declared {name}: {text} ({_where(places)})' for text, places in declared.items())
+        lines.extend(f'declared {spelled}: {text} ({_where(places)})' for (spelled, text), places in declared.items())
         lines.extend(f'column {text} ({_where(places)})' for text, places in sql.items())
         lines.extend(f'range {text} ({_where(places)})' for text, places in bounded.items())
         if not field_absent(graph, model, field):        # a key of a field the model lacks matches by its name alone
-            lines.extend(f'zod key {field} in {schema}: {bounds} (' + _where([f'{file}:{line}' for line in at]) + ')'
-                         for (file, schema, bounds), at in zod_bounds(graph, field).items())
-        lines.extend(f'values {name}: {" | ".join(map(str, values))} ({where})'
-                     for values, where, *_ in value_sets_named(graph, name))
-        return lines
+            lines.extend(_zod_lines(graph, [field, *(own for _, own in mapped.values())],
+                                    [model, *(owner for owner, _ in mapped.values())]))
+        for spelled in dict.fromkeys([name, *mapped]):
+            lines.extend(f'values {spelled}: {" | ".join(map(str, values))} ({where})'
+                         for values, where, *_ in value_sets_named(graph, spelled))
+        return list(dict.fromkeys(lines))
     constants, tables = {}, {}
     declared_at = {(item['file'], item['line']) for item in graph.declarations(exported=False) if item['name'] == name}
     for row in graph.assignments():
@@ -2435,10 +2492,79 @@ def declaration_lines(graph, name):
             value = '{ ' + ', '.join(f'{key}: {spelled}' for key, spelled in row['written'].items()) + ' }'
             objects.setdefault(value, []).append(f'{row["file"]}:{row["line"]}')
     lines.extend(f'const {name} = {value} ({_where(places)})' for value, places in [*constants.items(), *objects.items()])
+    for spelled, file, line in _called_constants(graph, name, declared_at):        # gate-4: a zod schema, a call
+        lines.append(f'{spelled} ({file}:{line})')
+        lines.extend(f'zod key {key} in {schema}: {bounds} (' + _where([f'{file}:{at}' for at in places]) + ')'
+                     for (_, schema, key, bounds), places in zod_bounds(graph, schema=name, paths={file}).items())
     lines.extend(f'values {name}: {" | ".join(map(str, values))} ({where})'
                  for values, where, *_ in value_sets_named(graph, name))
     lines.extend(f'table {name}: {labels} ({_where(places)})' for labels, places in tables.items())
-    return lines
+    return list(dict.fromkeys(lines))
+
+
+CALLEE = re.compile(r"[\w$.<>\[\]?,'\" ]+")       # a callee a declaration line spells: names, members, type arguments
+
+
+def _first_call(node):
+    """The call a value makes first: through the callee of each call and the object of each member access, down to
+    the call whose callee holds no other call (`z.object(...)` of `z.object({...}).strict()`, `wrap(...)` of
+    `wrap(z.object({...}))`, `foo(...)` of `await foo().bar`); None for a value without a call."""
+    found = None
+    while node is not None:
+        if node.type in ('call_expression', 'new_expression'):
+            found = node
+            node = node.child_by_field_name('function' if node.type == 'call_expression' else 'constructor')
+        elif node.type in ('member_expression', 'subscript_expression'):
+            node = node.child_by_field_name('object')
+        elif node.type in ('parenthesized_expression', 'non_null_expression', 'as_expression', 'satisfies_expression',
+                           'await_expression'):
+            node = node.named_children[0] if node.named_children else None
+        else:
+            break
+    return found
+
+
+def _called_constants(graph, name, excluded=frozenset()):
+    """[(declaration, file, line)] of the JS/TS module-level declarations of `name` outside test files whose value is
+    no literal and holds a call (gate-4, Planning Tool's `show batchAssignSchema` printed only names that share a
+    word): the keyword and the value up to its first call (`_first_call`), as the source spells it with its white
+    space folded, then `(...)` for the arguments (`const batchAssignSchema = z.object(...)`, `export const
+    lendingUpdateSchema = requireAtLeastOneValue(...)` as `const lendingUpdateSchema = requireAtLeastOneValue(...)`,
+    `const cache = new Map<string, number>(...)`); a callee that is no name or member (an IIFE) is `(...)` too. A
+    value without a call (an object, a template string, a function, a name) gives none, and so does a declaration
+    at a place in `excluded` (a value set's)."""
+    from ..structure.readers.common import parse, text
+    from ..structure.readers.registry import ECMA, language_for
+    rows = {}
+    for row in graph.assignments(include_unknown=True):
+        if row.get('target') == name and not row.get('field') and not row.get('literal') and row.get('form') == 'declarator' \
+                and ':' not in row['node'] and language_for(row['file']) in ECMA and not is_test_file(row['file']) \
+                and (row['file'], row['line']) not in excluded:
+            rows.setdefault(row['file'], set()).add(row['line'])
+    found = []
+    for file, wanted in rows.items():
+        source, tree = parse((graph.root / file).read_bytes(), language_for(file))
+        for statement in tree.root_node.named_children:
+            declaration = statement.child_by_field_name('declaration') if statement.type == 'export_statement' else statement
+            if declaration is None or declaration.type not in ('lexical_declaration', 'variable_declaration'):
+                continue
+            keyword = declaration.children[0].type
+            for declarator in declaration.named_children:
+                spot = declarator.child_by_field_name('name')
+                value = declarator.child_by_field_name('value')
+                if declarator.type != 'variable_declarator' or spot is None or text(spot, source) != name \
+                        or spot.start_point.row + 1 not in wanted or value is None:
+                    continue
+                call = _first_call(value)
+                if call is None:
+                    continue
+                given = call.child_by_field_name('arguments')
+                end = given.start_byte if given is not None else call.end_byte
+                callee = re.sub(r'\s*\.\s*', '.', ' '.join(source[value.start_byte:end].decode('utf-8').split()))
+                callee = callee if CALLEE.fullmatch(callee) else '(...)'
+                tail = '' if given is None else '`...`' if given.type == 'template_string' else '(...)'
+                found.append((f'{keyword} {name} = {callee}{tail}', file, spot.start_point.row + 1))
+    return found
 
 
 def model_lines(graph, name):
@@ -2826,9 +2952,11 @@ def _narrowed(kept, side, spelled, value, inclusive):
     return kept
 
 
-def zod_bounds(graph, field):
-    """{(file, schema object, bounds text): [line]} of the zod number schemas that an object key `field` is given in
-    the TS/JS files outside tests, matched by the key's name alone. A key counts when its own schema chain is a
+def zod_bounds(graph, field=None, *, schema=None, paths=None):
+    """{(file, schema object, key, bounds text): [line]} of the zod number schemas that an object key `field` is given
+    in the TS/JS files outside tests, matched by the key's name alone; with `schema`, those of every key (or of
+    `field`) whose schema object is the one of that name, in `paths` when given (`show NAME` of a module-level zod
+    object, `declaration_lines`). A key counts when its own schema chain is a
     number schema: its base call is `z.number(` or `z.coerce.number(`, directly (`field: z.number()...`), inside
     `z.optional(`, `z.nullable(`, `z.nullish(` or `z.preprocess(fn, ...)`, piped (`X.pipe(Y)`, both read when Y is a
     number schema, else X's with Y named as below)
@@ -2848,14 +2976,16 @@ def zod_bounds(graph, field):
     unnamed object`. A text reading for `show`, which names each place."""
     from ..structure.readers.common import parse, text, walk
     from ..structure.readers.registry import ECMA, language_for
+    if field is None and schema is None:
+        raise ValueError('zod_bounds needs a key name or a schema object name')
     found = {}
     pattern = re.compile(rb'\bz\s*\.')
     for (path,) in graph.con.execute('SELECT path FROM file ORDER BY path'):
         language = language_for(path)
-        if language not in ECMA or is_test_file(path):
+        if language not in ECMA or is_test_file(path) or paths is not None and path not in paths:
             continue
         data = (graph.root / path).read_bytes()
-        if field.encode() not in data or not pattern.search(data):
+        if any(needle.encode() not in data for needle in (field, schema) if needle) or not pattern.search(data):
             continue
         source, tree = parse(data, language)
         reader = _Source(source, tree)
@@ -2892,10 +3022,11 @@ def zod_bounds(graph, field):
             return text(holder.child_by_field_name('name'), source) if holder is not None else 'an unnamed object'
 
         for pair in walk(tree.root_node):
-            if pair.type != 'pair' or reader.key_name(pair.child_by_field_name('key')) != field:
+            key = reader.key_name(pair.child_by_field_name('key')) if pair.type == 'pair' else None
+            if key is None or field is not None and key != field:
                 continue
             steps = reader.number_steps(pair.child_by_field_name('value'))
-            if steps is None:
+            if steps is None or schema is not None and schema_of(pair) != schema:
                 continue
             sides, unread = {'low': [], 'high': []}, []
             for method, call in steps:
@@ -2907,34 +3038,40 @@ def zod_bounds(graph, field):
                     _narrowed(sides[side], side, bound, 0, inclusive)
                 elif method in ZOD_UNREAD and method not in unread:
                     unread.append(method)
-            unread.extend(method for method in dict.fromkeys(reader.refines(pair, field)) if method not in unread)
+            unread.extend(method for method in dict.fromkeys(reader.refines(pair, key)) if method not in unread)
             low, high = sides['low'], sides['high']
-            shown = (f'{low[0][0]} {"<=" if low[0][2] else "<"} ' if low else '') + field + (
-                f' {"<=" if high[0][2] else "<"} {high[0][0]}' if high else '') if low or high else f'{field} (no bounds)'
+            shown = (f'{low[0][0]} {"<=" if low[0][2] else "<"} ' if low else '') + key + (
+                f' {"<=" if high[0][2] else "<"} {high[0][0]}' if high else '') if low or high else f'{key} (no bounds)'
             shown += ''.join(f' and {">=" if inclusive else ">"} {spelled}' for spelled, _, inclusive in low[1:])
             shown += ''.join(f' and {"<=" if inclusive else "<"} {spelled}' for spelled, _, inclusive in high[1:])
             if unread:
                 kinds = [f'a {method}' for method in unread]
                 shown += (f', and {" and ".join([", ".join(kinds[:-1]), kinds[-1]] if len(kinds) > 1 else kinds)} that '
                           f'{"is" if len(kinds) == 1 else "are"} not read may reject more')
-            found.setdefault((path, schema_of(pair), shown), []).append(pair.start_point.row + 1)
+            found.setdefault((path, schema_of(pair), key, shown), []).append(pair.start_point.row + 1)
     return found
 
 
-def field_lines(graph, name, written):
+def field_lines(graph, name, written, marks=None):
     """`show Model.field` (4.6): the functions that read its model (`MapHandle.queries`; model-level, as the facts
-    keep only a read's filter keys) or, in SQL, its table (`MapHandle.sql_reads`), the callers one level up of each
-    function that writes it (an edge guessed by a name alone left out) and the test files whose imports reach a file
-    that writes it (file-level facts)."""
+    keep only a read's filter keys; for `table.column` each Prisma model `mapped_fields` resolves it to) or, in SQL,
+    its table (`MapHandle.sql_reads`), the callers one level up of each function that writes it (an edge guessed by
+    a name alone left out) and the test files whose imports reach a file that writes it (file-level facts), each
+    with what `marks(files)`, {file: words}, says of it (`cli._test_marks`: a test the project's test scope leaves
+    out, or one in a folder its scripts run as a suite that reaches real databases and services)."""
     model = name.partition('.')[0]
+    models = list(dict.fromkeys(owner for owner, _ in mapped_fields(graph, name).values())) or [model]
     tables = {row.get('table') or model for row in written} or {model}
-    reads = [*graph.queries(model), *(row for table in sorted(tables) for row in graph.sql_reads(table))]
-    lines = [f'reads {model} {row["file"]}:{row["line"]} {row["function"]} ({row["method"]})' for row in reads]
+    lines = [f'reads {owner} {row["file"]}:{row["line"]} {row["function"]} ({row["method"]})'
+             for owner in models for row in graph.queries(owner)]
+    lines.extend(f'reads {model} {row["file"]}:{row["line"]} {row["function"]} ({row["method"]})'
+                 for table in sorted(tables) for row in graph.sql_reads(table))
     for function in dict.fromkeys(row_function(row) for row in written if not row.get('unclear')):
         for caller in graph.callers(function, 1, guessed=False):
             node = graph.node(caller) or {}
             lines.append(f'caller of {function.partition(":")[2] or function}: {caller.partition(":")[2] or caller}'
                          + (f' ({node["file"]}:{node["line"]})' if node.get('file') else ''))
-    files = sorted({row['file'] for row in written})
-    lines.extend(f'test {file} reaches a writer of {name}' for file in graph._tests_for(files, set()))
+    tests = graph._tests_for(sorted({row['file'] for row in written}), set())
+    said = marks(tests) if marks is not None and tests else {}
+    lines.extend(f'test {file} reaches a writer of {name}' + (f' ({said[file]})' if file in said else '') for file in tests)
     return lines

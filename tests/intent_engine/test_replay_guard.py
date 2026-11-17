@@ -62,7 +62,7 @@ def test_a_file_write_is_refused_before_it_happens_and_names_its_line(tmp_path):
     assert outcome is True
     assert target.read_text() == 'x'                     # only the real call wrote
     assert reading.actual == ({'x': 1}, True)
-    assert _unavailable(m, reading) == 'unsupported With'
+    assert _unavailable(m, reading) == 'holds a with statement, which the sealed comparison does not run'
     assert target.read_text() == 'x'
 
 
@@ -77,7 +77,7 @@ def test_a_refusal_the_replayed_code_swallows_still_voids_the_replay(tmp_path):
             return x <= 3
     ''', lambda fn: fn(1), axes={'x': [0, 4]})
     assert outcome is True and target.exists()
-    assert _unavailable(m, reading) == 'unsupported Try'
+    assert _unavailable(m, reading) == 'holds a try statement, which the sealed comparison does not run'
     assert target.read_text() == '' and reading.actual == ({'x': 1}, True)
 
 
@@ -117,7 +117,7 @@ def test_processes_files_threads_and_network_are_refused(tmp_path, statement, wh
     ''', lambda fn: fn(1), axes={'x': [0, 4]})
     assert outcome is True
     assert reading.actual == ({'x': 1}, True)
-    assert _unavailable(m, reading) == 'unsupported Import'
+    assert _unavailable(m, reading) == 'holds an import, which the sealed comparison does not run'
 
 
 def _hires(db_path):

@@ -235,6 +235,34 @@ def test_a_known_line_names_the_sites_this_change_touches_and_an_ask_entry_s_que
         'known.scale at prisma/schema.prisma:Entry.value, src/a.ts:read, src/b.ts:write'
 
 
+def test_a_known_line_of_an_entry_s_finding_names_the_finding_s_places_this_change_touches_and_counts_them():
+    """code-1 (5.0 docs review): `known.fee-copies`, whose finding `same:FEE` names fees.py:late_fee and
+    fees.py:preview_fee, said `known.fee-copies at fees.py:late_fee, fees.py:preview_fee` also for an edit of
+    preview_fee alone: the finding's places, never which of them the change touched, and no count. It now names the
+    places this change touches among the finding's places, a place being an entry site this change touches, with
+    their count as an entry's own sites are named; when it touches none of them (only the entry's site
+    fees.py:close), every place."""
+    places = ('fees.py:late_fee', 'fees.py:preview_fee')
+    copies = Issue('same:FEE', 2, 'short', 'text', 'step', files=frozenset({'fees.py'}), family='same', subject='same FEE',
+                   parts=(('|'.join(places), places, 'on (days=5): late_fee returns 4, preview_fee returns 6', 'decide'),))
+    sites = (*places, 'fees.py:close')
+    resolved = tuple((frozenset({'fees:' + site.partition(':')[2]}), frozenset()) for site in sites)
+    fees = Known('fee-copies', sites, 'The preview charges 3 per late day, the invoice 2', 'ask',
+                 ask='Which daily late fee is right, 2 or 3?', finding='same:FEE',
+                 nodes=frozenset(node for nodes, _ in resolved for node in nodes), resolved=resolved)
+
+    def known(*touched):
+        lines, _ = deliver([copies], touched_functions={'|'.join(places), *touched}, touched_files={'fees.py'}, known=[fees])
+        assert kinds(lines) == [('known', 'known.fee-copies', '|'.join(places))], lines
+        return lines[0].text, lines[0].places
+    assert known('fees:preview_fee') == ('known.fee-copies at fees.py:preview_fee (1 of 2 places): Which daily late fee is '
+                                         'right, 2 or 3?', ('fees.py:preview_fee',))
+    assert known('fees:late_fee', 'fees:preview_fee')[0] == ('known.fee-copies at fees.py:late_fee, fees.py:preview_fee: '
+                                                             'Which daily late fee is right, 2 or 3?')
+    assert known('fees:close') == ('known.fee-copies at fees.py:late_fee, fees.py:preview_fee: Which daily late fee is '
+                                   'right, 2 or 3?', places)
+
+
 def test_a_file_level_member_is_touched_through_the_findings_files():
     columns = issue('columns:db.sql~schema.prisma', 'columns', ('', 'db.sql:3'), files={'db.sql', 'schema.prisma'})
     assert deliver([columns], touched_functions={'m:f'}, touched_files=()) == ([], 0)

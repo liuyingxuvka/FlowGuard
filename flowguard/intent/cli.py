@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import ExitStack, closing
+import fnmatch
 import io
 import json
 import os
@@ -316,6 +317,9 @@ def _anchor_targets(index, references, graph=None):
     return sorted(found.values(), key=lambda a: (a.name, a.file, a.target_line, a.kind))
 
 
+AGREEMENT_KINDS = ('sensor', 'owner')      # the anchors a flowguard agreement comment makes: same (and ref), writers, together
+
+
 def _field_agreement(anchor):
     """Whether a source anchor is a writers or together agreement on a field: it marks no function."""
     return anchor.kind == 'owner' and not anchor.qual
@@ -368,7 +372,20 @@ def _copy_pointers(graph, index, anchors, homes, results, words, full):
             if old is None or rank(candidate) > rank(old):
                 candidates[candidate['id']] = candidate
     found = dict(candidates=sorted(candidates.values(), key=lambda row: (-row.get('score', 0), row['id'])))
-    return list(dict.fromkeys(lines)) + _candidate_lines(found, full, 'lead unbound candidate ')
+    return _unsearched(lines) + _candidate_lines(found, full, 'lead unbound candidate ')
+
+
+UNREAD_SITES = re.compile(r'copies not searched: the map reads no decision sites in (\S+) code')
+
+
+def _unsearched(reasons):
+    """The copy search's reasons, each once, those of the languages whose decision sites the map does not read as one
+    line that names them all (gate-6: `copies not searched: the map reads no decision sites in typescript and tsx
+    code` for an agreement on a TS and a TSX copy), where the first of them stood."""
+    languages = list(dict.fromkeys(found[1] for reason in reasons if (found := UNREAD_SITES.fullmatch(reason))))
+    named = ', '.join(languages[:-1]) + ' and ' + languages[-1] if len(languages) > 1 else ''.join(languages)
+    said = f'copies not searched: the map reads no decision sites in {named} code'
+    return list(dict.fromkeys(said if UNREAD_SITES.fullmatch(reason) else reason for reason in reasons))
 
 
 def _unmodelled(index, summary, *, root=None):
@@ -579,7 +596,7 @@ def _concerning(cfg, data, graph, index, query, *, path, node=None, anchored=(),
     (`owners.agreement_heads`) as `show_lines` spells them: for a PATH query those written there, otherwise those
     that name the query as a field or partner, as a writers or except= function, or as the function they mark, one
     named only through the last dotted part of such a function with that function (`(site path:symbol)`); the
-    agreements of the names in `anchored` (the query's own, which the ANCHOR or rule view lists whole) are left out.
+    agreements of the names in `anchored` (the query's own, which the anchor or rule view lists whole) are left out.
     Last the lines of the last run (`cache.read_last`) placed at the query's function (its node, the functions its
     name names) or file, one each with its kind, at most FINDINGS_SHOWN without `full` and a count of the others
     (that count is appended to the list `hidden` when one is given); a known line of that run is left out, its entry
@@ -782,7 +799,7 @@ def _unknown_model(graph, query):
             what += f', the nearest {noun + " " if noun != "field or column" else ""}is {model}.{near}'
     else:
         what = f'no Prisma model, database table, TS type or class {model}'
-    objects = len({(file, schema) for file, schema, _ in keys})
+    objects = len({(file, schema) for file, schema, *_ in keys})
     return (f'not on the map: {what}'
             + (f'; the zod keys {field} of {objects} schema object{"s" if objects != 1 else ""} are not listed, as a key matches by its name alone' if keys else '')
             + (f'; Prisma models with a field {field}: {", ".join(models)}' if models else ''))
@@ -1028,8 +1045,8 @@ def show(cfg, query=None, *, full=False, last=False):
                                                 symbol=name if site and target is None else None, full=full, hidden=hidden,
                                                 described=described)
         from .differences import display        # a known entry's words may hold what the console cannot show
-        if anchors:
-            print('ANCHOR ' + query)
+        if anchors:         # an anchor's view begins as every other view: its header and the map notice (gate-6)
+            print('\n'.join([f'show {query}', *([notice] if notice else [])]))
             if concerning:
                 display('\n'.join(concerning))
             print('\n'.join(pointers))
@@ -1052,9 +1069,10 @@ def show(cfg, query=None, *, full=False, last=False):
             view = show_observation(cfg, query, index, cache.observations(cfg).get('events', ()), model=model)
             if view['lines']:
                 print('\n'.join(view['lines']))
-            # A writers or together agreement is checked statically, by no model: no `not referenced` line for it.
+            # An agreement (`same`, `same NAME ref`, writers, together) is checked by the same-name comparison or
+            # statically, by no model: no `not referenced` line for it (gate-6).
             unused = set(_unmodelled(index, data['summary'], root=cfg.root)) & {
-                a.name for a in anchors if not _field_agreement(a)}
+                a.name for a in anchors if a.kind not in AGREEMENT_KINDS}
             if unused:print('info: not referenced by a current model: ' + ', '.join(sorted(unused)))
             from .differences import display
             if copies := _copy_pointers(graph, index, anchors, [], [], query, full):
@@ -1097,7 +1115,8 @@ def show(cfg, query=None, *, full=False, last=False):
             for issue in health.writers(change, index, written, listed=True).issues:
                 ranked.append((2001, _structure_line(cfg, issue)))
             ranked.extend((2001, line) for line in health.co_written(change, name, index))
-            ranked.extend((1998 - order, line) for order, line in enumerate(checks.field_lines(graph, name, written)))
+            ranked.extend((1998 - order, line) for order, line in enumerate(
+                checks.field_lines(graph, name, written, lambda files: _test_marks(cfg, files))))
         if any(row['name'] == name for row in graph.labels_read(graph.label_rows())):  # the family the block reports
             from . import health, owners as checks
             for issue in health.labels(checks.Change(cfg, graph, None), name).issues:
@@ -2281,12 +2300,11 @@ def _filtered_scripts(cfg, package, runner, name, launch, vm, vm_scripts=frozens
         if not calls:
             continue
         words = re.split(r'[:_-]', script.lower())
-        folders = [folder for call in calls for path in call.paths for folder in path.lower().split('/')]
         clear = [call for call in calls if call.clear]
         names = any(name in call.paths for call in clear)
         named = named or names
         runs = names or any(not call.paths or '' in call.paths for call in clear)
-        if any(part.startswith('integration') or part in _OTHER_SUITES for part in words + folders):
+        if _other_suite(script, calls):
             (excluded if runs else others).append(script)
             continue
         if 'watch' in words or 'debug' in words or any(call.watches or _DEBUGGER.search(call.text) for call in calls):
@@ -2336,8 +2354,9 @@ def _filtered_scripts(cfg, package, runner, name, launch, vm, vm_scripts=frozens
     return lines, min(runners)[1] if runners else None, excluded
 
 
-def _npm_check(cfg, package):
-    """Write the vitest (or, for a jest project, jest) test that runs `check --static`; returns what it did."""
+def _package_runner(package):
+    """(the package.json's data, its scripts as text, its test runner): 'vitest', or 'jest' for a jest project, as its
+    dependencies and its "test" script name them, None when neither its dependencies nor its scripts name either."""
     data = json.loads(package.read_text(encoding='utf-8-sig'))
     if not isinstance(data, dict):
         raise ValueError(f'{package}: package.json is not a JSON object')
@@ -2345,9 +2364,70 @@ def _npm_check(cfg, package):
     scripts = {name: str(command) for name, command in (data.get('scripts') or {}).items()}
     script = scripts.get('test', '')
     if not {'vitest', 'jest'} & set(named) and not any(re.search(r'\b(?:vitest|jest)\b', command) for command in scripts.values()):
+        return data, scripts, None
+    return data, scripts, 'jest' if ('jest' in named or 'jest' in script) and 'vitest' not in named and 'vitest' not in script \
+        else 'vitest'
+
+
+def _other_suite(script, calls):
+    """Is this test script an integration, end-to-end, database, smoke, acceptance, performance, load or benchmark
+    suite (real databases and services): a part of its name (split on : _ -) or a folder of a path one of its
+    `calls` runs (split on /) is one of `_OTHER_SUITES` or starts with `integration`?"""
+    words = re.split(r'[:_-]', script.lower())
+    folders = [folder for call in calls for path in call.paths for folder in path.lower().split('/')]
+    return any(part.startswith('integration') or part in _OTHER_SUITES for part in words + folders)
+
+
+def _test_marks(cfg, files):
+    """{file: words} of the test files `show Model.field` lists (`owners.field_lines`) that the project's test scope
+    leaves out, or that lie where its scripts run a suite that reaches real databases and services (gate-7: Planning
+    Tool's backend runs tests/integration only through its "test:integration" script): a Python file pytest's
+    configured scope does not take (`deps.test_scope`: testpaths, python_files, norecursedirs); a JS/TS file of an npm
+    package (`deps.npm_packages`, the nearest one holding it) in a folder or file a test script of that package runs
+    with its runner (`_package_runner`, `_runner_calls`) when that script is such a suite as init reads one
+    (`_other_suite`), and one the test.include and test.exclude of the package's vitest config leave out
+    (`vitest.static_test_runs`; nothing when init cannot read them). Any other file gets no words."""
+    from .deps import npm_packages, test_scope
+    from .vitest import static_test_runs
+    from ..structure.readers.registry import ECMA, language_for
+    in_scope, packages, marks = None, None, {}
+    for file in files:
+        said = []
+        if file.endswith('.py'):
+            in_scope = in_scope or test_scope(cfg)
+            if not in_scope(file):
+                said.append("left out of the test scope: pytest's testpaths, python_files and norecursedirs do not take it")
+        elif language_for(file) in ECMA:
+            packages = packages if packages is not None else sorted(
+                (package for package in npm_packages(cfg.root)), key=lambda package: -len(package.parent.parts))
+            package = next((package for package in packages if (cfg.root / file).is_relative_to(package.parent)), None)
+            if package is not None:
+                _, scripts, runner = _package_runner(package)
+                inside = (cfg.root / file).relative_to(package.parent).as_posix()
+                for script, command in scripts.items() if runner else ():
+                    calls = _runner_calls(command, runner) if _TEST_SCRIPT.fullmatch(script) else []
+                    runs = [path for call in calls for path in call.paths if path and (
+                        inside == path or inside.startswith(path + '/') or fnmatch.fnmatchcase(inside, path))]
+                    if runs and _other_suite(script, calls):
+                        said.append(f'a suite that reaches real databases and services: {cfg.rel(package)} script '
+                                    f'"{script}" runs {runs[0]}')
+                        break
+                # A package without a config runs vitest's defaults, which take every test file name: never False.
+                taken, config, _ = static_test_runs(package.parent, inside) if runner == 'vitest' else (True, None, ())
+                if taken is False:
+                    said.append(f'left out of the test scope: test.include and test.exclude of '
+                                f'{cfg.rel(package.parent / config)} do not take it')
+        if said:
+            marks[file] = '; '.join(said)
+    return marks
+
+
+def _npm_check(cfg, package):
+    """Write the vitest (or, for a jest project, jest) test that runs `check --static`; returns what it did."""
+    data, scripts, runner = _package_runner(package)
+    if runner is None:
         return (f'{cfg.rel(package)} names no test runner (vitest or jest in its dependencies or scripts): no FlowGuard '
                 'test is written there; the check of another package covers the whole repository.')
-    runner = 'jest' if ('jest' in named or 'jest' in script) and 'vitest' not in named and 'vitest' not in script else 'vitest'
     # jest loads a test as an ES module only under node's --experimental-vm-modules, and every test as CommonJS
     # without it, whatever the package's type: the test of a "type": "module" package is an ES module when a script
     # runs jest with that flag (in its own call, an earlier `export`/`set NODE_OPTIONS=` of the script, or a script

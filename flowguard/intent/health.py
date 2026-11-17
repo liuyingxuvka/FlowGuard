@@ -577,9 +577,9 @@ def writers(change, index, rows=None, *, listed=False):
                 if len({row['file'] for row in rows}) >= WRITER_FILES and name.casefold() not in owned}
 
     by_field = unowned(change.writes() if rows is None else rows)
-    then = {name: {row_function(row) for row in rows}
-            for name, rows in unowned(change.baseline_writes() if change.baseline_paths() else change.writes()).items()} \
+    before = unowned(change.baseline_writes() if change.baseline_paths() else change.writes()) \
         if by_field and rows is None and change.baseline else None
+    then = {name: {row_function(row) for row in rows} for name, rows in before.items()} if before is not None else None
     for name, rows in sorted(by_field.items(), key=lambda item: (-len({row['file'] for row in item[1]}), item[0])):
         files = {row['file'] for row in rows}
         # Each writer as a writers comment resolves it (`owners.position_spelling`): `path:object.method` for a method
@@ -596,11 +596,15 @@ def writers(change, index, rows=None, *, listed=False):
         for row in rows:
             members.setdefault(row_function(row), row)
         what = f'writes {name}, which {len(files)} files write without a writers agreement'
+        # What held at task start (code-2): the files that wrote it at the baseline, not with the writers this change
+        # adds. A field the baseline had no such problem of has only members this change added, which state no fact.
+        started = before[name] if before is not None and name in before else rows
         found.issues.append(Issue(f'writers:{name}', 6, f'write {name}', text, step,
                                   frozenset(row_function(row) for row in rows), frozenset(files),
                                   family='writers',
                                   subject=f'no writers agreement for {name}',
-                                  held=f'{name} has no writers agreement and {len(files)} files write it',
+                                  held=f'{name} has no writers agreement and '
+                                       f'{len({row["file"] for row in started})} files write it',
                                   parts=tuple((function, place(row), what, WRITER_STEP)
                                               for function, row in sorted(members.items())),
                                   fresh=frozenset(set(members) - then.get(name, set())) if then is not None else frozenset()))

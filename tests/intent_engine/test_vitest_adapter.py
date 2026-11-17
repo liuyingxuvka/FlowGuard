@@ -1667,11 +1667,11 @@ def test_a_known_site_is_touched_by_an_edit_of_its_text_and_not_by_an_edit_besid
     code, text = _vitest(root, vitest_home)       # beside it: nothing
     assert code == 0 and not [line for line in _block(text) if 'known.' in line], text
     fee.write_text('export function fee(days: number): number {\n  return days * 2;\n}\n', encoding='utf-8', newline='\n')
-    # The edited site of the two, then the entry's question; once the copies are compared, the two copies of the
-    # finding the entry names.
+    # The edited site of the two, then the entry's question; once the copies are compared, the finding the entry
+    # names gives the line: of its two copies the one this change edited, with their count (code-1).
     known = ('known: known.limit at a.ts:over (1 of 2 sites): which limit is right? -> an open question for the owner, '
              'not asked yet')
-    compared = known.replace('a.ts:over (1 of 2 sites)', 'a.ts:over, b.ts:enough')
+    compared = known.replace('a.ts:over (1 of 2 sites)', 'a.ts:over (1 of 2 places)')
     first = root / 'src/a.ts'
     original = first.read_text(encoding='utf-8')
     first.write_text(original + '\n// a note beside the copies\n', encoding='utf-8', newline='\n')
@@ -2535,8 +2535,8 @@ def test_a_known_entry_naming_same_name_copies_speaks_for_their_old_difference_a
     other.write_text(other.read_text().replace('days <= 3 || days === 91', 'days === 91 || days <= 3'))   # g's code, not its answers
     result, lines = _judged(tmp_path, records)
     assert [(line.kind, line.name, line.text, line.step) for line in lines if line.kind != 'not compared'] == [
-        ('known', 'known.limit', 'known.limit at src/a.ts:f, src/b.ts:g: which limit is right?',
-         'an open question for the owner, not asked yet')], lines
+        ('known', 'known.limit', 'known.limit at src/b.ts:g (1 of 2 places): which limit is right?',
+         'an open question for the owner, not asked yet')], lines        # the copy this change edited (code-1)
     path = tmp_path / 'src/a.ts'
     path.write_text(path.read_text().replace('<= 3', '<= 4'))
     result, lines = _judged(tmp_path, records)
@@ -2843,6 +2843,28 @@ def test_a_real_same_file_helper_named_number_does_not_replace_the_comparison_co
                          input=json.dumps([dict(source=source, fn='f', args=[5])]), capture_output=True,
                          text=True, check=True, timeout=30)
     assert json.loads(run.stdout) == [{'value': 15}], run.stdout + run.stderr
+
+
+def test_a_construct_the_sealed_comparison_does_not_run_is_named_in_words_in_its_reason():
+    """Planning Tool (5.0 gate, gate-7): a run that edited TimeRangeSelector said `not compared: TimeRangeSelector
+    (TimeRangeSelector.tsx:39) (unsupported jsx_element)`, the parser's node type. The reason names the construct in
+    words: a JSX element, an async function, a yield or a generator, `this`."""
+    from flowguard.intent.vitest import sealed_source
+    cases = {
+        'src/TimeRangeSelector.tsx': (b'const PRESETS = [{ key: "6m", label: "6 months" }];\n'
+                                      b'export function TimeRangeSelector({ value }: { value: string }) {\n'
+                                      b'  return (<div role="group">{PRESETS.map(({ key }) => <button key={key}>{value}</button>)}</div>);\n}\n',
+                                      'TimeRangeSelector', 'holds a JSX element'),
+        'src/Badge.tsx': (b'export function Badge() { return <span />; }\n', 'Badge', 'holds a JSX element'),
+        'src/load.ts': (b'export async function load(x: number) { return x; }\n', 'load', 'is async'),
+        'src/ids.ts': (b'export function* ids(x: number) { yield x; }\n', 'ids', 'holds a yield'),
+        'src/none.ts': (b'export function* none(x: number) { return x; }\n', 'none', 'is a generator'),
+        'src/self.ts': (b'export function own(this: any) { return this.value; }\n', 'own', 'reads this'),
+    }
+    for rel, (data, name, words) in cases.items():
+        source, reason = sealed_source(data, rel, name)
+        assert not source and reason == words + ', which the sealed comparison does not run', (rel, reason)
+        assert '_' not in reason, reason        # no parser node type (jsx_element, await_expression)
 
 
 def test_literal_arithmetic_uses_the_existing_folder_without_running_calls():

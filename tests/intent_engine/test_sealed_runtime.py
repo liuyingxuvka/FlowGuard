@@ -481,7 +481,7 @@ def test_a_decorated_function_is_not_compared_even_with_a_same_file_decorator():
 
 def test_a_generator_is_not_compared_even_when_a_helper_consumes_it():
     source = 'def numbers(n):\n    yield n\n    yield n + 1\ndef answer(n):\n    return sum(numbers(n))\n'
-    assert sealed(source, 'answer', [2], {}) == {'status': 'unavailable', 'reason': 'unsupported Yield'}
+    assert sealed(source, 'answer', [2], {}) == {'status': 'unavailable', 'reason': 'holds a yield, which the sealed comparison does not run'}
 
 
 @pytest.mark.parametrize('source', [

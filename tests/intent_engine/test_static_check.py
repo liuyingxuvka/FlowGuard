@@ -2430,6 +2430,11 @@ def test_a_change_that_touches_an_open_structure_problem_gets_one_lead(tmp_path)
     assert ('impact: no writers agreement for Job.status: cancel.py:cancel writes Job.status, which 4 files write without a '
             "writers agreement -> which functions should write it may be the owner's decision; name it in your report"
             in _block(text, everything=True)), text
+    # code-2: the old writers' before lines state what held at task start: 3 files wrote it then, not the 4 this change
+    # makes (`before: Job.status has no writers agreement and 4 files write it, close.py:close among them`).
+    assert [line for line in _block(text, everything=True) if line.startswith('before: ')] == [
+        f'before: Job.status has no writers agreement and 3 files write it, {name}.py:{name} among them; so at task start '
+        '-> leave it unless your task is about it' for name in ('close', 'hold', 'reopen')], text
 
 
 def test_a_comment_above_a_function_with_callbacks_does_not_touch_its_structure_problem(tmp_path):

@@ -152,10 +152,14 @@ def test_red_and_grey_cached_findings_remain_in_short_show(tmp_path,capsys,monke
 
 
 def test_unmodelled_anchor_is_an_information_pointer_not_a_failure(tmp_path,capsys):
+    """An anchor no rule names is no failure. A `same` agreement is compared without a model (gate-6: Planning Tool's
+    `show ISO_WEEKS_IN_YEAR` said `info: not referenced by a current model`), so its view says nothing of one; the
+    anchor is still among those no model references."""
     root=tmp_path/'project';root.mkdir();(root/'app.py').write_text(APP[:APP.index('# flowguard: same grace',1)])
     cfg=load_config(root)
     assert cli.show(cfg,'grace')==0
-    assert 'info: not referenced by a current model: grace' in capsys.readouterr().out
+    out=capsys.readouterr().out
+    assert out.startswith('show grace\n') and 'anchor grace -> ' in out and 'not referenced by a current model' not in out, out
     with closing(build(root,root/'outside-map.sqlite')) as graph:index=anchors.collect(graph)
     assert cli._unmodelled(index, cache.scan(cfg), root=cfg.root) == ['grace']
 

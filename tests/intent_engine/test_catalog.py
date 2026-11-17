@@ -847,10 +847,10 @@ def test_show_of_a_name_or_path_begins_with_the_known_entries_and_rules_that_con
     # after the entry with a site on the field, in either spelling of the field.
     for query in ('CapacityCalendarEntry.value', 'capacity_calendar_entries.value'):
         assert shown(query)[:4] == [f'show {query}', NOTICE, IGNORE, ASKED]
-    # The ANCHOR branch: the entry whose finding names the agreement, the rule anchored on it; its copies are the
-    # anchor lines that follow, not listed again.
+    # The anchor branch, under the header and the map notice every view has (gate-6): the entry whose finding names
+    # the agreement, the rule anchored on it; its copies are the anchor lines that follow, not listed again.
     lines = shown('ISO_WEEKS_IN_YEAR')
-    assert lines[:4] == ['ANCHOR ISO_WEEKS_IN_YEAR', LEAVE, RULE, CITED] and lines[4].startswith('anchor ISO_WEEKS_IN_YEAR -> '), lines
+    assert lines[:5] == ['show ISO_WEEKS_IN_YEAR', NOTICE, LEAVE, RULE, CITED] and lines[5].startswith('anchor ISO_WEEKS_IN_YEAR -> '), lines
     assert SAME not in lines
     # The module branch (a file, a folder, a document): every entry with a site there, the rules anchored there and the
     # flowguard comments written there; a document, which its header calls one, also lists the entries and rules.toml
@@ -1064,7 +1064,7 @@ def test_show_lists_the_flowguard_comment_agreements_that_concern_a_function_fil
         'module backend/src/services/employee-home-unit.service.ts: 1 file, 1 function', HOME_KNOWN, HOME]
     assert shown('backend/src/utils/calendar-iso.ts')[:2] == ['module backend/src/utils/calendar-iso.ts: 1 file, 1 function', SAME]
     assert shown('backend/src/services')[:5] == ['module backend/src/services/: 3 files, 5 functions', HOME_KNOWN, HOME, WRITERS, PSP]
-    # A field: every agreement that names it as its field or partner, in either spelling; the ANCHOR view of an
+    # A field: every agreement that names it as its field or partner, in either spelling; the anchor view of an
     # agreement's own field lists it once, as before.
     for query in ('Employee.organizationalUnitId', 'employees.organizational_unit_id'):
         assert shown(query)[:3] == [f'show {query}', AGREED_NOTICE, HOME], query

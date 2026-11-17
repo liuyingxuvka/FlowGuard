@@ -233,8 +233,7 @@ def sealed_source(data, rel, name, read=None, tables=None):
     # `x is T` and an assertion's `asserts x`, and type parameters and arguments
     omitted = {'type_annotation', 'type_predicate_annotation', 'asserts_annotation', 'type_parameters', 'type_arguments'}
     wrappers = {'as_expression', 'satisfies_expression', 'non_null_expression'}
-    forbidden = {'enum_declaration', 'internal_module', 'decorator', 'jsx_element', 'jsx_self_closing_element', 'meta_property',
-                 'accessibility_modifier', 'readonly', 'this', 'await_expression', 'yield_expression'}
+    forbidden = UNRUN_CONSTRUCTS
     def stripped(node):
         if node.type in omitted or (node.type == '?' and node.parent.type == 'optional_parameter'):
             return ''
@@ -297,7 +296,8 @@ def sealed_source(data, rel, name, read=None, tables=None):
             if shadowed:
                 return '', BINDING + shadowed[0]
             if function['is_async'] or 'generator' in node.type or bad:
-                return '', 'unsupported ' + (bad or 'async or generator')
+                said = UNRUN_CONSTRUCTS[bad] if bad else 'is a generator' if 'generator' in node.type else 'is async'
+                return '', said + ', which the sealed comparison does not run'
             code = stripped(node)
             pieces.append(code if function['form'] == 'function' else f'const {current} = {code};')
             pending.extend(text(child, source) for child in walk(node)
@@ -516,6 +516,14 @@ def _constants_changed(before, now, old_constants, new_constants):
 
 ABSENT = 'function absent at baseline'
 BINDING = 'uses imported or mutable binding '      # the reason `sealed_source` gives, then the binding's name
+# The constructs `sealed_source` does not run, by the parser's node type, and the words its reason names each by
+# (gate-7: a reason named the node type, `unsupported jsx_element`).
+UNRUN_CONSTRUCTS = {'enum_declaration': 'holds an enum', 'internal_module': 'holds a namespace',
+                    'decorator': 'holds a decorator', 'jsx_element': 'holds a JSX element',
+                    'jsx_self_closing_element': 'holds a JSX element', 'meta_property': 'reads new.target or import.meta',
+                    'accessibility_modifier': 'holds a public, private or protected modifier',
+                    'readonly': 'holds a readonly modifier', 'this': 'reads this', 'await_expression': 'holds an await',
+                    'yield_expression': 'holds a yield'}
 NO_BASELINE = 'no baseline'     # a copy's version at the baseline when the run has none to compare with
 
 
