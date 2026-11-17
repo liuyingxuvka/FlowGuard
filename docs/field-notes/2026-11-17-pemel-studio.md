@@ -352,3 +352,20 @@ boundary. Teams could register a narrow link from message descriptor producers
 to their existing catalogue checks. Preserve user-entered text as opaque. The
 tool can flag a missing installed-language key without storing document content
 or trying to translate it.
+
+## Put the test result beside instrumentation coverage
+
+An early global-window run exited with four failed tests and two fixture
+teardown errors. FlowGuard appended "0 red, 28 impact, 94 not compared". That
+line describes instrumented agreements. The ordinary pytest failures covered
+native widget visibility, a return command, and synthetic fixtures that had
+not met the normal persisted-input contract. The process exit and pytest
+summary were the evidence for the failing test run.
+
+Keep the independent counts and label them on the same line when the plugin
+has both outcomes. For example, show "pytest failed: 4 failures, 2 errors"
+next to "FlowGuard agreements: 0 red, 28 changed, 94 not compared". Save the
+pytest exit classification with the reading identity so a later
+`show --last` call can carry both. A two-test plugin fixture can reproduce
+an unobserved ordinary failure with zero changed red agreements, then
+assert that the final summary still identifies the run as failed.
