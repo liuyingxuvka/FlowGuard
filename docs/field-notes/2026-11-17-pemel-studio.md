@@ -233,3 +233,21 @@ pixel review can still catch missing paint when those geometric relationships
 hold. FlowGuard can bind the assertion and its reproduction route to the
 layout owner. Keep capture and measurement in the Qt harness, and store only
 small numeric observations and hashes in the agreement result.
+
+## Observe the state that was accepted after a confirmation
+
+The model picker and file import run a native confirmation between reading an
+item and saving it. The Step 9 tests changed the active project, changed the
+library, replaced a selected file, and changed the content behind an existing
+revision during that interval. The tests verify that confirmation rechecks the
+relevant identities and leaves both stores untouched on refusal. An ordinary
+successful add and a repeat add have separate assertions for their effects.
+
+FlowGuard can make this coverage visible through two named observation points
+in the existing test. At review time, record opaque identities for the owner
+and candidate. At confirmation, record which identities still match, whether
+the write happened, and whether the target state was preserved. Reuse the same
+check for modal dialogs and asynchronous document previews. Start with an
+explicit opt-in helper and a synthetic paired test. The report can flag a
+confirmed write after an identity change without needing paths, input bytes,
+native event replay, or project contents.
