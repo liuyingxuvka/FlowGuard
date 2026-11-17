@@ -2407,8 +2407,8 @@ def test_a_change_that_touches_an_open_structure_problem_gets_one_lead(tmp_path)
     assert code == 0 and _block(text) == [], text
     code, text = _static(tmp_path, '--all')
     assert code == 0 and _block(text, everything=True) == [
-        f'before: no writers agreement for Job.status at {name}.py:{name} was broken at task start -> leave it unless your task is about it'
-        for name in ('close', 'hold', 'reopen')], text
+        f'before: Job.status has no writers agreement and 3 files write it, {name}.py:{name} among them; so at task start '
+        '-> leave it unless your task is about it' for name in ('close', 'hold', 'reopen')], text
     # R99: a change that adds a writer is told once, at the new writer, by the line of the fields it now writes; the old
     # writers stay quiet.
     _write(tmp_path, {'shop/cancel.py': '''
@@ -2461,8 +2461,9 @@ def test_a_writers_agreement_on_an_open_writers_problem_leaves_the_writes_outsid
     # problem), what writes Job.status outside it was there at the baseline. 4.3 also read a [structure] decision on
     # the problem here; 5.0 reads none.
     _commit(tmp_path, WRITERS)
-    writers = [f'before: no writers agreement for Job.status at {name}.py:{name} was broken at task start -> leave it unless your task is '
-               'about it' for name in ('close', 'hold', 'reopen')]
+    # pt-smoke-3: a field without a writers agreement broke none; its before line states what held at task start.
+    writers = [f'before: Job.status has no writers agreement and 3 files write it, {name}.py:{name} among them; so at task '
+               'start -> leave it unless your task is about it' for name in ('close', 'hold', 'reopen')]
     code, text = _static(tmp_path, '--all')
     assert code == 0 and _block(text, everything=True) == writers, text
     close = tmp_path / 'shop/close.py'

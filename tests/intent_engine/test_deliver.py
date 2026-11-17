@@ -2,6 +2,8 @@
 
 Every case is a synthetic `health.Issue` or `sources.Known`; deliver reads no map, no Git and no file.
 """
+from dataclasses import replace
+
 import pytest
 
 from flowguard.intent import signals
@@ -139,6 +141,11 @@ def test_writers_findings_have_lines_of_their_own_only_with_everything():
     assert kinds(deliver([writers], touched_functions=(), touched_files=(), everything=True)[0]) == [
         ('before', 'writers:Order.status', 'm:g'), ('impact', 'writers:Order.status', 'm:f')]
     assert deliver([writers], touched_functions=(), touched_files=(), known=[entry('k', 'ignore', 'writers:Order.status')]) == ([], 2)
+    # pt-smoke-3: a field without a writers agreement broke none; its before line states what held at task start.
+    held = replace(writers, held='Order.status has no writers agreement and 2 files write it')
+    assert [line.text for line in deliver([held], touched_functions=(), touched_files=(), everything=True)[0]
+            if line.kind == 'before'] == ['Order.status has no writers agreement and 2 files write it, src/b.py:g among them; '
+                                          'so at task start']
 
 
 @pytest.mark.parametrize('act, step', [

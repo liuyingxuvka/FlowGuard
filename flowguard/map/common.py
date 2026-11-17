@@ -218,6 +218,21 @@ def normalize_newlines(data: bytes) -> bytes:
     return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
 
 
+# The byte order marks project text may start with, and the encoding each selects.
+TEXT_BOMS = ((b"\xef\xbb\xbf", "utf-8"), (b"\xff\xfe", "utf-16-le"), (b"\xfe\xff", "utf-16-be"))
+
+
+def decode_text(data: bytes) -> tuple[str, bytes, str]:
+    """(text, bom, encoding) of project text that FlowGuard reads and may write back, such as AGENTS.md and
+    CLAUDE.md: a BOM selects UTF-8 or UTF-16 (little or big endian, as Windows PowerShell 5.1's `>` writes it) and is
+    not part of the text; without one the bytes are UTF-8. `bom + text.encode(encoding)` gives the bytes back. Raises
+    UnicodeDecodeError for bytes that encoding cannot read (a Latin-1 file)."""
+    for bom, encoding in TEXT_BOMS:
+        if data.startswith(bom):
+            return data[len(bom):].decode(encoding), bom, encoding
+    return data.decode("utf-8"), b"", "utf-8"
+
+
 
 def literal_value(node, default=None):
     """The literal value of a Python syntax node or source text, or `default` when it is none: the one literal

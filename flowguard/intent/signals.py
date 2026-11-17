@@ -140,7 +140,10 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
     (changed, impact, loosened, not compared). Lines are unique by (kind, name, function), the first one kept.
     A part's place is one 'path:symbol' (the line reads `{subject}: {place} {what}`, before `{subject} at {place} was
     broken at task start`) or a tuple of them that `what` names itself (`{subject}: {what}`; before: `{subject}
-    disagreed at task start {what}` for same-name copies, `was broken at task start` otherwise).
+    disagreed at task start {what}` for same-name copies, `was broken at task start` otherwise). A finding that
+    breaks no agreement states its `held` fact instead (pt-smoke-3, a field several files write without a writers
+    agreement): `Job.status has no writers agreement and 4 files write it, cancel.py:cancel among them; so at task
+    start`.
     Pure: no map, no Git, no file."""
     touched_functions, touched_files = frozenset(touched_functions), frozenset(touched_files)
     entries = list(known)
@@ -188,7 +191,12 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
                         lines.append(Line('known', f'known.{entry.id}', function, f'known.{entry.id}' + (f' at {where}' if where else '')
                                           + _asked(entry), _known_step(entry), places, _known_detail(entry)))
                         said.add(entry.id)
-                if not speaking:
+                if not speaking and issue.held:     # a fact that held, not an agreement that was broken
+                    lines.append(Line('before', issue.name, function,
+                                      f'{issue.held}: {what}; so at task start' if many else
+                                      f'{issue.held}, {place} among them; so at task start' if place else
+                                      f'{issue.held}; so at task start', BEFORE_STEP, places, issue.detail))
+                elif not speaking:
                     lines.append(Line('before', issue.name, function,
                                       f'{issue.subject} {verb} {what}' if many else
                                       f'{issue.subject} at {place} {verb}' if place else f'{issue.subject} {verb}',

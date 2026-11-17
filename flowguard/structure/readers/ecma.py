@@ -194,14 +194,38 @@ def extract(root, rel, data, module, is_test):
             stack.extend(child.named_children)
         return result
 
+    def bound_names(pattern):
+        """The names a binding pattern binds (`logger`, `{ logger, a: b = 1 }`, `[x, ...rest]`, a parameter), its
+        types, default values and keys left out."""
+        names, stack = set(), [pattern]
+        while stack:
+            item = stack.pop()
+            if item is None or item.type == 'type_annotation':
+                continue
+            if item.type in ('identifier', 'shorthand_property_identifier_pattern'):
+                names.add(text(item, source))
+                continue
+            skip = [field(item, 'value') if item.type in ('required_parameter', 'optional_parameter') else None,
+                    field(item, 'right') if item.type in ('assignment_pattern', 'object_assignment_pattern') else None,
+                    field(item, 'key') if item.type == 'pair_pattern' else None]
+            stack.extend(child for child in item.named_children if not any(child == other for other in skip if other is not None))
+        return names
+
     def scoped_names(node):
+        """The names a function's own body binds besides its parameters, which hide an outer or imported name of
+        the same spelling there: its `const`, `let` and `var` names (destructured ones too), assigned names, a
+        `for (const x of ...)` variable and a `catch (x)` parameter; nested functions and classes left out."""
         names, stack = set(), list(node.named_children)
         while stack:
             child = stack.pop()
             if child.type in FUNCTIONS or child.type in CLASSES:
                 continue
             if child.type == 'variable_declarator' and (name := field(child, 'name')) is not None and (field(child, 'value') is None or field(child, 'value').type not in FUNCTIONS):
-                names.update(text(x, source) for x in [name, *name.named_children] if x.type in ('identifier', 'shorthand_property_identifier_pattern'))
+                names.update(bound_names(name))
+            if child.type == 'for_in_statement' and field(child, 'kind') is not None:
+                names.update(bound_names(field(child, 'left')))
+            if child.type == 'catch_clause' and field(child, 'parameter') is not None:
+                names.update(bound_names(field(child, 'parameter')))
             if child.type in ('assignment_expression','augmented_assignment_expression','update_expression'):
                 target=field(child,'left') or field(child,'argument')
                 if target and target.type=='identifier':
@@ -1061,24 +1085,27 @@ def extract(root, rel, data, module, is_test):
                                           **position(operand, source)))
 
     def const_table(value):
-        """({key: literal or None}, {key: the literal as the source spells it, None for any other value}) of a
-        module-level `const NAME = {...}` (also `as const`/`satisfies`), or None."""
+        """({key: literal or None}, {key: the literal as the source spells it, None for any other value}, whole) of a
+        module-level `const NAME = {...}` (also `as const`/`satisfies`), or None; `whole` is False when the object has a
+        member these leave out (a spread, a shorthand, a method, a computed key)."""
         value = unwrap(value)
         if value is None or value.type != 'object':
             return None
-        table, written = {}, {}
+        table, written, whole = {}, {}, True
         for pair in value.named_children:
-            if pair.type != 'pair':
+            if pair.type in COMMENTS:
                 continue
-            key = field(pair, 'key')
+            key = field(pair, 'key') if pair.type == 'pair' else None
             known, spelled = literal(key, source)
             name = str(spelled) if known else text(key, source) if key is not None and key.type == 'property_identifier' else None
-            if name is not None:
-                item = unwrap(field(pair, 'value'))
-                known, found = literal(item, source)
-                table[name] = found if known else None
-                written[name] = text(item, source) if known else None
-        return (table, written) if table else None
+            if name is None:
+                whole = False
+                continue
+            item = unwrap(field(pair, 'value'))
+            known, found = literal(item, source)
+            table[name] = found if known else None
+            written[name] = text(item, source) if known else None
+        return (table, written, whole) if table else None
 
     def option_list(value):
         """({key: label}, {key: the label as the source spells it}) of a module-level `const NAME = [{ value: 'K',
@@ -1130,7 +1157,9 @@ def extract(root, rel, data, module, is_test):
                         arg_names.append(text(pattern, source))
             elif (arg := field(node, 'parameter')) is not None:
                 arg_names.append(text(arg, source))
-            own_shadows = scoped_names(node) | ((set(parameters) | set(shadows)) - local_functions(node) - {name})
+            # A destructured parameter (`run({ logger })`) hides an outer name as a plain parameter does (K5-0).
+            destructured = set().union(*(bound_names(arg) for arg in params.named_children)) - set(arg_names) if params else set()
+            own_shadows = scoped_names(node) | destructured | ((set(parameters) | set(shadows)) - local_functions(node) - {name})
             body = field(node, 'body')
             header = source[node.start_byte:(body.start_byte if body else node.end_byte)].decode('utf-8')
             row = dict(qual=qual, kind=('interface' if node.type == 'interface_declaration' else 'enum' if node.type == 'enum_declaration' else 'class') if is_class else 'method' if cls else 'function',
@@ -1210,7 +1239,7 @@ def extract(root, rel, data, module, is_test):
         if node.type == 'variable_declarator' and not scope and field(node, 'name') is not None \
                 and field(node, 'name').type == 'identifier' and (table := const_table(field(node, 'value'))) is not None:
             out['const_tables'].append(dict(name=text(field(node, 'name'), source), file=rel, values=table[0],
-                                            written=table[1], **position(node, source)))
+                                            written=table[1], whole=table[2], **position(node, source)))
         if node.type == 'variable_declarator' and not scope and field(node, 'name') is not None \
                 and field(node, 'name').type == 'identifier' and (table := option_list(field(node, 'value'))):
             out['option_lists'].append(dict(name=text(field(node, 'name'), source), file=rel, values=table[0],

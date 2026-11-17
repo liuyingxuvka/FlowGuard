@@ -5,6 +5,7 @@ Each fixture commits its baseline and edits the working tree; the lines are `own
 through `signals.deliver` as lines already of their kind.
 """
 from contextlib import closing
+import re
 
 from flowguard.intent import anchors, owners, signals
 from flowguard.intent.config import load_config
@@ -764,6 +765,38 @@ def test_show_reads_every_check_of_a_zod_number_chain_zod_runs(tmp_path):
         f'zod key value in capacityListQuerySchema: 0 <= value ({personnel}:39)']
 
 
+PT_ZOD_PIPES = {
+    'backend/src/api/schemas/share.ts': "import { z } from 'zod';\nexport const fteShareSchema = z.number().max(2);\n",
+    'backend/src/api/schemas/allocation.schemas.ts': """import { z } from 'zod';
+import { fteShareSchema } from './share';
+
+const localShare = z.number().max(1);
+
+export const allocationImportSchema = z.object({
+  fteShare: z.coerce.number().min(0).pipe(fteShareSchema),
+}).strict();
+export const allocationDoubledSchema = z.object({
+  fteShare: z.number().min(0).pipe(z.transform((value: number) => value * 2)),
+}).strict();
+export const allocationLocalSchema = z.object({ fteShare: z.number().min(0).pipe(localShare) }).strict();
+""",
+}
+
+
+def test_a_pipe_into_a_schema_the_reader_cannot_read_keeps_the_key_s_bounds_and_names_the_pipe(tmp_path):
+    """K1-0 (2026-11): reading both schemas of `X.pipe(Y)` made a Y the reader cannot read (a schema imported from
+    another file, `z.transform(fn)`) drop the key's whole zod line, so `show` said nothing of the key's own bounds and
+    nothing of why. X's bounds stay and the line names the pipe as it names a transform: not read, it may reject
+    more; a pipe into a same-file const is still read."""
+    _commit(tmp_path, {'backend/prisma/schema.prisma': PT_ZOD_CHECKS_SCHEMA, **PT_ZOD_PIPES})
+    code, text = _flowguard(tmp_path, 'show', 'Assignment.fteShare')
+    allocation = 'backend/src/api/schemas/allocation.schemas.ts'
+    assert code == 0 and [line for line in text.splitlines() if line.startswith('zod')] == [
+        f'zod key fteShare in allocationImportSchema: 0 <= fteShare, and a pipe that is not read may reject more ({allocation}:7)',
+        f'zod key fteShare in allocationDoubledSchema: 0 <= fteShare, and a transform that is not read may reject more ({allocation}:10)',
+        f'zod key fteShare in allocationLocalSchema: 0 <= fteShare <= 1 ({allocation}:12)'], text
+
+
 def test_show_of_a_sql_table_reads_its_columns_as_the_columns_check_does(tmp_path):
     """Planning Tool shape (K1): a SQL-only table whose Prisma-generated SQLite migration rebuilds it
     (`CREATE TABLE "new_t"`, `DROP TABLE "t"`, `ALTER TABLE "new_t" RENAME TO "t"`) got `not on the map: database
@@ -813,6 +846,68 @@ export const bookingSchema = z.object({ note: z.number().min(0), fte_ratio: z.nu
     assert shown('capacity_bookings.legacy_code')[2] == (
         'not on the map: database table capacity_bookings has no column legacy_code; the zod keys legacy_code of 1 '
         'schema object are not listed, as a key matches by its name alone')
+
+
+PT_DEMAND_SCHEMA = """datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Demand {
+  id           String @id
+  pspElementId Int?   @map("psp_element_id")
+  hoursPlanned Float  @map("hours_planned")
+  @@map("demands")
+}
+"""
+PT_DEMAND_INIT = """CREATE TABLE "demands" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "psp_element_id" TEXT,
+    "planned_hours" REAL NOT NULL
+);
+"""
+
+
+def test_a_column_line_gives_the_type_the_migrations_leave_after_their_rebuilds(tmp_path):
+    """pt-smoke-1 (2026-11): on Planning Tool `show Demand.pspElementId` printed `column demands.psp_element_id TEXT
+    (backend/prisma/migrations/20260317073846_init/migration.sql:163, docs/database-history/.../migration.sql:163)`,
+    the init migration's type, although the SQLite rebuilds of 20260325091829_psp_element_int_ids (`CREATE TABLE
+    "new_demands"` ... `ALTER TABLE "new_demands" RENAME TO "demands"`) leave it INTEGER. A column line now gives the
+    type each description the columns check reads ends with, at its last declaration: the migrations folder as one,
+    a RENAME COLUMN keeping its type, and the archive under docs/ left out as that check leaves it out."""
+    rebuild = """-- RedefineTables
+PRAGMA foreign_keys=OFF;
+CREATE TABLE "new_demands" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "psp_element_id" INTEGER,
+    "planned_hours" REAL NOT NULL
+);
+INSERT INTO "new_demands" ("id", "psp_element_id", "planned_hours") SELECT "id", "psp_element_id", "planned_hours" FROM "demands";
+DROP TABLE "demands";
+ALTER TABLE "new_demands" RENAME TO "demands";
+PRAGMA foreign_keys=ON;
+"""
+    _commit(tmp_path, {
+        'backend/prisma/schema.prisma': PT_DEMAND_SCHEMA,
+        'backend/prisma/azure-sql-setup.sql': 'CREATE TABLE demands (\n  id NVARCHAR(36) NOT NULL,\n  psp_element_id INT NULL,\n'
+                                              '  hours_planned FLOAT NOT NULL\n);\n',
+        'backend/prisma/migrations/20260317073846_init/migration.sql': PT_DEMAND_INIT,
+        'backend/prisma/migrations/20260325091829_psp_element_int_ids/migration.sql': rebuild,
+        'backend/prisma/migrations/20260401090000_rename_hours/migration.sql':
+            'ALTER TABLE "demands" RENAME COLUMN "planned_hours" TO "hours_planned";\n',
+        'docs/database-history/main-a956b33f/backend/prisma/migrations/20260317073846_init/migration.sql': PT_DEMAND_INIT,
+    })
+
+    def columns(query):
+        code, text = _flowguard(tmp_path, 'show', query)
+        assert code == 0, text
+        return [line for line in text.splitlines() if line.startswith('column ')]
+    assert columns('Demand.pspElementId') == [
+        'column demands.psp_element_id INT (backend/prisma/azure-sql-setup.sql:3)',
+        'column demands.psp_element_id INTEGER (backend/prisma/migrations/20260325091829_psp_element_int_ids/migration.sql:5)']
+    assert columns('Demand.hoursPlanned') == [
+        'column demands.hours_planned FLOAT (backend/prisma/azure-sql-setup.sql:4)',
+        'column demands.hours_planned REAL (backend/prisma/migrations/20260401090000_rename_hours/migration.sql:1)']
 
 
 def test_the_anchor_view_of_a_field_its_known_model_lacks_says_so_before_its_facts(tmp_path):
@@ -1429,8 +1524,9 @@ def test_show_of_a_label_table_prints_its_keys_and_the_finding_its_family_has(tm
         'frontend/src/components/shared/PlanningTimeControls.tsx:1 GRANULARITY_OPTIONS, '
         'frontend/src/components/calendars/AbsenceCalendarCard.tsx:2 GRANULARITY_TO_INTERVAL: GRANULARITY_TO_INTERVAL lacks YEAR -> '
         "derive these tables from one source, or add the missing keys; whether the differences are meant (abbreviations or "
-        "another purpose) is the owner's decision; if they are, python -m flowguard known add "
-        'labels:frontend/src/components/employee-utilization/UtilizationToolbar.tsx:GRANULARITY_OPTIONS --act leave --why TEXT records that',
+        "another purpose) is the owner's decision; if they are, after python -m flowguard check --static --all, python -m "
+        'flowguard known add labels:frontend/src/components/employee-utilization/UtilizationToolbar.tsx:GRANULARITY_OPTIONS '
+        '--act leave --why TEXT records that',
         '... 2 more lines, 1 of them only shares a word with GRANULARITY_OPTIONS: python -m flowguard show '
         'GRANULARITY_OPTIONS --full lists them all'], lines
     assert any(line.endswith('translateEditsToNewGranularity frontend/src/components/employee-utilization/EmployeeUtilizationView.tsx:1')
@@ -1448,12 +1544,22 @@ def test_show_of_a_label_table_prints_its_keys_and_the_finding_its_family_has(tm
         "'Mgmt' (ROLE_LABELS (PermissionMatrix.tsx:2)); SYSTEM_ADMIN 'Sys Admin' (ROLE_LABELS (PermissionMatrix.tsx:2)) versus "
         "'System Admin' (ROLE_LABELS (ScopeMatrix.tsx:1)); TEAM_LEADER 'Team Lead' (ROLE_LABELS (PermissionMatrix.tsx:2)) versus "
         "'Team Leader' (ROLE_LABELS (ScopeMatrix.tsx:1)) -> derive these tables from one source, or align their labels; whether "
-        "the differences are meant (abbreviations or another purpose) is the owner's decision; if they are, python -m flowguard "
-        'known add labels:frontend/src/components/admin/PermissionMatrix.tsx:ROLE_LABELS --act leave --why TEXT records that']
-    code, text = _flowguard(tmp_path, 'check', '--static', '--all')
-    assert [line.partition(' was ')[0] for line in text.splitlines() if ' labels ' in line] == [
+        "the differences are meant (abbreviations or another purpose) is the owner's decision; if they are, after python -m "
+        'flowguard check --static --all, python -m flowguard known add labels:frontend/src/components/admin/PermissionMatrix.tsx:'
+        'ROLE_LABELS --act leave --why TEXT records that']
+    # pt-smoke-5: after an ordinary run, which reports no old finding (R99), `known add` alone failed with `the last run
+    # reported no labels:...`; the step's two commands, in order, record it.
+    assert _flowguard(tmp_path, 'check', '--static')[0] == 0
+    step = shown('ROLE_LABELS')[-1].partition(' if they are, after ')[2].removesuffix(' records that')
+    run, _, record = step.partition(', ')
+    assert run == 'python -m flowguard check --static --all' and record.startswith('python -m flowguard known add '), step
+    code, text = _flowguard(tmp_path, *run.split()[3:])
+    assert code == 0 and [line.partition(' was ')[0] for line in text.splitlines() if ' labels ' in line] == [
         'before: labels ROLE_LABELS at PermissionMatrix.tsx:ROLE_LABELS',
         'before: labels GRANULARITY_OPTIONS at UtilizationToolbar.tsx:GRANULARITY_OPTIONS'], text
+    code, text = _flowguard(tmp_path, *record.replace('TEXT', 'abbreviations-for-the-matrix').split()[3:])
+    assert code == 0 and 'labels:frontend/src/components/admin/PermissionMatrix.tsx:ROLE_LABELS' in (
+        tmp_path / '.flowguard/known.toml').read_text(encoding='utf-8'), text
 
 
 
@@ -1597,6 +1703,44 @@ export const cookieOptions = {
     assert [line for line in shown('PROJECT_STATUS_LABELS') if line.startswith('table ')] == [
         'table PROJECT_STATUS_LABELS: ACTIVE "Active", ON_HOLD "On hold", CLOSED \'Closed\', DRAFT \'Owner\\\'s draft\' '
         '(frontend/src/components/projects/ProjectStatusBadge.tsx:1)']
+
+
+def test_show_prints_a_module_object_whose_values_are_all_literals_as_a_const_line(tmp_path):
+    """pt-smoke-2 (2026-11): on Planning Tool `show HOURS_PER_PERIOD` said nothing of what it holds, though
+    frontend/src/constants/capacity.ts:18 is `export const HOURS_PER_PERIOD: Record<Granularity, number> = { DAY: 8,
+    WEEK: 40, MONTH: 160, YEAR: 1920 }` and known.hours-constants is about exactly these values: only the tables the
+    labels check reads gave a line. A module-level object whose every value is a literal now prints its value as a const
+    line, as the source spells it; one with another value or a member the reader leaves out (a spread) prints nothing,
+    and a label table keeps its table line alone."""
+    _commit(tmp_path, {
+        'frontend/src/constants/capacity.ts': """import type { Granularity } from '../types/employee-utilization.types';
+
+/** Baseline working hours per granularity period (8 h/day, 40 h/week, 160 h/month). */
+export const HOURS_PER_PERIOD: Record<Granularity, number> = {
+  DAY: 8,
+  WEEK: 40,
+  MONTH: 160,
+  YEAR: 1920,
+};
+
+export const DEFAULT_FILTERS = { showInactive: false, unit: null, label: 'All units' };
+const BASE_HOURS = { DAY: 8 };
+export const EXTENDED_HOURS = { ...BASE_HOURS, WEEK: 40 };
+export const PERIOD_HOURS = { DAY: HOURS_PER_PERIOD.DAY, WEEK: 40 };
+export const PERIOD_LABELS: Record<Granularity, string> = { DAY: 'Day', WEEK: 'Week', MONTH: 'Month' };
+""",
+    })
+    def shown(name):
+        code, text = _flowguard(tmp_path, 'show', name)
+        assert code == 0, text
+        return [line for line in text.splitlines() if line.startswith(('const ', 'table ', 'not on the map'))]
+    assert shown('HOURS_PER_PERIOD') == [
+        'const HOURS_PER_PERIOD = { DAY: 8, WEEK: 40, MONTH: 160, YEAR: 1920 } (frontend/src/constants/capacity.ts:4)']
+    assert shown('DEFAULT_FILTERS') == [
+        "const DEFAULT_FILTERS = { showInactive: false, unit: null, label: 'All units' } (frontend/src/constants/capacity.ts:11)"]
+    assert shown('EXTENDED_HOURS') == [] and shown('PERIOD_HOURS') == []
+    assert shown('PERIOD_LABELS') == [
+        "table PERIOD_LABELS: DAY 'Day', WEEK 'Week', MONTH 'Month' (frontend/src/constants/capacity.ts:15)"]
 
 
 KNOWN_TABLES = """[known.role-abbreviations]
@@ -2121,6 +2265,115 @@ def test_show_says_in_one_line_when_the_map_knows_no_such_name_and_names_the_nea
         assert not [line for line in _shown_lines(tmp_path, query) if line.startswith('not on the map')], query
 
 
+PT_HOLDERS = {
+    'backend/src/services/lending.service.ts': """import { prisma } from '../lib/prisma';
+
+const LENDING_LIMIT = 1;
+
+/** Lending of employees between units. */
+export const lendingService = {
+  /** Every lending of an employee. */
+  async listLendings(employeeId: string) {
+    return prisma.lending.findMany({ where: { employeeId } });
+  },
+  async createLending(employeeId: string, share: number) {
+    return prisma.lending.create({ data: { employeeId, share } });
+  },
+  async endLending(id: string) {
+    return prisma.lending.update({ where: { id }, data: { endDate: new Date() } });
+  },
+  async extendLending(id: string, endDate: Date) {
+    return prisma.lending.update({ where: { id }, data: { endDate } });
+  },
+  async removeLending(id: string) {
+    return prisma.lending.delete({ where: { id } });
+  },
+};
+""",
+    'backend/src/services/import.service.ts': """export class ImportService {
+  constructor(private readonly limit: number) {}
+
+  async commitProjects(rows: string[]) {
+    return rows.length <= this.limit;
+  }
+}
+""",
+}
+
+
+PT_CALENDAR_WRITERS = {
+    'backend/prisma/schema.prisma': PT_CAPACITY['backend/prisma/schema.prisma'],
+    'backend/src/services/capacity.service.ts': PT_CAPACITY['backend/src/services/capacity.service.ts'],
+    'backend/src/services/employee-utilization.service.ts': """export const employeeUtilizationService = {
+  async batchSaveUtilization(prisma: any, rows: any[]) {
+    const persist = async (row: any) => prisma.capacityCalendarEntry.create({ data: { id: row.id, value: row.value } });
+    for (const row of rows) {
+      await persist(row);
+    }
+  },
+};
+""",
+    'backend/src/services/migration.service.ts': """export async function importPersonnelCapacityEntries(prisma: any, rows: any[]) {
+  return prisma.capacityCalendarEntry.createMany({ data: rows.map((row) => ({ id: row.id, value: row.value })) });
+}
+""",
+    'backend/src/services/import.service.ts': """export class ImportService {
+  async commitCapacity(prisma: any, id: string, value: number) {
+    return prisma.capacityCalendarEntry.update({ where: { id }, data: { value } });
+  }
+}
+""",
+}
+
+
+def test_the_writers_comment_a_structure_line_suggests_is_one_the_check_reads(tmp_path):
+    """pt-smoke-0 (2026-11): `show CapacityCalendarEntry.value` on Planning Tool suggested `// flowguard: writers
+    CapacityCalendarEntry.value backend/src/services/capacity.service.ts:updateCalendarEntry,...`; pasted unchanged,
+    `check --static` gave `1 red: ... cannot resolve typescript/backend/src/services/capacity.service.ts:
+    updateCalendarEntry to one declared function`, as updateCalendarEntry is a method of the object literal
+    capacityService. The step now spells each writer as the comment reader resolves it (`path:object.method`, a class's
+    `path:Class.method`, a nested function as declared), and the suggested comment, pasted, gives 0 red."""
+    _commit(tmp_path, PT_CALENDAR_WRITERS)
+    code, text = _flowguard(tmp_path, 'show', 'CapacityCalendarEntry.value')
+    [line] = [line for line in text.splitlines() if line.startswith('structure: ')]
+    comment = re.search(r'write (// flowguard: writers \S+ \S+) with only', line)[1]
+    assert comment == (
+        '// flowguard: writers CapacityCalendarEntry.value '
+        'backend/src/services/capacity.service.ts:capacityService.updateCalendarEntry,'
+        'backend/src/services/employee-utilization.service.ts:batchSaveUtilization.persist,'
+        'backend/src/services/import.service.ts:ImportService.commitCapacity,'
+        'backend/src/services/migration.service.ts:importPersonnelCapacityEntries'), line
+    capacity = tmp_path / 'backend/src/services/capacity.service.ts'
+    capacity.write_text(comment + '\n' + capacity.read_text(encoding='utf-8'), encoding='utf-8')
+    code, text = _flowguard(tmp_path, 'check', '--static')
+    assert code == 0 and ' 0 red' in text.splitlines()[0] and not [line for line in text.splitlines()
+                                                                  if line.startswith('red')], text
+
+
+def test_show_of_an_object_or_class_that_holds_methods_names_it_its_place_and_its_methods(tmp_path):
+    """K3-0 (2026-11): on Planning Tool `show capacityService` and `show employeeService` said `not on the map: no
+    function, class, ... is named capacityService`, though `export const capacityService = {` holds the methods
+    that `show capacityService.updateCalendarEntry` finds. An object literal or a class that holds methods is a name the
+    map knows: one line names it, its place and its methods, before the word matches."""
+    _commit(tmp_path, {**PT_CAPACITY, **PT_HOLDERS})
+    lines = _shown_lines(tmp_path, 'capacityService')
+    assert lines[2:4] == [
+        'object capacityService (backend/src/services/capacity.service.ts:1): 2 methods: updateCalendarEntry, '
+        'listCalendarEntries (python -m flowguard show capacityService.METHOD prints one)',
+        '... 20 more lines, 19 of them only share a word with capacityService: python -m flowguard show capacityService '
+        '--full lists them all'], lines
+    lines = _shown_lines(tmp_path, 'lendingService')
+    assert lines[2] == ('object lendingService (backend/src/services/lending.service.ts:6): 5 methods: listLendings, '
+                        'createLending, endLending and 2 more (python -m flowguard show lendingService.METHOD prints one)'), lines
+    assert not [line for line in lines if line.startswith(('not on the map', 'word matches'))], lines
+    assert _shown_lines(tmp_path, 'lendingService', '--full')[2].startswith(
+        'object lendingService (backend/src/services/lending.service.ts:6): 5 methods: listLendings, createLending, '
+        'endLending, extendLending, removeLending (')
+    lines = _shown_lines(tmp_path, 'ImportService')
+    assert ('class ImportService (backend/src/services/import.service.ts:1): 2 methods: constructor, commitProjects '
+            '(python -m flowguard show ImportService.METHOD prints one)') in lines, lines
+
+
 def test_the_count_show_gives_without_full_is_what_full_adds(tmp_path):
     """Planning Tool (5.0 re-review, pt-rereview-3): `show CapacityCalendarEntry.value` ended `... 67 more lines`, but
     --full printed 1048 lines more: the count left out the names that wait for --full and counted their own line as
@@ -2156,11 +2409,11 @@ def test_the_count_show_gives_without_full_is_what_full_adds(tmp_path):
                          'Employee.email --full lists them all'), lines
     # the last run's count line cut away: --full adds its lines too
     code, text = _flowguard(tmp_path, 'check', '--static', '--all')
-    assert code == 0 and 'no writers agreement for Employee.email at employee.service.ts:update' in text, text
+    assert code == 0 and 'Employee.email has no writers agreement and 3 files write it, employee.service.ts:update among them' in text, text
     lines, full, count = counted('employeeService.update')
-    assert lines[2:5] == [f'before (last run): no writers agreement for Employee.{field} at '
-                          'backend/src/services/employee.service.ts:update was broken at task start -> leave it unless your '
-                          'task is about it' for field in ('email', 'endDate', 'firstName')], lines
+    assert lines[2:5] == [f'before (last run): Employee.{field} has no writers agreement and 3 files write it, '
+                          'backend/src/services/employee.service.ts:update among them; so at task start -> leave it unless '
+                          'your task is about it' for field in ('email', 'endDate', 'firstName')], lines
     assert count == len(full) - 5 == 12, (lines, full)
     # shown, it counts its own lines: the last line counts the rest
     (tmp_path / 'pyproject.toml').write_text('[tool.flowguard]\nscreen_lines = 9\n', encoding='utf-8')

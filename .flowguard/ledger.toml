@@ -210,6 +210,11 @@ count = 2
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
+["flowguard/intent/cli.py:_stale_rules:ValueError"]
+count = 1
+reason = "AGENTS.md or CLAUDE.md is neither UTF-8 nor UTF-16 text with its BOM: the brief prints one line naming the file and the decoder's own error text and says its FlowGuard rules block is not compared, instead of ending new-task with exit 2; init reading the same file still fails with that text."
+rule = { file = "AGENTS.md", text = "when a step fails, the error reaches the caller or is reported with its text" }
+
 ["flowguard/intent/cli.py:main:(ValueError, MapError, OSError)"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"

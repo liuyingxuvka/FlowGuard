@@ -689,6 +689,56 @@ def test_a_member_call_on_an_imported_object_connects_the_module_that_defines_th
     code, text = _static(tmp_path)
     assert code == 0 and [line for line in _block(text) if 'audit.md' in line] == [], text
 
+
+def test_a_destructured_parameter_or_a_loop_variable_that_hides_the_import_counts_no_call(tmp_path):
+    """K5-0 (2026-11): a plain parameter named logger hid the import, but `run({ logger })` and `for (const logger of
+    loggers)` still counted `logger.info(...)` as a call into logger.ts, and `run({ info })` or `for (const info of
+    all)` counted `info(...)` as a call of the imported function. Each binds a name of its own there, as a parameter
+    does, so it counts nothing; a call of the real import still counts."""
+    from tests.intent_engine.test_static_check import _flowguard
+    _commit(tmp_path, {
+        'backend/package.json': '{"name": "backend", "type": "module"}\n',
+        'backend/src/utils/logger.ts': PT_LOGGER,
+        'backend/src/utils/log.ts': 'export function info(message: string) {\n  return message.length;\n}\n',
+        'backend/src/services/destructured.ts': """import { logger } from '../utils/logger.js';
+import { info } from '../utils/log.js';
+
+export function run({ logger, info }: { logger: Console; info: (m: string) => number }) {
+  logger.info('x');
+  return info('x');
+}
+""",
+        'backend/src/services/forof.ts': """import { logger } from '../utils/logger.js';
+import { info } from '../utils/log.js';
+
+export function run(loggers: Console[], all: ((m: string) => number)[]) {
+  for (const logger of loggers) {
+    logger.info('x');
+  }
+  for (const [, { info }] of all.entries().map((item) => [0, { info: item[1] }])) {
+    info('x');
+  }
+  try {
+    return 0;
+  } catch (logger) {
+    return logger.info('x');
+  }
+}
+""",
+        'backend/src/services/real.ts': """import { logger } from '../utils/logger.js';
+import { info } from '../utils/log.js';
+
+export function run() {
+  logger.info('x');
+  return info('x');
+}
+""",
+    })
+    for path in ('backend/src/utils/logger.ts', 'backend/src/utils/log.ts'):
+        code, out = _flowguard(tmp_path, 'show', path)
+        assert code == 0 and [line for line in out.splitlines() if line.startswith('called by ')] == [
+            'called by backend/src/services/real.ts (1 call)'], out
+
 PT_SQL_SCHEMA = '''datasource db {
   provider = "sqlserver"
   url      = env("DATABASE_URL")

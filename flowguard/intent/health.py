@@ -51,6 +51,8 @@ class Issue:
                                  # place 'path:symbol' (or 'path:line') relative to the repository
     fresh: frozenset = frozenset()   # the members' functions absent from the baseline result: this change added them
     detail: tuple = ()           # further lines only `show --last` and `show NAME` print
+    held: str = ''               # a fact a before line states as already true at task start, for a finding that breaks
+                                 # no agreement ('Job.status has no writers agreement and 4 files write it')
 
 
 def _findings():
@@ -560,7 +562,7 @@ def writers(change, index, rows=None, *, listed=False):
     writes read (show of one field). A member (a function writing it) is new when the baseline code had no such
     issue or that function did not write it then. `listed`: the view lists each write below the issue (`show
     Model.field`), so its text counts the places instead of naming them again."""
-    from .owners import place, row_function
+    from .owners import place, position_spelling, row_function
     found = _findings()
     found.ran.add('writers')
     owned = {anchor.name.casefold() for anchor in index.entries if anchor.kind == 'owner'}
@@ -580,7 +582,9 @@ def writers(change, index, rows=None, *, listed=False):
         if by_field and rows is None and change.baseline else None
     for name, rows in sorted(by_field.items(), key=lambda item: (-len({row['file'] for row in item[1]}), item[0])):
         files = {row['file'] for row in rows}
-        functions = list(dict.fromkeys(f'{row["file"]}:{row["function"]}' for row in rows))
+        # Each writer as a writers comment resolves it (`owners.position_spelling`): `path:object.method` for a method
+        # of an object literal or class, so the comment the step gives is one the check reads (pt-smoke-0).
+        functions = list(dict.fromkeys(position_spelling(change.graph, row_function(row)) for row in rows))
         places = dict.fromkeys(f'{row["file"]}:{row["line"]}' for row in rows)
         text = (f'{name} is written by {len(files)} files in {len(places)} places without a registered writer '
                 'agreement (the writes lines below list them)') if listed else \
@@ -596,6 +600,7 @@ def writers(change, index, rows=None, *, listed=False):
                                   frozenset(row_function(row) for row in rows), frozenset(files),
                                   family='writers',
                                   subject=f'no writers agreement for {name}',
+                                  held=f'{name} has no writers agreement and {len(files)} files write it',
                                   parts=tuple((function, place(row), what, WRITER_STEP)
                                               for function, row in sorted(members.items())),
                                   fresh=frozenset(set(members) - then.get(name, set())) if then is not None else frozenset()))

@@ -2143,6 +2143,14 @@ def _spelled(graph, module, position, *, path=False):
     return declared if own == module and not path else f'{file}:{declared}'
 
 
+def position_spelling(graph, position):
+    """A map function (`module:qual`) as a step that tells the agent to write a writers or together comment spells it:
+    its file and the name a comment's position resolves to it by (`_spelled` with its path, `anchors._declared_name`:
+    `backend/src/services/capacity.service.ts:capacityService.updateCalendarEntry` for a method of an object literal
+    or class, a Python function's qual)."""
+    return _spelled(graph, None, position, path=True)
+
+
 def _pair_fix(graph, owner, pairs):
     """The fix line `show_lines` prints after the writes that miss a partner (`pairs`, as the agreement spells them)."""
     scope = {'update': ' (the agreement holds updates only)', 'create': ' (the agreement holds creates only)'}.get(owner.on, '')
@@ -2345,13 +2353,17 @@ def declaration_lines(graph, name):
     object key of the field's name (`zod_bounds`; only for a model the map knows, `model_known`, and not for a field
     its Prisma models, SQL tables and TS types lack, `field_absent`) and its value sets (`value_sets_named`: an enum
     of a schema in use, a CHECK, a TS type, then the enum of each Prisma schema not in use that types the field); for
-    a bare name, the value of a JS/TS module-level literal constant, an array of literals too (a Python, C, C++ or C#
-    module constant gives none: their rows name a field), the members of each value set declared under that name (a
-    JS/TS set, a Prisma enum) and the keys and labels of each JS/TS table of that name the labels check reads
-    (`MapHandle.labels_read`; another module-level object gives no line), each label as the source spells it. A value
-    set, constant or table only test files declare is left out (`is_test_file`); a CHECK that code builds as a string
-    and runs (`$executeRawUnsafe`) is not read: only `.sql` files give ranges and CHECK sets."""
+    a bare name, the value of a JS/TS module-level literal constant, an array of literals too, and of a module-level
+    object whose every value is a literal and that no labels or values line shows (`const HOURS_PER_PERIOD = { DAY: 8,
+    WEEK: 40 }`; a Python, C, C++ or C# module constant gives none: their rows name a field), the members of each value
+    set declared under that name (a JS/TS set, a Prisma enum) and the keys and labels of each JS/TS table of that name
+    the labels check reads (`MapHandle.labels_read`; another module-level object gives no line), each label as the
+    source spells it. A value set, constant or table only test files declare is left out (`is_test_file`); a CHECK that
+    code builds as a string and runs (`$executeRawUnsafe`) is not read: only `.sql` files give ranges and CHECK sets. A
+    column line gives the type each SQL description (`sql.describe`, as the columns check reads them: a file, or a
+    Prisma migrations folder as its migrations leave it, archives left out) ends with, at its last declaration."""
     import json
+    from ..structure.readers.sql import describe
 
     lines = []
     model, dot, field = name.partition('.')
@@ -2370,15 +2382,18 @@ def declaration_lines(graph, name):
                         columns.setdefault('', set()).add((column.get('column') or field).casefold())
         wanted = columns.get('', set()) | {field.casefold()}
         sql, bounded = {}, {}
+        # Each SQL description's column as the columns check reads it (`sql.describe` of the files that are not
+        # `archived`): the type its last declaration gives, a migrations folder's rebuilds applied (pt-smoke-1).
+        for description in describe([schema for schema in graph.schemas() if not graph.archived(schema['file'])]):
+            for key, table in description['tables'].items():
+                if key in tables:
+                    for column, last in table['declared'].items():
+                        if column in wanted:
+                            sql.setdefault(f'{table["name"]}.{table["columns"][column]} {last["type"] or "(no type)"}',
+                                           []).append(f'{last["file"]}:{last["line"]}')
         for schema in graph.schemas():
             if schema['kind'] != 'sql':
                 continue
-            for table in schema.get('tables', ()):
-                if table['name'].casefold() in tables:
-                    for column in table.get('columns', ()):
-                        if column['name'].casefold() in wanted:
-                            sql.setdefault(f'{table["name"]}.{column["name"]} {column.get("type") or "(no type)"}', []).append(
-                                f'{schema["file"]}:{column["line"]}')
             for item in [*schema.get('tables', ()), *schema.get('changes', ())]:
                 if (item.get('name') or item.get('table') or '').casefold() in tables:
                     for bound in item.get('ranges', ()):
@@ -2405,11 +2420,21 @@ def declaration_lines(graph, name):
             constants.setdefault(json.dumps(row['value'], ensure_ascii=False), []).append(f'{row["file"]}:{row["line"]}')
     # The tables the labels check reads, their labels as the source spells them; a `{K: 'V'} as const` code object
     # is a value set: its values line only.
+    labelled = set()
     for row in graph.labels_read(graph.label_rows()):
         if row['name'] == name and (row['file'], row['line']) not in declared_at and not is_test_file(row['file']):
             labels = ', '.join(f'{key} {_spelled_value(row["written"][key])}' for key in row['values'])
             tables.setdefault(labels, []).append(f'{row["file"]}:{row["line"]}')
-    lines.extend(f'const {name} = {value} ({_where(places)})' for value, places in constants.items())
+            labelled.add((row['file'], row['line']))
+    # Another module-level object whose every value is a literal is a constant (pt-smoke-2: HOURS_PER_PERIOD), as the
+    # source spells it; one with any other value, or a member the reader leaves out, prints nothing.
+    objects = {}
+    for row in graph.label_rows():
+        if row['kind'] == 'const_tables' and row['name'] == name and row['whole'] and None not in row['written'].values() \
+                and not is_test_file(row['file']) and (row['file'], row['line']) not in declared_at | labelled:
+            value = '{ ' + ', '.join(f'{key}: {spelled}' for key, spelled in row['written'].items()) + ' }'
+            objects.setdefault(value, []).append(f'{row["file"]}:{row["line"]}')
+    lines.extend(f'const {name} = {value} ({_where(places)})' for value, places in [*constants.items(), *objects.items()])
     lines.extend(f'values {name}: {" | ".join(map(str, values))} ({where})'
                  for values, where, *_ in value_sets_named(graph, name))
     lines.extend(f'table {name}: {labels} ({_where(places)})' for labels, places in tables.items())
@@ -2463,6 +2488,58 @@ def model_lines(graph, name):
     return lines
 
 
+HOLDER_METHODS = 3      # the methods a holder line names without --full
+
+
+def method_holders(graph, name):
+    """{(file, kind): [(line, method)]} of the module-level object literals (`export const capacityService = {`) and
+    classes named `name` whose methods the map holds, each method by its line: a function or method node whose
+    `holder` is `name` and that no other function holds (`MapHandle.call_index` reads them so); kind is 'class' when
+    that file declares a class of that name, else 'object'."""
+    from flowguard.structure import store
+    found = {}
+    for file, qual, line, raw in graph.con.execute(
+            "SELECT file, qual, line, raw FROM node WHERE kind IN ('function', 'method') AND file IS NOT NULL"):
+        data = store.unpack(raw) if raw else {}
+        if data.get('holder') == name and data.get('scope', '') in ('', name):
+            classes = graph.con.execute("SELECT 1 FROM node WHERE file = ? AND kind = 'class' AND qual = ? LIMIT 1",
+                                        (file, name)).fetchone()
+            found.setdefault((file, 'class' if classes else 'object'), []).append(
+                (line, data.get('name') or qual.rpartition('.')[2]))
+    return found
+
+
+def holder_lines(graph, name, *, full=False):
+    """`show NAME` of a method holder (K3-0, Planning Tool's `show capacityService` said `not on the map` of
+    `export const capacityService = {`): one line per object literal or class of that name (`method_holders`), with
+    its place, its number of methods and the first HOLDER_METHODS in line order, all of them with `full`: `object
+    capacityService (backend/src/services/capacity.service.ts:482): 7 methods: sliceDateRangeByMonth,
+    sliceDateRangeByIsoWeek, getCapacityEntriesInRange and 4 more (python -m flowguard show capacityService.METHOD
+    prints one)`. An object's place is its declaration's line, a class's its node's."""
+    from ..structure.readers.common import parse, text, walk
+    from ..structure.readers.ecma import unwrap
+    from ..structure.readers.registry import language_for
+    lines = []
+    for (file, kind), methods in sorted(method_holders(graph, name).items()):
+        methods.sort()
+        if kind == 'class':
+            place = graph.con.execute("SELECT line FROM node WHERE file = ? AND kind = 'class' AND qual = ?",
+                                      (file, name)).fetchone()[0]
+        else:       # the module-level `const NAME = {...}` whose object holds the first method
+            source, tree = parse((graph.root / file).read_bytes(), language_for(file))
+            first = methods[0][0] - 1
+            place = next(node.start_point.row + 1 for node in walk(tree.root_node) if node.type == 'variable_declarator'
+                         and text(node.child_by_field_name('name'), source) == name
+                         and (value := unwrap(node.child_by_field_name('value'))) is not None and value.type == 'object'
+                         and value.start_point.row <= first <= value.end_point.row)
+        names = [method for _, method in methods]
+        shown = names if full or len(names) <= HOLDER_METHODS + 1 else names[:HOLDER_METHODS]
+        rest = f' and {len(names) - len(shown)} more' if len(shown) < len(names) else ''
+        lines.append(f'{kind} {name} ({file}:{place}): {_counted(len(names), "method")}: {", ".join(shown)}{rest} '
+                     f'(python -m flowguard show {name}.METHOD prints one)')
+    return lines
+
+
 def field_models_line(graph, name):
     """`show FIELD` of a bare field name (5.0, Planning Tool's `show fteShare` printed only functions that share a word
     with it): one line naming the Prisma models that declare a field of that name or `@map` column, each as the
@@ -2507,7 +2584,7 @@ ZOD_BOUNDS = {'min': ('low', True), 'gte': ('low', True), 'gt': ('low', False), 
               'lte': ('high', True), 'lt': ('high', False)}
 ZOD_SIGNS = {'positive': ('low', '0', False), 'nonnegative': ('low', '0', True), 'negative': ('high', '0', False),
              'nonpositive': ('high', '0', True)}
-ZOD_UNREAD = ('refine', 'superRefine', 'transform')     # checks a zod line names and does not read
+ZOD_UNREAD = ('refine', 'superRefine', 'transform', 'pipe')     # checks a zod line names and does not read
 ZOD_VALUES = {'parse', 'safeParse', 'parseAsync', 'safeParseAsync', 'spa', 'decode', 'decodeAsync', 'safeDecode',
               'safeDecodeAsync', 'encode', 'encodeAsync', 'safeEncode', 'safeEncodeAsync', 'isOptional', 'isNullable',
               'toJSONSchema'}       # the calls of a schema that return no schema: a parsed value, a flag
@@ -2614,9 +2691,11 @@ class _Source:
         the base outward, as [(method, call)]: those of each same-file or function-local `const` the chain starts
         from first (`fte.max(1)` of `const fte = z.number().min(0)`: min, then max), those of the schema that
         `z.optional(X)`, `z.nullable(X)`, `z.nullish(X)` and `z.preprocess(fn, X)` wrap in place of the base, and
-        both schemas of `X.pipe(Y)`, as both run (X's, then Y's at the pipe's place); None when the chain is not a
-        number schema (`z.string(`, `z.array(`, `.array()` of a number, `.parse(` of one, a pipe from or into
-        another schema, a name no such const holds)."""
+        both schemas of `X.pipe(Y)`, as both run (X's, then Y's at the pipe's place); a Y it cannot read as a number
+        schema (an imported schema, `z.transform(fn)`, another schema) keeps X's calls and stands as one unread step
+        at its place, `('transform', call)` for `z.transform(` and `('pipe', call)` otherwise; None when the chain is
+        not a number schema (`z.string(`, `z.array(`, `.array()` of a number, `.parse(` of one, a pipe from another
+        schema, a name no such const holds)."""
         steps = []
         while node is not None and node.type in CHAIN:
             if node.type == 'call_expression':
@@ -2655,12 +2734,23 @@ class _Source:
             if call is None or name == 'array' or name in ZOD_VALUES:
                 return None             # a property read, `.array()`, a parsed value: no number schema
             if name == 'pipe':
-                if (piped := self.number_steps(self.argument(call, 0), seen)) is None:
-                    return None
-                found.extend(piped)
+                target = self.argument(call, 0)
+                if (piped := self.number_steps(target, seen)) is not None:
+                    found.extend(piped)
+                else:
+                    found.append(('transform' if self.zod_call(target) == 'transform' else 'pipe', call))
             else:
                 found.append((name, call))
         return found
+
+    def zod_call(self, node):
+        """The method of a direct `z.METHOD(...)` call (`transform` of `z.transform(fn)`), else None."""
+        from ..structure.readers.ecma import unwrap
+        node = unwrap(node)
+        callee = node.child_by_field_name('function') if node is not None and node.type == 'call_expression' else None
+        if callee is None or callee.type != 'member_expression' or self.text(callee.child_by_field_name('object')) != 'z':
+            return None
+        return self.text(callee.child_by_field_name('property'))
 
     def bound(self, call):
         """(spelled, value) of a bound call's first argument: as the source spells it, a name with its value when a
@@ -2750,7 +2840,8 @@ def zod_bounds(graph, field):
     """{(file, schema object, bounds text): [line]} of the zod number schemas that an object key `field` is given in
     the TS/JS files outside tests, matched by the key's name alone. A key counts when its own schema chain is a
     number schema: its base call is `z.number(` or `z.coerce.number(`, directly (`field: z.number()...`), inside
-    `z.optional(`, `z.nullable(`, `z.nullish(` or `z.preprocess(fn, ...)`, piped (`X.pipe(Y)`, both number schemas)
+    `z.optional(`, `z.nullable(`, `z.nullish(` or `z.preprocess(fn, ...)`, piped (`X.pipe(Y)`, both read when Y is a
+    number schema, else X's with Y named as below)
     or through a `const NAME = ...` of the same file that the key names (`field: NAME...`; a function's own `const`
     or `let` for a key inside it; a nearer parameter, loop variable or catch parameter of that name hides it), so an
     array, object or string key whose nested schemas hold numbers gets no line. The bounds are every check of the
@@ -2759,12 +2850,12 @@ def zod_bounds(graph, field):
     <= MAX`), as the source spells them: `min`, `gte`, `gt`, `max`, `lte`, `lt`, `positive()`, `nonnegative()`,
     `negative()` and `nonpositive()`; a bound that is a name stays that name, with its value as spelled when a
     `const` it sees holds a number (`MAX_FTE_SHARE=2`, `MIN_SAP_REFERENCE=-2_147_483_648`). A `refine`,
-    `superRefine` or `transform` on the chain is named, not read (`, and a refine that is not read may reject
-    more`), and so is a refine of the enclosing schema object that names the key (`_Source.refines`). The schema
-    object is the nearest enclosing `z.object(`/`.extend(` (also `strictObject`, `looseObject`, `safeExtend`)
-    whose result the source names (`const NAME = z.object(`, `NAME: z.object(`), else the declaration holding the
-    key (`const NAME = wrap(z.object(`), else `an unnamed object`. A text reading for `show`, which names each
-    place."""
+    `superRefine` or `transform` on the chain, and a pipe into a schema it cannot read (`z.transform(fn)` named as a
+    transform), is named, not read (`, and a refine that is not read may reject more`), and so is a refine of the
+    enclosing schema object that names the key (`_Source.refines`). The schema object is the nearest enclosing
+    `z.object(`/`.extend(` (also `strictObject`, `looseObject`, `safeExtend`) whose result the source names (`const NAME
+    = z.object(`, `NAME: z.object(`), else the declaration holding the key (`const NAME = wrap(z.object(`), else `an
+    unnamed object`. A text reading for `show`, which names each place."""
     from ..structure.readers.common import parse, text, walk
     from ..structure.readers.registry import ECMA, language_for
     found = {}

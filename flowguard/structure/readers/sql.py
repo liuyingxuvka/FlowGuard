@@ -374,7 +374,9 @@ def describe(schemas) -> list[dict]:
     spelled); ALTER ADD/DROP COLUMN, ALTER ... RENAME TO (SQLite's `CREATE TABLE "new_t"`, `DROP TABLE "t"`,
     `ALTER TABLE "new_t" RENAME TO "t"`) and DROP TABLE then change it. `altered` holds the columns an ALTER
     ADD (or RENAME COLUMN) of the description gives a table it does not define, as an upgrade script does to a
-    table another file creates: {table: {column: name}}, casefolded keys as in `tables`."""
+    table another file creates: {table: {column: name}}, casefolded keys as in `tables`. A table's `declared` holds
+    each column's last declaration in the description, {column: {type, file, line}}: a rebuild's CREATE TABLE
+    "new_t" replaces the one before it, an ALTER ADD adds one, and a RENAME COLUMN keeps the type it renames."""
     grouped = {}
     for schema in schemas:
         if schema.get('kind') != 'sql':
@@ -390,16 +392,23 @@ def describe(schemas) -> list[dict]:
                 key = item.get('name', item.get('table', '')).casefold()
                 if verb == 'create':
                     tables[key] = dict(name=item['name'], file=schema['file'], line=item['line'],
-                                       columns={c['name'].casefold(): c['name'] for c in item['columns']}, checks={})
+                                       columns={c['name'].casefold(): c['name'] for c in item['columns']}, checks={},
+                                       declared={c['name'].casefold(): dict(type=c['type'], file=schema['file'], line=c['line'])
+                                                 for c in item['columns']})
                 elif verb == 'drop':
                     tables.pop(item['table'].casefold(), None)
                 elif verb == 'copy':
-                    tables[key] = dict(name=item['table'], file=schema['file'], line=item['line'], columns=None, checks={})
+                    tables[key] = dict(name=item['table'], file=schema['file'], line=item['line'], columns=None, checks={},
+                                       declared={})
                 elif key in tables and tables[key]['columns'] is not None:
-                    columns = tables[key]['columns']
+                    columns, declared = tables[key]['columns'], tables[key]['declared']
+                    dropped = [declared.pop(name.casefold(), None) for name in item['drop']]
                     for name in item['drop']:
                         columns.pop(name.casefold(), None)
                     columns.update((c['name'].casefold(), c['name']) for c in item['add'])
+                    renamed = dropped[0]['type'] if len(dropped) == 1 and dropped[0] is not None else ''
+                    declared.update((c['name'].casefold(), dict(type=c['type'] or renamed, file=schema['file'], line=c['line']))
+                                    for c in item['add'])
                 elif key not in tables:             # an upgrade script's ALTER ADD of a table created elsewhere
                     altered.setdefault(key, {}).update((c['name'].casefold(), c['name']) for c in item['add'])
                 if key in tables:                   # a later CHECK on a column replaces an earlier one

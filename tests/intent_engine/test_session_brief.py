@@ -790,3 +790,38 @@ def test_the_brief_says_when_a_rules_block_differs_from_this_version_s_and_init_
     # The current block with CRLF line endings is the same block.
     (root / 'AGENTS.md').write_bytes(text.replace('\n', '\r\n').encode())
     assert len(brief()) == 1
+
+
+def test_the_brief_reads_a_utf16_rules_file_and_names_one_it_cannot_decode(tmp_path, capsys):
+    # K2-1 (2026-11): CLAUDE.md saved by Windows PowerShell 5.1's `>` (UTF-16LE with a BOM) and an AGENTS.md in Latin-1
+    # made new-task and the brief end with `flowguard: 'utf-8' codec can't decode byte 0xff in position 0: invalid start
+    # byte`, exit 2, naming no file. A BOM selects UTF-8 or UTF-16 as for other project text; bytes that are neither
+    # give one brief line naming the file and the decoder's text.
+    root, cfg = project(tmp_path, rules=0)
+    (root / 'AGENTS.md').write_text('# Agents\n', encoding='utf-8')
+    (root / 'CLAUDE.md').write_bytes(b'\xff\xfe' + '@AGENTS.md\r\n'.encode('utf-16-le'))
+    git(root, 'add', '.')
+    git(root, 'commit', '--quiet', '-m', 'rules files')
+    assert cli.main(['--root', str(root), 'new-task']) == 0
+    assert len(capsys.readouterr().out.splitlines()) == 1
+    # A UTF-16 file with 4.3's block is compared, and init rewrites it in its own encoding and BOM.
+    (root / 'CLAUDE.md').write_bytes(b'\xff\xfe' + ('@AGENTS.md\n\n' + RULES_43).replace('\n', '\r\n').encode('utf-16-le'))
+    assert cli.screen(cfg) == 0
+    assert capsys.readouterr().out.splitlines()[1:] == [
+        f'CLAUDE.md holds a FlowGuard rules block that differs from the one FlowGuard {VERSION} writes: '
+        'python -m flowguard init rewrites it']
+    assert cli.init(cfg) == 0
+    capsys.readouterr()
+    data = (root / 'CLAUDE.md').read_bytes()
+    assert data.startswith(b'\xff\xfe') and data[2:].decode('utf-16-le') == (
+        '@AGENTS.md\n\n' + cli.PROJECT_RULES).replace('\n', '\r\n'), data
+    assert cli.screen(cfg) == 0 and len(capsys.readouterr().out.splitlines()) == 1
+    # A Latin-1 AGENTS.md is no UTF-8 or UTF-16 text: one line names it, and new-task still succeeds.
+    (root / 'AGENTS.md').write_bytes('Caf\xe9 notes\n'.encode('latin-1'))
+    assert cli.main(['--root', str(root), 'new-task']) == 0
+    assert capsys.readouterr().out.splitlines()[1:] == [
+        "AGENTS.md is no UTF-8 or UTF-16 text: 'utf-8' codec can't decode byte 0xe9 in position 3: invalid "
+        "continuation byte; its FlowGuard rules block is not compared"]
+    # init, which would rewrite the file, fails with the same text instead of guessing an encoding.
+    assert cli.main(['--root', str(root), 'init']) == 2
+    assert "AGENTS.md is no UTF-8 or UTF-16 text: 'utf-8' codec can't decode byte 0xe9" in capsys.readouterr().err

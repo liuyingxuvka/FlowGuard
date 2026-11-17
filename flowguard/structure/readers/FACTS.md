@@ -142,7 +142,9 @@ describe nothing).
 - `const_tables` (TS/JS, module level): `const NAME = {key: literal, ...}`; `option_lists`: `const NAME =
   [{ value: 'K', label: 'L' }, ...]` as {K: L} (key from `value`/`key`/`id`/`code`, text from
   `label`/`title`/`text`/`name`). `MapHandle.label_tables()` compares the label tables of both; `MapHandle.label_rows()`
-  gives the rows it reads (production code, not `archived`), which `show NAME` lists as `table NAME:` lines.
+  gives the rows it reads (production code, not `archived`), which `show NAME` lists as `table NAME:` lines. Each row
+  has `values` (None for a value that is no literal), `written` (the literal as spelled, else None) and `whole` (False
+  when the object has a spread, shorthand, method or computed member these leave out).
 - `nodes[].raw.holder` (TS/JS methods): the class or `const x = {...}` object a method belongs to; calls are
   resolved by name through it, inside the caller's package (nearest `package.json`; `MapHandle.call_index()`).
 - Prisma schemas carry `outputs` (each `generator` block's `output = "..."`, as written, relative to the schema's

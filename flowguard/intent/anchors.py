@@ -225,12 +225,9 @@ class _Positions(dict):
     def __missing__(self, module):
         from ..structure import store
         declared = {}
-        for qual, raw in self.graph.con.execute(
-                "SELECT qual, raw FROM node WHERE module = ? AND kind IN ('function', 'method') ORDER BY nid", (module,)):
-            name = qual
-            if module in self.foreign:
-                data = store.unpack(raw)
-                name = (data['holder'] + '.' + data['name']) if data.get('holder') else data['declared_qual']
+        for file, qual, raw in self.graph.con.execute(
+                "SELECT file, qual, raw FROM node WHERE module = ? AND kind IN ('function', 'method') ORDER BY nid", (module,)):
+            name = _declared_name(file, qual, store.unpack(raw)) if module in self.foreign else qual
             declared.setdefault(name, []).append(module + ':' + qual)
         self[module] = declared
         return declared

@@ -1247,6 +1247,36 @@ def test_show_of_a_function_or_file_lists_the_last_run_s_lines_placed_there(tmp_
     assert not [line for line in shown('backend/src/services') if '(last run)' in line]
 
 
+def test_a_site_query_whose_symbol_names_no_function_there_lists_only_what_is_at_that_file(tmp_path, capsys):
+    # K2-0 (2026-11): on Planning Tool `show backend/src/services/absence.service.ts:create` (the method there is
+    # absenceService.create) and `show backend/prisma/schema.prisma:create` began with the writers agreement of
+    # project.service.ts, the together agreement of psp-element.service.ts and the last run's findings at
+    # project.service.ts:create: the bare symbol's matches in other files, none of them at the queried file.
+    files = dict(MEMBERS, **{'backend/src/services/absence.service.ts': '''
+        import { prisma } from '../lib/prisma';
+
+        export const absenceService = {
+          async create(title: string) {
+            return prisma.project.findMany({ where: { name: title } });
+          },
+        };
+    '''})
+    cfg, shown = _shown(tmp_path, capsys, files)
+    notice = MEMBERS_NOTICE.replace('typescript 6/6', 'typescript 7/7')
+    assert cli.static_check(cfg, everything=True) == 0
+    capsys.readouterr()
+    leader = ('before (last run): together Project.leaderId at backend/src/services/project.service.ts:create was broken '
+              'at task start -> leave it unless your task is about it')
+    for query in ('backend/src/services/absence.service.ts:create', 'backend/prisma/schema.prisma:create'):
+        lines = shown(query)
+        assert lines[:2] == [f'show {query}', notice], lines
+        assert not [line for line in lines if line.startswith(('writers ', 'together ', 'before ', 'known.'))], lines
+    # In the file that holds the function, its agreement and its last run's lines are still listed.
+    lines = shown('backend/src/services/project.service.ts:create')
+    assert lines[2:4] == [WRITERS + ' (site backend/src/services/project.service.ts:projectService.create)', leader], lines
+    assert PSP not in '\n'.join(lines)
+
+
 def test_a_rule_s_view_lists_the_entries_of_its_anchors_and_a_class_lists_its_methods_entries(tmp_path, capsys):
     # A rule whose id differs from its anchor (ISO_WEEKS on ISO_WEEKS_IN_YEAR) listed none of the anchor's entries.
     _, shown = _shown(tmp_path, capsys, CAPACITY)
