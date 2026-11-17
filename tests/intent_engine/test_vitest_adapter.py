@@ -485,6 +485,42 @@ def test_an_unchanged_copy_no_test_reached_says_nothing_even_when_its_source_can
                       '(uses imported or mutable binding firstWeekDay) -> not a failure']
 
 
+
+PT_LOCALE = "export let firstWeekDay = 4;\n\nexport function setLocaleWeekDay(day: number): void {\n  firstWeekDay = day;\n}\n"
+
+
+def test_an_unreached_copy_is_this_changes_when_it_edits_the_binding_its_reason_names(tmp_path):
+    """H4-2: an unreached copy that cannot be sealed because it reads a module-level `let` said nothing when the change
+    edited that `let` (`let firstWeekDay = 4` to 5), although the copy's result changes and its own reason names the
+    binding. An edit of the binding, its declaration or an assignment of it, in the copy's file or in the project file
+    it is imported from, brings the reason back; a comment on it does not."""
+    chart, controls, locale = ('frontend/src/components/shared/ChartControlCard.tsx',
+                               'frontend/src/components/shared/PlanningTimeControls.tsx', 'frontend/src/utils/locale.ts')
+    imported = PT_LOCALE_CONTROLS.replace('let firstWeekDay = 4;\n', "import { firstWeekDay } from '../../utils/locale';\n") \
+        .replace('export function setFirstWeekDay(day: number): void {\n  firstWeekDay = day;\n}\n', '')
+    other = 'frontend/src/components/shared/WeekPicker.tsx'
+    _commit(tmp_path, {'frontend/package.json': '{"name": "frontend", "private": true, "type": "module"}\n', chart: PT_CHART,
+                       controls: PT_LOCALE_CONTROLS, other: imported, locale: PT_LOCALE})
+    line = PT_LOCALE_CONTROLS.splitlines().index('function getIsoWeeksInYear(year: number): number {') + 1
+    said_line = (f'not compared: ISO_WEEKS_IN_YEAR (PlanningTimeControls.tsx:{line}) '
+                 '(uses imported or mutable binding firstWeekDay) -> not a failure')
+    other_line = said_line.replace(f'PlanningTimeControls.tsx:{line}', f'WeekPicker.tsx:{imported.splitlines().index("function getIsoWeeksInYear(year: number): number {") + 1}')
+    def said(path, text):
+        (tmp_path / path).write_text(text, encoding='utf-8')
+        code, out = _report(tmp_path, _prepare(tmp_path)['plan'], package='frontend')
+        (tmp_path / path).write_text({controls: PT_LOCALE_CONTROLS, locale: PT_LOCALE}[path], encoding='utf-8')
+        assert code == 0, out
+        return _cli_fixture.block(out)[1:]
+    assert said(controls, PT_LOCALE_CONTROLS.replace('let firstWeekDay = 4;', 'let firstWeekDay = 4; // Thursday')) == []
+    assert said(controls, PT_LOCALE_CONTROLS.replace('let firstWeekDay = 4;', 'let firstWeekDay = 5;')) == [said_line]
+    setter = PT_LOCALE_CONTROLS.splitlines().index('export function setFirstWeekDay(day: number): void {') + 1
+    assert said(controls, PT_LOCALE_CONTROLS.replace('  firstWeekDay = day;', '  firstWeekDay = day % 7;')) == [
+        said_line.replace('ISO_WEEKS_IN_YEAR', '2 functions: ISO_WEEKS_IN_YEAR').replace(
+            ') (uses', f') and setFirstWeekDay (PlanningTimeControls.tsx:{setter}) (uses')]   # the setter changed too
+    # The binding a copy imports from a project file is that file's.
+    assert said(locale, PT_LOCALE.replace('= 4;', '= 4; // Thursday')) == []
+    assert said(locale, PT_LOCALE.replace('= 4;', '= 5;')) == [other_line]
+
 def test_a_function_reading_a_changed_constant_or_table_is_planned_as_changed(tmp_path):
     _commit(tmp_path, {
         'src/limits.ts': "export const LIMIT = 3;\nexport const LABELS = { TEAM: 'Team', AREA: 'Area' };\n",

@@ -335,6 +335,34 @@ def test_the_not_compared_line_never_cuts_through_an_item():
     assert _block(named)[1] == 'not compared: 3 items (not reached by any test) -> not a failure'
 
 
+def test_a_single_not_compared_item_keeps_its_name_and_place_and_its_reasons_give_way_first():
+    """H4-3: one not compared item whose own text besides its paths and places was longer than about 125 characters
+    lost its name and place (`not compared: 1 function (not reached by any test) -> not a failure`). Its reasons give
+    way first, then its text before its place, in the middle; the place stays whole and the line keeps WIDTH."""
+    calendar = 'frontend/src/components/calendars/AbsenceCalendarCard.tsx:134'
+    def line(subject, reason):
+        said = _block([signals.not_compared(f'{subject} ({calendar})', [reason], function='tsx/AbsenceCalendarCard:f',
+                                            places=(calendar,))])[1]
+        assert len(said.replace('AbsenceCalendarCard.tsx:134', '')) <= signals.WIDTH, said
+        return said
+    said = line('Q' * 230, 'not reached by any test')
+    assert said.startswith('not compared: QQQ') and '...' in said and said.endswith(
+        'QQQ (AbsenceCalendarCard.tsx:134) (not reached by any test) -> not a failure') \
+        and len(said.replace('AbsenceCalendarCard.tsx:134', '')) == signals.WIDTH, said
+    # A long reason gives way before the name, down to REASONS_KEPT characters; then the name gives way too.
+    name = 'ISO_WEEK_NUMBER_OF_THE_CONFIGURED_CALENDAR_YEAR_' * 2
+    said = line(name, 'uses imported or mutable binding ' + 'x' * 150)
+    assert said.startswith(f'not compared: {name} (AbsenceCalendarCard.tsx:134) (uses imported or mutable binding...x') \
+        and said.endswith('x...) -> not a failure') and len(said.replace('AbsenceCalendarCard.tsx:134', '')) == signals.WIDTH, said
+    said = line(name * 2, 'uses imported or mutable binding ' + 'x' * 150)
+    reason = said.rpartition(' (')[2].removesuffix(') -> not a failure')
+    assert said.startswith('not compared: ISO_WEEK') and '...' in said.partition(' (Absence')[0] \
+        and ' (AbsenceCalendarCard.tsx:134) (' in said and len(reason) == signals.REASONS_KEPT \
+        and len(said.replace('AbsenceCalendarCard.tsx:134', '')) == signals.WIDTH, said
+    assert line('ISO_WEEK_NUMBER', 'not reached by any test') == (
+        'not compared: ISO_WEEK_NUMBER (AbsenceCalendarCard.tsx:134) (not reached by any test) -> not a failure')
+
+
 def test_every_line_of_a_block_has_one_of_the_shapes_and_flowguard_text_is_ascii():
     import random
     generator = random.Random(43)

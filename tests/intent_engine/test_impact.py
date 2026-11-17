@@ -1456,6 +1456,57 @@ def test_show_of_a_label_table_prints_its_keys_and_the_finding_its_family_has(tm
         'before: labels GRANULARITY_OPTIONS at UtilizationToolbar.tsx:GRANULARITY_OPTIONS'], text
 
 
+
+PT_CHART_CARD = (
+    "import type { Granularity } from '../../types';\n\n"
+    "const ALL_GRANULARITY_OPTIONS: { value: Granularity; label: string }[] = [\n"
+    "  { value: 'DAY', label: 'Day' },\n  { value: 'WEEK', label: 'Week' },\n  { value: 'MONTH', label: 'Month' },\n"
+    "  { value: 'YEAR', label: 'Year' },\n];\n\n"
+    "const HEADER_SCALE_LABELS: Record<string, string> = {\n  days: 'Days',\n  weeks: 'Weeks',\n  months: 'Mths',\n};\n\n"
+    "function getIsoWeeksInYear(year: number): number {\n  const dec28 = new Date(Date.UTC(year, 11, 28));\n"
+    "  return Math.ceil(dec28.getUTCDate() / 7);\n}\n\n"
+    "export function ChartControlCard() {\n  return getIsoWeeksInYear(2026) + ALL_GRANULARITY_OPTIONS.length"
+    " + Object.keys(HEADER_SCALE_LABELS).length;\n}\n")
+
+
+def test_an_old_label_disagreement_is_a_lead_only_when_the_change_edits_a_table_of_its_family(tmp_path):
+    """Planning Tool (5.0 review, pt-rereview-0, R99): an edit of ChartControlCard.tsx inside getIsoWeeksInYear
+    (`Date.UTC(year, 11, 28)` to `Date.UTC(year, 11, 28, 0)`), no table edited, printed `before: labels
+    GRANULARITY_OPTIONS at UtilizationToolbar.tsx:GRANULARITY_OPTIONS was broken at task start` and `before: labels
+    HEADER_SCALE_LABELS ...`: the labels finding counted every edit of a file holding one of its tables. A family's old
+    disagreement is a lead only when the change edits the declaration of one of its tables; changing a label stays new."""
+    card, toolbar, calendar, header = ('frontend/src/components/shared/ChartControlCard.tsx',
+                                       'frontend/src/components/employee-utilization/UtilizationToolbar.tsx',
+                                       'frontend/src/components/calendars/AbsenceCalendarCard.tsx',
+                                       'frontend/src/components/shared/TimelineHeader.tsx')
+    _commit(tmp_path, {
+        card: PT_CHART_CARD,
+        toolbar: _options('GRANULARITY_OPTIONS', GRANULARITIES) + 'export function UtilizationToolbar() {\n  return GRANULARITY_OPTIONS;\n}\n',
+        'frontend/src/components/shared/PlanningTimeControls.tsx':
+            _options('GRANULARITY_OPTIONS', GRANULARITIES) + 'export function PlanningTimeControls() {\n  return GRANULARITY_OPTIONS;\n}\n',
+        calendar: ("const GRANULARITY_TO_INTERVAL: Record<string, string> = {\n  DAY: 'day',\n  WEEK: 'week',\n  MONTH: 'month',\n};\n"
+                   'export function AbsenceCalendarCard() {\n  return GRANULARITY_TO_INTERVAL;\n}\n'),
+        header: ("const HEADER_SCALE_LABELS: Record<string, string> = {\n  days: 'Days',\n  weeks: 'Weeks',\n  months: 'Months',\n};\n"
+                 'export function TimelineHeader() {\n  return HEADER_SCALE_LABELS;\n}\n'),
+    })
+    def labels():
+        code, text = _flowguard(tmp_path, 'check', '--static')
+        assert code == 0, text
+        code, last = _flowguard(tmp_path, 'show', '--last')
+        return sorted(line.partition(' was ')[0] for line in last.splitlines() if ' labels ' in line)
+    code, text = _flowguard(tmp_path, 'check', '--static', '--all')
+    assert sorted(line.partition(' was ')[0] for line in text.splitlines() if ' labels ' in line) == [
+        'before: labels GRANULARITY_OPTIONS at UtilizationToolbar.tsx:GRANULARITY_OPTIONS',
+        'before: labels HEADER_SCALE_LABELS at ChartControlCard.tsx:HEADER_SCALE_LABELS'], text
+    _write(tmp_path, {card: PT_CHART_CARD.replace('Date.UTC(year, 11, 28)', 'Date.UTC(year, 11, 28, 0)')})
+    assert labels() == []
+    # A comment inside a table's declaration, or its members in another order, edits that table: its family's old
+    # finding is a lead, the other's not.
+    _write(tmp_path, {card: PT_CHART_CARD.replace("  months: 'Mths',\n", "  months: 'Mths', // the header's scale\n")})
+    assert labels() == [f'before: labels HEADER_SCALE_LABELS at {card}:HEADER_SCALE_LABELS']
+    _write(tmp_path, {card: PT_CHART_CARD.replace("  { value: 'YEAR', label: 'Year' },\n", "  { label: 'Year', value: 'YEAR' },\n")})
+    assert labels() == [f'before: labels GRANULARITY_OPTIONS at {toolbar}:GRANULARITY_OPTIONS']
+
 def test_show_of_a_ts_function_or_anchor_says_once_that_the_map_reads_no_decision_sites_there(tmp_path):
     """Planning Tool (5.0 review, pt:F12): `show typescript/backend/src/services/employee.service.ts:update` printed
     `not searched: not searched: no readable decision sites -> bind the real decision function -> bind the real decision
@@ -1961,16 +2012,19 @@ def test_show_of_an_exact_function_or_object_method_name_prints_its_node_view_be
         f'{test}:<anonymous@3,27>.<anonymous@4,37>'}, full
     assert lines[5:] == ['... 6 more lines, 5 of them only share a word with convertPercentToHours: python -m flowguard '
                          'show convertPercentToHours --full lists them all'], lines
-    # object.method: the method of that object, what it writes; a route's `capacityService.updateCalendarEntry(...)` is
-    # matched by the holder's name only, so no caller is counted
+    # object.method: the method of that object, what it writes; a route's `capacityService.updateCalendarEntry(...)`,
+    # with `capacityService` imported from the module that defines it, is a resolved call (H4-0)
     service = 'backend/src/services/capacity.service.ts'
     lines = _shown_lines(tmp_path, 'capacityService.updateCalendarEntry')
     assert lines[2:6] == [f'typescript/{service}:updateCalendarEntry {service}:2',
                           'async updateCalendarEntry(prisma: any, entryId: string, input: any) ',
                           'writes 2 fields: CapacityCalendarEntry.unitType, CapacityCalendarEntry.value (python -m '
                           'flowguard show MODEL.FIELD lists the writes and reads of one)',
-                          'called by no function through a call the map resolved (a call matched by its name alone is '
-                          'not counted)'], lines
+                          'called by 1 function through a resolved call: putCalendarEntry '
+                          '(backend/src/api/routes/capacity.routes.ts:3)'], lines
+    # a function no resolved call reaches says so
+    assert 'called by no function through a call the map resolved (a call matched by its name alone is not counted)' \
+        in _shown_lines(tmp_path, 'countLeaves'), _shown_lines(tmp_path, 'countLeaves')
     assert lines[6].startswith('... ') and 'only share a word with capacityService.updateCalendarEntry' in lines[6], lines
     # the writes of a nested `persist` are the method's; past three fields the line counts them and --full names all
     employee = 'backend/src/services/employee.service.ts'

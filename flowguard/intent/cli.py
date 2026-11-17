@@ -733,8 +733,9 @@ def _node_lines(graph, node, header, *, full, again, writes=None, callers=None):
     few functions an exact name names): `header file:line`, its signature, its doc when it has one, then the fields
     it writes (the `MapHandle.writes` rows of it and of the functions nested in it, `Model.field`, an unclear write as
     `Model (fields not visible)`) and, for a function or method, the functions that call it through a call the map
-    resolved (`MapHandle.resolved_calls`: an import or a lexical binding, the store's links; a JS/TS call matched by
-    a name alone is not counted), production code before test files: each a count and the first NODE_NAMES, all of
+    resolved (`MapHandle.resolved_calls`: an import or a lexical binding, a member call on an imported object whose
+    module defines that member, the store's links; a JS/TS call matched by a name alone is not counted), production
+    code before test files: each a count and the first NODE_NAMES, all of
     them with `full`, and the view that lists more (`show MODEL.FIELD`, `show AGAIN --full` for the query `again`).
     `writes` and `callers` are `MapHandle.writes()` and the callers map of `resolved_calls()` when the caller holds
     them already."""

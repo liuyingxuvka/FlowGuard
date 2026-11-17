@@ -1129,19 +1129,77 @@ class MapHandle:
 
     def resolved_calls(self):
         """({caller: {callee}}, {callee: {caller}}) of the calls the map resolved: through an import or a lexical
-        binding (JS/TS) or the store's links (Python), and those a tracer observed. A Python attribute call linked only
-        because one function of the repository has that name (provenance `guessed`) is left out unless an observed edge
-        confirms it, as `callers(guessed=False)` reads them, and so are the JS/TS calls `call_index` resolves by a
-        name alone: real ones (`logger.warn(...)` on an imported object) as well as `rows.find(...)` and
-        `new Map().get(...)`, which name no project function."""
+        binding (JS/TS) or the store's links (Python), and those a tracer observed; and a JS/TS member call on an
+        imported object (`_imported_member_calls`: `auditService.createAuditEvent(...)` with `auditService` imported
+        from './audit.service.js', which defines it). A Python attribute call linked only because one function of the
+        repository has that name (provenance `guessed`) is left out unless an observed edge confirms it, as
+        `callers(guessed=False)` reads them, and so are the JS/TS calls `call_index` resolves by a name alone:
+        `rows.find(...)`, `new Map().get(...)`, a method name matched on a local value or a parameter."""
         if 'resolved_calls' not in self._derived:
             down, up = {}, {}
-            for src, dst in self.con.execute("SELECT DISTINCT src, dst FROM edge WHERE kind = 'calls' AND prov != 'guessed' "
-                                             "AND dst NOT LIKE 'unknown-%' AND src != dst"):
+            pairs = self.con.execute("SELECT DISTINCT src, dst FROM edge WHERE kind = 'calls' AND prov != 'guessed' "
+                                     "AND dst NOT LIKE 'unknown-%' AND src != dst").fetchall()
+            for src, dst in pairs + self._imported_member_calls():
                 down.setdefault(src, set()).add(dst)
                 up.setdefault(dst, set()).add(src)
             self._derived['resolved_calls'] = down, up
         return self._derived['resolved_calls']
+
+    def _imported_member_calls(self):
+        """[(caller, callee)] of the JS/TS calls `x.m(...)` the linker left unresolved whose `x` is a named import
+        (`import { x } from './x.js'`, `import { x as y }` for `y.m()`) that the import resolves to a mapped module,
+        where that module defines `m` as a member of its module-level object or class of the imported name: a method of
+        the object literal or class (`export const auditService = { async createAuditEvent() {} }`, `logger.info` with
+        `export const logger = { info() {} }`), a module-level function the object literal lists (`{ create }`,
+        `{ remove: removeEntry }`) or holds (`getAll: (params) => ...`), a method of the module's class C of
+        `const x = new C()`. That is resolution through
+        the import, not a name guess. A receiver that a parameter or a local name of the calling function hides, a
+        namespace (`* as x`, which the linker resolves) or default import, a file with syntax errors and a member the
+        module does not define (`apiClient.get` on an axios instance) give nothing."""
+        from .readers.registry import ECMA
+        modules, callers, members, functions = {}, {}, {}, {}
+        for ident, kind, file, qual, raw in self.con.execute(
+                "SELECT id, kind, file, qual, raw FROM node WHERE kind IN ('module', 'function', 'method')"):
+            if not file or language_of(file) not in ECMA:
+                continue
+            if kind == 'module':
+                modules[ident] = file
+                continue
+            data = store.unpack(raw)
+            callers[ident] = data
+            holder = data['holder']
+            if holder and data['scope'] in ('', holder):        # a module-level object literal's or class's method
+                members.setdefault((file, holder), {}).setdefault(data['name'], []).append(ident)
+            elif kind == 'function' and not data['scope']:
+                functions[(file, qual)] = ident
+        held = {}                   # (file, object): {member: [callee]} of the members an object lists or a class gives
+        for path, _, facts in self._kinds('module_objects'):
+            for row in facts.get('module_objects', ()):
+                listed = held.setdefault((path, row['name']), {})
+                for key, name in row.get('members', {}).items():
+                    if (path, name) in functions:
+                        listed.setdefault(key, []).append(functions[(path, name)])
+                for key, found in members.get((path, row.get('instance_of')), {}).items():
+                    listed.setdefault(key, []).extend(found)
+        found = []
+        for path, error, facts in self._kinds('dependencies', 'syntax_calls.unresolved'):
+            calls = facts.get('syntax_calls.unresolved')
+            if error or not calls:
+                continue
+            imported = {row['alias']: (modules.get(row['resolved']), row['name']) for row in facts.get('dependencies', ())
+                        if row['kind'] == 'import' and row['alias'] and row['resolved'] and row['name'] not in ('', '*', 'default')}
+            for caller, _, text in calls:
+                receiver, dot, method = (part.strip() for part in text.partition('.'))
+                if not dot or receiver not in imported or not method.isidentifier():
+                    continue
+                own = callers.get(caller)            # a module-level call has no parameter and no local name
+                if own is not None and (receiver in own['parameters'] or receiver in own['shadows']):
+                    continue
+                key = imported[receiver]
+                targets = set(members.get(key, {}).get(method, ())) | set(held.get(key, {}).get(method, ()))
+                if len(targets) == 1 and caller not in targets:
+                    found.append((caller, *targets))
+        return found
 
     def call_tree(self, node, depth=3, *, up=0):
         """{function: how} of `node` (with the functions nested in it) and what they call, `depth` levels down;

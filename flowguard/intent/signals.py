@@ -313,7 +313,8 @@ def _summary(lines, names):
     counted as functions, or items when not every one is a function) and why, the most common reason first (each
     line's reasons are its detail). It keeps WIDTH characters besides its paths and places (`_width`), and an item is
     never cut: the reasons give way in their middle, down to REASONS_KEPT characters, and when the named items leave
-    less room than that they are counted (`3 items`)."""
+    less room than that they are counted (`3 items`). A single item keeps its name and place: its reasons give way
+    first, then its own text before its place, in its middle (`_fit`)."""
     reasons = Counter()
     for line in lines:
         for reason in dict.fromkeys(_reason(reason) for reason in line.detail or ('no reason recorded',)):
@@ -332,6 +333,10 @@ def _summary(lines, names):
         [f'{counted}: ' + ', '.join(subjects[:-1]) + ' and ' + subjects[-1]] if len(lines) <= PLACES else []
     kept = [*(names.get(path, path) for line in lines for path in map(_path_of, line.places) if path),
             *(_shorten(place, (place,), names) for line in lines for place in line.places if place)]
+    if len(lines) == 1:
+        fixed = _width(f'not compared:  () -> {NOT_COMPARED_STEP}', kept)
+        reason = _middle(said, max(WIDTH - fixed - _width(subjects[0], kept), min(len(said), REASONS_KEPT)))
+        return f'not compared: {_fit(subjects[0], WIDTH - fixed - len(reason), kept)} ({reason}) -> {NOT_COMPARED_STEP}'
     for what in [*named, counted]:
         room = WIDTH - _width(f'not compared: {what} () -> {NOT_COMPARED_STEP}', kept)
         if room >= min(len(said), REASONS_KEPT) or what == counted:
@@ -492,6 +497,16 @@ def _width(text, pieces):
     for piece in sorted({piece for piece in pieces if piece}, key=len, reverse=True):
         text = text.replace(piece, '')
     return len(text)
+
+
+def _fit(text, size, pieces):
+    """`text` in at most `size` characters besides the paths and places (`pieces`) it names (`_width`): what comes
+    before the first of them gives way in its middle, so the places stay whole."""
+    over = _width(text, pieces) - size
+    if over <= 0:
+        return text
+    at = min((text.find(piece) for piece in pieces if piece and piece in text), default=len(text))
+    return _middle(text[:at], max(at - over, len('...') + 2)) + text[at:]
 
 
 def _middle(text, size):

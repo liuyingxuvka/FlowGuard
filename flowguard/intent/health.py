@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 
-from flowguard.map.common import is_test_file
+from flowguard.map.common import is_test_file, read_source
 
 LINES_ONLY = 0               # the rank of a finding only the 4.3 lines report: no brief count
 BOOKKEEPING = {'id', 'createdat', 'updatedat', 'created_at', 'updated_at', 'createdbyid', 'updatedbyid',
@@ -736,7 +736,10 @@ def uncreated(change):
 def labels(change, named=None):
     """Label tables that disagree (`MapHandle.label_tables()`): copies of one table of labels that spell a
     key's label differently, and lookup tables that lack a key their copies have. One issue per family, new when this
-    change edits or adds one of its tables; with `named` only the families with a table of that name (`show NAME`)."""
+    change adds one of its tables or changes its keys or labels (`_table_changed`); its files are those of the tables
+    whose declaration this change edits (`_table_edited`), so an old disagreement is a `before` line only then, not for
+    an edit elsewhere in a file that holds one of them; with `named` only the families with a table of that name
+    (`show NAME`)."""
     found = _findings()
     found.ran.add('labels')
     for family in change.graph.label_tables():
@@ -760,13 +763,26 @@ def labels(change, named=None):
                 f"(abbreviations or another purpose) is the owner's decision; if they are, {_leave(name)}")
         fresh = bool(change.baseline) and any(_table_changed(change, table) for table in tables)
         found.issues.append(Issue(name, 8, f'labels {head["name"]}', text, step, frozenset(),
-                                  frozenset(table['file'] for table in tables),
+                                  frozenset(table['file'] for table in tables if _table_edited(change, table)),
                                   family='labels', subject=f'labels {head["name"]}',
                                   parts=(('', f'{head["file"]}:{head["name"]}', 'disagrees with '
                                           + ', '.join(f'{table["file"]}:{table["name"]}' for table in tables[1:]) + ': '
                                           + _ascii_part('; '.join(parts)), 'derive these tables from one source'),),
                                   fresh=frozenset({''}) if fresh else frozenset()))
     return found
+
+
+def _table_edited(change, table):
+    """Whether this change edits the declaration of a label table: a line from its first to its last differs from the
+    baseline table's of that name, a comment inside it too, or the baseline lacks it; never without a baseline."""
+    if not change.baseline or table['file'] not in change.files:
+        return False
+    old = [row for row in change.old_facts(table['file']).get(table['kind'], ()) if row['name'] == table['name']]
+    then = change.old_text(table['file'])
+    if not old or then is None:
+        return True
+    now = read_source(change.graph.root / table['file']).splitlines()
+    return now[table['line'] - 1:table['end_line']] != then.splitlines()[old[0]['line'] - 1:old[0]['end_line']]
 
 
 def _table_changed(change, table):
@@ -797,7 +813,8 @@ def summary(issues, regions, unwritable):
 def brief_lines(cfg):
     """The brief's lines from the last check or `python -m flowguard docs` run (`cache.structure_summary`): the open
     structure problems and the generated regions out of date, those that cannot be written counted among them, each
-    when there is one; none when neither recorded them."""
+    when there is one, the regions' line saying it is the last check's or docs run's count (an edit since then is
+    not counted until the next one); none when neither recorded them."""
     from . import cache
     data = cache.structure_summary(cfg)
     if not data:
@@ -807,16 +824,16 @@ def brief_lines(cfg):
         lines.append(f'{data["count"]} open structure issues' + (f' ({data["writers"]} other fields have multiple writers and no writer agreement)' if data['writers'] else '')
                      + '; highest severity: ' + '; '.join(data['top']) + ' (last check; check --static --all lists each with its next step, check --all also copies that drifted apart)')
     regions, unwritable = data['regions'], data['unwritable']
-    counted = f'{regions} generated region{"s" * (regions != 1)}'
+    counted, when = f'{regions} generated region{"s" * (regions != 1)}', '(last check or docs run)'
     if not regions:
         return lines
     if not unwritable:
-        lines.append(f'{counted} {"are" if regions != 1 else "is"} out of date: '
+        lines.append(f'{counted} {"are" if regions != 1 else "is"} out of date {when}: '
                      f'python -m flowguard docs rewrites {"them" if regions != 1 else "it"}')
     elif regions == unwritable:
-        lines.append(f'{counted} cannot be written: python -m flowguard docs says why')
+        lines.append(f'{counted} cannot be written {when}: python -m flowguard docs says why')
     else:
-        lines.append(f'{counted} are out of date, {unwritable} of them cannot be written: '
+        lines.append(f'{counted} are out of date, {unwritable} of them cannot be written {when}: '
                      'python -m flowguard docs rewrites the others and says why')
     return lines
 

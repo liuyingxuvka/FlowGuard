@@ -126,7 +126,7 @@ def extract(root, rel, data, module, is_test):
     language = language_for(rel)
     out = blank(module, data, language)
     out.update(queries=[], value_sets=[], typed_fields=[], typed_writes=[], numbers=[], compared_names=[],
-               const_tables=[], table_lookups=[], option_lists=[], type_names=[])
+               const_tables=[], table_lookups=[], option_lists=[], type_names=[], module_objects=[])
     source, tree = parse(data, language)
     handed_on = set(propagate_names(root))
     if tree.root_node.has_error:
@@ -836,6 +836,29 @@ def extract(root, rel, data, module, is_test):
             return text(field(holder, 'name'), source)
         return ''
 
+    def module_object(value):
+        """What a module-level `const NAME = ...` holds that a member call on NAME reaches besides its own methods:
+        {'members': {key: name}} of an object literal's shorthand members, members whose value is a name (`{ create,
+        remove: removeEntry }`) and members whose value is a function (`getAll: (params) => ...`, by the name the map
+        gives that function, `<anonymous@50,26>`), {'instance_of': C} of `new C(...)`; None otherwise."""
+        value = unwrap(value)
+        if value is not None and value.type == 'object':
+            members = {}
+            for item in value.named_children:
+                if item.type == 'shorthand_property_identifier':
+                    members[text(item, source)] = text(item, source)
+                elif item.type == 'pair' and field(item, 'key').type == 'property_identifier' \
+                        and (named := unwrap(field(item, 'value'))) is not None:
+                    if named.type == 'identifier':
+                        members[text(field(item, 'key'), source)] = text(named, source)
+                    elif named.type in FUNCTIONS:
+                        members[text(field(item, 'key'), source)] = name_of(named)
+            return {'members': members} if members else None
+        if value is not None and value.type == 'new_expression' and field(value, 'constructor') is not None \
+                and field(value, 'constructor').type == 'identifier':
+            return {'instance_of': text(field(value, 'constructor'), source)}
+        return None
+
     def object_of(value):
         """The object literal an argument is, also through one local `const x = {...}`."""
         value = unwrap(value)
@@ -1181,6 +1204,9 @@ def extract(root, rel, data, module, is_test):
                     and index is not None and not literal(index, source)[0]:
                 out['table_lookups'].append(dict(node=owner, file=rel, name=text(table, source),
                                                  function=named_scope(scope), **position(node, source)))
+        if node.type == 'variable_declarator' and not scope and field(node, 'name') is not None \
+                and field(node, 'name').type == 'identifier' and (held := module_object(field(node, 'value'))):
+            out['module_objects'].append(dict(name=text(field(node, 'name'), source), file=rel, **held, **position(node, source)))
         if node.type == 'variable_declarator' and not scope and field(node, 'name') is not None \
                 and field(node, 'name').type == 'identifier' and (table := const_table(field(node, 'value'))) is not None:
             out['const_tables'].append(dict(name=text(field(node, 'name'), source), file=rel, values=table[0],

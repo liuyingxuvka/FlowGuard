@@ -277,7 +277,7 @@ def sealed_source(data, rel, name, read=None, tables=None):
             continue
         used.add(current)
         if current in blocked:
-            return '', 'uses imported or mutable binding ' + current
+            return '', BINDING + current
         if current in imported:
             pieces.append(f'const {current} = {imported[current]};')
             continue
@@ -295,7 +295,7 @@ def sealed_source(data, rel, name, read=None, tables=None):
                     imported[alias] = value
             shadowed = sorted(spelled & blocked)
             if shadowed:
-                return '', 'uses imported or mutable binding ' + shadowed[0]
+                return '', BINDING + shadowed[0]
             if function['is_async'] or 'generator' in node.type or bad:
                 return '', 'unsupported ' + (bad or 'async or generator')
             code = stripped(node)
@@ -404,6 +404,54 @@ def _top_level(qual):
     return '.' not in qual and not qual.startswith('<')
 
 
+def _binding_spelling(data, rel, name):
+    """The tokens, comments left out, of what binds `name` in one JS/TS file (`data` None: no such file, none): each
+    top-level declaration of it (an import, a `let`, `var` or `const` declarator, a class, an enum or a function,
+    exported too) and each assignment or update of it anywhere (`firstWeekDay = day`), in source order. An edit of
+    that binding changes them; a comment or an edit beside it does not."""
+    if data is None:
+        return ()
+    from ..structure.readers.common import parse, text, walk
+    from ..structure.readers.registry import language_for
+    source, tree = parse(data, language_for(rel))
+    def tokens(node):
+        found, stack = [], [node]
+        while stack:
+            item = stack.pop()
+            if item.type == 'comment':
+                continue
+            if item.child_count:
+                stack.extend(reversed(item.children))
+            else:
+                found.append(text(item, source))
+        return tuple(found)
+    spelled = []
+    for statement in tree.root_node.named_children:
+        inner = statement.child_by_field_name('declaration') if statement.type == 'export_statement' else statement
+        if inner is None:
+            continue
+        if inner.type == 'import_statement':
+            clause = next((child for child in inner.named_children if child.type == 'import_clause'), None)
+            if clause is not None and any(child.type == 'identifier' and text(child, source) == name for child in walk(clause)):
+                spelled.append(tokens(inner))
+        elif inner.type in ('lexical_declaration', 'variable_declaration'):
+            for item in inner.named_children:
+                key = item.child_by_field_name('name') if item.type == 'variable_declarator' else None
+                if key is not None and any(child.type in ('identifier', 'shorthand_property_identifier_pattern')
+                                           and text(child, source) == name for child in walk(key)):
+                    spelled.append(tokens(item))
+        elif (key := inner.child_by_field_name('name')) is not None and text(key, source) == name:
+            spelled.append(tokens(inner))
+    for node in walk(tree.root_node):
+        if node.type in ('assignment_expression', 'augmented_assignment_expression', 'update_expression'):
+            target = node.child_by_field_name('left') or node.child_by_field_name('argument')
+            while target is not None and target.type in ('member_expression', 'subscript_expression', 'parenthesized_expression'):
+                target = target.child_by_field_name('object') or (target.named_children[0] if target.named_children else None)
+            if target is not None and target.type == 'identifier' and text(target, source) == name:
+                spelled.append(tokens(node))
+    return tuple(spelled)
+
+
 def _const_reads(data, rel):
     """{name: (tokens, reads)} of each top-level `const NAME = value` (exported too) whose value is no function: the
     tokens of its right side without comments, and the identifiers that right side reads."""
@@ -467,6 +515,7 @@ def _constants_changed(before, now, old_constants, new_constants):
 
 
 ABSENT = 'function absent at baseline'
+BINDING = 'uses imported or mutable binding '      # the reason `sealed_source` gives, then the binding's name
 NO_BASELINE = 'no baseline'     # a copy's version at the baseline when the run has none to compare with
 
 
@@ -572,7 +621,8 @@ def plan(cfg, commit, changed, key):
             points.append(dict(id=ident, name=name, anchored=anchored, why=why, owner=ident in owners, rel=rel, file=(cfg.root / rel).as_posix(), fn=qual,
                                line=found['line'], target_line=line, form=found['form'], params=found['params'], skip=skip,
                                recordable=(not found['is_async'] and 'generator' not in found['node'].type
-                                           and skip != 'uses imported or mutable binding ' + qual),
+                                           and skip != BINDING + qual),
+                               binding_edited=_binding_edited(cfg, graph, rel, skip, old_sources, modules),
                                source=closed, old_source=prior, old_skip=old_skip,
                                changed=((rel in changed or rel in readers) and (old is None or closed != prior)),
                                # this change writes its `same NAME` mark: its file is changed and lacked the mark
@@ -598,6 +648,23 @@ def plan(cfg, commit, changed, key):
         files.setdefault(point['file'], dict(points=[]))['points'].append(point)
     return dict(key=key, root=cfg.root.as_posix(), baseline=commit, limit=LIMIT, files=files, unplanned=unplanned,
                 touched=sorted(touched), known=known, inputs=inputs)
+
+
+def _binding_edited(cfg, graph, rel, skip, old_sources, modules):
+    """Whether this change edits the binding a copy's reason names (`BINDING`: `uses imported or mutable binding
+    firstWeekDay`), so that the copy, whose source cannot be sealed, may answer otherwise: what binds that name in
+    the copy's file (`_binding_spelling`: a module-level `let` and its assignments, an import) or, for a name imported
+    from a project file, that file's binding of the imported name differs between the baseline (`old_sources`, the
+    changed files' baseline bytes) and now."""
+    if not skip.startswith(BINDING) or not old_sources:
+        return False
+    name = skip[len(BINDING):]
+    files = {module: path for path, module in modules.items()}
+    imported = next((facts.get('dependencies', ()) for path, _, facts in graph._kinds('dependencies') if path == rel), ())
+    homes = [(rel, name)] + [(files[row['resolved']], row['name']) for row in imported
+                             if row['kind'] == 'import' and row['alias'] == name and row['resolved'] in files]
+    return any(_binding_spelling(old_sources[path], path, bound) != _binding_spelling((cfg.root / path).read_bytes(), path, bound)
+               for path, bound in homes if path in old_sources)
 
 
 def _catalog(cfg, graph):
@@ -1180,8 +1247,10 @@ def judge(cfg, data, records, package=None):
         if not calls.get(ident) and not collected:
             # A copy no test reached that this change leaves as it was is an old matter, not this change's (R99),
             # whether or not its source can be sealed: its sealed source is compared (`changed`), and the map's
-            # fingerprint of its code (`touched`) tells an edit of one that cannot be sealed.
-            old = point['anchored'] and not copy_only and not (point['changed'] or point['marked'] or ident in edited)
+            # fingerprint of its code (`touched`) tells an edit of one that cannot be sealed, as `binding_edited`
+            # tells an edit of the binding its reason names.
+            old = point['anchored'] and not copy_only and not (point['changed'] or point['marked'] or point['binding_edited']
+                                                               or ident in edited)
             if old:
                 continue
             if point['skip'] and (copy_only or _inside(cfg, point['rel'], package)):

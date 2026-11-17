@@ -270,7 +270,7 @@ def test_a_stale_region_is_named_only_when_this_change_edits_its_source_or_the_r
     constants, fields, values = (f'impact: FRONTEND_DOCUMENTATION.md:{line} generate {what} is out of date -> '
                                  'python -m flowguard docs rewrites it' for line, what in
                                  zip(lines, [f'constants {colors}', 'fields Customer', 'values GRANULARITIES']))
-    count = '3 generated regions are out of date: python -m flowguard docs rewrites them'
+    count = '3 generated regions are out of date (last check or docs run): python -m flowguard docs rewrites them'
     def said(*options):
         code, text = _static(tmp_path, *options)
         assert code == 0, text
@@ -286,7 +286,9 @@ def test_a_stale_region_is_named_only_when_this_change_edits_its_source_or_the_r
                       colors: PT_COLORS.replace('= 30;', '= 31;')})
     assert said() == [constants]                          # the file a constants region lists
     _write(tmp_path, {colors: PT_COLORS, schema: PT_SCHEMA.replace('customerId String', 'customerId String?')})
-    assert said() == [fields]                             # a Prisma schema, which a fields region reads all of
+    assert said() == []                                   # another model of the Prisma schema (H4-1)
+    _write(tmp_path, {schema: PT_SCHEMA.replace('  name      String\n', '  name      String?\n')})
+    assert said() == [fields]                             # a field of the model in a Prisma schema
     _write(tmp_path, {schema: PT_SCHEMA, granularity: PT_GRANULARITY.replace("'MONTH'", "'MONTH', 'YEAR'")})
     assert said() == [values]                             # the file that declares the value set
     _write(tmp_path, {granularity: PT_GRANULARITY,
@@ -331,9 +333,9 @@ def test_a_region_this_change_writes_that_cannot_be_generated_is_red(tmp_path):
     code, text = _static(tmp_path)
     reds = [line for line in _block(text) if line.startswith('red:')]
     assert code == 1 and reds == [
-        'red: generate fields Missing: generate fields Missing: no Prisma model Missing -> correct the marker at jobs.md:3',
-        'red: generate routes app: generate routes: the kinds are fields, values, functions, constants -> correct the marker at jobs.md:6',
-        'red: generate values JobKind: generate values JobKind has no <!-- flowguard: end --> marker -> correct the marker at jobs.md:9'], text
+        'red: generate fields Missing: no Prisma model Missing -> correct the marker at jobs.md:3',
+        'red: generate routes app: the kinds are fields, values, functions, constants -> correct the marker at jobs.md:6',
+        'red: generate values JobKind: no <!-- flowguard: end --> marker ends it -> correct the marker at jobs.md:9'], text
 
 
 def test_a_values_region_reads_the_sets_show_lists_and_leaves_out_what_only_tests_or_unused_schemas_declare(tmp_path):
@@ -365,10 +367,10 @@ def test_a_values_region_reads_the_sets_show_lists_and_leaves_out_what_only_test
     code, out = _flowguard(tmp_path, 'docs')
     assert code == 1 and out.splitlines() == [
         'docs/FUNCTION_INVENTORY.md:3 generate values OrgUnitTab: rewritten',
-        'docs/FUNCTION_INVENTORY.md:6 generate values ADMIN_ACTORS: generate values ADMIN_ACTORS: no value set of that name',
+        'docs/FUNCTION_INVENTORY.md:6 generate values ADMIN_ACTORS: no value set of that name',
         'docs/FUNCTION_INVENTORY.md:9 generate values AppRole: rewritten',
         'docs/FUNCTION_INVENTORY.md:12 generate values JobState: rewritten',
-        'docs/FUNCTION_INVENTORY.md:15 generate values AssignmentStatus: generate values AssignmentStatus: only the enum of a Prisma '
+        'docs/FUNCTION_INVENTORY.md:15 generate values AssignmentStatus: only the enum of a Prisma '
         'schema not in use has that name (enum AssignmentStatus backend/prisma/schema.sqlite.prisma:11, a schema not in use)'], out
     written = (tmp_path / 'docs/FUNCTION_INVENTORY.md').read_text(encoding='utf-8')
     assert '- `overview`\n- `absences`\n- `planning`\n' in written and '`Overview`' not in written, written
@@ -423,7 +425,7 @@ def test_a_values_region_writes_the_prisma_enum_in_use_and_reads_a_reordered_mir
         'docs/FUNCTION_INVENTORY.md:3 generate values AppRole: rewritten',
         'docs/FUNCTION_INVENTORY.md:6 generate values LendingStatus: rewritten',
         'docs/FUNCTION_INVENTORY.md:9 generate values Granularity: rewritten',
-        'docs/FUNCTION_INVENTORY.md:12 generate values OrgUnitTab: generate values OrgUnitTab: 2 different value sets have that name'], out
+        'docs/FUNCTION_INVENTORY.md:12 generate values OrgUnitTab: 2 different value sets have that name'], out
     written = (tmp_path / 'docs/FUNCTION_INVENTORY.md').read_text(encoding='utf-8')
     def region(name):
         return written.partition(f'generate values {name} -->\n')[2].partition('<!--')[0]
@@ -567,6 +569,126 @@ def test_a_module_connects_only_through_the_calls_the_map_resolved(tmp_path):
                              'if it no longer holds'), said
 
 
+
+PT_AUDIT = """export const auditService = {
+  async createSupervisorLeaveAuditEvent(input: { employeeId: string; action: string }) {
+    return { ...input, at: 'now' };
+  },
+};
+"""
+PT_LOGGER = """export const logger = {
+  info(message: string) {
+    return message.length;
+  },
+};
+"""
+PT_NOTIFICATION = """async function create(recipientId: string) {
+  return { recipientId };
+}
+function markEntryRead(id: string) {
+  return id;
+}
+export const notificationService = {
+  create,
+  markAsRead: markEntryRead,
+  countUnread: (recipientId: string) => recipientId.length,
+};
+"""
+PT_SYNC = """class SyncService {
+  async analyzeSync(source: string) {
+    return source.length;
+  }
+}
+export const syncService = new SyncService();
+"""
+PT_CLIENT = """import axios from 'axios';
+export const apiClient = axios.create({ baseURL: '/api' });
+export function get(path: string) {
+  return path;
+}
+"""
+PT_ABSENCE = """import { auditService } from './audit.service.js';
+import { logger } from '../utils/logger.js';
+
+export async function approveLeave(employeeId: string) {
+  logger.info('approve');
+  await auditService.createSupervisorLeaveAuditEvent({ employeeId, action: 'APPROVE' });
+  return employeeId;
+}
+
+export function quietLeave(logger: Console) {
+  logger.info('a parameter of that name is not the import');
+  return 0;
+}
+"""
+PT_ROUTES = """import { Router } from 'express';
+import { notificationService } from '../../services/notification.service.js';
+import { syncService } from '../../services/sync.service.js';
+import { apiClient } from '../../services/client.js';
+
+export const router = Router();
+router.post('/notifications', async (req, res) => {
+  res.json(await notificationService.create(req.body.recipientId));
+  notificationService.markAsRead(req.body.id);
+  notificationService.countUnread(req.body.recipientId);
+  await syncService.analyzeSync('sap');
+  await apiClient.get('/health');
+});
+"""
+
+
+def test_a_member_call_on_an_imported_object_connects_the_module_that_defines_that_member(tmp_path):
+    """Planning Tool (5.0 review, H4-0): its modules call each other through imported service objects,
+    `import { auditService } from './audit.service.js'; auditService.createSupervisorLeaveAuditEvent(...)` and
+    `logger.info(...)`, from route handlers that are callbacks, through `{ create, markAsRead: markEntryRead }` objects,
+    the frontend's `projectApi = { getAll: (params) => ... }` and `export const syncService = new SyncService()`. Counting only the calls the linker resolved, `show PATH` gave
+    audit.service.ts no caller of its 14, logger.ts none of its 23, and 42 of PT's 51 services no production caller,
+    and an edit of absence.service.ts named no audit contract. A member call on an imported object counts when the
+    import resolves the object to the module that defines that member; a parameter of the same name, a member the
+    module does not define (`apiClient.get` on an axios instance, beside a module function `get`) and a method name
+    alone (`rows.find`, the test above) do not."""
+    from tests.intent_engine.test_static_check import _flowguard
+    contract = ('# Audit\n\n<!-- flowguard: about backend/src/services/audit.service.ts -->\n'
+                'The absence service writes a supervisor leave audit event for each approval.\n')
+    absence = 'backend/src/services/absence.service.ts'
+    _commit(tmp_path, {'backend/package.json': '{"name": "backend", "type": "module"}\n',
+                       'backend/src/services/audit.service.ts': PT_AUDIT, 'backend/src/utils/logger.ts': PT_LOGGER,
+                       'backend/src/services/notification.service.ts': PT_NOTIFICATION,
+                       'backend/src/services/sync.service.ts': PT_SYNC, 'backend/src/services/client.ts': PT_CLIENT,
+                       absence: PT_ABSENCE, 'backend/src/api/routes/notification.routes.ts': PT_ROUTES,
+                       'docs/audit.md': contract})
+    def show(path):
+        code, out = _flowguard(tmp_path, 'show', path)
+        assert code == 0, out
+        return [line for line in out.splitlines() if line.startswith(('module ', 'calls ', 'called by '))]
+    assert show('backend/src/services/audit.service.ts') == [
+        'module backend/src/services/audit.service.ts: 1 file, 1 function',
+        'called by backend/src/services/absence.service.ts (1 call)']
+    assert show('backend/src/utils/logger.ts') == [
+        'module backend/src/utils/logger.ts: 1 file, 1 function', 'called by backend/src/services/absence.service.ts (1 call)']
+    assert show(absence) == ['module backend/src/services/absence.service.ts: 1 file, 2 functions',
+                             'calls backend/src/services/audit.service.ts (1 call; described by docs/audit.md:3)',
+                             'calls backend/src/utils/logger.ts (1 call)']
+    # The route handler is a callback; its calls count, and so do the members a listed function or a class gives.
+    assert show('backend/src/api/routes/notification.routes.ts') == [
+        'module backend/src/api/routes/notification.routes.ts: 1 file, 0 functions',
+        'calls backend/src/services/notification.service.ts (3 calls)', 'calls backend/src/services/sync.service.ts (1 call)']
+    assert show('backend/src/services/client.ts') == ['module backend/src/services/client.ts: 1 file, 1 function']
+    # The node view counts the same callers.
+    code, out = _flowguard(tmp_path, 'show', 'backend/src/services/notification.service.ts:markEntryRead')
+    assert code == 0 and 'called by 1 function through a resolved call: <anonymous@7,31> ' \
+        '(backend/src/api/routes/notification.routes.ts:7)' in out.splitlines(), out
+    # An edit of the caller names the audit contract (R98).
+    _write(tmp_path, {absence: PT_ABSENCE.replace("action: 'APPROVE'", "action: 'APPROVED'")})
+    code, text = _static(tmp_path)
+    assert code == 0 and [line for line in _block(text) if 'audit.md' in line] == [
+        'impact: audit.md:3 describes backend/src/services/audit.service.ts, whose backend/sr.../services/absence.service.ts'
+        ':approveLeave, which this change edits -> reread that text and correct it if it no longer holds'], text
+    # A parameter named logger is not the import: an edit of that function connects to nothing.
+    _write(tmp_path, {absence: PT_ABSENCE.replace("'a parameter of", "'one parameter of")})
+    code, text = _static(tmp_path)
+    assert code == 0 and [line for line in _block(text) if 'audit.md' in line] == [], text
+
 PT_SQL_SCHEMA = '''datasource db {
   provider = "sqlserver"
   url      = env("DATABASE_URL")
@@ -645,7 +767,7 @@ def test_an_old_values_region_is_named_by_a_file_that_declares_its_set_then_or_n
         assert code == 0, text
         return [line for line in text.splitlines() if 'generated region' in line]
     assert said() == []
-    assert brief() == ['2 generated regions are out of date, 1 of them cannot be written: '
+    assert brief() == ['2 generated regions are out of date, 1 of them cannot be written (last check or docs run): '
                        'python -m flowguard docs rewrites the others and says why']
     # Files that hold the set's or the field's name and declare no set say nothing.
     for path, old, new in ((health, "'degraded'", "'impaired'"), (alert, '{props.text}', '{props.text.trim()}'),
@@ -672,17 +794,47 @@ def test_an_old_values_region_is_named_by_a_file_that_declares_its_set_then_or_n
     code, out = _flowguard(tmp_path, 'docs')
     assert code == 1 and out.splitlines() == [
         'docs/data.md:3 generate values Assignment.status: rewritten',
-        'docs/data.md:8 generate values GRANULARITIES: generate values GRANULARITIES: 2 different value sets have that name'], out
-    assert brief() == ['1 generated region cannot be written: python -m flowguard docs says why']
-    assert brief('new-task') == ['1 generated region cannot be written: python -m flowguard docs says why']
+        'docs/data.md:8 generate values GRANULARITIES: 2 different value sets have that name'], out
+    assert brief() == ['1 generated region cannot be written (last check or docs run): python -m flowguard docs says why']
+    assert brief('new-task') == ['1 generated region cannot be written (last check or docs run): python -m flowguard docs says why']
     # One region out of date is counted alone (the first region now lists five values); after docs none is.
     _write(tmp_path, {month: 'export function monthly(): number { return 4; }\n'})
     assert said() == ['impact: data.md:11 generate values GRANULARITIES is out of date -> python -m flowguard docs rewrites it']
-    assert brief() == ['1 generated region is out of date: python -m flowguard docs rewrites it']
+    assert brief() == ['1 generated region is out of date (last check or docs run): python -m flowguard docs rewrites it']
     code, out = _flowguard(tmp_path, 'docs')
     assert code == 0 and out.splitlines() == ['docs/data.md:11 generate values GRANULARITIES: rewritten'], out
     assert brief() == [] and brief('new-task') == []
 
+
+
+def test_an_old_region_is_named_only_when_the_declaration_it_is_written_from_changes(tmp_path):
+    """Planning Tool (5.0 review, H4-1): an edit of backend/prisma/schema.prisma, even a comment line, named the old
+    `generate values Assignment.status` region, since that schema declares the Prisma field; the schema is in 19 of
+    PT's 312 commits. A region left out of date by an earlier change is named when what declares its set or model
+    differs between the baseline and now: the field's type or column, the CHECK's set, the model's fields, not a
+    comment, another model or another table of the same file."""
+    schema, check = 'backend/prisma/schema.prisma', 'backend/prisma/azure-sql-setup.sql'
+    doc = ('# Data\n\n<!-- flowguard: generate values Assignment.status -->\n- `DRAFT`\n<!-- flowguard: end -->\n\n'
+           '<!-- flowguard: generate fields Assignment -->\n<!-- flowguard: end -->\n')
+    _commit(tmp_path, {'backend/package.json': '{"name": "backend"}\n', schema: PT_SQL_SCHEMA, check: PT_CHECK,
+                       'docs/data.md': doc})
+    values, fields = (f'impact: data.md:{line} generate {what} is out of date -> python -m flowguard docs rewrites it'
+                      for line, what in ((3, 'values Assignment.status'), (7, 'fields Assignment')))
+    def said(files):
+        _write(tmp_path, {schema: PT_SQL_SCHEMA, check: PT_CHECK, **files})
+        code, text = _static(tmp_path)
+        assert code == 0, text
+        return [line for line in _block(text) if 'generate ' in line]
+    note = 'model Note {\n  id String @id\n\n  @@map("notes")\n}\n'
+    assert said({}) == []
+    assert said({schema: '// Main schema of the application database.\n' + PT_SQL_SCHEMA + '\n' + note}) == []
+    assert said({check: '-- Azure SQL setup\n' + PT_CHECK + "\nCREATE TABLE notes (\n  id NVARCHAR(36) PRIMARY KEY,\n"
+                 "  kind NVARCHAR(10) CHECK (kind IN ('A', 'B'))\n);\n"}) == []
+    # Another field of the model changes its fields, not the status set; the CHECK's set and the field's type do.
+    assert said({schema: PT_SQL_SCHEMA.replace('  status String', '  note   String?\n  status String')}) == [fields]
+    assert said({check: PT_CHECK.replace(", 'REMOVED'", '')}) == [values]
+    assert said({schema: PT_SQL_SCHEMA.replace('status String @default("DRAFT")', 'status Int    @default(0)')}) == [
+        values, fields]
 
 PT_ROLES = "export const APPLICATION_ROLES = ['SYSTEM_ADMIN', 'PLANNING_ADMIN', 'EMPLOYEE'] as const;\n"
 PT_PERMISSIONS = ("import { APPLICATION_ROLES } from '../constants/roles';\n\n"
@@ -721,7 +873,7 @@ def test_a_region_is_named_by_the_set_a_ts_alias_reads_and_by_a_prisma_schema_th
     assert said() == []
     _write(tmp_path, {central: PT_CENTRAL.replace('  id ', '  email       String?\n  id ')})
     assert said() == []                                   # a schema without the model
-    _write(tmp_path, {central: PT_CENTRAL, schema: PT_SCHEMA.replace('customerId String', 'customerId String?')})
+    _write(tmp_path, {central: PT_CENTRAL, schema: PT_SCHEMA.replace('  name      String\n', '  name      String?\n')})
     assert said() == [fields]
     _write(tmp_path, {schema: PT_SCHEMA, roles: PT_ROLES.replace("'EMPLOYEE'", "'FINANCE_ADMIN', 'EMPLOYEE'")})
     assert said() == [values]                             # the set the alias names, in another file

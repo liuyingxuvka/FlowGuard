@@ -13,7 +13,8 @@ A text whose site is a file or a folder (`backend/src/services/`) is that module
 a function another module calls, or that calls into another module, names the contracts of those modules too, once
 each, when the change leaves their text as it was: the connected module may now work differently. `show PATH` of a
 file or folder prints its contracts and the modules it calls and is called by, with theirs (`module_lines`). Both
-read the calls the map resolved (`MapHandle.resolved_calls`), never a call matched by a method's name alone.
+read the calls the map resolved (`MapHandle.resolved_calls`: a member call on an imported object whose module defines
+that member counts), never a call matched by a method's name alone.
 
 A list the code already holds is generated instead: the lines between `<!-- flowguard: generate KIND ARG -->` and
 `<!-- flowguard: end -->` are written from the map by `python -m flowguard docs` (`rewrite`), and a run whose region
@@ -28,6 +29,7 @@ from flowguard.map.common import git_run, is_test_file, read_source
 MARKER = re.compile(r'<!--\s*flowguard:\s*about\s+(\S+?)\s*-->')
 HEADING = re.compile(r'(#{1,6})\s')
 REVIEW = 'reread that text and correct it if it no longer holds'
+NO_END = 'no <!-- flowguard: end --> marker ends it'
 FENCE = re.compile(r' {0,3}(`{3,}|~{3,})')
 SPAN = re.compile(r'(`+)(?!`).*?(?<!`)\1(?!`)')
 
@@ -162,11 +164,14 @@ def findings(change, touched, *, everything=False):
 
 
 def _generated_from(change, kind, argument):
-    """Whether this change edits, adds or removes a file a region of `kind` is generated from (`generated`), as the
-    file's map facts read at the baseline and now: for `functions` and `constants` the file the argument names; for
-    `fields` a Prisma schema that declares the model; for `values` a file outside tests and archives that declares the
-    set (`_declares`: a JS/TS set, a Prisma enum, the Prisma field or a JS/TS member of `Model.field`, a SQL CHECK on
-    its column). A file that merely holds the set's or the field's name declares nothing."""
+    """Whether this change edits, adds or removes what a region of `kind` is generated from (`generated`): for
+    `functions` and `constants` the file the argument names; for `fields` and `values` the declaration facts of the
+    model or the set, read per file from the map at the baseline and now, which must differ: for `fields` the model's
+    fields with their types and columns in a Prisma schema, for `values` what a file outside tests and archives
+    declares of the set (`_declaration`: a JS/TS set's members, a Prisma enum's, the Prisma field's type and column
+    or a JS/TS member's type of `Model.field`, a SQL CHECK's set on its column). A comment or any other edit of a file
+    that declares the set changes nothing of it, and a file that merely holds the set's or the field's name declares
+    nothing."""
     paths = change.baseline_paths()
     if kind in ('functions', 'constants'):
         return argument in paths
@@ -175,15 +180,18 @@ def _generated_from(change, kind, argument):
     graph = change.graph
     kinds = ('language', 'schema', 'value_sets', 'typed_fields')
     now = {path: facts for path, _, facts in graph._kinds(*kinds)}
-    records = {path: [facts for facts in (change.old_record(path, kinds), now.get(path)) if facts]
-               for path in sorted(paths) if change.module(path) is not None}
+    records = {path: (change.old_record(path, kinds), now.get(path)) for path in sorted(paths)
+               if change.module(path) is not None}
     if kind == 'fields':
-        return any(item['name'] == argument for path, found in records.items() if path.endswith('.prisma')
-                   for facts in found for item in (facts.get('schema') or {}).get('models', ()))
-    read = [facts for path, found in records.items() if not is_test_file(path) and not graph.archived(path)
-            for facts in found]
-    names, enums = _set_names(graph, argument, read)
-    return any(_declares(graph, facts, argument, names, enums) for facts in read)
+        def fields(facts):
+            return [[(column['name'], column['type'], column['list'], column['optional'], column['column'])
+                     for column in item['fields']] for item in ((facts or {}).get('schema') or {}).get('models', ())
+                    if item['name'] == argument]
+        return any(fields(then) != fields(current) for path, (then, current) in records.items() if path.endswith('.prisma'))
+    read = [pair for path, pair in records.items() if not is_test_file(path) and not graph.archived(path)]
+    names, enums = _set_names(graph, argument, [facts for pair in read for facts in pair if facts])
+    return any(_declaration(graph, then, argument, names, enums) != _declaration(graph, current, argument, names, enums)
+               for then, current in read)
 
 
 def _set_names(graph, argument, extra):
@@ -213,32 +221,38 @@ def _set_names(graph, argument, extra):
         names |= more
 
 
-def _declares(graph, facts, argument, names, enums):
-    """Whether one file's fact record (now or at the baseline) declares the set a `values ARGUMENT` region is written
-    from: a JS/TS set of one of `names` (`_set_names`), a Prisma enum of one of `enums` or, for `Model.field`, a JS/TS
-    member of that type and field, the field in a Prisma model (whose type and column a CHECK's set is read through)
-    and a SQL CHECK on its column."""
-    if any(row['name'] in names for row in facts.get('value_sets') or ()):
-        return True
+def _declaration(graph, facts, argument, names, enums):
+    """What one file's fact record (now or at the baseline; None when the file does not exist then) declares of the
+    set a `values ARGUMENT` region is written from, without positions: the JS/TS sets of one of `names` (`_set_names`)
+    with their kind, members and the set an alias names, the Prisma enums of one of `enums` with their members and,
+    for `Model.field`, the JS/TS members of that type and field with their types, the field in a Prisma model with
+    its type and column (through which a CHECK's set is read) and the set of each SQL CHECK on its column. Empty when
+    the file declares nothing of it."""
+    if not facts:
+        return []
+    found = [('set', row['name'], row['kind'], row.get('values'), row.get('members'), row.get('of'))
+             for row in facts.get('value_sets') or () if row['name'] in names]
     schema = facts.get('schema') or {}
-    if any(enum['name'] in enums for enum in schema.get('enums', ())):
-        return True
+    found += [('enum', enum['name'], [member['name'] for member in enum['fields']])
+              for enum in schema.get('enums', ()) if enum['name'] in enums]
     model, dot, field = argument.partition('.')
     if not (dot and field and '.' not in field):
-        return False
-    if any(row['container'] == model and row['field'] == field for row in facts.get('typed_fields') or ()):
-        return True
+        return found
+    found += [('member', row['container'], row['field'], row['kind'], row.get('values'), row.get('of'))
+              for row in facts.get('typed_fields') or () if row['container'] == model and row['field'] == field]
     if schema.get('kind') == 'prisma':
-        return any(column['name'] == field for item in schema.get('models', ()) if item['name'] == model
-                   for column in item.get('fields', ()))
+        return found + [('field', item['name'], column['name'], column['type'], column['column'])
+                        for item in schema.get('models', ()) if item['name'] == model
+                        for column in item.get('fields', ()) if column['name'] == field]
     models = graph._models()
     for item in [*schema.get('tables', ()), *schema.get('changes', ())]:
-        owner = models.table_model(item.get('name') or item['table'])
+        table = item.get('name') or item['table']
+        owner = models.table_model(table)
         for check in item.get('checks', ()):
             column = models.column_field(owner, check['column']) if owner == model else None
             if column is not None and column['name'] == field:
-                return True
-    return False
+                found.append(('check', table, check['column'], check['values']))
+    return found
 
 
 # ---- modules: their contracts and connections (R98) ---------------------------------------------------------------
@@ -285,8 +299,9 @@ def _linked(graph, touched):
 def module_lines(graph, site):
     """`show PATH` of an existing file or folder (R98): the texts that describe it, then each module (file) it calls
     or is called by, with the number of calls and the texts that describe that module. The calls are those the map
-    resolved (`MapHandle.resolved_calls`): a JS/TS member call matched by its name alone (`rows.find`, `days.get`,
-    `logger.warn` on an imported object) is not counted. What is no module says so in one line: a Markdown file is a
+    resolved (`MapHandle.resolved_calls`), from any function of those files, a callback too: `logger.warn(...)` on a
+    `logger` imported from the module that defines it counts, a JS/TS member call matched by its name alone
+    (`rows.find`, `days.get`) does not. What is no module says so in one line: a Markdown file is a
     document (`document docs/notes/roles.md`), a file the map does not read is no source file (`pyproject.toml`), a
     folder without a file the map reads has none, with the number of Markdown documents under it. The repository's
     root folder `./` holds every mapped file; no about marker names it."""
@@ -310,8 +325,9 @@ def module_lines(graph, site):
             if ':' not in marked:
                 for path in module_files(graph, marked):
                     contracts.setdefault(path, []).append(f'{document}:{line}')
-    functions = {node: item for node, item in graph.functions().items() if '<' not in item['qual']}
-    mine = [node for node, item in functions.items() if item['file'] in files]
+    functions = graph.functions()
+    mine = [node for node, item in functions.items() if item['file'] in files]       # a callback's calls count too
+    named = sum('<' not in functions[node]['qual'] for node in mine)
     down, up = graph.resolved_calls()
     outward, inward = {}, {}
     for node in mine:
@@ -324,7 +340,7 @@ def module_lines(graph, site):
         places = contracts.get(path, [])
         return f'; described by {", ".join(dict.fromkeys(places))}' if places else ''
     own = list(dict.fromkeys(place for path in sorted(files) for place in contracts.get(path, [])))
-    lines = [f'module {site}: {len(files)} file{"s" * (len(files) != 1)}, {len(mine)} function{"s" * (len(mine) != 1)}']
+    lines = [f'module {site}: {len(files)} file{"s" * (len(files) != 1)}, {named} function{"s" * (named != 1)}']
     lines += [f'described by {place}' for place in own] or ([] if site == './' else [    # no marker names the root
         f'described by no text: put <!-- flowguard: about {site} --> above the Markdown text that is its contract'])
     lines += [f'calls {path} ({count} call{"s" * (count != 1)}{described(path)})' for path, count in sorted(outward.items())]
@@ -364,7 +380,8 @@ def _cell(text):
 
 
 def generated(graph, kind, argument):
-    """(the Markdown of one region, '') or ('', what is wrong): `fields Model` a table of a Prisma model's fields with
+    """(the Markdown of one region, '') or ('', what is wrong, without the region's `generate KIND ARG`, which each
+    caller prints before it): `fields Model` a table of a Prisma model's fields with
     each schema file's type where they differ, `values NAME` the members of the value set declared under that name
     (`owners.value_sets_named`, the sets the values lines of `show NAME` give, but for the enum of a Prisma schema not
     in use: what only test files declare left out; the Prisma enum of a schema in use when there is one, else the JS/TS
@@ -373,12 +390,12 @@ def generated(graph, kind, argument):
     constants with their values of one file."""
     import json
     if kind not in KINDS:
-        return '', f'generate {kind}: the kinds are {", ".join(KINDS)}'
+        return '', f'the kinds are {", ".join(KINDS)}'
     if kind == 'fields':
         found = [(schema['file'], item) for schema in graph.schemas() if schema['kind'] == 'prisma'
                  for item in schema.get('models', ()) if item['name'] == argument]
         if not found:
-            return '', f'generate fields {argument}: no Prisma model {argument}'
+            return '', f'no Prisma model {argument}'
         order, types, columns = [], {}, {}
         for file, item in sorted(found, key=lambda pair: pair[0]):
             for column in item.get('fields', ()):
@@ -405,24 +422,24 @@ def generated(graph, kind, argument):
         sets = list(dict.fromkeys(frozenset(values) for values in chosen))
         if len(sets) != 1:
             unused = [where for _, where, _, used, _ in rows if not used]
-            return '', f'generate values {argument}: ' + (
+            return '', (
                 f'{len(sets)} different value sets have that name' if sets else
                 f'only the enum of a Prisma schema not in use has that name ({"; ".join(unused)})' if unused else
                 'no value set of that name')
         return '\n'.join(f'- `{value}`' for value in chosen[0]), ''
     if not (graph.root / argument).is_file():
-        return '', f'generate {kind} {argument}: no such file in this repository'
+        return '', 'no such file in this repository'
     if kind == 'functions':
         rows = sorted((item['line'], item['qual'], item['sig']) for item in graph.functions().values()
                       if item['file'] == argument and '<' not in item['qual'])
         if not rows:
-            return '', f'generate functions {argument}: the map reads no functions in {argument}'
+            return '', f'the map reads no functions in {argument}'
         lines = [f'| `{_cell(qual)}` | `{_cell(" ".join(sig.split()))}` |' for _, qual, sig in rows]
         return '\n'.join(['| Function | Signature |', '|---|---|', *lines]), ''
     rows = sorted((row['line'], row['target'], json.dumps(row['value'], ensure_ascii=False)) for row in graph.assignments()
                   if row['file'] == argument and ':' not in row['node'] and not row.get('field') and row.get('literal'))
     if not rows:
-        return '', f'generate constants {argument}: no module-level literal constant in {argument}'
+        return '', f'no module-level literal constant in {argument}'
     return '\n'.join(['| Constant | Value |', '|---|---|', *(f'| `{_cell(name)}` | `{_cell(value)}` |' for _, name, value in rows)]), ''
 
 
@@ -433,7 +450,7 @@ def stale(graph, document, text):
     found = []
     for kind, argument, line, _, end, body in regions(text):
         if end is None:
-            found.append((line, kind, argument, body, f'generate {kind} {argument} has no <!-- flowguard: end --> marker'))
+            found.append((line, kind, argument, body, NO_END))
             continue
         now, problem = generated(graph, kind, argument)
         if problem or now.strip() != body.strip():
@@ -453,7 +470,7 @@ def rewrite(graph):
         changed = False
         for kind, argument, line, start, end, body in reversed(regions(raw.replace('\r\n', '\n'))):
             if end is None:
-                done.append((document, line, kind, argument, f'generate {kind} {argument} has no <!-- flowguard: end --> marker'))
+                done.append((document, line, kind, argument, NO_END))
                 continue
             now, problem = generated(graph, kind, argument)
             if problem:
