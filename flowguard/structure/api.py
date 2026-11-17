@@ -1105,7 +1105,7 @@ class MapHandle:
             return holders[caller]
         # The JS/TS syntax calls the linker left unresolved, JSX elements aside (`store.save_facts`).
         for _, _, facts in self._kinds('syntax_calls.unresolved'):
-            for caller, file, text in facts.get('syntax_calls.unresolved', ()):
+            for caller, file, text, _ in facts.get('syntax_calls.unresolved', ()):
                 parts = text.split('.')
                 name = parts[-1]
                 if not name.isidentifier() or len(parts) >= 3 and name in prisma:
@@ -1153,11 +1153,12 @@ class MapHandle:
         `export const logger = { info() {} }`), a module-level function the object literal lists (`{ create }`,
         `{ remove: removeEntry }`) or holds (`getAll: (params) => ...`), a method of the module's class C of
         `const x = new C()`. That is resolution through
-        the import, not a name guess. A receiver that a parameter or a local name of the calling function hides, a
+        the import, not a name guess. A receiver that a parameter or a local name hides at the call (the part's
+        `hidden`: a `for (const x of ...)` variable or a `catch (x)` parameter only inside its statement), a
         namespace (`* as x`, which the linker resolves) or default import, a file with syntax errors and a member the
         module does not define (`apiClient.get` on an axios instance) give nothing."""
         from .readers.registry import ECMA
-        modules, callers, members, functions = {}, {}, {}, {}
+        modules, members, functions = {}, {}, {}
         for ident, kind, file, qual, raw in self.con.execute(
                 "SELECT id, kind, file, qual, raw FROM node WHERE kind IN ('module', 'function', 'method')"):
             if not file or language_of(file) not in ECMA:
@@ -1166,10 +1167,9 @@ class MapHandle:
                 modules[ident] = file
                 continue
             data = store.unpack(raw)
-            callers[ident] = data
             holder = data['holder']
-            if holder and data['scope'] in ('', holder):        # a module-level object literal's or class's method
-                members.setdefault((file, holder), {}).setdefault(data['name'], []).append(ident)
+            if holder and data['scope'] in ('', holder):        # a module-level object literal's or class's member
+                members.setdefault((file, holder), {}).setdefault(data['member'], []).append(ident)
             elif kind == 'function' and not data['scope']:
                 functions[(file, qual)] = ident
         held = {}                   # (file, object): {member: [callee]} of the members an object lists or a class gives
@@ -1188,12 +1188,9 @@ class MapHandle:
                 continue
             imported = {row['alias']: (modules.get(row['resolved']), row['name']) for row in facts.get('dependencies', ())
                         if row['kind'] == 'import' and row['alias'] and row['resolved'] and row['name'] not in ('', '*', 'default')}
-            for caller, _, text in calls:
+            for caller, _, text, hidden in calls:
                 receiver, dot, method = (part.strip() for part in text.partition('.'))
-                if not dot or receiver not in imported or not method.isidentifier():
-                    continue
-                own = callers.get(caller)            # a module-level call has no parameter and no local name
-                if own is not None and (receiver in own['parameters'] or receiver in own['shadows']):
+                if not dot or receiver not in imported or not method.isidentifier() or hidden:
                     continue
                 key = imported[receiver]
                 targets = set(members.get(key, {}).get(method, ())) | set(held.get(key, {}).get(method, ()))

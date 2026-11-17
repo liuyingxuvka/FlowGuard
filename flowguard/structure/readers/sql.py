@@ -1,20 +1,24 @@
 """SQL text facts: tables and columns a script declares, and the rows a statement writes.
 
 One small statement reader serves `.sql` files and SQL text found in TS/JS calls such as
-Prisma `$executeRaw`. It reads `CREATE TABLE`, `ALTER TABLE ... ADD/DROP/RENAME COLUMN`,
+Prisma `$executeRaw`. It reads `CREATE TABLE`, `ALTER TABLE ... ADD/DROP/RENAME/ALTER COLUMN`,
 `ALTER TABLE ... RENAME TO`, `DROP TABLE`, `INSERT INTO`, `UPDATE ... SET` and `DELETE FROM`,
 with plain, `"quoted"`, `` `quoted` `` and
 T-SQL `[bracketed]` names. It never executes SQL and does not claim full dialect coverage:
 an unrecognized statement contributes no fact, and a column list it cannot read is `*`.
+A statement inside a string literal (`EXEC(N'ALTER TABLE ...')`, `SET @sql = N'...'`, `'...'`, `E'...'`)
+is SQL built at run time and is not read; a CREATE TABLE there is `unread`, a table it may create.
 """
 from __future__ import annotations
 
+import bisect
 import hashlib
 import re
 
 NAME = r'(?:\[[^\]]+\]|"[^"]+"|`[^`]+`|[A-Za-z_#@][\w$#@]*)'
 QUALIFIED = rf'{NAME}(?:\s*\.\s*{NAME}){{0,2}}'
 CLAUSES = {'add', 'alter', 'drop', 'rename', 'set', 'enable', 'disable', 'with', 'nocheck', 'owner', 'validate'}
+KEEPS_TYPE = {'set', 'drop', 'add', 'reset', 'restart'}     # the words after ALTER COLUMN c that name no new type
 CONSTRAINTS = {'constraint', 'primary', 'foreign', 'unique', 'check', 'index', 'key', 'period', 'exclude', 'like'}
 ENDS = re.compile(r'\b(?:where|from|output|returning|option)\b', re.I)
 STATEMENT = re.compile(
@@ -39,7 +43,8 @@ def split_name(qualified: str) -> tuple[str, str]:
 
 
 def blank_comments(text: str) -> str:
-    """Comments become spaces (newlines kept), so offsets and line numbers stay those of the source."""
+    """Comments become spaces (newlines kept), so offsets and line numbers stay those of the source. String
+    literals stay as they are (`string_spans` finds them)."""
     out, i, n = [], 0, len(text)
     while i < n:
         two = text[i:i + 2]
@@ -53,7 +58,7 @@ def blank_comments(text: str) -> str:
             end = n if end < 0 else end + 2
             out.append(re.sub(r'[^\n]', ' ', text[i:end]))
             i = end
-        elif text[i] == "'":                        # string bodies stay: EXEC(N'ALTER TABLE ...') is SQL too
+        elif text[i] == "'":                        # a string stays: a CHECK's values are spelled in strings
             end = i + 1
             while end < n:
                 if text[end] == "'" and text[end + 1:end + 2] == "'":
@@ -68,6 +73,22 @@ def blank_comments(text: str) -> str:
             out.append(text[i])
             i += 1
     return ''.join(out)
+
+
+def string_spans(source: str) -> list[tuple[int, int]]:
+    """[(start, end)] of the string literals of comment-blanked SQL (`blank_comments`): each `'...'` with its
+    doubled quotes, an `N'...'` or `E'...'` prefix being outside it; an unclosed string runs to the end."""
+    spans, i, n = [], 0, len(source)
+    while i < n:
+        if source[i] != "'":
+            i += 1
+            continue
+        end = i + 1
+        while end < n and not (source[end] == "'" and source[end + 1:end + 2] != "'"):
+            end += 2 if source[end] == "'" else 1
+        spans.append((i, min(end + 1, n)))
+        i = end + 1
+    return spans
 
 
 def balanced(text: str, start: int) -> int:
@@ -104,9 +125,11 @@ def top_level(text: str, base: int = 0) -> list[tuple[str, int]]:
 
 
 def _clause_end(text: str, start: int) -> int:
-    """End of an ALTER clause list: a semicolon, `GO`, or a new line that starts another statement."""
+    """End of an ALTER clause list: a semicolon, `GO`, or a new line that starts another statement (a line that
+    begins `ALTER COLUMN` continues the list, as Prisma writes `ALTER TABLE "t" ALTER COLUMN "a" ...,` and the next
+    column on the line below)."""
     semi = text.find(';', start)
-    stop = re.compile(r'\n\s*(?:go\b|if\b|alter\b|create\b|insert\b|update\b|delete\b|drop\b|exec\b|end\b|begin\b'
+    stop = re.compile(r'\n\s*(?:go\b|if\b|alter\b(?!\s+column\b)|create\b|insert\b|update\b|delete\b|drop\b|exec\b|end\b|begin\b'
                       r'|set\b|print\b|commit\b|select\b|\))', re.I).search(text, start)
     ends = [i for i in (semi, stop.start() if stop else -1) if i >= 0]
     return min(ends) if ends else len(text)
@@ -214,14 +237,24 @@ def _column(part: str, at: int):
 
 
 def statements(text: str) -> list[dict]:
-    """Write and definition statements: verb, schema, table, columns (name, offset), offset."""
+    """Write and definition statements: verb, schema, table, columns (name, offset), offset. A statement that
+    begins inside a string literal (`string_spans`: `EXEC(N'ALTER TABLE ...')`, `SET @sql = N'ALTER TABLE [t] ADD
+    [c] ' + @type`) is SQL built at run time and gives no columns, CHECK or write (Z-5); a CREATE TABLE there is
+    `unread`, as a table name built at run time is."""
     source = blank_comments(text)
+    spans = string_spans(source)
+    starts = [start for start, _ in spans]
     out = []
     for match in STATEMENT.finditer(source):
         verb = ' '.join(match.group('verb').lower().split())
         schema, table = split_name(match.group('table'))
         after = match.end()
-        row = dict(verb=verb.split()[0], schema=schema, table=table, offset=match.start(), columns=[], drop=[])
+        row = dict(verb=verb.split()[0], schema=schema, table=table, offset=match.start(), columns=[], drop=[], retype=[])
+        inside = bisect.bisect_left(starts, match.start()) - 1          # the last string opening before it
+        if inside >= 0 and match.start() < spans[inside][1]:
+            if verb.startswith('create'):
+                out.append(dict(row, verb='unread'))
+            continue
         if verb.startswith('create'):
             row['verb'] = 'create'
             opening = source.find('(', after)
@@ -259,6 +292,12 @@ def statements(text: str) -> list[dict]:
                     if found:
                         row['drop'].append(unquote(found.group(1)))
                         row['columns'].append(dict(name=unquote(found.group(2)), offset=at, type=''))
+                elif head == 'alter' and len(words) > 1 and words[1].lower() == 'column':
+                    # A new type (Z-4): Postgres `ALTER COLUMN c TYPE t` (or `SET DATA TYPE t`), T-SQL `ALTER COLUMN
+                    # [c] t NULL`; `SET NOT NULL`, `DROP DEFAULT`, `ADD ROWGUIDCOL` and the like keep the type.
+                    found = re.match(rf'\s*alter\s+column\s+({NAME})\s+((?:set\s+data\s+)?type\s+)?(\S+)', part, re.I)
+                    if found and (found.group(2) or found.group(3).lower() not in KEEPS_TYPE):
+                        row['retype'].append(dict(name=unquote(found.group(1)), offset=at, type=found.group(3)))
                 elif head == 'rename' and len(words) > 1 and words[1].lower() == 'to':
                     found = re.match(rf'\s*rename\s+to\s+({QUALIFIED})', part, re.I)
                     if found:                           # SQLite's rebuild: ALTER TABLE "new_t" RENAME TO "t"
@@ -317,9 +356,10 @@ def line_of(text: str, offset: int) -> int:
 
 
 def extract(root, rel, data, module, is_test):
-    """Tables and columns a SQL file declares (create, alter add/drop/rename, drop), the tables a CREATE TABLE ...
-    AS SELECT copies (a `copy` change: columns unread), the lines of CREATE TABLE statements whose table is not
-    spelled (`unread`) and its write statements."""
+    """Tables and columns a SQL file declares (create, alter add/drop/rename, drop, and a column's new type by an
+    alter column, `retype`), the tables a CREATE TABLE ... AS SELECT copies (a `copy` change: columns unread), the
+    lines of CREATE TABLE statements whose table is not spelled or that a string literal holds (`unread`) and its
+    write statements."""
     from flowguard.map.common import normalize_newlines
     from .common import blank
     from .registry import language_for
@@ -353,6 +393,8 @@ def extract(root, rel, data, module, is_test):
         elif row['verb'] in ('alter', 'drop'):
             changes.append(dict(verb=row['verb'], table=row['table'], schema=row['schema'], line=line,
                                 add=columns, drop=row['drop'], **({'rename': row['rename']} if 'rename' in row else {}),
+                                retype=[dict(name=c['name'], line=line_of(text, c['offset']), type=c['type'])
+                                        for c in row['retype']],
                                 checks=[dict(column=c['column'], values=c['values'], line=line_of(text, c['offset']))
                                         for c in row.get('checks', ())], ranges=_range_rows(text, row)))
             out['keys'] += [('column', row['table'] + '.' + c['name'], c['line'], '') for c in columns]
@@ -376,7 +418,9 @@ def describe(schemas) -> list[dict]:
     ADD (or RENAME COLUMN) of the description gives a table it does not define, as an upgrade script does to a
     table another file creates: {table: {column: name}}, casefolded keys as in `tables`. A table's `declared` holds
     each column's last declaration in the description, {column: {type, file, line}}: a rebuild's CREATE TABLE
-    "new_t" replaces the one before it, an ALTER ADD adds one, and a RENAME COLUMN keeps the type it renames."""
+    "new_t" replaces the one before it, an ALTER ADD adds one, a RENAME COLUMN keeps the type it renames, and an ALTER
+    COLUMN that gives a column of the table a type (`retype`: `ALTER COLUMN c TYPE t`, T-SQL `ALTER COLUMN [c] t`)
+    declares that type there (Z-4)."""
     grouped = {}
     for schema in schemas:
         if schema.get('kind') != 'sql':
@@ -409,6 +453,8 @@ def describe(schemas) -> list[dict]:
                     renamed = dropped[0]['type'] if len(dropped) == 1 and dropped[0] is not None else ''
                     declared.update((c['name'].casefold(), dict(type=c['type'] or renamed, file=schema['file'], line=c['line']))
                                     for c in item['add'])
+                    declared.update((c['name'].casefold(), dict(type=c['type'], file=schema['file'], line=c['line']))
+                                    for c in item['retype'] if c['name'].casefold() in columns)
                 elif key not in tables:             # an upgrade script's ALTER ADD of a table created elsewhere
                     altered.setdefault(key, {}).update((c['name'].casefold(), c['name']) for c in item['add'])
                 if key in tables:                   # a later CHECK on a column replaces an earlier one

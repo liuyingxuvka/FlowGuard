@@ -30,12 +30,37 @@ def test_sql_statements_read_brackets_quotes_alter_lists_and_writes():
         ('create', 'app', 'Item', ['id', 'qty'], []),
         ('alter', 'dbo', 'Item', ['price', 'note'], []),
         ('alter', '', 'Item', ['tag'], ['qty']),
-        ('alter', 'dbo', 'Item', ['owner'], []),
+        # The ALTER inside EXEC(N'...') is SQL a string holds: not read (Z-5, below).
         ('update', 'dbo', 'Item', ['price', 'note'], []),
         ('insert', '', 'Item', ['id', 'qty'], []),
         ('delete', '', 'Item', [], []),
         ('drop', '', 'Old', [], []),
     ]
+
+
+def test_sql_statements_read_an_alter_column_type_and_no_statement_a_string_holds():
+    """Planning Tool (2026-11). Z-4: `ALTER TABLE [assignments] ALTER COLUMN [demand_id] NVARCHAR(36) NULL;` gave the
+    column no new type, nor did Postgres's `ALTER COLUMN c TYPE t`. Z-5: the reader read the ALTER inside `SET @sql =
+    N'ALTER TABLE [dbo].[assignments] ADD [internal_order_id] ' + @technicalType + N' NULL;'` and gave the column the
+    type `'`. An ALTER COLUMN that gives a type is a `retype`; a statement that begins inside a string literal
+    (`N'...'`, `'...'`, `E'...'`) is SQL built at run time and gives nothing, a CREATE TABLE there being `unread`."""
+    found = [(row['verb'], row['table'], [c['name'] for c in row['columns']], [(c['name'], c['type']) for c in row['retype']])
+             for row in statements(
+        'ALTER TABLE [assignments] ALTER COLUMN [demand_id] NVARCHAR(36) NULL;\n'
+        'ALTER TABLE "assignments" ALTER COLUMN "x" TYPE INTEGER USING "x"::integer, ALTER COLUMN "y" SET NOT NULL,\n'
+        '  ALTER COLUMN "z" SET DATA TYPE TEXT, ALTER COLUMN "w" DROP DEFAULT;\n'
+        "SET @sql = N'ALTER TABLE [dbo].[assignments] ADD [internal_order_id] ' + @technicalType + N' NULL;';\n"
+        "EXEC sys.sp_executesql @sql;\n"
+        "EXEC(N'UPDATE [dbo].[demands] SET [status] = N''OPEN'' WHERE [status] IS NULL');\n"
+        "PERFORM E'INSERT INTO logs (id) VALUES (1)';\n"
+        "SELECT @sql = N'CREATE TABLE [dbo].' + QUOTENAME(@table) + N' (' + @columns + N')';\n"
+        "INSERT INTO notes (body) VALUES ('ALTER TABLE x ADD y INT');\n")]
+    assert found == [
+        ('alter', 'assignments', [], [('demand_id', 'NVARCHAR(36)')]),
+        ('alter', 'assignments', [], [('x', 'INTEGER'), ('z', 'TEXT')]),
+        ('unread', 'dbo', [], []),
+        ('insert', 'notes', ['body'], []),
+    ], found
 
 
 def test_prisma_schema_reads_maps_relations_enums_and_reports_unclosed_blocks(tmp_path):

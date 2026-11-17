@@ -199,8 +199,11 @@ def test_schema_and_sql_descriptions_list_the_missing_columns(planning):
         'personnel_lifecycle_state', 'personnel_source', 'storage_scope'], [])]
     tables = [gap['table'] for gap in gaps if gap['kind'] == 'sql-table']
     assert tables == ['central_lending_assignments']
-    migrations = [gap for gap in gaps if gap['description'] == 'backend/prisma/central/migrations/']
-    assert migrations == []                       # CREATE + ALTER TABLE ADD in order: complete
+    # CREATE + ALTER TABLE ADD in folder order; the two columns personnel_source_contract adds through
+    # EXEC(N'ALTER TABLE ...') are SQL a string holds, run at run time, and are not read (Z-5): the folder lacks them.
+    migrations = [(gap['table'], gap['missing'], gap['extra'])
+                  for gap in gaps if gap['description'] == 'backend/prisma/central/migrations/']
+    assert migrations == [('central_employees', ['external_type', 'storage_scope'], [])], migrations
     assert planning.keys(kind='column', value='central_employees.org_unit_id')
 
 

@@ -1277,6 +1277,34 @@ def test_a_site_query_whose_symbol_names_no_function_there_lists_only_what_is_at
     assert PSP not in '\n'.join(lines)
 
 
+def test_a_site_query_lists_the_agreements_written_in_its_file_that_name_its_symbol(tmp_path, capsys):
+    # Z-0 (2026-11): after K2-0, Planning Tool's `show backend/src/services/project-member.service.ts:Project.leaderId`
+    # no longer listed `together Project.leaderId ProjectMember.*` written in that file (nor demand.service.ts's together
+    # Demand.projectId line, nor sap-number-renumber.service.ts's), and `show backend/src/utils/calendar-iso.ts:
+    # ISO_WEEKS_IN_YEAR` dropped known.iso-weeks and the `same ISO_WEEKS_IN_YEAR` copies whose comment sits there: the
+    # file declares neither symbol, so every name written without a file was left out, those of its own comments too.
+    _, shown = _shown(tmp_path, capsys, MEMBERS)
+    for query, agreement in (('backend/src/services/project-member.service.ts:Project.leaderId', LEADER),
+                             ('backend/src/services/project-member.service.ts:ProjectMember.role', LEADER),
+                             ('backend/src/services/psp-element.service.ts:PspElement.hierarchyLevel', PSP),
+                             ('backend/src/services/employee-home-unit.service.ts:Employee.organizationalUnitId', HOME)):
+        lines = shown(query)
+        assert lines[:3] == [f'show {query}', MEMBERS_NOTICE, agreement], lines
+    # An agreement written in another file is not at this file and symbol (K2-0 holds).
+    lines = shown('backend/src/services/project.service.ts:Project.leaderId')
+    assert not [line for line in lines if line.startswith(('together ', 'writers '))], lines
+    assert PSP not in shown('backend/src/services/psp-element.service.ts:Project.leaderId')
+    # A `same NAME` agreement with a copy in the file: each copy's line, the rule anchored on it and the known entry
+    # whose finding names it with a site there; the file that holds no copy lists none of them.
+    _, shown = _shown(tmp_path / 'capacity', capsys, CAPACITY)
+    query = 'backend/src/utils/calendar-iso.ts:ISO_WEEKS_IN_YEAR'
+    lines = shown(query)
+    assert lines[:7] == [f'show {query}', NOTICE, LEAVE, RULE, CITED, SAME,
+                         'same ISO_WEEKS_IN_YEAR frontend/src/utils/weeks.ts:2'], lines
+    lines = shown('backend/src/services/capacity.service.ts:ISO_WEEKS_IN_YEAR')
+    assert not {LEAVE, RULE, CITED, SAME} & set(lines) and not [line for line in lines if line.startswith('same ')], lines
+
+
 def test_a_rule_s_view_lists_the_entries_of_its_anchors_and_a_class_lists_its_methods_entries(tmp_path, capsys):
     # A rule whose id differs from its anchor (ISO_WEEKS on ISO_WEEKS_IN_YEAR) listed none of the anchor's entries.
     _, shown = _shown(tmp_path, capsys, CAPACITY)

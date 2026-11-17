@@ -7,7 +7,8 @@ import os
 from pathlib import Path
 import re
 
-from .common import MapError, git_blob, git_common_directory, git_head, git_run, normalize_newlines, sha256_bytes
+from .common import (MapError, decode_text, git_blob, git_common_directory, git_head, git_run, normalize_newlines,
+                     sha256_bytes)
 from .records import (NO_ORIGINAL_FACT, Unverifiable, integrity_problem, prepare_directory, protected_paths, restore_advice,
                       validate_new_files, write_once, read_original_bytes)
 
@@ -415,9 +416,11 @@ def quote_matches(text: str, quote: str) -> bool:
 def exact_quote(raw: bytes, quote: str) -> bool:
     """The strict quote of `.flowguard/rules.toml` and `.flowguard/known.toml`: `quote` occurs in `raw` exactly,
     after only CRLF and CR become LF on both sides (`normalize_newlines`). No whitespace is folded and `...` is three
-    dots, not an elision; an empty quote matches nothing."""
+    dots, not an elision; an empty quote matches nothing. The bytes are read as every project document is
+    (`decode_text`: UTF-8, or UTF-8 or UTF-16 by their BOM, which is no word); bytes that are no such text raise
+    UnicodeDecodeError, so a caller that reads a document checks it first (`document_text`)."""
     words = normalize_newlines(quote.encode('utf-8')).decode('utf-8')
-    return bool(words) and words in normalize_newlines(raw).decode('utf-8-sig')
+    return bool(words) and words in normalize_newlines(decode_text(raw)[0].encode('utf-8')).decode('utf-8')
 
 
 def added_since(root: Path, baseline: str, identifier: str) -> bool:

@@ -13,7 +13,7 @@ import tomllib
 from .api import IntentError
 from flowguard.map.requests import (REQUEST_DIR, RETIRED_DIR, added_since, exact_quote, quote_matches, read_request_bytes,
                                     request_states)
-from flowguard.map.common import git_blob, git_common_directory, git_head, git_run
+from flowguard.map.common import decode_text, document_text, git_blob, git_common_directory, git_head, git_run
 
 
 @dataclass
@@ -138,6 +138,9 @@ def shared_archive(root):
     return held[1]
 
 
+UNREADABLE_STEP = 'save it as UTF-8, or as UTF-16 with its byte order mark'     # a document `document_text` cannot read
+
+
 # flowguard: same SOURCE_AUTHORITY(src: source, rule_confirmed: request, cfg: config, archive: archive, quote: words) -> answer: tuple[bool, str] calibrated_by=tests/test_anchor_self_rules.py::test_authority_anchor_case[EXACT]
 def authority(src: Source, rule_confirmed: str | None, cfg: object, archive: object, quote: str | None = None) -> tuple[bool, str]:
     if src.strict:
@@ -150,7 +153,10 @@ def authority(src: Source, rule_confirmed: str | None, cfg: object, archive: obj
         path = (cfg.root / src.path).resolve()
         if not path.is_relative_to(cfg.root) or not path.is_file():
             return False, f'doc {src.path} gone -> restore or update its source'
-        if not quote_matches(path.read_text(encoding='utf-8-sig'), src.quote):
+        decoded, problem = document_text(src.path, path.read_bytes())
+        if problem:
+            return False, f'{problem} -> {UNREADABLE_STEP}'
+        if not quote_matches(decoded[0], src.quote):
             return False, f'doc quote gone: {src.path} -> update the rule from the original'
         return True, f'doc {src.path}'
     if rule_confirmed:
@@ -181,7 +187,8 @@ def provisional(src, cfg, intent_file):
         return True
     revision = parent.stdout.decode().strip()
     old_doc = git_blob(cfg.root, revision, src.path)
-    if old_doc is None or not quote_matches(old_doc.decode('utf-8-sig'), src.quote):
+    decoded = document_text(src.path, old_doc)[0] if old_doc is not None else None
+    if decoded is None or not quote_matches(decoded[0], src.quote):      # no such words then, readable or not
         return True
     import tomllib
     old_cfg = git_blob(cfg.root, revision, 'pyproject.toml')
@@ -490,13 +497,15 @@ def _doc_problem(cfg, path, quote, matches, revision):
     raw = _bytes_at(cfg, revision, path)
     if raw is None:
         return f'{path} is gone', 'restore it, or cite the document that holds the words'
+    if problem := document_text(path, raw)[1]:          # UTF-16 with its BOM is read; Latin-1 is named (Z-6)
+        return problem, UNREADABLE_STEP
     if not matches(raw, quote):
         return f'{path} does not contain "{_short(quote)}"', 'quote the document exactly'
     return None
 
 
 def _legacy_match(raw, words):
-    return quote_matches(raw.decode('utf-8-sig'), words)
+    return quote_matches(decode_text(raw)[0], words)
 
 
 def _problem(src, cfg, archive, *, revision=None, baseline=None, quote=None):

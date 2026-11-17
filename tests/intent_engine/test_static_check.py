@@ -200,7 +200,8 @@ def test_value_sets_come_from_prisma_enums_sql_checks_and_typescript_types(tmp_p
         ''',
         'prisma/migrations/001/migration.sql': '''
             CREATE TABLE accounts (id TEXT, status TEXT CHECK (status IN ('open', 'closed')), account_kind TEXT);
-            EXEC(N'ALTER TABLE [dbo].[accounts] ADD CONSTRAINT [CK_kind] CHECK ([account_kind] IN (N''USER'', N''BOT''))');
+            ALTER TABLE [dbo].[accounts] ADD CONSTRAINT [CK_kind] CHECK ([account_kind] IN (N'USER', N'BOT'));
+            EXEC(N'ALTER TABLE [dbo].[accounts] ADD CONSTRAINT [CK_status] CHECK ([status] IN (N''open'', N''shut''))');
             ALTER TABLE accounts ADD CONSTRAINT ck_ranged CHECK (id > 0);
         ''',
         'src/types.ts': '''
@@ -225,6 +226,8 @@ def test_value_sets_come_from_prisma_enums_sql_checks_and_typescript_types(tmp_p
     })
     with closing(build(tmp_path)) as graph:
         sets = {row['key']: (row['values'], row['kind']) for row in graph.value_sets()}
+        # The CHECK that EXEC(N'...') adds is SQL a string holds, built at run time: not read (Z-5), so it does not
+        # replace the status set the CREATE TABLE declares.
         assert sets == {'Account.role': (('ADMIN', 'MEMBER'), 'prisma-enum'), 'Account.status': (('open', 'closed'), 'sql-check'),
                         'Account.kind': (('USER', 'BOT'), 'sql-check'), 'Event.severity': (('low', 'high'), 'ts-type'),
                         'Event.state': (('DRAFT', 'LIVE'), 'ts-type'), 'Job.state': (('DRAFT', 'LIVE'), 'ts-type')}, sets

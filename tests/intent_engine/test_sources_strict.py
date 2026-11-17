@@ -129,6 +129,47 @@ def test_a_strict_document_source_needs_authority_docs_and_its_exact_words(tmp_p
     assert _authority(cfg, 'doc ../docs/spec.md "x"')[1].startswith('doc ../docs/spec.md is not a path relative to the repository')
 
 
+def test_every_reader_of_a_cited_document_decodes_it_as_the_brief_does(tmp_path, capsys):
+    """Z-6 (2026-11): K2-1 taught the brief and init to read AGENTS.md and CLAUDE.md as UTF-8, or UTF-16 by their BOM
+    (Windows PowerShell 5.1's `>` writes UTF-16LE with a BOM), but the rule sources that quote AGENTS.md still decoded
+    strict UTF-8: with `authority_docs = ["AGENTS.md"]` and a rule `source = 'doc AGENTS.md "Add numbers exactly."'`,
+    the brief printed the rule while `show rules` and `check --static` ended with `flowguard: 'utf-8' codec can't decode
+    byte 0xff in position 0: invalid start byte`, exit 2, naming no file. Every reader of a document FlowGuard compares
+    text from (a strict source, an intent doc source, a ledger entry's rule file, the brief, init) now reads it through
+    `common.decode_text`; a document that is no such text is that source's problem, naming the file."""
+    from flowguard.intent import cli, ledger
+    words = '# Agents\r\n\r\nAdd numbers exactly.\r\nOne route per function.\r\n'
+    _write(tmp_path, {'pyproject.toml': '[tool.flowguard]\nauthority_docs = ["AGENTS.md"]\n',
+                      '.flowguard/rules.toml': '''
+                          [rule.exact-add]
+                          text = "add is exact"
+                          source = 'doc AGENTS.md "Add numbers exactly."'
+                      '''})
+    (tmp_path / 'AGENTS.md').write_bytes(b'\xff\xfe' + words.encode('utf-16-le'))
+    (tmp_path / 'CLAUDE.md').write_bytes(b'\xff\xfe' + '@AGENTS.md\r\n'.encode('utf-16-le'))
+    _commit(tmp_path)
+    cfg = load_config(tmp_path)
+    assert _authority(cfg, 'doc AGENTS.md "Add numbers exactly."') == (True, 'doc AGENTS.md')
+    archive = sources.shared_archive(tmp_path)
+    assert sources.authority(sources.parse('doc AGENTS.md "Add   numbers exactly."'), None, cfg, archive) == (
+        True, 'doc AGENTS.md')
+    assert ledger._sentence_problem(cfg, ('AGENTS.md', 'One route per function.'), {}) == ''
+    assert cli.show(cfg, 'rules') == 0
+    assert capsys.readouterr().out.splitlines()[1:3] == [
+        'rule.exact-add: add is exact', '    source: doc AGENTS.md "Add numbers exactly." (holds)']
+    assert cli.static_check(cfg) == 0
+    capsys.readouterr()
+    # Bytes that are neither: each reader names the file and gives the decoder's own text.
+    (tmp_path / 'AGENTS.md').write_bytes(b'Caf\xe9 notes. Add numbers exactly.\n')
+    unreadable = ("AGENTS.md is no UTF-8 or UTF-16 text: 'utf-8' codec can't decode byte 0xe9 in position 3: invalid "
+                  "continuation byte")
+    step = 'save it as UTF-8, or as UTF-16 with its byte order mark'
+    assert _authority(cfg, 'doc AGENTS.md "Add numbers exactly."') == (False, f'{unreadable} -> {step}')
+    assert sources.authority(sources.parse('doc AGENTS.md "Add numbers exactly."'), None, cfg, archive) == (
+        False, f'{unreadable} -> {step}')
+    assert ledger._sentence_problem(cfg, ('AGENTS.md', 'One route per function.'), {}) == f'rule file {unreadable}'
+
+
 def test_rule_id_resolves_to_the_current_entry_whose_own_source_is_checked_strictly(tmp_path):
     cfg = _project(tmp_path, rules='''
         [rule.days]

@@ -2447,9 +2447,11 @@ def model_lines(graph, name):
     Prisma schema that declares it, with its `@@map` table and its number of fields (`model CapacityCalendarEntry
     (table capacity_calendar_entries): 20 fields (backend/prisma/schema.prisma:984)`), one line per SQL description
     that has the table (`sql.describe`: a file, or a Prisma migrations folder as its migrations leave the table) with
-    its number of columns, then one line that counts its writes (`MapHandle.writes` rows of the model or table, one
-    per write call) and its reads (`MapHandle.queries` of the model, `MapHandle.sql_reads` of its tables) and names
-    the view that lists a field's: `show MODEL.FIELD`. [] for any other name."""
+    its number of columns, archives left out as the column lines and the columns check leave them out
+    (`MapHandle.archived`, Z-8: `docs/database-history/...` describes no database), then one line that counts its
+    writes (`MapHandle.writes` rows of the model or table, one per write call) and its reads (`MapHandle.queries` of
+    the model, `MapHandle.sql_reads` of its tables) and names the view that lists a field's: `show MODEL.FIELD`. []
+    for any other name."""
     from ..structure.readers.sql import describe
     folded = name.casefold()
     lines, models, tables = [], set(), set()
@@ -2463,7 +2465,7 @@ def model_lines(graph, name):
                 lines.append(f'model {item["name"]}{mapped}: {_counted(len(item.get("fields", ())), "field")} '
                              f'({schema["file"]}:{item["line"]})')
     tables.add(folded)
-    for description in describe(graph.schemas()):
+    for description in describe([schema for schema in graph.schemas() if not graph.archived(schema['file'])]):
         for key, table in sorted(description['tables'].items()):
             if key in tables:
                 columns = 'columns the CREATE TABLE ... AS SELECT does not spell' if table['columns'] is None \
@@ -2492,46 +2494,34 @@ HOLDER_METHODS = 3      # the methods a holder line names without --full
 
 
 def method_holders(graph, name):
-    """{(file, kind): [(line, method)]} of the module-level object literals (`export const capacityService = {`) and
-    classes named `name` whose methods the map holds, each method by its line: a function or method node whose
-    `holder` is `name` and that no other function holds (`MapHandle.call_index` reads them so); kind is 'class' when
-    that file declares a class of that name, else 'object'."""
+    """{(file, kind, place): [(line, member)]} of the module-level object literals (`export const capacityService =
+    {`) and classes named `name` whose members the map holds, each member by its line: a function or method node
+    whose `holder` is `name` and that no other function holds (`MapHandle.call_index` reads them so), named as a
+    member access spells it (`member`: a method definition, and an arrow function or function expression that is a
+    property or a class field, `getAll: (params) => ...`, so `show name.member` finds each, `cli._held_methods`). Kind
+    and place are the reader's (`holder_kind`, `holder_line`: the class's line, or that of the declaration holding the
+    object; a class expression `const Foo = class Bar {}` is the class Bar there)."""
     from flowguard.structure import store
     found = {}
     for file, qual, line, raw in graph.con.execute(
             "SELECT file, qual, line, raw FROM node WHERE kind IN ('function', 'method') AND file IS NOT NULL"):
         data = store.unpack(raw) if raw else {}
         if data.get('holder') == name and data.get('scope', '') in ('', name):
-            classes = graph.con.execute("SELECT 1 FROM node WHERE file = ? AND kind = 'class' AND qual = ? LIMIT 1",
-                                        (file, name)).fetchone()
-            found.setdefault((file, 'class' if classes else 'object'), []).append(
-                (line, data.get('name') or qual.rpartition('.')[2]))
+            found.setdefault((file, data['holder_kind'], data['holder_line']), []).append((line, data['member']))
     return found
 
 
 def holder_lines(graph, name, *, full=False):
     """`show NAME` of a method holder (K3-0, Planning Tool's `show capacityService` said `not on the map` of
     `export const capacityService = {`): one line per object literal or class of that name (`method_holders`), with
-    its place, its number of methods and the first HOLDER_METHODS in line order, all of them with `full`: `object
+    its place, its number of members and the first HOLDER_METHODS in line order, all of them with `full`: `object
     capacityService (backend/src/services/capacity.service.ts:482): 7 methods: sliceDateRangeByMonth,
     sliceDateRangeByIsoWeek, getCapacityEntriesInRange and 4 more (python -m flowguard show capacityService.METHOD
-    prints one)`. An object's place is its declaration's line, a class's its node's."""
-    from ..structure.readers.common import parse, text, walk
-    from ..structure.readers.ecma import unwrap
-    from ..structure.readers.registry import language_for
+    prints one)`. The place is the map's own (`holder_line` of its members' node rows), never a search of the
+    source (Z-2: `const Svc = class Svc {` has no `const Svc = {`)."""
     lines = []
-    for (file, kind), methods in sorted(method_holders(graph, name).items()):
+    for (file, kind, place), methods in sorted(method_holders(graph, name).items()):
         methods.sort()
-        if kind == 'class':
-            place = graph.con.execute("SELECT line FROM node WHERE file = ? AND kind = 'class' AND qual = ?",
-                                      (file, name)).fetchone()[0]
-        else:       # the module-level `const NAME = {...}` whose object holds the first method
-            source, tree = parse((graph.root / file).read_bytes(), language_for(file))
-            first = methods[0][0] - 1
-            place = next(node.start_point.row + 1 for node in walk(tree.root_node) if node.type == 'variable_declarator'
-                         and text(node.child_by_field_name('name'), source) == name
-                         and (value := unwrap(node.child_by_field_name('value'))) is not None and value.type == 'object'
-                         and value.start_point.row <= first <= value.end_point.row)
         names = [method for _, method in methods]
         shown = names if full or len(names) <= HOLDER_METHODS + 1 else names[:HOLDER_METHODS]
         rest = f' and {len(names) - len(shown)} more' if len(shown) < len(names) else ''

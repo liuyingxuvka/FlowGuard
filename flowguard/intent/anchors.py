@@ -242,11 +242,12 @@ def _agreement_positions(graph, modules):
 
 def _declared_name(file, qual, data):
     """The name a 4.3 position spells a map function by (as `_Positions` reads it): its qual, a JS/TS function's as
-    its reader declared it (`data`, the node's raw facts), an object method with its holder (`service.save`)."""
+    its reader declared it (`data`, the node's raw facts), a member of an object or class with its holder as a member
+    access spells it (`service.save`, also the arrow function of `getAll: (params) => ...` as `demandApi.getAll`)."""
     from ..structure.readers.registry import ECMA, language_for
     if language_for(file) not in ECMA:
         return qual
-    return (data['holder'] + '.' + data['name']) if data.get('holder') else data['declared_qual']
+    return (data['holder'] + '.' + data['member']) if data.get('holder') else data['declared_qual']
 
 
 _REMOVED_HEAD = {'#': re.compile(r'#\s*flowguard:\s*(sensor|owner)\b\s*(.*)'),

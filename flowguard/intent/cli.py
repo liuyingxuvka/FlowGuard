@@ -551,7 +551,12 @@ def _concerning(cfg, data, graph, index, query, *, path, node=None, anchored=(),
     function or a last run's place counts only in that file, and a name written without a file (a field, a finding's
     subject, an anchor's name, a why or ask) only when that file declares the symbol (`_declares`: the Prisma schema
     of `schema.prisma:PspElement.hierarchyLevel`), never a function of that name in another file
-    (`absence.service.ts:create` lists nothing of `project.service.ts:create`).
+    (`absence.service.ts:create` lists nothing of `project.service.ts:create`). An agreement with a comment in that
+    file concerns the query whenever it names the symbol as its field, a partner or a `same` copy's NAME, each of its
+    lines listed (Z-0: `show demand.service.ts:Demand.projectId` lists the together agreement written there, `show
+    calendar-iso.ts:ISO_WEEKS_IN_YEAR` the three `same ISO_WEEKS_IN_YEAR` copies), and so do an intent rule anchored
+    on such a `same` agreement and a known entry with a site in that file whose finding names the symbol
+    (`known.iso-weeks`, `same:ISO_WEEKS_IN_YEAR`).
 
     First the `.flowguard/known.toml` entries that concern the query, in the brief's order and words (`_known_order`,
     `_known_brief`), each with the command that prints it whole: an entry concerns it when one of its sites names it,
@@ -599,8 +604,11 @@ def _concerning(cfg, data, graph, index, query, *, path, node=None, anchored=(),
         found = {_named(symbol, item, spellings) for item in names}
         return 'exact' if 'exact' in found else 'part' if 'part' in found else ''
 
-    def unplaced(symbol, names=(folded,)):  # a name written without a file: a field, a finding's subject, an anchor
-        return named(symbol, names) if bare else ''
+    def unplaced(symbol, names=(folded,), placed=False):  # a name written without a file: a field, a finding's
+        return named(symbol, names) if bare or placed else ''   # subject, an anchor; `placed`: written in the file
+
+    def in_file(site):          # a site of the queried file of a site query that names no node
+        return at is not None and (site.rpartition(':')[0] if ':' in site else site) == at
 
     def site_names(site, names=(folded,)):
         spot, colon, symbol = site.rpartition(':')
@@ -632,7 +640,7 @@ def _concerning(cfg, data, graph, index, query, *, path, node=None, anchored=(),
     for entry in found.known.values():
         sites = {site: site_names(site, every) for site in entry.sites}
         family = family_of(entry.finding) if entry.finding else ''
-        finding = unplaced(entry.finding[len(family) + 1:], every) if family else ''
+        finding = unplaced(entry.finding[len(family) + 1:], every, any(map(in_file, entry.sites))) if family else ''
         if 'exact' in sites.values() or finding == 'exact' or quoted(entry.source):
             by_site.append(entry)
         elif 'part' in sites.values() or finding == 'part':
@@ -650,13 +658,18 @@ def _concerning(cfg, data, graph, index, query, *, path, node=None, anchored=(),
     listed = [*_known_order(by_site), *_known_order(by_text)]
     lines = [known_line(entry) for entry in listed]
     modules = dict(graph.con.execute('SELECT module, path FROM file'))
+    heads = agreement_heads(graph, index)
+    # The `same NAME` agreements with a copy in the queried file: each copy is a line of one agreement, and a rule
+    # anchored on it concerns the query too.
+    copied = {agreement for agreement, line, file, _ in heads if line.startswith('same ') and in_file(file)}
     rules, cited = [], set()
     for rid, item in data['summary']['rules'].items():
         names = [name for name in item.get('anchors', ()) if not name.startswith('unresolved:')]   # states have none
         homes = [modules[module] + ':' + symbol
                  for module, _, symbol in (home.partition(':') for home in item['homes']) if module in modules]
         anchored_at = [f'{anchor.file}:{anchor.target.partition(":")[2]}' for anchor in _anchor_targets(index, names, graph)]
-        if any(map(unplaced, names)) or any(map(site_names, [*item['homes'], *homes, *anchored_at])):
+        if any(unplaced(name, placed=name in copied) for name in names) \
+                or any(map(site_names, [*item['homes'], *homes, *anchored_at])):
             rules.append(rid)
             match = RULE_FORM.fullmatch(item['source'].strip()) if isinstance(item['source'], str) else None
             if match:
@@ -664,10 +677,11 @@ def _concerning(cfg, data, graph, index, query, *, path, node=None, anchored=(),
     lines += [f'rule {rid}: {data["summary"]["rules"][rid]["decides"]}' for rid in rules]
     lines += [_brief_line(f'rule.{rule.id}: {rule.text}', tail=f' (python -m flowguard show rule.{rule.id})')
               for rule in found.rules.values() if rule.id in cited or quoted(rule.source)]
-    for agreement, line, file, names in agreement_heads(graph, index):
+    for agreement, line, file, names in heads:
         if agreement in anchored:
             continue
-        how = {item: site_names(item) if ':' in item else unplaced(item) for item in names}
+        placed = in_file(file) or line.startswith('same ') and agreement in copied
+        how = {item: site_names(item) if ':' in item else unplaced(item, placed=placed) for item in names}
         if under(file) if folder is not None else 'exact' in how.values():
             lines.append(line)
         elif folder is None and 'part' in how.values():     # a generic name (`show create`): which function it is
@@ -826,17 +840,23 @@ def _map_knows(graph, name, written=None):
     that qual or name (a function, method, class, interface, constant, enum, Prisma model, SQL table or test), a JS/TS
     module-level object or option list of that name (`const cookieOptions = {...}`, which gives no table line unless the
     labels check reads it), an object literal or class whose methods the map holds (`owners.method_holders`: `export
-    const capacityService = {`), a model the map knows (`owners.model_known`), a column of a SQL table as the columns
-    check reads them (`sql.describe`), a write of that model, table or field (`MapHandle.writes`; `written` when the
-    caller read them already) or a zod object key of that name (`owners.zod_bounds`)? A dotted name is asked only for
-    its node and its writes: its model and field have their own `not on the map` line (`_unknown_model`), and a Prisma
-    field its own line."""
+    const capacityService = {`), a JS/TS module-level declaration of that name whatever its value (`const TPL = ...`
+    holding a template string, which the reader does not read: no const line, Z-9), a model the map knows
+    (`owners.model_known`), a column of a SQL table as the columns check reads them (`sql.describe`), a write of that
+    model, table or field (`MapHandle.writes`; `written` when the caller read them already) or a zod object key of that
+    name (`owners.zod_bounds`)? A dotted name is asked only for its node and its writes: its model and field have their
+    own `not on the map` line (`_unknown_model`), and a Prisma field its own line."""
+    from ..structure.readers.registry import ECMA, language_for
     from ..structure.readers.sql import describe
     from .owners import method_holders, model_known, zod_bounds
     if graph.con.execute("SELECT 1 FROM node WHERE kind != 'module' AND (qual = ? OR short = ?) LIMIT 1", (name, name)).fetchone():
         return True
     if any(row['name'] == name for _, _, facts in graph._kinds('const_tables', 'option_lists')
            for rows in facts.values() for row in rows) or method_holders(graph, name):
+        return True
+    if any(row['target'] == name and row['form'] == 'declarator' and ':' not in row['node']
+           for path, _, facts in graph._kinds('assignments') if language_for(path) in ECMA
+           for row in facts.get('assignments', ())):
         return True
     if '.' in name or model_known(graph, name):
         return '.' not in name or bool(graph.writes(name) if written is None else written)
@@ -859,17 +879,22 @@ def _repository_path(cfg, query):
 def _held_methods(graph, name):
     """The ids of the functions an `object.method` query names by holder and name, as `MapHandle.call_index` keys
     them (the node's holder, else its qual's prefix; its name, else its qual's last part), compared casefolded: `show
-    employeeService.update` ranks `employee.service.ts:update` first among the methods named update."""
+    employeeService.update` ranks `employee.service.ts:update` first among the methods named update. A member the
+    reader names only through its holder (`member`: an arrow function or function expression that is a property or
+    a class field, `getAll: (params) => ...`, whose node is `<anonymous@33,11>`) is named by that member's name, so
+    each member a holder line counts is found (`owners.method_holders`)."""
     from flowguard.structure import store
     holder, dot, method = name.casefold().rpartition('.')
     if not dot or not holder or '.' in holder or not method:
         return set()
     held = set()
     for ident, qual, raw in graph.con.execute(
-            "SELECT id, qual, raw FROM node WHERE kind IN ('function', 'method') AND short = ? COLLATE NOCASE", (method,)):
+            "SELECT id, qual, raw FROM node WHERE kind IN ('function', 'method') AND (short = ? COLLATE NOCASE "
+            "OR qual LIKE '%<anonymous@%')", (method,)):
         data = store.unpack(raw) if raw else {}
         own = data.get('holder') or (qual.rpartition('.')[0] if '.' in qual else '')
-        if own.casefold() == holder and (data.get('name') or qual.rpartition('.')[2]).casefold() == method:
+        spelled = data.get('member') or data.get('name') or qual.rpartition('.')[2]
+        if own.casefold() == holder and spelled.casefold() == method:
             held.add(ident)
     return held
 
@@ -2594,32 +2619,38 @@ def _rules_rewritten(content, rules, newline):
 
 
 def _rules_text(path):
-    """(text, bom, encoding) of AGENTS.md or CLAUDE.md as init reads and writes them (`common.decode_text`: a BOM
-    selects UTF-8 or UTF-16, else UTF-8); ('', b'', 'utf-8') for a file that does not exist. Raises ValueError naming
-    the file and the decoder's text when its bytes are no such text."""
-    from flowguard.map.common import decode_text
+    """((text, bom, encoding), problem) of AGENTS.md or CLAUDE.md as init and the brief read them and init writes
+    them back (`common.document_text`, the one route of a project document: a BOM selects UTF-8 or UTF-16, else
+    UTF-8); (('', b'', 'utf-8'), '') for a file that does not exist; (None, problem) naming the file and the decoder's
+    text when its bytes are no such text."""
+    from flowguard.map.common import document_text
     if not path.is_file():
-        return '', b'', 'utf-8'
-    try:
-        return decode_text(path.read_bytes())
-    except UnicodeDecodeError as error:
-        raise ValueError(f'{path.name} is no UTF-8 or UTF-16 text: {error}') from error
+        return ('', b'', 'utf-8'), ''
+    return document_text(path.name, path.read_bytes())
+
+
+def _readable_rules(path):
+    """(text, bom, encoding) of AGENTS.md or CLAUDE.md for init (`_rules_text`); raises ValueError with its problem
+    when the file is no UTF-8 or UTF-16 text, so init stops there and says which file and why."""
+    decoded, problem = _rules_text(path)
+    if problem:
+        raise ValueError(problem)
+    return decoded
 
 
 def _stale_rules(cfg):
     """(stale, unreadable): the files of RULES_FILES whose FlowGuard rules block is not the one init writes now (the
     marked block with other words, newlines compared normalized, `normalize_newlines`, or a block written without the
-    markers, or an owner's level-one block beside it), and the `_rules_text` error of each file it cannot read, which
+    markers, or an owner's level-one block beside it), and the `_rules_text` problem of each file it cannot read, which
     the brief names in a line of its own instead of failing."""
     from flowguard.map.common import normalize_newlines
     stale, unreadable = [], []
     for name in RULES_FILES:
-        try:
-            text, _, _ = _rules_text(cfg.root / name)
-        except ValueError as error:
-            unreadable.append(str(error))
+        decoded, problem = _rules_text(cfg.root / name)
+        if problem:
+            unreadable.append(problem)
             continue
-        text = normalize_newlines(text.encode('utf-8')).decode('utf-8')
+        text = normalize_newlines(decoded[0].encode('utf-8')).decode('utf-8')
         if '<!-- flowguard:start -->' in text:
             block = '<!-- flowguard:start -->' + text.partition('<!-- flowguard:start -->')[2].partition(
                 '<!-- flowguard:end -->')[0] + '<!-- flowguard:end -->'
@@ -2648,7 +2679,7 @@ def init(cfg):
     fragment.write_text(CI_STATIC if static_only(cfg) else CI_PYTEST, encoding='utf-8')
     agents = cfg.root / 'AGENTS.md'
     # Bytes outside the replaced block are kept, including their line endings.
-    content, bom, encoding = _rules_text(agents)
+    content, bom, encoding = _readable_rules(agents)
     newline = '\r\n' if '\r\n' in content else '\n'
     rules = PROJECT_RULES.replace('\n', newline)
     packages = npm_packages(cfg.root)
@@ -2660,7 +2691,7 @@ def init(cfg):
     notes += _legacy_instructions(content)
     claude = cfg.root / 'CLAUDE.md'         # a block there is rewritten too; init writes none into it
     if claude.is_file():
-        instructions, bom, encoding = _rules_text(claude)
+        instructions, bom, encoding = _readable_rules(claude)
         ending = '\r\n' if '\r\n' in instructions else '\n'
         rewritten, held = _rules_rewritten(instructions, PROJECT_RULES.replace('\n', ending), ending)
         if held and rewritten != instructions:

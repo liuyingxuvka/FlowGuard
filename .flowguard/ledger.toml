@@ -210,11 +210,6 @@ count = 2
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
-["flowguard/intent/cli.py:_stale_rules:ValueError"]
-count = 1
-reason = "AGENTS.md or CLAUDE.md is neither UTF-8 nor UTF-16 text with its BOM: the brief prints one line naming the file and the decoder's own error text and says its FlowGuard rules block is not compared, instead of ending new-task with exit 2; init reading the same file still fails with that text."
-rule = { file = "AGENTS.md", text = "when a step fails, the error reaches the caller or is reported with its text" }
-
 ["flowguard/intent/cli.py:main:(ValueError, MapError, OSError)"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
@@ -664,6 +659,11 @@ rule = { file = "AGENTS.md", text = "One route per function: when a step fails, 
 count = 1
 reason = "规则谓词在一个观察到的情况上出错时，把错误原文记成这条规则的红行并停止核对这个点，和 pytest 一侧的做法相同"
 rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/map/common.py:document_text:UnicodeDecodeError"]
+count = 1
+reason = "A project document FlowGuard compares text from (AGENTS.md, CLAUDE.md, a document a rule's source quotes, a ledger rule's file) that is neither UTF-8 nor UTF-16 text with its BOM gives back a problem naming the file with the decoder's own error text: the brief prints it as one line, a rule's source and a ledger entry report it as their problem, and init raises it, so nothing compares the file as if it held no words."
+rule = { file = "AGENTS.md", text = "when a step fails, the error reaches the caller or is reported with its text" }
 
 ["flowguard/map/common.py:literal_value:(ValueError, TypeError, SyntaxError, MemoryError, RecursionError)"]
 count = 1

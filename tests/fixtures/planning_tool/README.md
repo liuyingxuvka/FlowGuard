@@ -21,7 +21,7 @@ the tests write them into an isolated project without it.
 | `backend/prisma/schema.prisma.txt` | 17-20, 71-171, 176-223, 253-277, 1305-1324, 1361-1376 | Employee, UserRole, EmployeeTransfer, AuthorityAssignment, AuditEvent, Notification (`@map`, `@@map`, `@relation`) |
 | `backend/prisma/central/schema.prisma.txt` | 15-18, 30-50, 64-88, 94-114 | CentralOrgUnit, CentralEmployee, CentralLendingAssignment |
 | `backend/prisma/central/init-azure-sql.sql.txt` | 1-54, 80-108 | T-SQL brackets; "Matches the Prisma central schema exactly", yet 7 columns and one table are missing |
-| `backend/prisma/central/migrations/*/migration.sql.txt` | baseline 34-49, personnel_lifecycle 1-14, personnel_source_contract 1-7 | `CREATE TABLE` then `ALTER TABLE ... ADD [col]` (also inside `EXEC(N'...')`) applied in folder order |
+| `backend/prisma/central/migrations/*/migration.sql.txt` | baseline 34-49, personnel_lifecycle 1-14, personnel_source_contract 1-7 | `CREATE TABLE` then `ALTER TABLE ... ADD [col]` applied in folder order; the ADD inside `EXEC(N'...')` is SQL a string holds and is not read |
 
 `synthetic/prisma-relations.ts.txt` is **not** copied: Planning Tool has no Prisma `connect`,
 `connectOrCreate`, `disconnect` or `$executeRaw` write, so those calls are written against the copied

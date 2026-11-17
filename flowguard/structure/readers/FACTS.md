@@ -84,7 +84,8 @@ This is finite source coverage, not full type or execution proof.
   that fallback is spelled the row also carries `partial: true`.
 - `assignments[].form`: `member` (`obj.f = ...`), `pair`, `declarator`, `class-field` or `identifier`.
   A module-level JS/TS declaration `NAME = [...]` (`const`, `let` or `var`) of literals (negative numbers too; through `as const`, `satisfies` and
-  parentheses; no spread or hole) is `literal=True` with the list as `value`; any other array or object stays unknown.
+  parentheses; no spread or hole) is `literal=True` with the list as `value`, and so is one of a negative number
+  (`NAME = -1`); any other array or object stays unknown. A `const` node of an upper-case name takes a negative number too.
 
 ## Schema files
 
@@ -92,9 +93,11 @@ This is finite source coverage, not full type or execution proof.
 readers: no grammar package. Nodes are `model`/`enum` (Prisma) and `table` (SQL CREATE TABLE);
 keys `model`, `table`, `column`; the `schema` fact holds models with fields (`column` from
 `@map`, table from `@@map`, `relation` from `@relation(fields, references)`) or tables, ALTER
-ADD/DROP/RENAME COLUMN, ALTER ... RENAME TO (`rename`, SQLite's table rebuild), CREATE TABLE ... AS SELECT
+ADD/DROP/RENAME COLUMN, ALTER COLUMN's new type (`retype`: Postgres `ALTER COLUMN c TYPE t`, T-SQL `ALTER COLUMN [c]
+t`), ALTER ... RENAME TO (`rename`, SQLite's table rebuild), CREATE TABLE ... AS SELECT
 (`copy`: the table, its columns unread) and DROP TABLE changes, and the lines of CREATE TABLE statements whose
-table is not spelled (`unread`: a name built at run time). Schema files have no code, so code queries over them are
+table is not spelled or that a string literal holds (`unread`: a name built at run time). A statement that begins
+inside a string literal (`EXEC(N'...')`, `SET @sql = N'...'`) is SQL built at run time: no columns, CHECK or write. Schema files have no code, so code queries over them are
 complete and empty. `MapHandle.writes()` binds write paths to models at query time (accessor
 `centralEmployee` -> model `CentralEmployee`, relation -> model, `connect` -> the foreign-key
 fields on whichever side `@relation(fields: [...])` names); `schema_gaps()` compares each live description
@@ -145,8 +148,13 @@ describe nothing).
   gives the rows it reads (production code, not `archived`), which `show NAME` lists as `table NAME:` lines. Each row
   has `values` (None for a value that is no literal), `written` (the literal as spelled, else None) and `whole` (False
   when the object has a spread, shorthand, method or computed member these leave out).
-- `nodes[].raw.holder` (TS/JS methods): the class or `const x = {...}` object a method belongs to; calls are
+- `nodes[].raw.holder` (TS/JS methods): the class or `const x = {...}` object a method belongs to, also an arrow
+  function or function expression that is a property (`getAll: (params) => ...`) or a class field, with `member` (the
+  name a member access spells it by), `holder_kind` (`class` or `object`) and `holder_line`; calls are
   resolved by name through it, inside the caller's package (nearest `package.json`; `MapHandle.call_index()`).
+- `syntax_calls[].shadows` (TS/JS): the names that hide an outer or imported one at the call: the function's
+  parameters and locals, a `for (const x of ...)` variable inside its loop and a `catch (x)` parameter inside its
+  clause; the `syntax_calls.unresolved` part keeps whether the call's first name is hidden there.
 - Prisma schemas carry `outputs` (each `generator` block's `output = "..."`, as written, relative to the schema's
   folder); Prisma fields carry `on_delete` (from `@relation(..., onDelete: X)`); SQL tables and ALTER changes carry `checks`
-  (`CHECK (col IN ('a', ...))` with string values, also inside `EXEC(N'...')`).
+  (`CHECK (col IN ('a', ...))` with string values; one inside `EXEC(N'...')` is SQL built at run time, not read).

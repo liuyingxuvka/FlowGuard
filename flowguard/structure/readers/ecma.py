@@ -26,6 +26,21 @@ def literal(node, source):
     return False, None
 
 
+def negative(node):
+    """Is `node` a negative number literal, `-1` (a unary minus on a number)?"""
+    return node is not None and node.type == 'unary_expression' and operator(node) == '-' \
+        and len(node.named_children) == 1 and node.named_children[0].type == 'number'
+
+
+def signed_literal(node, source):
+    """`literal`, a negative number too (`-1`, `-2_147_483_648`), as a constant's value is read: the value of a
+    `const NAME = -1` and of each member of an all-literal object (`const RANGE = { MIN: -1, MAX: 1 }`, Z-9)."""
+    if not negative(node):
+        return literal(node, source)
+    known, value = literal(node.named_children[0], source)
+    return (True, -value) if known and isinstance(value, (int, float)) else (False, None)
+
+
 def literal_array(node, source):
     """(True, the values) of a non-empty array of literals, also negative numbers, through `as const`,
     `satisfies` and parentheses (`[0, 5, 50] as const`); (False, None) for anything else, a spread or a hole included."""
@@ -41,12 +56,10 @@ def literal_array(node, source):
                 return False, None
             item_next = True
             continue
-        negative = item.type == 'unary_expression' and operator(item) == '-' and len(item.named_children) == 1 \
-            and item.named_children[0].type == 'number'
-        known, value = literal(item.named_children[0] if negative else item, source)
-        if not item_next or not known or negative and not isinstance(value, (int, float)):
+        known, value = signed_literal(item, source)
+        if not item_next or not known:
             return False, None
-        values.append(-value if negative else value)
+        values.append(value)
         item_next = False
     return (True, values) if values else (False, None)
 
@@ -213,8 +226,9 @@ def extract(root, rel, data, module, is_test):
 
     def scoped_names(node):
         """The names a function's own body binds besides its parameters, which hide an outer or imported name of
-        the same spelling there: its `const`, `let` and `var` names (destructured ones too), assigned names, a
-        `for (const x of ...)` variable and a `catch (x)` parameter; nested functions and classes left out."""
+        the same spelling there: its `const`, `let` and `var` names (destructured ones too, a `for (var x of ...)`
+        variable as well) and assigned names; nested functions and classes left out. A `for (const x of ...)` or `let`
+        variable and a `catch (x)` parameter hide it only in their statement (`statement_names`)."""
         names, stack = set(), list(node.named_children)
         while stack:
             child = stack.pop()
@@ -222,16 +236,26 @@ def extract(root, rel, data, module, is_test):
                 continue
             if child.type == 'variable_declarator' and (name := field(child, 'name')) is not None and (field(child, 'value') is None or field(child, 'value').type not in FUNCTIONS):
                 names.update(bound_names(name))
-            if child.type == 'for_in_statement' and field(child, 'kind') is not None:
+            if child.type == 'for_in_statement' and field(child, 'kind') is not None and field(child, 'kind').type == 'var':
                 names.update(bound_names(field(child, 'left')))
-            if child.type == 'catch_clause' and field(child, 'parameter') is not None:
-                names.update(bound_names(field(child, 'parameter')))
             if child.type in ('assignment_expression','augmented_assignment_expression','update_expression'):
                 target=field(child,'left') or field(child,'argument')
                 if target and target.type=='identifier':
                     names.add(text(target,source))
             stack.extend(child.named_children)
         return names
+
+    def statement_names(node, child):
+        """The names a statement binds for its child `child` alone (Z-3): a `for (const x of xs)` or `for (let k in
+        table)` variable in the loop statement, its iterated value `xs` aside, and a `catch (x)` parameter in its catch
+        clause. A name used after the loop or in a `finally` is the outer one again; a `var` is the function's
+        (`scoped_names`)."""
+        if node.type == 'for_in_statement' and field(node, 'kind') is not None and field(node, 'kind').type != 'var' \
+                and child != field(node, 'right'):
+            return bound_names(field(node, 'left'))
+        if node.type == 'catch_clause' and field(node, 'parameter') is not None:
+            return bound_names(field(node, 'parameter'))
+        return set()
 
     def name_of(node):
         name = field(node, 'name')
@@ -847,18 +871,40 @@ def extract(root, rel, data, module, is_test):
         out['writes'].extend(rows)
 
     def holder_of(node):
-        """The object literal (`const service = { m() {} }`) or class a method belongs to; '' otherwise."""
-        if node.type != 'method_definition' or node.parent is None:
-            return ''
-        body = node.parent
-        if body.type == 'class_body' and body.parent is not None and field(body.parent, 'name') is not None:
-            return text(field(body.parent, 'name'), source)
+        """The raw facts of the class or object literal a function is a member of (`nodes[].raw`): {'holder': ''}
+        when it is none, else `holder` (its name), `member` (the name a member access spells it by: a method's name,
+        a property's key, a class field's name), `holder_kind` ('class' or 'object') and `holder_line` (the first
+        line of the class, or of the declaration `const service = {...}` that holds the object, also through `as
+        const`, `satisfies` or parentheses). A member is a method definition (`m() {}`) or an arrow function or
+        function expression that is a property (`getAll: (params) => ...`, `three: async function () {}`) or a class
+        field (`handle = () => ...`), each as Planning Tool's `export const xApi = {` objects hold them (Z-1). A class
+        expression is held under its own name (`const Foo = class Bar {}`: Bar), an unnamed one under the name its
+        declaration gives it (`const Svc = class {}`: Svc)."""
+        parent = node.parent
+        if parent is None:
+            return {'holder': ''}
+        if node.type == 'method_definition':
+            body, member = parent, name_of(node)
+        elif node.type in ('arrow_function', 'function_expression', 'generator_function') \
+                and parent.type in ('pair', 'public_field_definition') and field(parent, 'value') == node \
+                and (key := field(parent, 'key' if parent.type == 'pair' else 'name')) is not None \
+                and key.type == 'property_identifier':
+            body, member = parent.parent, text(key, source)
+        else:
+            return {'holder': ''}
+        if body is None or body.parent is None:
+            return {'holder': ''}
         holder = body.parent
+        if body.type == 'class_body' and field(holder, 'name') is not None:
+            return dict(holder=text(field(holder, 'name'), source), member=member, holder_kind='class',
+                        holder_line=holder.start_point.row + 1)
+        kind = 'class' if body.type == 'class_body' else 'object' if body.type == 'object' else None
         while holder is not None and holder.type in WRAPPERS:
             holder = holder.parent
-        if body.type == 'object' and holder is not None and holder.type == 'variable_declarator' and field(holder, 'name') is not None:
-            return text(field(holder, 'name'), source)
-        return ''
+        if kind is not None and holder is not None and holder.type == 'variable_declarator' and field(holder, 'name') is not None:
+            return dict(holder=text(field(holder, 'name'), source), member=member, holder_kind=kind,
+                        holder_line=holder.start_point.row + 1)
+        return {'holder': ''}
 
     def module_object(value):
         """What a module-level `const NAME = ...` holds that a member call on NAME reaches besides its own methods:
@@ -1102,7 +1148,7 @@ def extract(root, rel, data, module, is_test):
                 whole = False
                 continue
             item = unwrap(field(pair, 'value'))
-            known, found = literal(item, source)
+            known, found = signed_literal(item, source)
             table[name] = found if known else None
             written[name] = text(item, source) if known else None
         return (table, written, whole) if table else None
@@ -1168,7 +1214,7 @@ def extract(root, rel, data, module, is_test):
                        shape=[] if name.startswith('<anonymous') or is_class or body is None
                        else kinds_shape(own_kinds(body))[:SHAPE_K],
                        size=node.descendant_count, raw=dict(name=name, scope=scope, declared_qual=declared_qual, parameters=arg_names,
-                       shadows=sorted(own_shadows), declaration_kind=node.type, holder=holder_of(node)),
+                       shadows=sorted(own_shadows), declaration_kind=node.type, **holder_of(node)),
                        column=position(node, source)['column'], end_column=position(node, source)['end_column'])
             if not scope and name.startswith('<anonymous') and (registered := registration(node)) is not None:
                 row['raw']['callback'] = registered     # a module-level callback: how its module registers it
@@ -1189,7 +1235,7 @@ def extract(root, rel, data, module, is_test):
         if node.type == 'variable_declarator':
             name_node, value = field(node, 'name'), field(node, 'value')
             name = text(name_node, source)
-            valid, number = literal(value, source)
+            valid, number = signed_literal(value, source)
             if valid and name.isupper() and name.replace('_','').isalnum():
                 qual = scope + ('.' if scope else '') + name
                 at = position(node,source)
@@ -1287,7 +1333,8 @@ def extract(root, rel, data, module, is_test):
             if target:
                 known, val = literal(value, source)
                 if not known and node.type == 'variable_declarator' and not scope and target.type == 'identifier':
-                    known, val = literal_array(value, source)     # a module constant's array: [0, 5, 50] as const
+                    # a module constant's negative number (`-1`, Z-9) or array (`[0, 5, 50] as const`)
+                    known, val = signed_literal(value, source) if negative(value) else literal_array(value, source)
                 key = key_of(target)
                 if node.type in ('pair', 'public_field_definition'):
                     key = text(target, source) if target.type in ('property_identifier','identifier') else string(target)
@@ -1319,7 +1366,7 @@ def extract(root, rel, data, module, is_test):
                 if key:
                     out['keys'].append(('field', key, node.start_point.row + 1, scope))
         for child in node.named_children:
-            visit(child, scope, cls, parameters, shadows)
+            visit(child, scope, cls, parameters, shadows | statement_names(node, child))
 
     visit(tree.root_node,shadows=frozenset(scoped_names(tree.root_node)))
     out['bindings'] = [row for row in out['dependencies'] if row.get('alias') and row['kind'] == 'import']

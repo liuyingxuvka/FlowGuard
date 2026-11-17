@@ -36,7 +36,7 @@ from pathlib import Path
 import re
 import tomllib
 
-from flowguard.map.common import MapError, git_blob, glob_match
+from flowguard.map.common import MapError, document_text, git_blob, glob_match
 from flowguard.structure.readers.registry import ECMA, language_for
 
 LEDGER = '.flowguard/ledger.toml'
@@ -289,9 +289,13 @@ def _sentence_problem(cfg, rule, texts):
         return 'rule cannot refer to the ledger itself'
     if not target.is_file():
         return f"""rule file {relative} does not exist"""
-    if relative not in texts:
-        texts[relative] = ' '.join(target.read_text(encoding='utf-8-sig').split())
-    if ' '.join(sentence.split()) not in texts[relative]:
+    if relative not in texts:            # read as every project document is, UTF-16 with its BOM too (Z-6)
+        decoded, problem = document_text(relative, target.read_bytes())
+        texts[relative] = (' '.join(decoded[0].split()) if decoded else ''), problem
+    text, problem = texts[relative]
+    if problem:
+        return f'rule file {problem}'
+    if ' '.join(sentence.split()) not in text:
         return f"""rule sentence {_quote(sentence)} is missing from {relative}"""
     return ''
 

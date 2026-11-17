@@ -84,11 +84,14 @@ def test_derived_parts_are_the_record_rows_their_readers_take(tmp_path):
             whole = records(graph)
             unresolved = {path: data['syntax_calls.unresolved'] for path, _, data in graph._kinds('syntax_calls.unresolved')
                           if 'syntax_calls.unresolved' in data}
+            # Each row also says whether a parameter or a local name hides the call's first name at the call (Z-3).
             assert unresolved == {path: rows for path, rows in (
-                (path, [[call['node'], call['file'], call['text']] for call in facts.get('syntax_calls', ())
+                (path, [[call['node'], call['file'], call['text'],
+                         call['text'].split('.')[0] in {*call['parameters'], *call['shadows']}]
+                        for call in facts.get('syntax_calls', ())
                         if not (call.get('resolved') or call.get('kind') == 'jsx-element')])
                 for path, facts in whole.items() if facts.get('language', 'python') in ECMA) if rows}
-            assert any(text == 'save' for rows in unresolved.values() for _, _, text in rows)
+            assert any(text == 'save' for rows in unresolved.values() for _, _, text, _ in rows)
             written = {path: data['assignments'] for path, _, data in graph.write_records() if 'assignments' in data}
             assert written == {path: rows for path, rows in (
                 (path, facts['assignments'] if facts.get('language', 'python') == 'python' else

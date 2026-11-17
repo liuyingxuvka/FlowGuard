@@ -910,6 +910,75 @@ PRAGMA foreign_keys=ON;
         'column demands.hours_planned REAL (backend/prisma/migrations/20260401090000_rename_hours/migration.sql:1)']
 
 
+PT_ASSIGNMENT_SCHEMA = """datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Assignment {
+  id              String  @id
+  demandId        String? @map("demand_id")
+  internalOrderId String? @map("internal_order_id")
+  @@map("assignments")
+}
+"""
+PT_ASSIGNMENT_INIT = 'CREATE TABLE "assignments" (\n    "id" TEXT NOT NULL PRIMARY KEY,\n    "demand_id" TEXT NOT NULL\n);\n'
+
+
+def test_a_column_line_reads_an_alter_column_type_and_no_sql_a_string_builds(tmp_path):
+    """Planning Tool (2026-11): pt-smoke-1's column lines missed an ALTER COLUMN (Z-4): `show Assignment.demandId` said
+    `column assignments.demand_id TEXT (.../20260317073846_init/migration.sql:183)` although
+    20260410120000_add_partial_forward_fields/migration.sql:80 is `ALTER TABLE [assignments] ALTER COLUMN [demand_id]
+    NVARCHAR(36) NULL;`. The SQL reader also read the ALTER inside a T-SQL string (Z-5): `show
+    Assignment.internalOrderId` printed `column assignments.internal_order_id '` from `SET @sql = N'ALTER TABLE
+    [dbo].[assignments] ADD [internal_order_id] ' + @technicalType + N' NULL;'`. And `show Employee` listed the table
+    lines of the docs/database-history archives the column lines and the columns check leave out (Z-8). An ALTER COLUMN
+    that gives a type (T-SQL, or Postgres `TYPE`) declares it; SQL built in a string at run time declares nothing, so
+    the migrations folder lacks that column; an archive gives no table line."""
+    dynamic = """DECLARE @technicalType NVARCHAR(64) = N'NVARCHAR(36)';
+DECLARE @sql NVARCHAR(MAX);
+IF COL_LENGTH(N'dbo.assignments', N'internal_order_id') IS NULL
+BEGIN
+    SET @sql = N'ALTER TABLE [dbo].[assignments] ADD [internal_order_id] ' + @technicalType + N' NULL;';
+    EXEC sys.sp_executesql @sql;
+END;
+"""
+    _commit(tmp_path, {
+        'backend/prisma/schema.prisma': PT_ASSIGNMENT_SCHEMA,
+        'backend/prisma/migrations/20260317073846_init/migration.sql': PT_ASSIGNMENT_INIT,
+        'backend/prisma/migrations/20260410120000_add_partial_forward_fields/migration.sql':
+            'ALTER TABLE [assignments] ALTER COLUMN [demand_id] NVARCHAR(36) NULL;\n',
+        'backend/prisma/migrations/20261012120000_opportunity_internal_order_foundation/migration.sql': dynamic,
+        'backend/prisma/postgres-setup.sql': ('CREATE TABLE "assignments" ("id" TEXT NOT NULL, "demand_id" TEXT, '
+                                              '"internal_order_id" TEXT);\nALTER TABLE "assignments" ALTER COLUMN "demand_id" '
+                                              'SET NOT NULL, ALTER COLUMN "demand_id" TYPE VARCHAR(36);\n'),
+        'docs/database-history/main-a956b33f/backend/prisma/migrations/20260317073846_init/migration.sql': PT_ASSIGNMENT_INIT,
+    })
+
+    def shown(query, start):
+        code, text = _flowguard(tmp_path, 'show', query)
+        assert code == 0, text
+        return [line for line in text.splitlines() if line.startswith(start)]
+    assert shown('Assignment.demandId', 'column ') == [
+        'column assignments.demand_id NVARCHAR(36) (backend/prisma/migrations/20260410120000_add_partial_forward_fields/'
+        'migration.sql:1)',
+        'column assignments.demand_id VARCHAR(36) (backend/prisma/postgres-setup.sql:2)']
+    assert shown('Assignment.internalOrderId', 'column ') == [
+        'column assignments.internal_order_id TEXT (backend/prisma/postgres-setup.sql:1)']
+    assert shown('Assignment', 'table ') == [
+        'table assignments: 2 columns (backend/prisma/migrations/ as its migrations leave it, created at '
+        'backend/prisma/migrations/20260317073846_init/migration.sql:1)',
+        'table assignments: 3 columns (backend/prisma/postgres-setup.sql:1)']
+    # The columns check reads the same: the migrations folder lacks the column only a string adds.
+    code, text = _flowguard(tmp_path, 'check', '--static', '--all')
+    assert code == 0 and text.splitlines()[1:] == [
+        'before: columns migrations/ against backend/prisma/schema.prisma at migrations/ was broken at task start -> '
+        'leave it unless your task is about it'], text
+    with closing(build(tmp_path, workers=1)) as graph:
+        assert [(gap['description'], gap['table'], gap['missing']) for gap in graph.schema_gaps()] == [
+            ('backend/prisma/migrations/', 'assignments', ['internal_order_id'])]
+
+
 def test_the_anchor_view_of_a_field_its_known_model_lacks_says_so_before_its_facts(tmp_path):
     """The ANCHOR view (a field an agreement names) prints the `not on the map` line too, after the agreement's lines
     and before the field's facts: a together agreement on Employee.fteShare, a field neither the Prisma model Employee nor the TS interface
@@ -1743,6 +1812,36 @@ export const PERIOD_LABELS: Record<Granularity, string> = { DAY: 'Day', WEEK: 'W
         "table PERIOD_LABELS: DAY 'Day', WEEK 'Week', MONTH 'Month' (frontend/src/constants/capacity.ts:15)"]
 
 
+def test_a_negative_number_is_a_constant_s_literal_and_any_module_constant_is_on_the_map(tmp_path):
+    """Z-9 (2026-11): `export const RANGE = { MIN: -1, MAX: 1 }` printed no const line, a negative number not being read
+    as a literal, and `export const NEG = -1;` and ``export const TPL = `x`;`` printed `not on the map: no function,
+    class, type, constant, ...  is named NEG` (and TPL), which is false. A negative number is a literal in a constant
+    and in an all-literal object; a module-level constant whose value the reader does not read is still a name the map
+    knows: no `not on the map` line, and no const line either."""
+    _commit(tmp_path, {
+        'frontend/src/constants/limits.ts': """/** The range a capacity delta may take. */
+export const CAPACITY_DELTA_RANGE = { MIN: -1, MAX: 1 } as const;
+export const MIN_SAP_REFERENCE = -2_147_483_648;
+export const NOT_FOUND_INDEX = -1;
+export const API_PREFIX = `/api`;
+export const ROUTE_BASE = `${API_PREFIX}/v1`;
+export const OFFSET = -NOT_FOUND_INDEX;
+""",
+    })
+    def shown(name):
+        code, text = _flowguard(tmp_path, 'show', name)
+        assert code == 0, text
+        return [line for line in text.splitlines() if line.startswith(('const ', 'table ', 'not on the map'))]
+    limits = 'frontend/src/constants/limits.ts'
+    assert shown('CAPACITY_DELTA_RANGE') == [f'const CAPACITY_DELTA_RANGE = {{ MIN: -1, MAX: 1 }} ({limits}:2)']
+    assert shown('MIN_SAP_REFERENCE') == [f'const MIN_SAP_REFERENCE = -2147483648 ({limits}:3)']
+    assert shown('NOT_FOUND_INDEX') == [f'const NOT_FOUND_INDEX = -1 ({limits}:4)']
+    for name in ('API_PREFIX', 'ROUTE_BASE', 'OFFSET'):
+        assert shown(name) == [], name
+    assert shown('NO_SUCH_LIMIT') == ['not on the map: no function, class, type, constant, enum, Prisma model or field, '
+                                      'or SQL table or column is named NO_SUCH_LIMIT']
+
+
 KNOWN_TABLES = """[known.role-abbreviations]
 sites   = ["frontend/src/components/admin/PermissionMatrix.tsx:ROLE_LABELS", "frontend/src/components/admin/ScopeMatrix.tsx:ROLE_LABELS"]
 why     = "The matrix is narrow, so it abbreviates on purpose"
@@ -2372,6 +2471,108 @@ def test_show_of_an_object_or_class_that_holds_methods_names_it_its_place_and_it
     lines = _shown_lines(tmp_path, 'ImportService')
     assert ('class ImportService (backend/src/services/import.service.ts:1): 2 methods: constructor, commitProjects '
             '(python -m flowguard show ImportService.METHOD prints one)') in lines, lines
+
+
+PT_API_HOLDERS = {
+    # Planning Tool's frontend API objects: every member an arrow function (32 `export const xApi = {` files), and
+    # authSessionApi mixing a method with arrow members.
+    'frontend/package.json': '{"name": "frontend", "type": "module"}',
+    'frontend/src/services/api/demand.api.ts': """import { apiClient } from './client';
+
+export const demandApi = {
+  getAll: (params?: Record<string, string | number>) =>
+    apiClient.get('/api/demands', { params }).then((r) => r.data),
+
+  getById: (id: string) =>
+    apiClient.get(`/api/demands/${id}`).then((r) => r.data.data),
+
+  cancel: async function (id: string) {
+    return apiClient.post(`/api/demands/${id}/cancel`, {});
+  },
+};
+""",
+    'frontend/src/services/api/client.ts': """export const apiClient = {
+  get: (url: string, options?: unknown) => fetch(url).then((response) => ({ data: { data: options, url } })),
+  post: (url: string, body: unknown) => fetch(url, { method: 'POST', body: JSON.stringify(body) }),
+};
+""",
+    'frontend/src/services/api/developer-login.api.ts': """import { apiClient } from './client';
+
+function mutateAuth(path: string, body: unknown) {
+  return apiClient.post(path, body);
+}
+
+/** Cookie transitions reject on CSRF, permission or stale-session errors. */
+export const authSessionApi = {
+  /** Restore phase. */
+  async me() {
+    return (await apiClient.get('/auth/me')).data.data;
+  },
+  /** Verify credentials. */
+  login: (email: string, password: string) => mutateAuth('/auth/login', { email, password }),
+  /** Revoke cookies. */
+  logout: () => mutateAuth('/auth/logout', {}),
+  /** Activate target. */
+  select: (employeeId: string, revision: number) =>
+    mutateAuth('/auth/dev-login/select', { employeeId, revision }),
+  /** Invalidate target. */
+  changeUser: () => mutateAuth('/auth/dev-login/change-user', {}),
+  /** Toggle target's admin mode. */
+  adminMode: (enabled: boolean) => mutateAuth('/auth/admin-mode', { enabled }),
+};
+""",
+    'frontend/src/pages/demands.ts': """import { demandApi } from '../services/api/demand.api';
+
+export async function loadDemands(page: number) {
+  return demandApi.getAll({ page });
+}
+""",
+    'backend/src/services/session-store.ts': """export const SessionStore = class SessionStore {
+  read(id: string) { return id; }
+};
+
+export const Registry = class Store {
+  run() { return 1; }
+  handle = (id: string) => id;
+};
+""",
+}
+
+
+def test_a_holder_counts_every_function_valued_member_and_show_finds_each(tmp_path):
+    """Z-1 (2026-11): K3-0's holder line counted only method definitions. On Planning Tool `show authSessionApi` said
+    `1 method: me` of an object with six function members, and `show demandApi` (32 such `export const xApi = {`
+    files, every member an arrow function) printed no holder line, while `show demandApi.getAll` said `not on the map`:
+    the map held those members as `<anonymous@33,11>` with no holder. A holder's count and list are every
+    function-valued member (method definitions, arrow functions and function expressions as properties or class
+    fields), the same members `show holder.member` finds. Z-2: a named class expression (`const SessionStore = class
+    SessionStore {`, `const Registry = class Store {`) crashed show with StopIteration; its place comes from the map."""
+    _commit(tmp_path, PT_API_HOLDERS)
+    lines = _shown_lines(tmp_path, 'authSessionApi')
+    assert lines[2] == ('object authSessionApi (frontend/src/services/api/developer-login.api.ts:8): 6 methods: me, login, '
+                        'logout and 3 more (python -m flowguard show authSessionApi.METHOD prints one)'), lines
+    assert _shown_lines(tmp_path, 'authSessionApi', '--full')[2].startswith(
+        'object authSessionApi (frontend/src/services/api/developer-login.api.ts:8): 6 methods: me, login, logout, select, '
+        'changeUser, adminMode (')
+    lines = _shown_lines(tmp_path, 'demandApi')
+    assert lines[2] == ('object demandApi (frontend/src/services/api/demand.api.ts:3): 3 methods: getAll, getById, cancel '
+                        '(python -m flowguard show demandApi.METHOD prints one)'), lines
+    # Each member the line counts is found by holder.member, with its node view and its caller.
+    for member, line in (('getAll', 4), ('getById', 7), ('cancel', 10)):
+        lines = _shown_lines(tmp_path, f'demandApi.{member}')
+        assert not [item for item in lines if item.startswith('not on the map')], lines
+        assert lines[2].endswith(f' frontend/src/services/api/demand.api.ts:{line}'), lines
+    assert 'called by 1 function through a resolved call: loadDemands (frontend/src/pages/demands.ts:3)' in \
+        _shown_lines(tmp_path, 'demandApi.getAll'), _shown_lines(tmp_path, 'demandApi.getAll')
+    lines = _shown_lines(tmp_path, 'authSessionApi.logout')
+    assert lines[2].endswith(' frontend/src/services/api/developer-login.api.ts:16'), lines
+    # A class expression: the class it names, at its place; a class field holding a function is a member too.
+    lines = _shown_lines(tmp_path, 'SessionStore')
+    assert ('class SessionStore (backend/src/services/session-store.ts:1): 1 method: read '
+            '(python -m flowguard show SessionStore.METHOD prints one)') in lines, lines
+    lines = _shown_lines(tmp_path, 'Store')
+    assert ('class Store (backend/src/services/session-store.ts:5): 2 methods: run, handle '
+            '(python -m flowguard show Store.METHOD prints one)') in lines, lines
 
 
 def test_the_count_show_gives_without_full_is_what_full_adds(tmp_path):

@@ -739,6 +739,81 @@ export function run() {
         assert code == 0 and [line for line in out.splitlines() if line.startswith('called by ')] == [
             'called by backend/src/services/real.ts (1 call)'], out
 
+def test_a_loop_variable_or_a_catch_parameter_hides_the_import_only_inside_its_statement(tmp_path):
+    """Z-3 (2026-11): after K5-0 a `for (const logger of loggers)` variable or a `catch (logger)` parameter hid the
+    imported logger in the whole function, so the real call after the loop, or in the `finally`, was lost: show of
+    logger.ts no longer named afterloop.ts or aftercatch.ts, nor log.ts bareafter.ts. The name is the loop's only
+    inside its loop statement, the catch clause's only inside that clause; a `for (var ...)` variable is the
+    function's, as a `var` is."""
+    from tests.intent_engine.test_static_check import _flowguard
+    _commit(tmp_path, {
+        'backend/package.json': '{"name": "backend", "type": "module"}\n',
+        'backend/src/utils/logger.ts': PT_LOGGER,
+        'backend/src/utils/log.ts': 'export function info(message: string) {\n  return message.length;\n}\n',
+        'backend/src/services/afterloop.ts': """import { logger } from '../utils/logger.js';
+
+export function run(loggers: Console[]) {
+  for (const logger of loggers) {
+    logger.info('inner');
+  }
+  return logger.info('after the loop: the import');
+}
+""",
+        'backend/src/services/aftercatch.ts': """import { logger } from '../utils/logger.js';
+
+export function run() {
+  try {
+    return 1;
+  } catch (logger) {
+    return 0;
+  } finally {
+    logger.info('finally: the import');
+  }
+}
+""",
+        'backend/src/services/bareafter.ts': """import { info } from '../utils/log.js';
+
+export function run(all: ((m: string) => number)[]) {
+  for (const info of all) {
+    info('x');
+  }
+  return info('after: the import');
+}
+""",
+        'backend/src/services/inloop.ts': """import { logger } from '../utils/logger.js';
+
+export function run(loggers: Console[]) {
+  for (const logger of loggers) {
+    loggers.forEach(() => logger.info('a closure in the loop: the loop variable'));
+  }
+  try {
+    return 1;
+  } catch (logger) {
+    return logger.info('the catch parameter');
+  }
+}
+""",
+        'backend/src/services/varloop.ts': """import { info } from '../utils/log.js';
+
+export function run(all: ((m: string) => number)[]) {
+  for (var info of all) {
+    info('x');
+  }
+  return info('after a var loop: still the loop variable');
+}
+""",
+    })
+    called = {}
+    for path in ('backend/src/utils/logger.ts', 'backend/src/utils/log.ts'):
+        code, out = _flowguard(tmp_path, 'show', path)
+        assert code == 0, out
+        called[path] = [line for line in out.splitlines() if line.startswith('called by ')]
+    assert called == {
+        'backend/src/utils/logger.ts': ['called by backend/src/services/aftercatch.ts (1 call)',
+                                        'called by backend/src/services/afterloop.ts (1 call)'],
+        'backend/src/utils/log.ts': ['called by backend/src/services/bareafter.ts (1 call)']}, called
+
+
 PT_SQL_SCHEMA = '''datasource db {
   provider = "sqlserver"
   url      = env("DATABASE_URL")

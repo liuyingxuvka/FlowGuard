@@ -90,9 +90,11 @@ def save_facts(con, path: str, facts: dict) -> None:
     instead of unpacking every file's whole record. Four derived parts index the record: `facts.imports`
     is the `imports` of the `facts` kind, `assignments.fields` the fields its assignments write,
     `assignments.writes` the assignment rows `MapHandle.writes` reads (every row of a Python record, the
-    member assignments with a field of a JS/TS one) and `syntax_calls.unresolved` [node, file, text] of each
-    JS/TS syntax call the linker left unresolved, a JSX element aside (what `MapHandle.call_index` resolves
-    by name). A derived part with nothing in it is not stored; a reader reads its absence as empty."""
+    member assignments with a field of a JS/TS one) and `syntax_calls.unresolved` [node, file, text, hidden] of
+    each JS/TS syntax call the linker left unresolved, a JSX element aside (what `MapHandle.call_index` resolves
+    by name), `hidden` saying whether a parameter or a local name hides the call's first name at the call itself (a
+    `for (const x of ...)` variable only in its loop). A derived part with nothing in it is not stored; a reader
+    reads its absence as empty."""
     con.execute("UPDATE file SET data=? WHERE path=?", (pack(facts), path))
     con.execute("DELETE FROM part WHERE path=?", (path,))
     rows = [(kind, path, pack(value)) for kind, value in facts.items()]
@@ -107,7 +109,8 @@ def save_facts(con, path: str, facts: dict) -> None:
         if written:
             rows.append(("assignments.writes", path, pack(written)))
     if language in ECMA:
-        unresolved = [[call["node"], call["file"], call["text"]] for call in facts.get("syntax_calls", ())
+        unresolved = [[call["node"], call["file"], call["text"], (first := call["text"].partition(".")[0].strip())
+                       in call["parameters"] or first in call["shadows"]] for call in facts.get("syntax_calls", ())
                       if not (call.get("resolved") or call.get("kind") == "jsx-element")]
         if unresolved:
             rows.append(("syntax_calls.unresolved", path, pack(unresolved)))

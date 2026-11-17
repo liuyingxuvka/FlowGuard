@@ -233,6 +233,18 @@ def decode_text(data: bytes) -> tuple[str, bytes, str]:
     return data.decode("utf-8"), b"", "utf-8"
 
 
+def document_text(name: str, data: bytes) -> tuple[tuple[str, bytes, str] | None, str]:
+    """((text, bom, encoding), '') of a project document FlowGuard compares text from or writes back (AGENTS.md and
+    CLAUDE.md for the brief and init, a document a rule's source quotes, the file of a ledger entry's rule), read by
+    `decode_text`, the one route for all of them (Z-6); (None, problem) when its bytes are no such text, the problem
+    naming the file and giving the decoder's own error (`AGENTS.md is no UTF-8 or UTF-16 text: 'utf-8' codec can't
+    decode byte 0xe9 in position 3: invalid continuation byte`), which the caller reports or raises."""
+    try:
+        return decode_text(data), ""
+    except UnicodeDecodeError as error:
+        return None, f"{name} is no UTF-8 or UTF-16 text: {error}"
+
+
 
 def literal_value(node, default=None):
     """The literal value of a Python syntax node or source text, or `default` when it is none: the one literal
