@@ -2974,3 +2974,34 @@ def test_a_task_start_folder_where_the_work_tree_now_has_a_file_of_that_name_sta
     assert 'src/components/card.ts' in json.dumps(observed), observed
     code, out = _flowguard(tmp_path, 'check', '--static')
     assert code == 0 and 'cat-file' not in out and out.splitlines()[0].startswith('FlowGuard '), out
+
+
+def _planned(plan, rel):
+    data = json.loads(Path(plan['plan']).read_text(encoding='utf-8'))
+    return {point['fn']: point for item, value in data['files'].items() if item.endswith(rel) for point in value['points']}
+
+
+def test_an_import_of_a_folder_reads_its_index_file_at_the_task_start_too(tmp_path):
+    """Planning Tool (2026-11-17), FlowGuard 5.0.0, reported by its agent with this reproduction: `./settings`
+    names the folder `src/settings`, whose `index.ts` holds the constant. The import probe tries the exact path
+    first; the work-tree reader gives None for a folder and the probe goes on, but the task-start reader read the
+    folder's tree as a blob (`git cat-file failed ...: bad file`) and the frontend tests did not start. At the task
+    start a folder is no file either: the probe goes on to `index.ts`, read as committed (a work-tree edit of it is
+    not taken for the baseline), and an existing file at the exact path that is no script still ends the probe, so
+    a `settings.ts` beside it is not taken instead."""
+    _commit(tmp_path, {'package.json': '{"name": "app", "type": "module"}\n',
+                       'src/policy.ts': 'import { LIMIT } from "./settings";\nexport function allows(value: number) {\n  return value <= LIMIT;\n}\n',
+                       'src/settings/index.ts': 'export const LIMIT = 3;\n',
+                       'src/rules.ts': 'import { CAP } from "./caps";\nexport function under(value: number) {\n  return value <= CAP;\n}\n',
+                       'src/caps': 'CAP = 9\n', 'src/caps.ts': 'export const CAP = 7;\n'})
+    code, out = _flowguard(tmp_path, 'new-task')
+    assert code == 0, out
+    _write(tmp_path, {'src/policy.ts': 'import { LIMIT } from "./settings";\nexport function allows(value: number) {\n  return value < LIMIT;\n}\n',
+                      'src/settings/index.ts': 'export const LIMIT = 5;\n',
+                      'src/rules.ts': 'import { CAP } from "./caps";\nexport function under(value: number) {\n  return value < CAP;\n}\n'})
+    plan = _prepare(tmp_path)
+    assert plan['status'] == 'on', plan
+    allows = _planned(plan, 'src/policy.ts')['allows']
+    assert allows['old_source'].startswith('const LIMIT = 3;\n') and allows['source'].startswith('const LIMIT = 5;\n'), allows
+    under = _planned(plan, 'src/rules.ts')['under']
+    assert 'CAP = 7' not in under['old_source'] + under['source'], under
