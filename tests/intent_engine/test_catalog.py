@@ -299,6 +299,76 @@ def test_a_site_that_names_no_single_declaration_is_an_input_finding(tmp_path, s
     assert issues[0].parts[0][2].startswith(problem), issues[0].parts
 
 
+# Planning Tool (5.0 gate): a site on a .sql file raised KeyError 'models' in known add, in check --static and in an
+# about marker. Its prisma/constraints.sql holds its CHECKs only in comments; azure-sql-setup.sql creates the tables
+# in T-SQL with a CHECK on fte_share and adds one to a table another file creates.
+SQL_SITES = {
+    'prisma/schema.prisma': '''
+        datasource db {
+          provider = "postgresql"
+          url      = env("DATABASE_URL")
+        }
+        model Assignment {
+          id       String  @id
+          fteShare Decimal @map("fte_share")
+          status   String
+          @@map("assignments")
+        }
+    ''',
+    'prisma/constraints.sql': '''
+        -- 6. assignments: FTE share must be between 0 and 2
+        -- CHECK (fte_share >= 0.0000 AND fte_share <= 2.0000)
+        /*
+        ALTER TABLE assignments ADD CONSTRAINT chk_assignment_fte_range CHECK (fte_share >= 0.0000 AND fte_share <= 2.0000);
+        */
+    ''',
+    'prisma/azure-sql-setup.sql': '''
+        CREATE TABLE [dbo].[assignments] (
+            [id]        NVARCHAR(36) NOT NULL,
+            [fte_share] DECIMAL(6,4) NOT NULL,
+            CONSTRAINT [chk_assignment_fte_range] CHECK ([fte_share] >= 0.0000 AND [fte_share] <= 2.0000)
+        );
+        GO
+        ALTER TABLE lending_assignments ADD CONSTRAINT chk_lending_fte_range CHECK (fte_share >= 0.0000 AND fte_share <= 1.0000);
+    ''',
+    'web/assign.ts': '''
+        import { PrismaClient } from '@prisma/client';
+        const prisma = new PrismaClient();
+        export async function setShare(id: string, fteShare: number) {
+          return prisma.assignment.update({ where: { id }, data: { fteShare } });
+        }
+    ''',
+    'package.json': '{"name": "web", "dependencies": {"@prisma/client": "5.0.0"}}\n',
+}
+
+
+@pytest.mark.parametrize('site, nodes', [
+    ('prisma/azure-sql-setup.sql:assignments.fte_share', {'typescript/web/assign.ts:setShare'}),
+    ('prisma/azure-sql-setup.sql:Assignment.fteShare', {'typescript/web/assign.ts:setShare'}),   # the Prisma names
+    ('prisma/azure-sql-setup.sql:ASSIGNMENTS.FTE_SHARE', {'typescript/web/assign.ts:setShare'}),  # SQL ignores case
+    ('prisma/azure-sql-setup.sql:assignments', {'typescript/web/assign.ts:setShare'}),           # a table
+    ('prisma/azure-sql-setup.sql:lending_assignments.fte_share', set()),     # an ALTER's CHECK on another file's table
+])
+def test_a_site_on_a_sql_file_names_a_table_or_column_its_statements_name(tmp_path, site, nodes):
+    resolved, issues = _resolved(tmp_path, [site], SQL_SITES)
+    assert issues == [] and [(entry.nodes, entry.files) for entry in resolved] == [
+        (frozenset(nodes), frozenset({'prisma/azure-sql-setup.sql'}))], (resolved, issues)
+
+
+@pytest.mark.parametrize('site, problem', [
+    ('prisma/constraints.sql:Assignment.fteShare', 'site prisma/constraints.sql:Assignment.fteShare names nothing in '
+     'prisma/constraints.sql: name one table or table.column of that file (the map reads no table statement in it)'),
+    ('prisma/azure-sql-setup.sql:assignments.gone', 'site prisma/azure-sql-setup.sql:assignments.gone names nothing in '
+     'prisma/azure-sql-setup.sql: name one table or table.column of that file'),
+    ('prisma/azure-sql-setup.sql:Assignment.status', 'site prisma/azure-sql-setup.sql:Assignment.status names nothing in '
+     'prisma/azure-sql-setup.sql: name one table or table.column of that file'),     # a field the file has no column of
+])
+def test_a_sql_site_that_names_nothing_is_the_usual_input_finding(tmp_path, site, problem):
+    resolved, issues = _resolved(tmp_path, [site], SQL_SITES)
+    assert resolved == [] and [issue.name for issue in issues] == ['known-entry:known.x'], issues
+    assert issues[0].parts[0][2] == problem, issues[0].parts
+
+
 # Design 4.4: a site's symbol may be a constant, whatever its value. Round 23: Planning Tool's zod schema
 # `export const projectRequestCreateSchema = z.object(...)`, `APPLICATION_ROLES = [...]` and `appConfig = {...}`
 # named nothing, as the map keeps a node only for a constant of a literal value.

@@ -541,7 +541,7 @@ def _known_line(entry):
 
 
 def _concerning(cfg, data, graph, index, query, *, path, node=None, anchored=(), symbol=None, also=(), full=False,
-                hidden=None):
+                hidden=None, described=()):
     """The first lines of `show NAME` and `show PATH` (`path` is the query's file or folder when it names one, else
     None; `node` the map node of a site query `path:symbol`, `symbol` the symbol of one that names no node, compared
     in its place; `also` a rule's anchors, whose known entries its view lists too), the ids of the intent rules
@@ -569,7 +569,8 @@ def _concerning(cfg, data, graph, index, query, *, path, node=None, anchored=(),
     as a whole token, case and spelling as the production code declares it: an exact `Model.field` or `table.column`
     (`owners.model_known`, in each spelling of a Prisma field), a constant a file other than a test file declares, or
     for a PATH query the path as written (a path under a folder too). The sites are read as written, not resolved on
-    the map.
+    the map. Right after the entries the lines of `described`: the texts whose about marker names the query, its file
+    or a folder holding it (`docs.described_by`, a module's from `docs.module_lines`).
 
     Then the intent rules (the static scan's) whose homes or anchors name it, `rule ID: decides`; a rule's home
     `module:Class.field` is read as the site of its module's file, an anchor by its name or by the site of a source
@@ -656,7 +657,7 @@ def _concerning(cfg, data, graph, index, query, *, path, node=None, anchored=(),
         head, _, rest = line.partition(': ')
         return f'{head} ({through[entry.id]}): {rest}' if entry.id in through else line
     listed = [*_known_order(by_site), *_known_order(by_text)]
-    lines = [known_line(entry) for entry in listed]
+    lines = [known_line(entry) for entry in listed] + list(described)
     modules = dict(graph.con.execute('SELECT module, path FROM file'))
     heads = agreement_heads(graph, index)
     # The `same NAME` agreements with a copy in the queried file: each copy is a line of one agreement, and a rule
@@ -789,6 +790,28 @@ def _unknown_model(graph, query):
 
 NODE_NAMES = 3          # the fields a node view names and the callers it names without --full
 NODE_VIEWS = 3          # the functions an exact name names that `show NAME` prints the node view of
+
+
+def _described_places(graph, query, name, *, site, target, file):
+    """[(file, names)] of the functions, methods and constants a `show NAME` names, for the texts that describe them
+    (`docs.described_by`): a site query's node or, naming none, its file and symbol; a map id's node; else each one
+    whose qual or declared name (`anchors._declared_name`, `service.save`) is the query or, for a name without a dot,
+    ends in it, when there are at most NODE_VIEWS of them (a generic name's texts would be every file's)."""
+    from .anchors import _declared_name
+    from ..structure import store
+    if site and target is None:
+        return [(file, {name})]
+    node = target or graph.node(graph.canonical(query) or query)
+    rows = graph.con.execute("SELECT file, qual, kind, raw FROM node WHERE id = ? AND kind IN ('function', 'method', 'const')",
+                             (node['id'],)).fetchall() if node else graph.con.execute(
+        "SELECT file, qual, kind, raw FROM node WHERE (short = ? OR short LIKE ?) AND kind IN ('function', 'method', 'const')",
+        (query.rpartition('.')[2], query.rpartition('.')[2] + '@%')).fetchall()     # `save@12`: a name used twice
+    found = []
+    for path, qual, kind, raw in rows:      # a constant is declared by its qual
+        names = {qual, qual if kind == 'const' else _declared_name(path, qual, store.unpack(raw) if raw else {})}
+        if node or query in names or '.' not in query and any(item.rpartition('.')[2] == query for item in names):
+            found.append((path, names))
+    return found if len(found) <= NODE_VIEWS else []
 
 
 def _node_lines(graph, node, header, *, full, again, writes=None, callers=None):
@@ -995,9 +1018,15 @@ def show(cfg, query=None, *, full=False, last=False):
             name = query
         anchors, pointers = _source_pointers(index, [query], graph, full=full)
         hidden = []         # the number of last-run lines `concerning` leaves out without --full
+        from .docs import described_by, module_lines
+        # A module's view and the texts that describe it (R98); a function's, method's or constant's texts (5.0 gate).
+        module = module_lines(graph, path + '/' if (cfg.root / path).is_dir() else path) if path is not None else None
+        described = module[1] if module else described_by(graph, _described_places(graph, query, name, site=site, target=target,
+                                                                                    file=spot))
         concerning, listed, known = _concerning(cfg, data, graph, index, query, path=path, node=target,
                                                 anchored={query} if anchors else (),
-                                                symbol=name if site and target is None else None, full=full, hidden=hidden)
+                                                symbol=name if site and target is None else None, full=full, hidden=hidden,
+                                                described=described)
         from .differences import display        # a known entry's words may hold what the console cannot show
         if anchors:
             print('ANCHOR ' + query)
@@ -1031,9 +1060,8 @@ def show(cfg, query=None, *, full=False, last=False):
             if copies := _copy_pointers(graph, index, anchors, [], [], query, full):
                 display('\n'.join(copies))
             return 0
-        from .docs import module_lines
-        if path is not None and (module := module_lines(graph, path + '/' if (cfg.root / path).is_dir() else path)):
-            display('\n'.join([*module[:1], *concerning, *module[1:]]))       # R98: a module's contracts and connections
+        if module is not None:          # R98: a module's contracts and connections, the texts right after its entries
+            display('\n'.join([*module[0], *concerning, *module[2]]))
             return 0
         node = target or (None if site else graph.node(graph.canonical(query) or query))
         if node:

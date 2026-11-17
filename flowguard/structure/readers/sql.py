@@ -431,6 +431,33 @@ def extract(root, rel, data, module, is_test):
     return out
 
 
+def named(schema) -> dict:
+    """{table casefolded: (table, {column casefolded: column})} of the tables and columns one SQL file's statements
+    name (its `extract` schema facts), as each statement spells them: a CREATE TABLE's table and its columns, an ALTER
+    TABLE's table (and the table it renames it to) with the columns it adds, drops or retypes and those its CHECKs and
+    ranges read, a dropped or copied table. A statement in a comment names nothing. A site on a .sql file names one
+    of these (`sources.site_resolver`)."""
+    found = {}
+
+    def name(table, columns=()):
+        _, held = found.setdefault(table.casefold(), (table, {}))
+        for column in columns:
+            held.setdefault(column.casefold(), column)
+
+    for table in schema['tables']:
+        name(table['name'], [column['name'] for column in table['columns']]
+             + [item['column'] for item in [*table['checks'], *table['ranges']]])
+    for change in schema['changes']:
+        if change['verb'] == 'copy':        # CREATE TABLE ... AS SELECT: its columns are not spelled
+            name(change['table'])
+            continue
+        name(change['table'], [*(column['name'] for column in [*change['add'], *change['retype']]), *change['drop'],
+                               *(item['column'] for item in [*change['checks'], *change['ranges']])])
+        if 'rename' in change:
+            name(change['rename'])
+    return found
+
+
 MIGRATION = re.compile(r'^(?P<folder>(?:.*/)?migrations)/[^/]+/migration\.sql$', re.I)
 
 

@@ -106,3 +106,46 @@ def test_an_ignore_entry_takes_its_finding_out_of_the_briefs_count_and_a_leave_e
                            '--site', 'src/b.ts:KIND_LABELS')
     assert code == 0, out
     assert brief()[0] == 1
+
+
+def test_a_site_on_a_sql_file_is_written_read_and_refused_as_a_site_of_any_other_file(tmp_path):
+    """Planning Tool (5.0 gate): a site on a .sql file raised KeyError 'models': `known add --site` printed a traceback
+    and wrote nothing, the same site written by hand made `check --static` exit 1 with a traceback, and an about marker
+    did the same, so the fte_share CHECK could not be a known site. Its constraints.sql holds the CHECKs only in
+    comments: a site there names nothing, the usual input problem."""
+    from tests.intent_engine.test_catalog import SQL_SITES
+    _commit(tmp_path, SQL_SITES)
+    code, out = _flowguard(tmp_path, 'known', 'add', '-', '--act', 'ask', '--why', 'the CHECK allows 2, the form 1',
+                           '--ask', 'Which upper bound holds?', '--id', 'fte-range',
+                           '--site', 'prisma/azure-sql-setup.sql:Assignment.fteShare',
+                           '--site', 'prisma/azure-sql-setup.sql:lending_assignments.fte_share')
+    assert code == 0 and out.splitlines()[0] == (
+        'known.fte-range added to .flowguard/known.toml: act ask, sites prisma/azure-sql-setup.sql:Assignment.fteShare, '
+        'prisma/azure-sql-setup.sql:lending_assignments.fte_share'), out
+    written = _known(tmp_path)
+    nothing = ('site prisma/constraints.sql:Assignment.fteShare names nothing in prisma/constraints.sql: name one table or '
+               'table.column of that file (the map reads no table statement in it)')
+    code, out = _flowguard(tmp_path, 'known', 'add', '-', '--act', 'ask', '--why', 'x', '--ask', 'y?',
+                           '--site', 'prisma/constraints.sql:Assignment.fteShare')
+    assert code == 2 and f'known add: {nothing}' in out and 'Traceback' not in out and _known(tmp_path) == written, out
+    # The next run reads the entry; an edit of the CHECK's file touches it.
+    _commit(tmp_path, {}, message='recorded')
+    _write(tmp_path, {'prisma/azure-sql-setup.sql': SQL_SITES['prisma/azure-sql-setup.sql'].replace('<= 2.0000', '<= 3.0000')})
+    code, text = _static(tmp_path)
+    assert code == 0 and not [line for line in _block(text) if line.startswith('red')], text
+    assert any(line.startswith('known: known.fte-range at azure-sql-setup.sql:Assignment.fteShare') for line in _block(text)), text
+    # The same site written by hand on the file whose statements are comments is the entry's input problem, red.
+    _write(tmp_path, {'.flowguard/known.toml': written + '\n[known.by-hand]\nsites = ["prisma/constraints.sql:Assignment.fteShare"]\n'
+                      'why = "x"\nact = "ask"\nask = "y?"\n'})
+    code, text = _static(tmp_path)
+    assert code == 1 and 'Traceback' not in text and any(line.startswith('red: known.by-hand: site prisma/constraints.sql')
+                                                         for line in _block(text)), text
+    # An about marker on a .sql file reads the site as known.toml does.
+    _write(tmp_path, {'.flowguard/known.toml': written,
+                      'docs/limits.md': '# Limits\n\n<!-- flowguard: about prisma/azure-sql-setup.sql:assignments.fte_share -->\n'
+                                        'An assignment holds at most two FTE.\n\n'
+                                        '<!-- flowguard: about prisma/constraints.sql:assignments.fte_share -->\nThe same.\n'})
+    code, text = _static(tmp_path)
+    reds = [line for line in _block(text) if line.startswith('red')]
+    assert code == 1 and 'Traceback' not in text and len(reds) == 1 and reds[0].startswith(
+        'red: about prisma/constraints.sql:assignments.fte_share:'), text

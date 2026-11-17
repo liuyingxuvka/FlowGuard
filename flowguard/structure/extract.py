@@ -1023,7 +1023,7 @@ def _extract_python(root: Path, rel: str, data: bytes, module: str, is_test: boo
                        "end": node.end_lineno,
                        "column": len(text.splitlines()[node.lineno-1].encode('utf-8')[:node.col_offset].decode('utf-8')) + 1,
                        "end_column": len(text.splitlines()[node.end_lineno-1].encode('utf-8')[:node.end_col_offset].decode('utf-8')) + 1,
-                       "sig": sig[:160], "cls": cls or "",
+                       "sig": sig, "cls": cls or "",
                        "doc": (ast.get_docstring(node) or "").strip().split("\n")[0][:100],
                        "fp": fingerprint(node, node.name), "shape": shape(own), "size": len(own)}
                 if not is_test and not is_class:

@@ -1212,7 +1212,7 @@ def extract(root, rel, data, module, is_test):
             header = source[node.start_byte:(body.start_byte if body else node.end_byte)].decode('utf-8')
             row = dict(qual=qual, kind=('interface' if node.type == 'interface_declaration' else 'enum' if node.type == 'enum_declaration' else 'class') if is_class else 'method' if cls else 'function',
                        cls=cls, line=node.start_point.row + 1, end=node.end_point.row + 1,
-                       sig=header[:160], doc='', fp=fingerprint(node, source, name),
+                       sig=header, doc='', fp=fingerprint(node, source, name),
                        shape=[] if name.startswith('<anonymous') or is_class or body is None
                        else kinds_shape(own_kinds(body))[:SHAPE_K],
                        size=node.descendant_count, raw=dict(name=name, scope=scope, declared_qual=declared_qual, parameters=arg_names,

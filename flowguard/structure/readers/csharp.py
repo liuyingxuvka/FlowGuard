@@ -93,7 +93,7 @@ def extract(root, rel, data, module, is_test):
         used.add(qual)
         name = text(_field(node, "name"), source)
         row = dict(qual=qual, kind=kind, cls=cls, line=at["line"], end=at["end_line"],
-                   column=at["column"], end_column=at["end_column"], sig=signature[:200], doc="",
+                   column=at["column"], end_column=at["end_column"], sig=signature, doc="",
                    fp=fingerprint(node, source, name), shape=[], size=node.descendant_count,
                    raw=dict(declared_qual=base, declaration_kind=node.type,
                             requires_build_context=_conditional(node), **raw))

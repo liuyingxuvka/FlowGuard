@@ -652,10 +652,12 @@ def site_resolver(graph, change=None):
     """`resolve(site)` -> (nodes, files, problem) of one `path:symbol` site on the map, as `known_sites` reads a
     known.toml site and `docs` a Markdown file's `about` marker (one reading of a site for both). A site that is a
     Markdown file's path alone (`docs/setup.md`) names that document: no node, the file itself. `problem` is '' when
-    the site names exactly one function, method, object.method, constant or Model.field of its file."""
+    the site names exactly one function, method, object.method, constant or Model.field of its file; on a .sql file,
+    one table or table.column its statements name (`_sql_site`)."""
     from .anchors import _agreement_positions
     from .owners import row_function
     from ..structure.readers.registry import ECMA, language_for
+    from ..structure.readers.sql import named as named_sql
     modules, errors = {}, {}
     for path, module, error in graph.con.execute('SELECT path, module, parse_error FROM file'):
         modules[path], errors[path] = module, error
@@ -693,16 +695,24 @@ def site_resolver(graph, change=None):
         else:
             declared = _declarations(path, (graph.root / path).read_bytes(), symbol)
         model, dot, name = symbol.rpartition('.')
-        fields = [symbol for schema in schemas.get(path, ()) for item in schema['models']
+        sql = [schema for schema in schemas.get(path, ()) if schema['kind'] == 'sql']
+        fields = [symbol for schema in schemas.get(path, ()) if schema['kind'] == 'prisma' for item in schema['models']
                   if dot and item['name'] == model and any(column['name'] == name for column in item['fields'])]
+        tables = {}
+        for schema in sql:
+            tables.update(named_sql(schema))
+        if sql:
+            fields += sorted(_sql_site(tables, symbol, graph._models()))
         if dot and not fields and '.' not in model and graph.con.execute(
                 "SELECT 1 FROM node WHERE module=? AND kind='class' AND qual=?", (module, model)).fetchone() \
                 and any(row['model'] == model and row['field'] == name for row in writes(symbol)):
             fields.append(symbol)
         count = len(found) + len(declared) + len(fields)
         if count != 1:
-            return nodes, files, (f'site {site} names ' + (f'{count} declarations' if count else 'nothing')
-                                  + f' in {path}: name one function, object.method, constant or Model.field of that file')
+            return nodes, files, (f'site {site} names ' + (f'{count} declarations' if count else 'nothing') + f' in {path}: '
+                                  + ('name one table or table.column of that file' + ('' if tables else
+                                                                                      ' (the map reads no table statement in it)')
+                                     if sql else 'name one function, object.method, constant or Model.field of that file'))
         if found:
             nodes.update(found)
             if change is not None and change.baseline and path in change.files and any(map(change.edited, found)):
@@ -713,23 +723,50 @@ def site_resolver(graph, change=None):
             elif _declaration_edited(change, path, symbol, declared[0]):
                 files.add(path)
         else:
-            nodes.update(row_function(row) for row in writes(symbol))
+            # A table site (no dot) is written by the rows of that table or model, never by a field of that name.
+            def held(rows):
+                return [row for row in rows if dot or symbol.casefold() in
+                        {str(row.get('model') or '').casefold(), str(row.get('table') or '').casefold()}]
+            nodes.update(row_function(row) for row in held(writes(symbol)))
             if change is not None and change.baseline:
-                nodes.update(row_function(row) for row in change.baseline_writes(symbol))
+                nodes.update(row_function(row) for row in held(change.baseline_writes(symbol)))
             files.add(path)
         return nodes, files, ''
     return resolve
 
 
+def _sql_site(tables, symbol, models):
+    """The tables (`table`) or columns (`table.column`) of one SQL file that a site's symbol names, by the names its
+    statements spell (`sql.named`, casefolded as SQL compares them) or through the Prisma model mapped to that table
+    and the field mapped to that column (`Assignment.fteShare` for `assignments.fte_share`)."""
+    head, dot, tail = symbol.rpartition('.')
+    found = set()
+    for key, (table, columns) in tables.items():
+        model = models.table_model(table)
+        if not dot:
+            if symbol.casefold() == key or model == symbol:
+                found.add(key)
+            continue
+        if head.casefold() == key and tail.casefold() in columns:
+            found.add(f'{key}.{tail.casefold()}')
+        elif model == head:
+            field = models.field(model, tail)[0]
+            if field is not None and str(field.get('column') or tail).casefold() in columns:
+                found.add(f'{key}.{str(field.get("column") or tail).casefold()}')
+    return found
+
+
 def known_sites(graph, entries, change=None):
     """(entries, input findings): the known entries with their sites resolved on the map (`site_resolver`), and one
     input finding per entry with a site that names no single function, method, object.method, constant or Model.field
-    of its file (that entry is left out). A Model.field is a field of a schema model (Prisma, SQL) of that file, or of
-    a class the file declares that the map binds writes to (a Python class written as `order.status = ...`). A constant
+    of its file (that entry is left out). A Model.field is a field of a Prisma model of that file, or of a class the
+    file declares that the map binds writes to (a Python class written as `order.status = ...`); on a .sql file a site
+    names a table or table.column its statements name (`sql.named`; also as the Prisma Model.field mapped to it). A constant
     is any module-level declaration of a TS/JS or Python file (`_declarations`), whatever its value, or a constant
     node of the map. A Markdown file's path alone names that document. `Known.nodes` holds the node of each function,
     method or constant site the map keeps a node for and, for a Model.field site, the functions that write that field
-    now and (with `change`) at its baseline; `Known.files` the schema or class file of each Model.field site, each
+    (or table or table.column) now and (with `change`) at its baseline; `Known.files` the schema or class file of
+    each Model.field, table or table.column site, each
     document site, the file of each other constant site whose declaration this change edits, and the file of each
     function or method site whose text this change edits although its code is the same (a comment or blank line
     inside it: `Change.edited`) (D31: a site is touched when its node changes, or that file changes)."""

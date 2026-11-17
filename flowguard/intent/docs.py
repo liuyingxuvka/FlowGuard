@@ -21,10 +21,9 @@ A list the code already holds is generated instead: the lines between `<!-- flow
 differs from what the map gives now names it with an `impact` line."""
 from __future__ import annotations
 
-import os
 import re
 
-from flowguard.map.common import document_text, git_run, is_test_file
+from flowguard.map.common import document_text, git_files, is_test_file
 
 MARKER = re.compile(r'<!--\s*flowguard:\s*about\s+(\S+?)\s*-->')
 HEADING = re.compile(r'(#{1,6})\s')
@@ -61,12 +60,11 @@ def document(name, data):
 
 
 def documents(root):
-    """The Markdown files of the repository, tracked or not (Git's ignore rules apply), that hold a marker, as
-    `document` reads them; one whose bytes are no UTF-8 or UTF-16 text is listed when its bytes spell a marker, so
-    that its reader reports why it cannot be read."""
-    listed = git_run(root, 'ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', '*.md').stdout
+    """The Markdown files of the project (`map.common.git_files`: in Git tracked or not, Git's ignore rules applied;
+    outside Git the map's own folder walk) that hold a marker, as `document` reads them; one whose bytes are no UTF-8
+    or UTF-16 text is listed when its bytes spell a marker, so that its reader reports why it cannot be read."""
     found = []
-    for name in sorted({os.fsdecode(item) for item in listed.split(b'\0') if item}):
+    for name in sorted(name for name in git_files(root) if name.endswith('.md')):
         path = root / name
         if path.is_file():
             data = path.read_bytes()
@@ -316,39 +314,65 @@ def _linked(graph, touched):
     return linked
 
 
-def module_lines(graph, site):
-    """`show PATH` of an existing file or folder (R98): the texts that describe it, then each module (file) it calls
-    or is called by, with the number of calls and the texts that describe that module. The calls are those the map
-    resolved (`MapHandle.resolved_calls`), from any function of those files, a callback too: `logger.warn(...)` on a
-    `logger` imported from the module that defines it counts, a JS/TS member call matched by its name alone
-    (`rows.find`, `days.get`) does not. What is no module says so in one line: a Markdown file is a
-    document (`document docs/notes/roles.md`), a file the map does not read is no source file (`pyproject.toml`), a
-    folder without a file the map reads has none, with the number of Markdown documents under it. The repository's
-    root folder `./` holds every mapped file; no about marker names it."""
-    if site.endswith('.md'):
-        return [f'document {site}']
-    if site.endswith('/'):          # the repository's root folder `./` holds every mapped file
-        files = module_files(graph, site) if site != './' else {path for (path,) in graph.con.execute('SELECT path FROM file')}
-        if not files:
-            listed = git_run(graph.root, 'ls-files', '-z', '--cached', '--others', '--exclude-standard', '--',
-                             site + '*.md').stdout
-            count = len({item for item in listed.split(b'\0') if item})
-            return [f'folder {site}: no source file the map reads'
-                    + (f'; {count} Markdown document{"s" * (count != 1)}' if count else '')]
-    elif not graph.con.execute('SELECT 1 FROM file WHERE path = ?', (site,)).fetchone():
-        return [f'{site}: no source file the map reads, and no Markdown document']
-    else:
-        files = {site}
-    contracts = {}          # file -> the places of the markers whose file or folder site covers it
-    unread = []             # the documents whose bytes are no UTF-8 or UTF-16 text: their markers are not read
+def _about_markers(graph):
+    """([(document, line, site)] of the about markers of every document the repository holds, [what is wrong with each
+    document whose bytes are no UTF-8 or UTF-16 text: its markers are not read])."""
+    found, unread = [], []
     for name in documents(graph.root):
         text, problem = document(name, (graph.root / name).read_bytes())
         if problem:
-            unread.append(problem)
-        for marked, line, _ in markers(text):
-            if ':' not in marked:
-                for path in module_files(graph, marked):
-                    contracts.setdefault(path, []).append(f'{name}:{line}')
+            unread.append(f'{problem}; its about markers are not read')
+        found.extend((name, line, site) for site, line, _ in markers(text))
+    return found, unread
+
+
+def described_by(graph, places):
+    """`show NAME` of a function, method or constant (5.0 gate: Planning Tool's `show resolveFullPspNumber` did not
+    say that a text describes it): `described by DOC:LINE (about SITE)` for each about marker whose site names one of
+    `places`, [(file, names)]: `file:name` for one of its names, that file, or a folder holding it; then a line for each
+    document whose markers cannot be read. Nothing is read when `places` is empty."""
+    if not places:
+        return []
+    found, unread = _about_markers(graph)
+    lines = []
+    for name, line, site in found:
+        path, colon, symbol = site.rpartition(':')
+        if any(path == file and symbol in names if colon else site == file or site.endswith('/') and file.startswith(site)
+               for file, names in places):
+            lines.append(f'described by {name}:{line} (about {site})')
+    return list(dict.fromkeys(lines)) + unread
+
+
+def module_lines(graph, site):
+    """`show PATH` of an existing file or folder (R98), as (its first line, the texts that describe it, the rest):
+    `described by DOC:LINE (about SITE)` for each marker whose file or folder site covers a file of it, with the site
+    it names; then each module (file) it calls or is called by, with the number of calls and the texts that describe
+    that module (a folder's site named). The calls are those the map resolved (`MapHandle.resolved_calls`), from any
+    function of those files, a callback too: `logger.warn(...)` on a `logger` imported from the module that defines it
+    counts, a JS/TS member call matched by its name alone (`rows.find`, `days.get`) does not. What is no module says so
+    in its first line: a Markdown file is a document (`document docs/notes/roles.md`), whose about markers (`DOC:LINE
+    describes SITE`, and whether the site names nothing) and generated regions (`DOC:LINE generate KIND ARG` and
+    whether it is up to date) follow; a file the map does not read is no source file (`pyproject.toml`); a folder
+    without a file the map reads has none, with the number of Markdown documents under it. The repository's root folder
+    `./` holds every mapped file; no about marker names it."""
+    if site.endswith('.md'):
+        return [f'document {site}'], [], document_lines(graph, site)
+    if site.endswith('/'):          # the repository's root folder `./` holds every mapped file
+        files = module_files(graph, site) if site != './' else {path for (path,) in graph.con.execute('SELECT path FROM file')}
+        if not files:
+            count = sum(name.startswith(site) and name.endswith('.md') for name in git_files(graph.root))
+            return [f'folder {site}: no source file the map reads'
+                    + (f'; {count} Markdown document{"s" * (count != 1)}' if count else '')], [], []
+    elif not graph.con.execute('SELECT 1 FROM file WHERE path = ?', (site,)).fetchone():
+        return [f'{site}: no source file the map reads, and no Markdown document'], [], []
+    else:
+        files = {site}
+    contracts = {}          # file -> (place, site) of the markers whose file or folder site covers it
+    found, unread = _about_markers(graph)
+    for name, line, marked in found:
+        if ':' not in marked:
+            for path in module_files(graph, marked):
+                contracts.setdefault(path, []).append((f'{name}:{line}', marked))
     functions = graph.functions()
     mine = [node for node, item in functions.items() if item['file'] in files]       # a callback's calls count too
     named = sum('<' not in functions[node]['qual'] for node in mine)
@@ -360,16 +384,45 @@ def module_lines(graph, site):
                 path = functions[other]['file'] if other in functions else ''
                 if path and path not in files:
                     into[path] = into.get(path, 0) + 1
-    def described(path):
-        places = contracts.get(path, [])
+    def described(path):            # a folder's text says which folder it describes
+        places = [place + (f' about {marked}' if marked != path else '') for place, marked in contracts.get(path, [])]
         return f'; described by {", ".join(dict.fromkeys(places))}' if places else ''
-    own = list(dict.fromkeys(place for path in sorted(files) for place in contracts.get(path, [])))
-    lines = [f'module {site}: {len(files)} file{"s" * (len(files) != 1)}, {named} function{"s" * (named != 1)}']
-    lines += [f'described by {place}' for place in own] or ([] if site == './' else [    # no marker names the root
-        f'described by no text: put <!-- flowguard: about {site} --> above the Markdown text that is its contract'])
-    lines += [f'calls {path} ({count} call{"s" * (count != 1)}{described(path)})' for path, count in sorted(outward.items())]
-    lines += [f'called by {path} ({count} call{"s" * (count != 1)}{described(path)})' for path, count in sorted(inward.items())]
-    lines += [f'{problem}; its about markers are not read' for problem in unread]
+    own = list(dict.fromkeys(f'described by {place} (about {marked})'
+                             for path in sorted(files) for place, marked in contracts.get(path, [])))
+    head = [f'module {site}: {len(files)} file{"s" * (len(files) != 1)}, {named} function{"s" * (named != 1)}']
+    rest = [] if own or site == './' else [       # no marker names the root
+        f'described by no text: put <!-- flowguard: about {site} --> above the Markdown text that is its contract']
+    rest += [f'calls {path} ({count} call{"s" * (count != 1)}{described(path)})' for path, count in sorted(outward.items())]
+    rest += [f'called by {path} ({count} call{"s" * (count != 1)}{described(path)})' for path, count in sorted(inward.items())]
+    return head, own, rest + unread
+
+
+def document_lines(graph, name):
+    """`show DOC` of a Markdown document (5.0 gate: Planning Tool's `show docs/FUNCTION_INVENTORY.md` printed only its
+    first line): each about marker, `DOC:LINE describes SITE` (`, which names nothing: ...` when its site names nothing,
+    read as `findings` reads it), then each generated region, `DOC:LINE generate KIND ARG` with whether it is up to date
+    (`stale`): `is up to date`, `is out of date -> python -m flowguard docs rewrites it`, or `cannot be written: ...`.
+    A document whose bytes are no UTF-8 or UTF-16 text says so instead."""
+    from .sources import site_resolver
+    text, problem = document(name, (graph.root / name).read_bytes())
+    if problem:
+        return [f'{problem}; its about markers are not read']
+    lines, resolve = [], None
+    for site, line, _ in markers(text):
+        if ':' not in site:
+            files = module_files(graph, site)
+            absent = '' if files else (f'site {site}: no mapped file in this folder' if site.endswith('/')
+                                       else f'site {site}: no such file in this repository')
+        else:
+            resolve = resolve or site_resolver(graph)
+            absent = resolve(site)[2]
+        lines.append(f'{name}:{line} describes {site}' + (f', which names nothing: {absent}' if absent else ''))
+    out_of_date = {line: problem for line, _, _, _, problem in stale(graph, name, text)}
+    for kind, argument, line, *_ in regions(text):
+        state = ('is up to date' if line not in out_of_date else
+                 f'cannot be written: {out_of_date[line]}' if out_of_date[line] else
+                 'is out of date -> python -m flowguard docs rewrites it')
+        lines.append(f'{name}:{line} generate {kind} {argument} {state}')
     return lines
 
 
@@ -407,12 +460,15 @@ def _cell(text):
 def generated(graph, kind, argument):
     """(the Markdown of one region, '') or ('', what is wrong, without the region's `generate KIND ARG`, which each
     caller prints before it): `fields Model` a table of a Prisma model's fields with
-    each schema file's type where they differ, `values NAME` the members of the value set declared under that name
+    each schema file's type where they differ and each scalar field's column (a relation field has none: its cell is
+    `relation Model`), `values NAME` the members of the value set declared under that name
     (`owners.value_sets_named`, the sets the values lines of `show NAME` give, but for the enum of a Prisma schema not
     in use: what only test files declare left out; the Prisma enum of a schema in use when there is one, else the JS/TS
     sets; sets with the same members in another order are one set; several different sets cannot be written),
-    `functions path` and `constants path` the functions with their signatures and the module-level literal
-    constants with their values of one file."""
+    `functions path` the functions and methods of one file that no other function holds (a closure or a callback is
+    left out), each by the name a flowguard comment or `show` resolves (`anchors._declared_name`: `service.save` for
+    a member of an object, never a line number) with its whole signature as declared, and `constants path` the
+    module-level literal constants with their values of one file."""
     import json
     if kind not in KINDS:
         return '', f'the kinds are {", ".join(KINDS)}'
@@ -421,6 +477,8 @@ def generated(graph, kind, argument):
                  for item in schema.get('models', ()) if item['name'] == argument]
         if not found:
             return '', f'no Prisma model {argument}'
+        from ..structure.readers.prisma import is_column
+        models = graph._models().by_name
         order, types, columns = [], {}, {}
         for file, item in sorted(found, key=lambda pair: pair[0]):
             for column in item.get('fields', ()):
@@ -429,7 +487,9 @@ def generated(graph, kind, argument):
                     order.append(name)
                 text = column['type'] + ('[]' if column.get('list') else '') + ('?' if column.get('optional') else '')
                 types.setdefault(name, {}).setdefault(text, []).append(file)
-                columns.setdefault(name, column.get('column') or name)
+                # A relation field has no column of its own: its cell names the model it relates to.
+                columns.setdefault(name, (column.get('column') or name) if is_column(column, models)
+                                   else f'relation {column["type"]}')
         every = {file for file, _ in found}
         def typed(name):
             if len(types[name]) == 1 and set(next(iter(types[name].values()))) == every:
@@ -455,8 +515,24 @@ def generated(graph, kind, argument):
     if not (graph.root / argument).is_file():
         return '', 'no such file in this repository'
     if kind == 'functions':
-        rows = sorted((item['line'], item['qual'], item['sig']) for item in graph.functions().values()
-                      if item['file'] == argument and '<' not in item['qual'])
+        from ..structure import store
+        from .anchors import _declared_name
+        own = [item for item in graph.functions().values() if item['file'] == argument]
+
+        def start(item):
+            return item['line'], item.get('column') or 0
+
+        def end(item):
+            return item['end_line'] or item['line'], item.get('end_column') or 0
+
+        def nested(item):          # inside another function or method of the file: a closure, a callback
+            return any(other is not item and start(other) <= start(item) and end(item) <= end(other)
+                       and (start(other), end(other)) != (start(item), end(item)) for other in own)
+        raw = {node: store.unpack(data) if data else {} for node, data in graph.con.execute(
+            'SELECT id, raw FROM node WHERE file = ?', (argument,))}
+        rows = sorted((item['line'], _declared_name(argument, item['qual'], raw.get(item['id'], {})), item['sig'])
+                      for item in own if not nested(item))
+        rows = [row for row in rows if '<' not in row[1]]
         if not rows:
             return '', f'the map reads no functions in {argument}'
         lines = [f'| `{_cell(qual)}` | `{_cell(" ".join(sig.split()))}` |' for _, qual, sig in rows]

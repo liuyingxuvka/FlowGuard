@@ -219,6 +219,8 @@ impact: assignments.md:8 generate fields Assignment is out of date -> python -m 
 <!-- flowguard: end -->
 ```
 
+A relation field has no column: its cell names the model (`| demand | Demand? | relation Demand |`). `functions path` names each function and method of the file as a flowguard comment or `show` does, `capacityService.sliceDateRangeByMonth` for a method of an exported object, with its whole signature as declared, and leaves out what another function holds: a closure, a callback, an object literal's method.
+
 A region is named when the change edits what it is written from, or the region or its marker. One this change writes that cannot be generated is red: `red: generate values Nope: no value set of that name -> correct the marker at lists.md:12`. Write around a region, not inside it.
 
 ### Texts tied to the code they describe
@@ -228,7 +230,7 @@ A region is named when the change edits what it is written from, or the region o
 The total share of a person adds the shares of their assignments.
 ```
 
-When a change edits `totalShare` and not the text, the run says `impact: assignments.md:3 describes backend/src/share.ts:totalShare, which this change edits -> reread that text and correct it if it no longer holds`. It never fails a run, and a change that edits both says nothing. A marker this change writes that names nothing is red (`red: about backend/src/share.ts:sumShares: ...`). A `known.toml` site may be a Markdown file's path alone (`sites = ["docs/setup.md"]`); FlowGuard 4.3 reads such an entry as invalid.
+When a change edits `totalShare` and not the text, the run says `impact: assignments.md:3 describes backend/src/share.ts:totalShare, which this change edits -> reread that text and correct it if it no longer holds`. It never fails a run, and a change that edits both says nothing. A marker this change writes that names nothing is red (`red: about backend/src/share.ts:sumShares: ...`). A `known.toml` site may be a Markdown file's path alone (`sites = ["docs/setup.md"]`); FlowGuard 4.3 reads such an entry as invalid. A marker or `known.toml` site on a `.sql` file names a table or `table.column` its statements name, or the Prisma `Model.field` mapped to one (`backend/prisma/azure-sql-setup.sql:Assignment.fteShare`); a file whose statements are all in comments names none (`site backend/prisma/constraints.sql:Assignment.fteShare names nothing in backend/prisma/constraints.sql: name one table or table.column of that file (the map reads no table statement in it)`).
 
 ### Module contracts
 
@@ -246,7 +248,28 @@ described by no text: put <!-- flowguard: about backend/src/share.ts --> above t
 called by backend/src/report.ts (1 call; described by docs/report.md:3)
 ```
 
-The connections are the calls the map resolved, never a method matched by its name alone.
+The connections are the calls the map resolved, never a method matched by its name alone. Each text the module has comes right after its known entries with the site its marker names, and a connected module's text says so when its marker names a folder. With `<!-- flowguard: about backend/src/ -->` in `docs/report.md` and `<!-- flowguard: about backend/src/share.ts:totalShare -->` in `docs/assignments.md`:
+
+```text
+module backend/src/share.ts: 1 file, 1 function
+described by docs/report.md:3 (about backend/src/)
+called by backend/src/report.ts (1 call; described by docs/report.md:3 about backend/src/)
+```
+
+`show totalShare` begins with the texts whose marker names the function, its file or a folder holding it, after its known entries (it has none) and before its node view, and `show docs/assignments.md` lists a document's markers and generated regions:
+
+```text
+show totalShare
+Map: prisma 1/1 parsed; typescript 2/2 parsed; static facts, foreign native-home execution not verified.
+described by docs/assignments.md:3 (about backend/src/share.ts:totalShare)
+described by docs/report.md:3 (about backend/src/)
+```
+
+```text
+document docs/assignments.md
+docs/assignments.md:3 describes backend/src/share.ts:totalShare
+docs/assignments.md:8 generate fields Assignment is out of date -> python -m flowguard docs rewrites it
+```
 
 ### JSON data in TS/JS
 
@@ -286,7 +309,7 @@ Without `--id` such an entry is `matter` (then `matter-2`, ...).
 
 ### What `show` begins with
 
-`show NAME`, `show PATH`, a rule's and a flow's view begin with what is already known and decided about the query: the `known.toml` entries in the brief's words, the intent rules and the `rules.toml` rules they cite, the flowguard comment agreements, and the last run's lines there (five without `--full`):
+`show NAME`, `show PATH`, a rule's and a flow's view begin with what is already known and decided about the query: the `known.toml` entries in the brief's words, the texts that describe it, the intent rules and the `rules.toml` rules they cite, the flowguard comment agreements, and the last run's lines there (five without `--full`):
 
 ```text
 module fees.py: 1 file, 3 functions
@@ -323,6 +346,7 @@ The brief still has at most eight lines. It counts the generated regions the las
 | `check --static --all`: `before: no writers agreement for Job.status at close.py:close was broken at task start -> leave it unless your task is about it` | `before: Job.status has no writers agreement and 3 files write it, close.py:close among them; so at task start -> leave it unless your task is about it`. The other families still say `was broken at task start`. |
 | `show` of a TS/JS function or anchor printed `not searched: not searched: ... -> bind the real decision site` and `copy search unavailable: ...`; an anchor on a Python function printed `copy search unavailable: not searched: no readable decision sites -> bind the real decision function`. | One line, `copies not searched: ...`, without a bind step for a TS/JS function or a Python function an anchor already marks: `copies not searched: no readable decision sites`. |
 | `show Project.lifecycleStatusId` of a TS/JS writers agreement: `anchor Project.lifecycleStatusId -> typescript/backend/src/services/project.service.ts: backend/src/services/project.service.ts:1`, `owner Project.lifecycleStatusId backend/src/services/project.service.ts:1; writers=typescript/backend/src/services/project.service.ts:create,typescript/backend/src/services/project.service.ts:update`, then `Project.lifecycleStatusId: historical observations (not a new verification)`, `results: {}; 0 distinct observed outputs`, `rules: ` and `info: not referenced by a current model: Project.lifecycleStatusId`. A `same` reference read `owner FEE fees.py:2; ...`. | `anchor Project.lifecycleStatusId -> backend/src/services/project.service.ts:1` and `writers Project.lifecycleStatusId projectService.create,projectService.update backend/src/services/project.service.ts:1`, the 4.3 comment spelling at the agreement's place, then its fix, declaration and writes; no empty observation lines or `rules: `, and for a writers or together agreement no `not referenced` line. A `same` reference reads `same FEE ref fees.py:2; ...`. |
+| `show`'s node view cut a function's signature at 160 characters, also inside a word (`buildLendingSummaryForWindow( lendingAssignments: Array<{ ... fteShare: Prisma.Decimal; valid`). | The whole declaration header, as the source spells it. |
 | A long `not compared` line was cut at 200 characters wherever that fell, also inside an item's name or place. | Paths and places do not count toward the 200 characters, the reasons are shortened first, and items that leave no room are counted (`not compared: 3 functions (...) -> not a failure`). A single item keeps its name and place. |
 
 ## Corrections of 4.3 bugs
