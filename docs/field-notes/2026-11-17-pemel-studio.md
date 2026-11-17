@@ -83,6 +83,36 @@ its time. Cache reusable analysis by the actual source and environment identitie
 Preserve normal pytest assertions and comparisons rather than converting these
 cases into exceptions to the rules.
 
+## Connect native UI observations to code agreements
+
+Two problems surfaced during actual desktop regression. An animation advanced
+through 30-degree steps while its icon renderer accepted quarter turns. The next
+timer tick passed 30 degrees to the renderer and raised inside the Qt paint
+callback. The correction advances through the admitted set. A language change
+also called the same flush used for leaving a page, which committed a title
+being edited and stopped the pending Notes timer. The correction keeps the
+existing edit buffer during presentation-only refresh. The focused regression
+after these corrections passed 27 tests.
+
+A finite-value agreement could cover the first case with little extra machinery.
+The producer can name its state field and the consumer can name its admitted
+values. The developer should be able to see the first reachable out-of-set
+value, its write site and the call site. Start with explicitly declared small
+enumerations and arithmetic transitions that can be exhausted. Report an
+unresolved transition when a value comes from native code or arbitrary input.
+This is an extension proposal based on the observed UI failure.
+
+For native effects like the second case, accept small observations from the
+project's existing tests. A Qt test can report whether a language refresh
+retained the same editor, its pending buffer and timer. An action test can
+report the command ID, task phase, enabled state, visible refusal reason and
+resulting view. Let FlowGuard bind those observations to the changed code and
+include the failing scenario in its summary. A desktop test already owns
+widget construction, event delivery and screenshots. The map can consume its
+bounded evidence and leave the test in charge of that behavior. Use stable
+command IDs and state checks so a translated label or different desktop DPI
+does not create a false code-change warning.
+
 The development value here is having one place to find confirmed decisions and
 check their actual writers during ordinary tests. The two reproduced fixes above
 would make that workflow more reliable before adding wider review features.
