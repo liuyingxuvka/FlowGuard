@@ -213,3 +213,23 @@ admission owner visible. A focused test should detect both over-blocking a
 safe entry and admitting a second worker. The Qt test can retain ownership
 of clicks and widgets. FlowGuard can report the exact boundary on which the
 decision disagreed with the cited rule.
+
+## Use measured report geometry as a small acceptance observation
+
+The Comparison regression passed with the correct run keys, out-of-range
+flag and five member results in memory. Review of actual Qt captures at the
+approved client sizes found three presentation defects. A narrow swatch
+column hid the run key, a wrapped name cut off the warning below it, and the
+generic table height added a second scroll area that concealed the fifth row
+in the full report capture. The comparison now measures the key and warning
+and gives the document scroll ownership of all five rows. The capture checks
+both widget bounds and the last row's rectangle against the table viewport.
+
+Extend the optional artifact observation with a stable widget role, layout
+profile, measured bounds and an asserted relationship. Existing tests can
+supply an example such as 'final member row lies inside the table viewport'
+for a view that assigns scrolling to the surrounding document. An independent
+pixel review can still catch missing paint when those geometric relationships
+hold. FlowGuard can bind the assertion and its reproduction route to the
+layout owner. Keep capture and measurement in the Qt harness, and store only
+small numeric observations and hashes in the agreement result.
