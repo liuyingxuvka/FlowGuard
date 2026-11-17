@@ -313,11 +313,19 @@ def _anchor_targets(index, references, graph=None):
     return sorted(found.values(), key=lambda a: (a.name, a.file, a.target_line, a.kind))
 
 
+def _field_agreement(anchor):
+    """Whether a source anchor is a writers or together agreement on a field: it marks no function."""
+    return anchor.kind == 'owner' and not anchor.qual
+
+
 def _source_pointers(index, references, graph, *, full=False):
     anchors = _anchor_targets(index, references, graph)
     lines = []
     for anchor in anchors:
-        lines.append(f'anchor {anchor.name} -> {anchor.target} {anchor.file}:{anchor.target_line or anchor.line}'
+        # A writers or together agreement marks no function: its place alone, not the map's module id with an empty
+        # symbol (`typescript/backend/src/services/x.ts: backend/src/services/x.ts:205`).
+        target = '' if _field_agreement(anchor) else anchor.target + ' '
+        lines.append(f'anchor {anchor.name} -> {target}{anchor.file}:{anchor.target_line or anchor.line}'
                      + (f'; calibrated_by={anchor.calibrated_by}' if anchor.calibrated_by else ''))
         if full:
             lines.append(f'  {anchor.kind}; source comment L{anchor.line}; '
@@ -341,7 +349,9 @@ def _copy_pointers(graph, index, anchors, homes, results, words, full):
     for target in targets:
         live = next((result for result in results if result.get('target') == target and result.get('kind') == 'live'), None)
         scope = [(site.get('where') or target, site['line'], site['text']) for site in live.get('sites', []) if site.get('realized')] if live else None
-        found = graph.search_homes(target, sites=scope, not_same=excluded, words=words, k=None)
+        # An anchor's target is bound already: its reason not to search names no binding step (a rule's home keeps it).
+        found = graph.search_homes(target, sites=scope, not_same=excluded, words=words, k=None,
+                                   bound=target in {anchor.target for anchor in anchors})
         if not found['searched']:
             lines.append(found['reason'])
         from .owners import look_alikes      # static copy candidates, the same ones check runs for an owner
@@ -497,6 +507,22 @@ def _named(symbol, query, spellings):
 
 
 FINDINGS_SHOWN = 5          # the last run's lines the first block of `show` lists without --full
+
+
+def _structure_line(cfg, issue):
+    """A `structure:` line of `show NAME`: a finding's text and its step; when a known.toml entry names the finding,
+    the step that entry gives it, as the block's known line says (`known.role-abbreviations: left as it is on purpose;
+    ...`), not the step that would record one (H3-2)."""
+    from .signals import _known_step
+    from .sources import catalog
+    def step(entry):
+        if entry.act == 'fix':          # the block's fix step adds `as this change does`: show is no change
+            return 'marked to fix when its code changes'
+        return KNOWN_WORDS['ignore'] if entry.act == 'ignore' else _known_step(entry)
+    naming = [entry for entry in catalog(cfg).known.values() if entry.finding == issue.name]
+    if not naming:
+        return f'structure: {issue.text} -> {issue.step}'
+    return f'structure: {issue.text} -> ' + '; '.join(f'known.{entry.id}: {step(entry)}' for entry in naming)
 
 
 def _known_line(entry):
@@ -747,14 +773,19 @@ def _node_lines(graph, node, header, *, full, again, writes=None, callers=None):
 
 def _map_knows(graph, name, written=None):
     """Does the map hold anything named `name`, so that `show NAME` prints no `not on the map` line for it: a node of
-    that qual or name (a function, method, class, interface, constant, enum, Prisma model, SQL table or test), a model
-    the map knows (`owners.model_known`), a column of a SQL table as the columns check reads them (`sql.describe`), a
-    write of that model, table or field (`MapHandle.writes`; `written` when the caller read them already) or a zod
-    object key of that name (`owners.zod_bounds`)? A dotted name is asked only for its node and its writes: its model
-    and field have their own `not on the map` line (`_unknown_model`), and a Prisma field its own line."""
+    that qual or name (a function, method, class, interface, constant, enum, Prisma model, SQL table or test), a JS/TS
+    module-level object or option list of that name (`const cookieOptions = {...}`, which gives no table line unless the
+    labels check reads it), a model the map knows (`owners.model_known`), a column of a SQL table as the columns check
+    reads them (`sql.describe`), a write of that model, table or field (`MapHandle.writes`; `written` when the caller
+    read them already) or a zod object key of that name (`owners.zod_bounds`)? A dotted name is asked only for its node
+    and its writes: its model and field have their own `not on the map` line (`_unknown_model`), and a Prisma field
+    its own line."""
     from ..structure.readers.sql import describe
     from .owners import model_known, zod_bounds
     if graph.con.execute("SELECT 1 FROM node WHERE kind != 'module' AND (qual = ? OR short = ?) LIMIT 1", (name, name)).fetchone():
+        return True
+    if any(row['name'] == name for _, _, facts in graph._kinds('const_tables', 'option_lists')
+           for rows in facts.values() for row in rows):
         return True
     if '.' in name or model_known(graph, name):
         return '.' not in name or bool(graph.writes(name) if written is None else written)
@@ -914,8 +945,11 @@ def show(cfg, query=None, *, full=False, last=False):
             model = SimpleNamespace(rules={rid: SimpleNamespace(id=rid, anchors=value.get('anchors', ()))
                                          for rid, value in rules.items()})
             view = show_observation(cfg, query, index, cache.observations(cfg).get('events', ()), model=model)
-            print('\n'.join(view['lines']))
-            unused = set(_unmodelled(index, data['summary'], root=cfg.root)) & {a.name for a in anchors}
+            if view['lines']:
+                print('\n'.join(view['lines']))
+            # A writers or together agreement is checked statically, by no model: no `not referenced` line for it.
+            unused = set(_unmodelled(index, data['summary'], root=cfg.root)) & {
+                a.name for a in anchors if not _field_agreement(a)}
             if unused:print('info: not referenced by a current model: ' + ', '.join(sorted(unused)))
             from .differences import display
             if copies := _copy_pointers(graph, index, anchors, [], [], query, full):
@@ -929,7 +963,9 @@ def show(cfg, query=None, *, full=False, last=False):
         if node:
             display('\n'.join([*_node_lines(graph, node, query, full=full, again=query), *([notice] if notice else []),
                                *concerning]))
-            found = graph.search_homes(node['id'], k=None)
+            # A function an anchor marks is bound already: its reason not to search names no binding step.
+            found = graph.search_homes(node['id'], k=None,
+                                       bound=any(anchor.target == node['id'] for anchor in index.entries))
             if not found['searched']:
                 print(found['reason'])
             if candidates := _candidate_lines(found, full, 'candidate '):
@@ -946,18 +982,21 @@ def show(cfg, query=None, *, full=False, last=False):
         unknown, written = '', None
         if FIELD_QUERY.fullmatch(name):      # Model.field or table.column: who writes it
             written = graph.writes(name)
-            ranked.extend((2000 - bool(row['unclear']), _write_line(row)) for row in written)
+            # In the map's order (file, then line as a number), unclear ones last: each write ranks a little below the
+            # one before it, all within (1998, 2000].
+            ranked.extend((2000 - bool(row['unclear']) - order / len(written), _write_line(row))
+                          for order, row in enumerate(written))
             unknown = _unknown_model(graph, name)
             from . import health, owners as checks       # several files write it and nobody owns it: say so first
             change = checks.Change(cfg, graph, None)
-            for issue in health.writers(change, index, written).issues:
-                ranked.append((2001, f'structure: {issue.text} -> {issue.step}'))
+            for issue in health.writers(change, index, written, listed=True).issues:
+                ranked.append((2001, _structure_line(cfg, issue)))
             ranked.extend((2001, line) for line in health.co_written(change, name, index))
             ranked.extend((1998 - order, line) for order, line in enumerate(checks.field_lines(graph, name, written)))
-        if any(row['name'] == name for row in graph.label_rows()):     # a label table: the family the block reports
+        if any(row['name'] == name for row in graph.labels_read(graph.label_rows())):  # the family the block reports
             from . import health, owners as checks
             for issue in health.labels(checks.Change(cfg, graph, None), name).issues:
-                ranked.append((2001, f'structure: {issue.text} -> {issue.step}'))
+                ranked.append((2001, _structure_line(cfg, issue)))
         for rid, rule in rules.items():
             score = 1000 if name.casefold() in {rid.casefold(), rule['decides'].casefold()} else 0
             named = named or bool(score)

@@ -367,7 +367,8 @@ def generated(graph, kind, argument):
     """(the Markdown of one region, '') or ('', what is wrong): `fields Model` a table of a Prisma model's fields with
     each schema file's type where they differ, `values NAME` the members of the value set declared under that name
     (`owners.value_sets_named`, the sets the values lines of `show NAME` give, but for the enum of a Prisma schema not
-    in use: what only test files declare left out; several different sets cannot be written),
+    in use: what only test files declare left out; the Prisma enum of a schema in use when there is one, else the JS/TS
+    sets; sets with the same members in another order are one set; several different sets cannot be written),
     `functions path` and `constants path` the functions with their signatures and the module-level literal
     constants with their values of one file."""
     import json
@@ -397,14 +398,18 @@ def generated(graph, kind, argument):
     if kind == 'values':
         from .owners import value_sets_named        # the sets `show NAME` lists as its values lines
         rows = value_sets_named(graph, argument)
-        sets = {values for values, _, _, used in rows if used}
+        # The Prisma enum of a schema in use is the set the database holds: a JS/TS mirror of it is not another set.
+        # Sets with the same members in another order are one set, written in the order of the first.
+        used = [values for values, _, _, used, _ in rows if used]
+        chosen = [values for values, _, _, used, enum in rows if used and enum] or used
+        sets = list(dict.fromkeys(frozenset(values) for values in chosen))
         if len(sets) != 1:
-            unused = [where for _, where, _, used in rows if not used]
+            unused = [where for _, where, _, used, _ in rows if not used]
             return '', f'generate values {argument}: ' + (
                 f'{len(sets)} different value sets have that name' if sets else
                 f'only the enum of a Prisma schema not in use has that name ({"; ".join(unused)})' if unused else
                 'no value set of that name')
-        return '\n'.join(f'- `{value}`' for value in next(iter(sets))), ''
+        return '\n'.join(f'- `{value}`' for value in chosen[0]), ''
     if not (graph.root / argument).is_file():
         return '', f'generate {kind} {argument}: no such file in this repository'
     if kind == 'functions':

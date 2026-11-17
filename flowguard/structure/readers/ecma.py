@@ -1038,11 +1038,12 @@ def extract(root, rel, data, module, is_test):
                                           **position(operand, source)))
 
     def const_table(value):
-        """{key: literal or None} of a module-level `const NAME = {...}` (also `as const`/`satisfies`)."""
+        """({key: literal or None}, {key: the literal as the source spells it, None for any other value}) of a
+        module-level `const NAME = {...}` (also `as const`/`satisfies`), or None."""
         value = unwrap(value)
         if value is None or value.type != 'object':
             return None
-        table = {}
+        table, written = {}, {}
         for pair in value.named_children:
             if pair.type != 'pair':
                 continue
@@ -1050,17 +1051,20 @@ def extract(root, rel, data, module, is_test):
             known, spelled = literal(key, source)
             name = str(spelled) if known else text(key, source) if key is not None and key.type == 'property_identifier' else None
             if name is not None:
-                known, item = literal(unwrap(field(pair, 'value')), source)
-                table[name] = item if known else None
-        return table or None
+                item = unwrap(field(pair, 'value'))
+                known, found = literal(item, source)
+                table[name] = found if known else None
+                written[name] = text(item, source) if known else None
+        return (table, written) if table else None
 
     def option_list(value):
-        """{key: label} of a module-level `const NAME = [{ value: 'K', label: 'L' }, ...]`: every element an object
-        that spells one of OPTION_KEYS and one of OPTION_LABELS as string literals (a dropdown's options)."""
+        """({key: label}, {key: the label as the source spells it}) of a module-level `const NAME = [{ value: 'K',
+        label: 'L' }, ...]`: every element an object that spells one of OPTION_KEYS and one of OPTION_LABELS as string
+        literals (a dropdown's options); None for any other value."""
         value = unwrap(value)
         if value is None or value.type != 'array' or not value.named_children:
             return None
-        table = {}
+        table, written = {}, {}
         for item in value.named_children:
             item = unwrap(item)
             if item is None or item.type != 'object':
@@ -1069,15 +1073,16 @@ def extract(root, rel, data, module, is_test):
             for pair in item.named_children:
                 key = field(pair, 'key') if pair.type == 'pair' else None
                 if key is not None and key.type == 'property_identifier':
-                    known, found = literal(unwrap(field(pair, 'value')), source)
+                    node = unwrap(field(pair, 'value'))
+                    known, found = literal(node, source)
                     if known and isinstance(found, str):
-                        spelled[text(key, source)] = found
-            key = next((spelled[name] for name in OPTION_KEYS if name in spelled), None)
+                        spelled[text(key, source)] = found, text(node, source)
+            key = next((spelled[name][0] for name in OPTION_KEYS if name in spelled), None)
             label = next((spelled[name] for name in OPTION_LABELS if name in spelled), None)
             if key is None or label is None:
                 return None
-            table[key] = label
-        return table
+            table[key], written[key] = label
+        return table, written
 
     def visit(node, scope='', cls='', parameters=(), shadows=frozenset()):
         if node.type in ('import_statement', 'export_statement'):
@@ -1178,12 +1183,12 @@ def extract(root, rel, data, module, is_test):
                                                  function=named_scope(scope), **position(node, source)))
         if node.type == 'variable_declarator' and not scope and field(node, 'name') is not None \
                 and field(node, 'name').type == 'identifier' and (table := const_table(field(node, 'value'))) is not None:
-            out['const_tables'].append(dict(name=text(field(node, 'name'), source), file=rel, values=table,
-                                            **position(node, source)))
+            out['const_tables'].append(dict(name=text(field(node, 'name'), source), file=rel, values=table[0],
+                                            written=table[1], **position(node, source)))
         if node.type == 'variable_declarator' and not scope and field(node, 'name') is not None \
                 and field(node, 'name').type == 'identifier' and (table := option_list(field(node, 'value'))):
-            out['option_lists'].append(dict(name=text(field(node, 'name'), source), file=rel, values=table,
-                                            **position(node, source)))
+            out['option_lists'].append(dict(name=text(field(node, 'name'), source), file=rel, values=table[0],
+                                            written=table[1], **position(node, source)))
         if node.type == 'number' and (found := number_context(node))[0]:
             out['numbers'].append(dict(node=owner, file=rel, value=found[1], context=found[0],
                                        function=named_scope(scope), **position(node, source)))

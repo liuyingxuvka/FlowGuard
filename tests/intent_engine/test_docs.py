@@ -391,6 +391,55 @@ def test_a_values_region_reads_the_sets_show_lists_and_leaves_out_what_only_test
     assert code == 0 and [line for line in _block(text) if line.startswith('red:')] == [], text
 
 
+def test_a_values_region_writes_the_prisma_enum_in_use_and_reads_a_reordered_mirror_as_the_same_set(tmp_path):
+    """Planning Tool shape (5.0 review, H3-1): once the values lines read the Prisma enums of the schemas in use
+    (entry:F4), a name that both such an enum and its JS/TS mirror declare (`enum AppRole` in backend/prisma/schema.prisma
+    and `type AppRole` in backend/src/types/prisma-enums.ts, its members in another order) could not be written any more:
+    `generate values AppRole: 2 different value sets have that name`, and no marker selects one. A region now writes the
+    enum of the schema in use when there is one, also when its mirror has a member more; sets with the same members in
+    another order are one set, written in the first one's order; only sets that differ otherwise cannot be written."""
+    from tests.intent_engine.test_static_check import _flowguard
+    schema = ('datasource db {\n  provider = "postgresql"\n  url      = env("DATABASE_URL")\n}\n\n'
+              'enum AppRole {\n  SYSTEM_ADMIN\n  PLANNING_ADMIN\n  EMPLOYEE\n}\n\n'
+              'enum LendingStatus {\n  REQUESTED\n  APPROVED\n}\n\n'
+              'model User {\n  id   String  @id\n  role AppRole\n}\n\n'
+              'model Lending {\n  id     String        @id\n  status LendingStatus\n}\n')
+    regions = ''.join(f'<!-- flowguard: generate values {name} -->\n<!-- flowguard: end -->\n\n'
+                      for name in ('AppRole', 'LendingStatus', 'Granularity', 'OrgUnitTab'))
+    _commit(tmp_path, {
+        'backend/prisma/schema.prisma': schema,
+        'backend/src/types/prisma-enums.ts': ("export type AppRole = 'EMPLOYEE' | 'SYSTEM_ADMIN' | 'PLANNING_ADMIN';\n"
+                                              "export type LendingStatus = 'REQUESTED' | 'APPROVED' | 'RETURNED';\n"),
+        'frontend/src/types/granularity.ts': "export type Granularity = 'DAY' | 'WEEK' | 'MONTH';\n",
+        'frontend/src/components/shared/PlanningTimeControls.tsx': (
+            "type Granularity = 'WEEK' | 'DAY' | 'MONTH';\nexport function PlanningTimeControls(value: Granularity) {\n"
+            '  return value;\n}\n'),
+        'frontend/src/utils/org-unit-tab.ts': "export type OrgUnitTab = 'overview' | 'absences';\n",
+        'frontend/src/pages/OrgUnitPage.tsx': "type OrgUnitTab = 'overview' | 'planning';\nexport function OrgUnitPage(tab: OrgUnitTab) {\n  return tab;\n}\n",
+        'docs/FUNCTION_INVENTORY.md': '# Functions\n\n' + regions,
+    })
+    code, out = _flowguard(tmp_path, 'docs')
+    assert code == 1 and out.splitlines() == [
+        'docs/FUNCTION_INVENTORY.md:3 generate values AppRole: rewritten',
+        'docs/FUNCTION_INVENTORY.md:6 generate values LendingStatus: rewritten',
+        'docs/FUNCTION_INVENTORY.md:9 generate values Granularity: rewritten',
+        'docs/FUNCTION_INVENTORY.md:12 generate values OrgUnitTab: generate values OrgUnitTab: 2 different value sets have that name'], out
+    written = (tmp_path / 'docs/FUNCTION_INVENTORY.md').read_text(encoding='utf-8')
+    def region(name):
+        return written.partition(f'generate values {name} -->\n')[2].partition('<!--')[0]
+    assert region('AppRole') == '- `SYSTEM_ADMIN`\n- `PLANNING_ADMIN`\n- `EMPLOYEE`\n', written
+    assert region('LendingStatus') == '- `REQUESTED`\n- `APPROVED`\n', written
+    code, text = _flowguard(tmp_path, 'show', 'Granularity')
+    first = next(line for line in text.splitlines() if line.startswith('values Granularity: '))
+    assert region('Granularity') == ''.join(f'- `{value}`\n' for value in first.partition(': ')[2].partition(' (')[0].split(' | ')), text
+    # the written regions are up to date, the one no single set holds says so, and the mirror's extra member is the
+    # declarations check's finding, not the region's
+    code, text = _flowguard(tmp_path, 'check', '--static', '--all')
+    assert code == 0 and [line.partition(' was ')[0] for line in text.splitlines() if 'generate values' in line or 'Lending' in line] == [
+        'before: declarations Lending.status at schema.prisma:12',
+        'impact: FUNCTION_INVENTORY.md:20 generate values OrgUnitTab cannot be written -> correct its marker or remove the region'], text
+
+
 # ---- module contracts and their connections (R98) ---------------------------------------------------------------
 # The owner: hang what AI found on the code; a module's contract says what it connects to, and a change reminds the
 # agent of the connected places. A text about a file or folder is that module's contract.

@@ -311,8 +311,9 @@ class MapHandle:
         writes follow @relation), SQL write statements (TS/JS raw SQL, .sql files and Python string literals,
         recorded for the function holding them), and Python attribute assignments bound to a class. A Python
         row carries `value` when the assignment or statement spells the written literal. `by_name=True` adds property assignments `obj.f = ...`
-        that only a field name ties to a target (how='name'). `target` is `Model.field`, `table.column`,
-        a model or table, or a bare field/column name; rows whose fields are not visible (spread,
+        that only a field name ties to a target (how='name'), but for one a Prisma write row already holds (the same
+        file, line, column and field: `data.f = x` whose object a resolved write passes on). `target` is `Model.field`,
+        `table.column`, a model or table, or a bare field/column name; rows whose fields are not visible (spread,
         non-literal data) are kept for their model with `unclear=True`. `facts` reads these file facts
         (for example one file's facts at a baseline commit) instead of the map's; `fold=False` skips folding Python
         right sides into `values` (who writes, not what). `definitions` (`definitions()`) binds models, resolves JS/TS
@@ -358,6 +359,11 @@ class MapHandle:
                                      reason='attribute assignment matched by field name only' if row.get('unresolved') else '',
                                      language=kind, **({'value': row['value']} if row.get('literal') else {}),
                                      **({key: row[key] for key in ('value', 'values') if key in row} if row.get('values') else {})))
+        if by_name:         # `data.f = x` whose object a resolved Prisma write reads (`tx.project.update({ data })`)
+            bound = {(row['file'], row['line'], row.get('column'), row['field'])          # is that write, not a second one
+                     for row in rows if row.get('how') == 'prisma'}
+            rows = [row for row in rows if row.get('how') != 'name' or row['language'] == 'python'
+                    or (row['file'], row['line'], row.get('column'), row['field']) not in bound]
         if target is not None:
             rows = [row for row in rows if _writes_target(row, target, models)]
         return Rows(sorted(rows, key=lambda row: (row['file'], row['line'], row.get('column') or 0, str(row['field']))))
@@ -1217,6 +1223,16 @@ class MapHandle:
                 for kind in ('const_tables', 'option_lists') for row in facts.get(kind, ())
                 if row['file'] not in tests and not self.archived(row['file'])]
 
+    @staticmethod
+    def labels_read(tables):
+        """The rows of `label_rows` (or a baseline's) that `label_tables` reads, and `show NAME` lists as its table
+        lines: with at least 3 keys and only non-empty string values, an enum object (every value its key) aside; an
+        option without a key ({ value: '', label: 'All' }) is a filter's "no choice", not a key, and is left out."""
+        tables = [dict(row, values={key: value for key, value in row['values'].items() if key}) for row in tables]
+        return [row for row in tables if len(row['values']) >= 3
+                and all(isinstance(value, str) and value for value in row['values'].values())
+                and any(key != value for key, value in row['values'].items())]
+
     def label_tables(self, tables=None):
         """Label tables that disagree: module-level JS/TS tables of production code (`const_tables` and
         `option_lists`, outside tests and `archived` files) with at least 3 keys and only non-empty string
@@ -1229,13 +1245,7 @@ class MapHandle:
         most a third of them, also a table that maps the keys to codes (`ORG_TYPE_TO_ROLE` without ENTITY).
         `tables` replaces the map's rows (`label_rows`; for example a baseline's)."""
         import itertools
-        if tables is None:
-            tables = self.label_rows()
-        # An option without a key ({ value: '', label: 'All' }) is a filter's "no choice", not a key.
-        tables = [dict(row, values={key: value for key, value in row['values'].items() if key}) for row in tables]
-        tables = [row for row in tables if len(row['values']) >= 3
-                  and all(isinstance(value, str) and value for value in row['values'].values())
-                  and any(key != value for key, value in row['values'].items())]
+        tables = self.labels_read(self.label_rows() if tables is None else tables)
         def shown(text):
             return text[:1].isupper() and any(ch.islower() for ch in text)
         labels = [i for i, row in enumerate(tables) if 2 * sum(map(shown, row['values'].values())) >= len(row['values'])]
@@ -1483,8 +1493,9 @@ class MapHandle:
                                  not_same=not_same, sites=sites)['candidates']
 
     def search_homes(self, ident, *, k=None, words='', decides=None,
-                     not_same=(), sites=None, since=None):
-        """Static candidates and an explicit searched/not-searched fact, never a verdict."""
+                     not_same=(), sites=None, since=None, bound=False):
+        """Static candidates and an explicit searched/not-searched fact, never a verdict. `bound`: an anchor marks
+        `ident` already, so a reason not to search names no binding step."""
         requested = ident
         ident = self.canonical(ident) or ident
         node = self.node(ident)
@@ -1529,7 +1540,7 @@ class MapHandle:
         language = language_for(node['file']) if node.get('file') else None     # None: an import the map lacks
         # Only the Python reader reads decision sites: elsewhere there is nothing to bind that a copy search could read.
         unread = f'the map reads no decision sites in {language} code' if language not in (None, 'python') else \
-            'no readable decision sites -> bind the real decision function'
+            'no readable decision sites' + ('' if bound else ' -> bind the real decision function')
         return dict(candidates=ranked, total=len(found), searched=bool(searched), anchors=anchors,
                     searched_anchors=searched, historical_sites=historical,
                     reason='' if searched else 'copies not searched: ' + unread)

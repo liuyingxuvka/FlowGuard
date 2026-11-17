@@ -375,9 +375,10 @@ def _member(ident):
     return f'{module}:{head}' if head.startswith('<anonymous') else named(ident)
 
 
-def _writer_name(writer):
-    """A writers entry as the agreement names it: its function, without the module a position resolves to."""
-    return writer.rpartition(':')[2]
+def _writer_names(graph, owner):
+    """The functions of a writers agreement as its comment spells them (`projectService.create`, another file's
+    `path:function`; `_spelled`), once each: what its step and its `fix:` line tell the code to call."""
+    return list(dict.fromkeys(_spelled(graph, owner.module, writer) for writer in owner.writers))
 
 
 def _writer_issue(change, owner, outside, where):
@@ -398,7 +399,7 @@ def _writer_issue(change, owner, outside, where):
                 before.setdefault(row_function(row), Counter())[_write_key(row)] += 1
         fresh = {function for function, rows in now.items()
                  if any(count > before.get(function, Counter())[key] for key, count in Counter(map(_write_key, rows)).items())}
-    names = list(dict.fromkeys(map(_writer_name, owner.writers)))
+    names = _writer_names(change.graph, owner)
     step = 'call ' + ' or '.join(names) + ' instead'
     what = f'writes {owner.name} outside ' + ', '.join(names)
     parts = tuple((function, place(rows[0]), what, step) for function, rows in sorted(now.items()))
@@ -1983,7 +1984,7 @@ def show_lines(cfg, graph, index, name):
             lines.extend('test fixture (not held): ' + _plain(row) for row in fixtures if not _allowed(row, owner.writers))
             lines.extend('unclear: ' + _plain(row) + f' {row.get("reason", "")}' for row in rows if row.get('unclear'))
             if outside:
-                lines.append(f'fix: call {" or ".join(dict.fromkeys(map(_writer_name, owner.writers)))} instead; adding a '
+                lines.append(f'fix: call {" or ".join(_writer_names(graph, owner))} instead; adding a '
                              f"function to the writers agreement ({where}) loosens it, which is the owner's decision")
         if owner.kind == 'owner' and owner.pairs:
             lines.append(_together_head(graph, owner))
@@ -2259,37 +2260,40 @@ def _where(places):
 
 
 def value_sets_named(graph, name):
-    """[(values, where, files, used)] of the value sets declared under `name`, one selection for the values lines of
-    `show NAME` (`declaration_lines`) and a `generate values NAME` region (`docs.generated`): for `Model.field` the
+    """[(values, where, files, used, enum)] of the value sets declared under `name`, one selection for the values lines
+    of `show NAME` (`declaration_lines`) and a `generate values NAME` region (`docs.generated`): for `Model.field` the
     map's value sets of that key (`MapHandle.value_sets`: an enum of a schema in use, a CHECK, a TS type's member),
     then the enum each Prisma schema the value gate does not read types the field with; for any other name the JS/TS
     value sets declared under it (`MapHandle.declarations(exported=False)`), then the Prisma enums of that name in
     every schema the map reads (`_schema_enums`). A set only test files declare is left out (`is_test_file`,
     `_declared_by_tests`). `where` is what its values line prints in parentheses (a schema not in use says so),
     `files` the files that declare it, `used` False for the enum of a schema the code does not use (which show lists
-    and a region does not write)."""
+    and a region does not write), `enum` whether it is a Prisma enum (which a region prefers)."""
     model, dot, field = name.partition('.')
     found = {}
     if dot and field and '.' not in field:
         for item in graph.value_sets():
             if item['name'] == name and not _declared_by_tests(item):
-                places, files = found.setdefault(tuple(item['values']), ([], []))
+                places, files, kinds = found.setdefault(tuple(item['values']), ([], [], set()))
                 places.append(item['where'])
                 files.extend(item['files'])
-        rows = [(values, _where(places), tuple(dict.fromkeys(files)), True) for values, (places, files) in found.items()]
+                kinds.add(item['kind'])
+        rows = [(values, _where(places), tuple(dict.fromkeys(files)), True, 'prisma-enum' in kinds)
+                for values, (places, files, kinds) in found.items()]
         return rows + _schema_enums(graph, model=model, field=field)
     for item in graph.declarations(exported=False):
         if item['name'] == name and not is_test_file(item['file']):
             places, files = found.setdefault(tuple(item['values']), ([], []))
             places.append(f'{item["file"]}:{item["line"]}')
             files.append(item['file'])
-    rows = [(values, _where(places), tuple(dict.fromkeys(files)), True) for values, (places, files) in found.items()]
+    rows = [(values, _where(places), tuple(dict.fromkeys(files)), True, False)
+            for values, (places, files) in found.items()]
     return rows + _schema_enums(graph, enum=name)
 
 
 def _schema_enums(graph, *, enum=None, model=None, field=None):
-    """[(values, where, files, used)] of Prisma enums (`archived` files and test files left out), one row per enum name,
-    members and state of its schema: with `enum`, each enum of that name in every schema the map reads; with `model`
+    """[(values, where, files, used, True)] of Prisma enums (`archived` files and test files left out), one row per enum
+    name, members and state of its schema: with `enum`, each enum of that name in every schema the map reads; with `model`
     and `field`, the enum that types the field in each schema the value gate does not read (`MapHandle.value_sets`
     holds the enums of the schemas in use): a schema not in use (`prisma_schemas_in_use`: a provider template such as
     `schema.sqlite.prisma`), and a guessed schema whose model a schema in use defines. `where` names the enum and
@@ -2323,8 +2327,15 @@ def _schema_enums(graph, *, enum=None, model=None, field=None):
     for (values, name, why), places in found.items():
         state = why if len(places) == 1 else {'a guessed schema': 'guessed schemas'}.get(why, why.replace('a schema', 'schemas'))
         where = f'enum {name} ' + ', '.join(f'{file}:{line}' for file, line in places) + (f', {state}' if why else '')
-        rows.append((values, where, tuple(dict.fromkeys(file for file, _ in places)), why in ('', 'a guessed schema')))
+        rows.append((values, where, tuple(dict.fromkeys(file for file, _ in places)), why in ('', 'a guessed schema'),
+                     True))
     return rows
+
+
+def _spelled_value(written):
+    """A JS/TS table value as a table line prints it: the literal as the source spells it (`'Day'`, `"Day"`, `true`,
+    `null`, `8`), `(not a literal)` for any other expression (`appConfig.isProduction`)."""
+    return '(not a literal)' if written is None else written
 
 
 def declaration_lines(graph, name):
@@ -2337,9 +2348,9 @@ def declaration_lines(graph, name):
     a bare name, the value of a JS/TS module-level literal constant, an array of literals too (a Python, C, C++ or C#
     module constant gives none: their rows name a field), the members of each value set declared under that name (a
     JS/TS set, a Prisma enum) and the keys and labels of each JS/TS table of that name the labels check reads
-    (`MapHandle.label_rows`). A value set, constant or table only test files declare is left out (`is_test_file`); a
-    CHECK that code builds as a string and runs (`$executeRawUnsafe`) is not read: only `.sql` files give ranges and
-    CHECK sets."""
+    (`MapHandle.labels_read`; another module-level object gives no line), each label as the source spells it. A value
+    set, constant or table only test files declare is left out (`is_test_file`); a CHECK that code builds as a string
+    and runs (`$executeRawUnsafe`) is not read: only `.sql` files give ranges and CHECK sets."""
     import json
 
     lines = []
@@ -2392,9 +2403,11 @@ def declaration_lines(graph, name):
         if row.get('target') == name and not row.get('field') and row.get('literal') and ':' not in row['node'] \
                 and not is_test_file(row['file']) and (row['file'], row['line']) not in declared_at:
             constants.setdefault(json.dumps(row['value'], ensure_ascii=False), []).append(f'{row["file"]}:{row["line"]}')
-    for row in graph.label_rows():          # a `{K: 'V'} as const` code object is a value set: its values line only
+    # The tables the labels check reads, their labels as the source spells them; a `{K: 'V'} as const` code object
+    # is a value set: its values line only.
+    for row in graph.labels_read(graph.label_rows()):
         if row['name'] == name and (row['file'], row['line']) not in declared_at and not is_test_file(row['file']):
-            labels = ', '.join(f'{key} {label!r}' for key, label in row['values'].items())
+            labels = ', '.join(f'{key} {_spelled_value(row["written"][key])}' for key in row['values'])
             tables.setdefault(labels, []).append(f'{row["file"]}:{row["line"]}')
     lines.extend(f'const {name} = {value} ({_where(places)})' for value, places in constants.items())
     lines.extend(f'values {name}: {" | ".join(map(str, values))} ({where})'

@@ -74,24 +74,28 @@ def show_observation(cfg, name, index, last_events=(), *, model=None):
         else:
             fresh.append(event)
     if found:
-        lines = [f'{name}: historical observations (not a new verification)']
+        lines = []
         relevant = [event for event in fresh if event.anchor == name]
         fresh_ids = {id(event) for event in fresh}
         outdated = [event for event in events if event.anchor == name and id(event) not in fresh_ids]
         for anchor in found:
+            own = [event for event in relevant if event.site == anchor.target]
+            if not own:                 # nothing observed there: no empty `{}` and `0 distinct observed outputs` lines
+                continue
             changed = not (cfg.root / anchor.file).is_file() or content_digest(cfg.root / anchor.file) != anchor.source_digest
             roles = ', '.join(f'{p.name}: {p.role} ({p.unit or "unit unspecified"})' for p in anchor.parameters)
-            own = [event for event in relevant if event.site == anchor.target]
             counts = Counter(event.phase for event in own)
             outcomes = Counter(reprlib.repr(event.result) if event.phase == 'return' else 'raises ' + reprlib.repr(event.error)
                                for event in own if event.phase in {'return', 'raise'})
             lines.append(f'{anchor.file}:{anchor.target_line} {anchor.kind}; {roles or "no inputs"}; {dict(counts)}' + ('; stale source' if changed else ''))
             lines.append(f'results: {dict(outcomes.most_common(5))}; {len(outcomes)} distinct observed outputs')
+        if outdated:
+            lines.append(f'stale: {len(outdated)} historical events do not identify current source')
+        if lines:
+            lines.insert(0, f'{name}: historical observations (not a new verification)')
         rules = [rule.id for rule in getattr(model, 'rules', {}).values() if name in rule.anchors]
         if rules or model is None:          # no rule names it: no line (`show` says it is not referenced)
             lines.append('rules: ' + (', '.join(rules) if model is not None else 'model not supplied'))
-        if outdated:
-            lines.append(f'stale: {len(outdated)} historical events do not identify current source')
         return _result('grey' if outdated or not relevant or any(a.issues for a in found) else 'ok', lines,
                        events=relevant, stale=len(outdated))
     loaded = model

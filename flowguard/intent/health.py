@@ -554,11 +554,12 @@ def _test_files(graph):
     return {path for (path,) in graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
 
 
-def writers(change, index, rows=None):
+def writers(change, index, rows=None, *, listed=False):
     """A model field written from WRITER_FILES or more production files with no data owner: an issue for
     the owner to decide (`check --all`, `show`); bookkeeping columns are left out. `rows` limits the
     writes read (show of one field). A member (a function writing it) is new when the baseline code had no such
-    issue or that function did not write it then."""
+    issue or that function did not write it then. `listed`: the view lists each write below the issue (`show
+    Model.field`), so its text counts the places instead of naming them again."""
     from .owners import place, row_function
     found = _findings()
     found.ran.add('writers')
@@ -580,7 +581,10 @@ def writers(change, index, rows=None):
     for name, rows in sorted(by_field.items(), key=lambda item: (-len({row['file'] for row in item[1]}), item[0])):
         files = {row['file'] for row in rows}
         functions = list(dict.fromkeys(f'{row["file"]}:{row["function"]}' for row in rows))
-        text = f'{name} is written by {len(files)} files without a registered writer agreement: ' + _places(rows)
+        places = dict.fromkeys(f'{row["file"]}:{row["line"]}' for row in rows)
+        text = (f'{name} is written by {len(files)} files in {len(places)} places without a registered writer '
+                'agreement (the writes lines below list them)') if listed else \
+            f'{name} is written by {len(files)} files without a registered writer agreement: ' + '  '.join(places)
         comment = '//' if any(row.get('language', 'python') != 'python' for row in rows) else '#'
         step = (f'if one place should own {name}, write {comment} flowguard: writers {name} {",".join(functions)} with only the '
                 f'writers that should stay; which those are may be the owner\'s decision, so leave it unless your task is about it')
@@ -608,7 +612,9 @@ def co_written(change, name, index):
     """Lines for `show Model.field`: other fields most of its production writers also write in the same
     function, each with the writers that leave it out and the `together FIELD PARTNER` line to copy. Reference
     only: writing two fields together often is no rule until the owner says so. A field that a together agreement
-    of the source `index` already pairs with this one, in either order, is no candidate (`show` lists the agreement)."""
+    of the source `index` already pairs with this one, in either order, is no candidate (`show` lists the agreement).
+    A list of several writers that leave a candidate out, which the line of an earlier candidate names already, is said
+    once."""
     from .owners import row_function
     agreed = [(anchor.name.casefold(), pair.partition('=')[0].casefold()) for anchor in index.entries
               if anchor.kind == 'owner' for pair in anchor.pairs]
@@ -638,15 +644,20 @@ def co_written(change, name, index):
                      if other.casefold() != name.casefold() and other.rpartition('.')[2].casefold() not in BOOKKEEPING)
     target = next(key for function in writers for key in by_function[function] if key.casefold() == name.casefold())
     comment = '//' if any(ident.startswith(('typescript/', 'tsx/', 'javascript/')) for ident in writers) else '#'
-    lines = []
+    lines, named = [], {}           # named: the candidate whose line names each list of writers that leave it out
     shared = Counter({other: count for other, count in shared.items() if not paired(target.casefold(), other.casefold())})
     for other, count in sorted(shared.items(), key=lambda item: (-item[1], item[0]))[:PARTNERS_SHOWN]:
         if count < 2 or count < PARTNER_SHARE * len(writers):
             break
-        alone = [places[function] for function in writers if other not in by_function[function]]
+        alone = tuple(places[function] for function in writers if other not in by_function[function])
+        # A list of several writers another line names already is said once: `not by the 3 functions named for
+        # Employee.email` (one writer is named again: its place is as short).
+        tail = '' if not alone else f'; not by {"  ".join(alone)}' if alone not in named or len(alone) == 1 else \
+            f'; not by the {len(alone)} functions named for {named[alone]}'
+        named.setdefault(alone, other)
         lines.append(f'together candidate (reference only): {other} is written by {count} of the {len(writers)} functions '
-                     f'that write {target}' + (f'; not by {"  ".join(alone)}' if alone else '')
-                     + f' -> if they must change together: {comment} flowguard: together {target} {other}')
+                     f'that write {target}{tail} -> if they must change together: {comment} flowguard: together {target} '
+                     f'{other}')
     return lines
 
 
@@ -742,8 +753,11 @@ def labels(change, named=None):
                 + ': ' + '; '.join(parts))
         head = tables[0]
         name = f'labels:{head["file"]}:{head["name"]}'
-        step = ('derive these tables from one source, or align labels and add missing keys; if the differences are meant '
-                f'(abbreviations or another purpose), {_leave(name)}')
+        # Who decides whether the differences are meant is said, as in the writers and together steps (R101).
+        repairs = [*(['align their labels'] if family['differ'] else []),
+                   *(['add the missing keys'] if family['lacking'] else [])]
+        step = (f'derive these tables from one source, or {" and ".join(repairs)}; whether the differences are meant '
+                f"(abbreviations or another purpose) is the owner's decision; if they are, {_leave(name)}")
         fresh = bool(change.baseline) and any(_table_changed(change, table) for table in tables)
         found.issues.append(Issue(name, 8, f'labels {head["name"]}', text, step, frozenset(),
                                   frozenset(table['file'] for table in tables),

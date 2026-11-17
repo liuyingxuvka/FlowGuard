@@ -1391,7 +1391,9 @@ def test_show_of_a_label_table_prints_its_keys_and_the_finding_its_family_has(tm
     functions sharing a word with it (`EmployeeUtilizationView.tsx:translateEditsToNewGranularity`): no table and
     no finding, so nothing said that AbsenceCalendarCard.tsx's GRANULARITY_TO_INTERVAL lacks YEAR. show now lists
     each JS/TS table of that name the labels check reads with its keys and labels, and the structure finding of its
-    family (`health.labels`); the word matches wait for --full."""
+    family (`health.labels`); the word matches wait for --full. Its step (5.0 review, pt-rereview-18, R101) says that
+    whether the differences are meant is the owner's decision, as the writers and together steps say who decides, and
+    names only the repair the family needs: ROLE_LABELS lacks no key, GRANULARITY_TO_INTERVAL spells no label otherwise."""
     component = 'export function {0}() {{\n  return null;\n}}\n'
     _commit(tmp_path, {
         'frontend/src/components/employee-utilization/UtilizationToolbar.tsx':
@@ -1426,9 +1428,9 @@ def test_show_of_a_label_table_prints_its_keys_and_the_finding_its_family_has(tm
         'structure: Label tables disagree: frontend/src/components/employee-utilization/UtilizationToolbar.tsx:3 GRANULARITY_OPTIONS, '
         'frontend/src/components/shared/PlanningTimeControls.tsx:1 GRANULARITY_OPTIONS, '
         'frontend/src/components/calendars/AbsenceCalendarCard.tsx:2 GRANULARITY_TO_INTERVAL: GRANULARITY_TO_INTERVAL lacks YEAR -> '
-        'derive these tables from one source, or align labels and add missing keys; if the differences are meant (abbreviations or '
-        'another purpose), python -m flowguard known add labels:frontend/src/components/employee-utilization/UtilizationToolbar.tsx:GRANULARITY_OPTIONS '
-        '--act leave --why TEXT records that',
+        "derive these tables from one source, or add the missing keys; whether the differences are meant (abbreviations or "
+        "another purpose) is the owner's decision; if they are, python -m flowguard known add "
+        'labels:frontend/src/components/employee-utilization/UtilizationToolbar.tsx:GRANULARITY_OPTIONS --act leave --why TEXT records that',
         '... 2 more lines, 1 of them only shares a word with GRANULARITY_OPTIONS: python -m flowguard show '
         'GRANULARITY_OPTIONS --full lists them all'], lines
     assert any(line.endswith('translateEditsToNewGranularity frontend/src/components/employee-utilization/EmployeeUtilizationView.tsx:1')
@@ -1445,9 +1447,9 @@ def test_show_of_a_label_table_prints_its_keys_and_the_finding_its_family_has(tm
         "frontend/src/components/admin/ScopeMatrix.tsx:1 ROLE_LABELS: MANAGEMENT 'Management' (ROLE_LABELS (ScopeMatrix.tsx:1)) versus "
         "'Mgmt' (ROLE_LABELS (PermissionMatrix.tsx:2)); SYSTEM_ADMIN 'Sys Admin' (ROLE_LABELS (PermissionMatrix.tsx:2)) versus "
         "'System Admin' (ROLE_LABELS (ScopeMatrix.tsx:1)); TEAM_LEADER 'Team Lead' (ROLE_LABELS (PermissionMatrix.tsx:2)) versus "
-        "'Team Leader' (ROLE_LABELS (ScopeMatrix.tsx:1)) -> derive these tables from one source, or align labels and add missing keys; "
-        'if the differences are meant (abbreviations or another purpose), python -m flowguard known add '
-        'labels:frontend/src/components/admin/PermissionMatrix.tsx:ROLE_LABELS --act leave --why TEXT records that']
+        "'Team Leader' (ROLE_LABELS (ScopeMatrix.tsx:1)) -> derive these tables from one source, or align their labels; whether "
+        "the differences are meant (abbreviations or another purpose) is the owner's decision; if they are, python -m flowguard "
+        'known add labels:frontend/src/components/admin/PermissionMatrix.tsx:ROLE_LABELS --act leave --why TEXT records that']
     code, text = _flowguard(tmp_path, 'check', '--static', '--all')
     assert [line.partition(' was ')[0] for line in text.splitlines() if ' labels ' in line] == [
         'before: labels ROLE_LABELS at PermissionMatrix.tsx:ROLE_LABELS',
@@ -1489,6 +1491,311 @@ def test_show_of_a_ts_function_or_anchor_says_once_that_the_map_reads_no_decisio
     code, text = _flowguard(tmp_path, 'show', 'app.policy:describe')
     assert code == 0 and text.count('not searched') == 1 and \
         'copies not searched: no readable decision sites -> bind the real decision function' in text.splitlines(), text
+
+
+def test_show_lists_only_the_tables_the_labels_check_reads_each_label_as_the_source_spells_it(tmp_path):
+    """Planning Tool (5.0 review, H3-0, pt-rereview-10): `show cookieOptions` printed `table cookieOptions: httpOnly True,
+    secure None, sameSite 'lax', path '/', maxAge None (backend/src/config/auth.config.ts:24)`, though the source says
+    `secure: appConfig.isProduction`, and its word matches then waited for --full; `show appConfig` printed `port None`
+    for `parseInt(process.env.PORT ?? '3001', 10)` and `show MVP_CAPABILITY_MAP` `None` for each role array: a table
+    line came for every module-level object, its values in Python's spelling. Only the tables the labels check reads
+    (at least 3 keys, each a non-empty string) give a table line, each label as the source spells it; another object
+    gives none, is still on the map (no `not on the map` line), and its word matches are listed."""
+    _commit(tmp_path, {
+        'backend/src/config/app.config.ts': """export const appConfig = {
+  port: parseInt(process.env.PORT ?? '3001', 10),
+  nodeEnv: process.env.NODE_ENV ?? 'development',
+  isProduction: process.env.NODE_ENV === 'production',
+  jwt: { maxAgeMs: 8 * 60 * 60 * 1000 },
+  MONTHLY_BASELINE_HOURS: 160,
+};
+""",
+        'backend/src/config/auth.config.ts': """import { appConfig } from './app.config';
+
+export const cookieOptions = {
+  httpOnly: true,
+  secure: appConfig.isProduction,
+  sameSite: 'lax' as const,
+  path: '/',
+  maxAge: appConfig.jwt.maxAgeMs,
+};
+""",
+        'backend/src/config/prisma.ts': 'export function buildAppPrismaClient(url: string) {\n  return { url };\n}\n',
+        'backend/src/utils/cookies.ts': 'export function writeCookieHeader(name: string) {\n  return name;\n}\n',
+        'frontend/src/types/permissions.ts': """export const MVP_CAPABILITY_MAP = {
+  viewDashboardPage: ['SYSTEM_ADMIN', 'PLANNING_ADMIN', 'EMPLOYEE'],
+  editOwnLeave: ['EMPLOYEE'],
+  approveOrConvertProjectRequest: ['SYSTEM_ADMIN'],
+} as const;
+""",
+        'frontend/src/components/projects/ProjectStatusBadge.tsx': (
+            'const PROJECT_STATUS_LABELS: Record<string, string> = {\n  ACTIVE: "Active",\n  ON_HOLD: "On hold",\n'
+            "  CLOSED: 'Closed',\n  DRAFT: 'Owner\\'s draft',\n};\n"
+            'export function ProjectStatusBadge() {\n  return PROJECT_STATUS_LABELS;\n}\n'),
+    })
+    def shown(name):
+        code, text = _flowguard(tmp_path, 'show', name)
+        assert code == 0, text
+        return text.splitlines()
+    for name, match in (('cookieOptions', 'typescript/backend/src/utils/cookies.ts:writeCookieHeader backend/src/utils/cookies.ts:1'),
+                        ('appConfig', 'typescript/backend/src/config/prisma.ts:buildAppPrismaClient backend/src/config/prisma.ts:1')):
+        lines = shown(name)
+        assert not [line for line in lines if line.startswith(('table ', 'not on the map'))], lines
+        assert lines[2].startswith('word matches: ') and match in lines, lines
+    assert not [line for line in shown('MVP_CAPABILITY_MAP') if line.startswith(('table ', 'not on the map'))]
+    assert [line for line in shown('PROJECT_STATUS_LABELS') if line.startswith('table ')] == [
+        'table PROJECT_STATUS_LABELS: ACTIVE "Active", ON_HOLD "On hold", CLOSED \'Closed\', DRAFT \'Owner\\\'s draft\' '
+        '(frontend/src/components/projects/ProjectStatusBadge.tsx:1)']
+
+
+KNOWN_TABLES = """[known.role-abbreviations]
+sites   = ["frontend/src/components/admin/PermissionMatrix.tsx:ROLE_LABELS", "frontend/src/components/admin/ScopeMatrix.tsx:ROLE_LABELS"]
+why     = "The matrix is narrow, so it abbreviates on purpose"
+act     = "leave"
+finding = "labels:frontend/src/components/admin/PermissionMatrix.tsx:ROLE_LABELS"
+
+[known.granularity-year]
+sites   = ["frontend/src/components/calendars/AbsenceCalendarCard.tsx:GRANULARITY_TO_INTERVAL"]
+why     = "The absence calendar has no year view yet"
+act     = "fix"
+finding = "labels:frontend/src/components/employee-utilization/UtilizationToolbar.tsx:GRANULARITY_OPTIONS"
+
+[known.calendar-writers]
+sites   = ["backend/prisma/schema.prisma:CapacityCalendarEntry.value"]
+why     = "Each import and grid writes its own entries"
+act     = "ask"
+asked   = "2026-11-15"
+ask     = "Should one service own CapacityCalendarEntry.value?"
+finding = "writers:CapacityCalendarEntry.value"
+"""
+
+
+def test_a_structure_line_whose_finding_a_known_entry_names_gives_that_entry_s_step(tmp_path):
+    """Planning Tool shape (5.0 review, H3-2): with known.toml's `finding = "labels:...PermissionMatrix.tsx:ROLE_LABELS"`
+    (act leave) the block said `known: known.role-abbreviations at PermissionMatrix.tsx:ROLE_LABELS -> left as it is on
+    purpose; ...`, while `show ROLE_LABELS` still ended its structure line with `python -m flowguard known add
+    labels:... --act leave --why TEXT records that`, the step to record an entry that is recorded. A structure line
+    whose finding an entry names now gives that entry's step, as its known line does: two labels families (a leave and
+    a fix entry) and a field that several files write (an ask entry)."""
+    _commit(tmp_path, {
+        '.flowguard/known.toml': KNOWN_TABLES,
+        'frontend/src/components/admin/PermissionMatrix.tsx': (
+            "const ROLE_LABELS: Record<string, string> = {\n  SYSTEM_ADMIN: 'Sys Admin',\n  TEAM_LEADER: 'Team Lead',\n"
+            "  MANAGEMENT: 'Mgmt',\n  EMPLOYEE: 'Employee',\n};\nexport function PermissionMatrix() {\n  return ROLE_LABELS;\n}\n"),
+        'frontend/src/components/admin/ScopeMatrix.tsx': (
+            "const ROLE_LABELS: Record<string, string> = {\n  SYSTEM_ADMIN: 'System Admin',\n  TEAM_LEADER: 'Team Leader',\n"
+            "  MANAGEMENT: 'Management',\n  EMPLOYEE: 'Employee',\n};\nexport function ScopeMatrix() {\n  return ROLE_LABELS;\n}\n"),
+        'frontend/src/components/employee-utilization/UtilizationToolbar.tsx':
+            _options('GRANULARITY_OPTIONS', GRANULARITIES) + 'export function UtilizationToolbar() {\n  return null;\n}\n',
+        'frontend/src/components/shared/PlanningTimeControls.tsx':
+            _options('GRANULARITY_OPTIONS', GRANULARITIES) + 'export function PlanningTimeControls() {\n  return null;\n}\n',
+        'frontend/src/components/calendars/AbsenceCalendarCard.tsx': (
+            "const GRANULARITY_TO_INTERVAL: Record<string, string> = {\n  DAY: 'day',\n  WEEK: 'week',\n  MONTH: 'month',\n};\n"
+            'export function AbsenceCalendarCard() {\n  return GRANULARITY_TO_INTERVAL;\n}\n'),
+        'backend/prisma/schema.prisma': PT_CAPACITY_MODEL,
+        'backend/src/services/capacity.service.ts': """export const capacityService = {
+  async updateCalendarEntry(prisma: any, id: string, value: number) {
+    return prisma.capacityCalendarEntry.update({ where: { id }, data: { value } });
+  },
+};
+""",
+        'backend/src/services/migration.service.ts': """export async function importPersonnelCapacityEntries(prisma: any, value: number) {
+  await prisma.capacityCalendarEntry.create({ data: { id: 'c', value } });
+}
+""",
+        'backend/src/services/utilization-grid.service.ts': """export async function batchUpdateUtilization(prisma: any, id: string, value: number) {
+  await prisma.capacityCalendarEntry.update({ where: { id }, data: { value } });
+}
+""",
+    })
+    def structure(name):
+        code, text = _flowguard(tmp_path, 'show', name)
+        assert code == 0, text
+        return [line for line in text.splitlines() if line.startswith('structure: ')]
+    lines = structure('ROLE_LABELS')
+    assert len(lines) == 1 and lines[0].startswith('structure: Label tables disagree: ') and lines[0].endswith(
+        ' -> known.role-abbreviations: left as it is on purpose; yours to change only if your task is about it'), lines
+    assert 'known add' not in lines[0], lines
+    assert [line.partition(' -> ')[2] for line in structure('GRANULARITY_TO_INTERVAL')] == [
+        'known.granularity-year: marked to fix when its code changes']
+    assert structure('CapacityCalendarEntry.value') == [
+        'structure: CapacityCalendarEntry.value is written by 3 files in 3 places without a registered writer agreement '
+        '(the writes lines below list them) -> known.calendar-writers: asked the owner on 2026-11-15; no answer yet']
+    code, text = _flowguard(tmp_path, 'check', '--static', '--all')
+    assert code == 0 and 'known: known.role-abbreviations at PermissionMatrix.tsx:ROLE_LABELS -> left as it is on purpose; ' \
+        'yours to change only if your task is about it' in text.splitlines(), text
+
+
+PT_ORG_UNIT_SCHEMA = """datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Employee {
+  id                   String @id
+  organizationalUnitId String @map("organizational_unit_id")
+  email                String
+  name                 String
+  @@map("employees")
+}
+"""
+
+
+def test_show_of_a_field_without_writers_counts_its_places_and_lists_its_writes_in_line_order(tmp_path):
+    """Planning Tool (5.0 review, pt-rereview-15, pt-rereview-16, H3-3): `show Employee.organizationalUnitId` named its
+    22 write places in the structure line and then listed the same 22 as writes lines; each of its five together
+    candidates repeated the same `not by ...changeEmployeeHomeUnit ...remove ...removeWithReassignment` tail; and the
+    writes were sorted as text, so `employee.service.ts:1315 ... updateAsManager.persist` came before `:641 create`.
+    The structure line now counts the places and says the writes below list them, a tail an earlier candidate's line
+    names is said once, and the writes come in line order, the unclear write after the others and before the reads."""
+    _commit(tmp_path, {
+        'backend/prisma/schema.prisma': PT_ORG_UNIT_SCHEMA,
+        'backend/src/services/employee.service.ts': """export const employeeService = {
+  async create(prisma: any, input: any) {
+    return prisma.employee.create({ data: { id: input.id, organizationalUnitId: input.unit, email: input.email, name: input.name } });
+  },
+  async update(prisma: any, id: string, input: any) {
+    return prisma.employee.update({ where: { id }, data: { organizationalUnitId: input.unit, email: input.email, name: input.name } });
+  },
+  async patch(prisma: any, id: string, input: any) {
+    return prisma.employee.update({ where: { id }, data: input });
+  },
+};
+export async function updateAsManager(prisma: any, id: string, input: any) {
+  return prisma.employee.update({ where: { id }, data: { organizationalUnitId: input.unit, email: input.email, name: input.name } });
+}
+""",
+        'backend/src/services/employee-home-unit.service.ts': """export async function changeEmployeeHomeUnit(prisma: any, id: string, unit: string) {
+  await prisma.employee.updateMany({ where: { id }, data: { organizationalUnitId: unit } });
+}
+""",
+        'backend/src/services/org-unit.service.ts': """export async function removeWithReassignment(prisma: any, from: string, to: string) {
+  await prisma.employee.updateMany({ where: { organizationalUnitId: from }, data: { organizationalUnitId: to } });
+}
+""",
+        'backend/src/services/import.service.ts': """export class ImportService {
+  async commitEmployees(prisma: any, rows: any[]) {
+    for (const row of rows) {
+      await prisma.employee.create({ data: { id: row.id, organizationalUnitId: row.unit, email: row.email, name: row.name } });
+    }
+  }
+}
+""",
+        'backend/src/services/report.service.ts': """export async function listUnitEmployees(prisma: any, unit: string) {
+  return prisma.employee.findMany({ where: { organizationalUnitId: unit } });
+}
+""",
+    })
+    code, text = _flowguard(tmp_path, 'show', 'Employee.organizationalUnitId', '--full')
+    lines = text.splitlines()
+    assert code == 0, text
+    assert [line.partition(' -> ')[0] for line in lines if line.startswith(('structure: ', 'together candidate'))] == [
+        'structure: Employee.organizationalUnitId is written by 4 files in 6 places without a registered writer agreement '
+        '(the writes lines below list them)',
+        'together candidate (reference only): Employee.email is written by 4 of the 6 functions that write '
+        'Employee.organizationalUnitId; not by backend/src/services/employee-home-unit.service.ts:2 changeEmployeeHomeUnit  '
+        'backend/src/services/org-unit.service.ts:2 removeWithReassignment',
+        'together candidate (reference only): Employee.name is written by 4 of the 6 functions that write '
+        'Employee.organizationalUnitId; not by the 2 functions named for Employee.email'], text
+    assert [line for line in lines if line.startswith(('writes ', 'reads '))] == [
+        'writes Employee.organizationalUnitId backend/src/services/employee-home-unit.service.ts:2 changeEmployeeHomeUnit (updateMany)',
+        'writes Employee.organizationalUnitId backend/src/services/employee.service.ts:3 create (create)',
+        'writes Employee.organizationalUnitId backend/src/services/employee.service.ts:6 update (update)',
+        'writes Employee.organizationalUnitId backend/src/services/employee.service.ts:13 updateAsManager (update)',
+        'writes Employee.organizationalUnitId backend/src/services/import.service.ts:4 ImportService.commitEmployees (create)',
+        'writes Employee.organizationalUnitId backend/src/services/org-unit.service.ts:2 removeWithReassignment (updateMany)',
+        'writes Employee.? backend/src/services/employee.service.ts:9 patch (update; unclear: input is a parameter)',
+        'reads Employee backend/src/services/report.service.ts:2 listUnitEmployees (findMany)'], text
+
+
+def test_the_anchor_view_of_an_agreement_names_its_place_its_writers_as_written_and_each_write_once(tmp_path):
+    """Planning Tool (5.0 review, pt-rereview-11 to 14, H3-4): the ANCHOR view of Project.lifecycleStatusId began with
+    `anchor Project.lifecycleStatusId -> typescript/backend/src/services/project.service.ts: backend/src/services/
+    project.service.ts:32` (the map's module id, an empty symbol), listed the one assignment `updateData.lifecycleStatusId
+    = lifecycleStatusId;` of ImportService.commitProjects twice (`(update)` and `...commitProjects.<anonymous@1506,33>
+    (assign)`), said `fix: call create or update instead` of the agreement's `projectService.create,projectService.update`,
+    and ended with `historical observations`, `owner; no inputs; {}`, `results: {}; 0 distinct observed outputs` and `info:
+    not referenced by a current model`, which hold nothing for an agreement no test observed. The anchor line now gives the
+    agreement's place, each write place is listed once (in the block too), the fix and the block's step name the writers as
+    the agreement spells them, and the empty observation lines and the model line are gone; a `same` copy keeps its
+    model line. A bound Python anchor without decision sites is told no binding step."""
+    _commit(tmp_path, {
+        'backend/prisma/schema.prisma': PT_PAIRS_SCHEMA.replace(
+            '  leaderId String          @map("leader_id")\n',
+            '  leaderId String          @map("leader_id")\n  lifecycleStatusId String @map("lifecycle_status_id")\n'),
+        'backend/src/services/project.service.ts': """// flowguard: writers Project.lifecycleStatusId projectService.create,projectService.update
+export const projectService = {
+  async create(prisma: any, input: any) {
+    return prisma.project.create({ data: { id: input.id, leaderId: input.leaderId, lifecycleStatusId: input.statusId } });
+  },
+  async update(prisma: any, id: string, input: any) {
+    return prisma.project.update({ where: { id }, data: { lifecycleStatusId: input.statusId } });
+  },
+};
+""",
+        'backend/src/services/import.service.ts': """export class ImportService {
+  async commitProjects(prisma: any, projects: any[], lifecycleStatusId: string) {
+    await prisma.$transaction(async (tx: any) => {
+      for (const proj of projects) {
+        const updateData: Record<string, unknown> = {};
+        if (proj.overwrite) {
+          updateData.lifecycleStatusId = lifecycleStatusId;
+        }
+        if (Object.keys(updateData).length > 0) {
+          await tx.project.update({
+            where: { id: proj.matchedProjectId },
+            data: updateData,
+          });
+        }
+      }
+    });
+  }
+}
+""",
+        'backend/src/services/sap-number-renumber.service.ts': """// flowguard: together Employee.sapReference Opportunity.responsibleSapNumber on=update
+export async function renumberSapNumber(prisma: any, id: string, oldNumber: number, newNumber: number) {
+  await prisma.employee.update({ where: { id }, data: { sapReference: newNumber } });
+  await prisma.opportunity.updateMany({ where: { responsibleSapNumber: oldNumber }, data: { responsibleSapNumber: newNumber } });
+}
+""",
+        'app/rates.py': '# flowguard: same LATE_FEE\ndef late_fee(days):\n    return days * 2\n',
+        'app/billing.py': '# flowguard: same LATE_FEE\ndef overdue_fee(days):\n    return days * 2\n',
+    })
+    empty = ('historical observations', 'distinct observed outputs', 'no inputs', 'not referenced by a current model')
+    code, text = _flowguard(tmp_path, 'show', 'Project.lifecycleStatusId')
+    lines = text.splitlines()
+    assert code == 0 and lines[:3] == [
+        'ANCHOR Project.lifecycleStatusId', 'anchor Project.lifecycleStatusId -> backend/src/services/project.service.ts:1',
+        'writers Project.lifecycleStatusId projectService.create,projectService.update backend/src/services/project.service.ts:1'], text
+    assert [line for line in lines if line.startswith(('outside writers: ', 'fix: '))] == [
+        'outside writers: backend/src/services/import.service.ts:7 ImportService.commitProjects (update)',
+        'fix: call projectService.create or projectService.update instead; adding a function to the writers agreement '
+        "(backend/src/services/project.service.ts:1) loosens it, which is the owner's decision"], text
+    assert '<anonymous' not in text and not [line for line in lines if any(part in line for part in empty)], text
+    code, text = _flowguard(tmp_path, 'show', 'Employee.sapReference')
+    lines = text.splitlines()
+    assert code == 0 and lines[1] == 'anchor Employee.sapReference -> backend/src/services/sap-number-renumber.service.ts:1', text
+    assert not [line for line in lines if any(part in line for part in empty)], text
+    code, text = _flowguard(tmp_path, 'check', '--static', '--all')
+    assert code == 0 and [line.partition(' was ')[0] for line in text.splitlines() if ' writers ' in line] == [
+        'before: writers Project.lifecycleStatusId at import.service.ts:ImportService.commitProjects'], text
+    # a new write outside the writers: the block's step names them as the agreement does
+    _write(tmp_path, {'backend/src/services/proposal.service.ts': """export async function finalizeProposal(prisma: any, id: string) {
+  return prisma.project.update({ where: { id }, data: { lifecycleStatusId: 'ACTIVE' } });
+}
+"""})
+    code, text = _flowguard(tmp_path, 'check', '--static')
+    assert 'red: writers Project.lifecycleStatusId: proposal.service.ts:finalizeProposal writes Project.lifecycleStatusId outside ' \
+        'projectService.create, projectService.update -> call projectService.create or projectService.update instead' \
+        in text.splitlines(), text
+    # a bound Python anchor without decision sites: no binding step, in its ANCHOR view and in its function's view
+    code, text = _flowguard(tmp_path, 'show', 'LATE_FEE')
+    lines = text.splitlines()
+    assert code == 0 and lines[-2:] == ['info: not referenced by a current model: LATE_FEE',
+                                        'copies not searched: no readable decision sites'], text
+    assert 'historical observations' not in text and 'bind' not in text, text
+    code, text = _flowguard(tmp_path, 'show', 'app.rates:late_fee')
+    assert code == 0 and 'copies not searched: no readable decision sites' in text.splitlines() and 'bind' not in text, text
 
 
 # Planning Tool's capacity code (2026-11, K3), as backend/src/utils/capacity-conversion.ts, capacity.service.ts,
