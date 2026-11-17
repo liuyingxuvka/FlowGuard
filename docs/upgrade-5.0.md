@@ -1,6 +1,6 @@
 # Moving from FlowGuard 4.3 to 5.0
 
-5.0 is a major release. FlowGuard 4.3 announced a set of commands, options, intent API names, comment spellings and ledger sections for removal in 5.0. They are removed now, and each use is refused with its replacement: a removed command or option exits 2 with one line on stderr, and a removed intent name, comment spelling or ledger section is a red line whose step says what to write instead. Nothing of them is read with its old meaning. The work prepared as 4.4, documents that follow the code, was never released; it ships here. Everything 4.3 did not announce keeps its meaning and bytes: 4.3 comments, intent rules, literal rows, sources, flows (nodes, edges, relations), the ledger's handler entries, `rules.toml`, `known.toml` and the owner-word archive, its glossary and adoption records included.
+5.0 is a major release. FlowGuard 4.3 announced a set of commands, options, intent API names, comment spellings and ledger sections for removal in 5.0. They are removed now, and each use is refused with its replacement: a removed command or option exits 2 with one line on stderr, and a removed intent name, comment spelling or ledger section is a red line whose step says what to write instead. Nothing of them is read with its old meaning. The work prepared as 4.4, documents that follow the code, was never released; it ships here. Everything 4.3 did not announce keeps its meaning and bytes: 4.3 comments, intent rules, literal rows, sources, flows (nodes, edges, relations), the ledger's handler entries, `rules.toml`, `known.toml` and the owner-word archive, its glossary and adoption records included. One meaning changed: a `known.toml` entry with `act = "ignore"` now also takes its finding out of the brief's count of open structure problems, which 4.3 did not (see [What you may notice](#what-you-may-notice)).
 
 FlowGuard is the agent's tool. Its lines say what is known and who decides; none of them tells the agent to ask or tell the owner, and the agent chooses when to raise a question. An old problem stays out of an ordinary run until a change touches its place, and stays visible in the brief's counts, in `python -m flowguard show NAME` and in `python -m flowguard check --all`.
 
@@ -38,7 +38,7 @@ red: comment fees.py:6: sensor was removed in 5.0 -> write # flowguard: same FEE
 red: ledger.toml: [structure] was removed in 5.0 -> delete the section and record each decision in .flowguard/known.toml: python -m flowguard known add NAME --act leave|ignore --why TEXT
 ```
 
-Write the three comments as the steps say and empty the `[structure]` section (keep `.flowguard/ledger.toml` itself: deleting the file is red). The decision's problem is then an old one again, which `check --static --all` lists:
+Write the three comments as the steps say and delete the `[structure]` section, its header and every `[structure."..."]` table, and keep the rest of `.flowguard/ledger.toml` (a file left empty is fine; a `[structure]` header left alone is still red, and deleting the file is red). The decision's problem is then an old one again, which `check --static --all` lists:
 
 ```text
 FlowGuard 5.0 (since 5c633bf): 0 red, 1 before; 0.1 s
@@ -68,9 +68,9 @@ Each use exits 2 before any project file is read or written, with one line on st
 | `python -m flowguard model draft PUBLISH` | `flowguard: model draft was removed in 5.0 -> python -m flowguard new-task, check or show NAME` | `python -m flowguard show PUBLISH` |
 | `python -m flowguard try LIMIT days=4` | `flowguard: try was removed in 5.0 -> python -m flowguard new-task, check or show NAME` | a test that calls the function with `days=4`; its run compares it |
 | `python -m flowguard watch -- python app.py` | `flowguard: watch was removed in 5.0 -> python -m flowguard new-task, check or show NAME` | the project's tests |
-| `python -m flowguard compare` | `flowguard: compare was removed in 5.0 -> python -m flowguard new-task, check or show NAME` | the project's tests: `changed` lines compare the task start with now |
+| `python -m flowguard compare fees:late_fee fees:preview_fee` | `flowguard: compare was removed in 5.0 -> python -m flowguard new-task, check or show NAME` | the project's tests: they compare the copies of one `same` name input by input |
 | `python -m flowguard show --draft LIMIT` | `flowguard: show --draft was removed in 5.0 -> python -m flowguard show NAME` | `python -m flowguard show LIMIT` |
-| `python -m flowguard show --gaps` | `flowguard: show --gaps was removed in 5.0 -> python -m flowguard show NAME` | `python -m flowguard show LIMIT` |
+| `python -m flowguard show --gaps LIMIT` | `flowguard: show --gaps was removed in 5.0 -> python -m flowguard show NAME` | `python -m flowguard show RULE` of a rule that decides `LIMIT`: its `undecided` lines list the classes no rule decides |
 | `python -m flowguard check --since HEAD~1` | `flowguard: check --since was removed in 5.0 -> python -m flowguard check --base REV` | `python -m flowguard check --base HEAD~1` |
 | `python -m flowguard check --leads` | `flowguard: check --leads was removed in 5.0 -> python -m flowguard show --last` | `python -m flowguard show --last` |
 | `python -m flowguard req add owner.txt --kind glossary` | `flowguard: req add --kind glossary was removed in 5.0 -> python -m flowguard req add FILE --id R<n>` | `python -m flowguard req add owner.txt --id R2` |
@@ -152,7 +152,7 @@ act = "leave"
 finding = "declarations:Status"
 ```
 
-`act = "ignore"` is for a false finding: it takes the finding out of the brief's count of open structure problems, as a 4.3 decision did, and its line out of every run; `leave` keeps it counted and lists it as `known` when a change touches its site.
+`act = "ignore"` is for a false finding: it takes the finding's line out of every run and, for a finding the brief counts (a field's writers, deletes, columns, `onDelete`, labels, tables nothing fills, copies that drifted apart), the finding out of the brief's count of open structure problems, as a 4.3 decision did; `leave` keeps such a finding counted and lists it as `known` when a change touches its site. A `declarations:` finding, as here, is not in the brief's count: for it `ignore` only takes the line out, and `leave` lists it as `known`.
 
 `[unverified]` has no replacement:
 
@@ -179,7 +179,7 @@ red: ledger.toml: [unverified] was removed in 5.0 -> delete the section; nothing
 
 ### What the map knows about a name
 
-`python -m flowguard show NAME` starts, after the entries and agreements that concern the name, with what the map read about it. In a project with a Prisma schema, one migration and one zod schema:
+`python -m flowguard show NAME` starts, after the entries and agreements that concern the name, with what the map read about it. `Model.field` gives the Prisma declarations, the SQL columns, the value sets, the `CHECK` ranges and the zod bounds; `table.column` gives only the SQL column and `CHECK` range lines. In a project with a Prisma schema, one migration and one zod schema:
 
 ```text
 show Assignment.fteShare
@@ -250,7 +250,7 @@ The connections are the calls the map resolved, never a method matched by its na
 
 ### JSON data in TS/JS
 
-A TS/JS call is recorded and compared when its arguments and result are JSON data: `null`, booleans, strings, finite numbers, and arrays and plain objects of them, at most 200 values and 6 levels deep. 4.3 recorded only primitives, and this call of a function that takes rows was `not compared`; 5.0 compares it:
+A TS/JS call is recorded and compared when its arguments and result are JSON data: `null`, booleans, strings, finite numbers, and arrays and plain objects of them; each argument and the result may hold at most 200 arrays and objects, nested at most 7 deep counting the value itself (primitives are not counted). 4.3 recorded only primitives, and this call of a function that takes rows was `not compared`; 5.0 compares it:
 
 ```text
 changed: totalShare (share.ts:1): (rows=[{"fteShare": 0.5}, {"fteShare": 0.25}]) was 0.75, now 0.8; 1/1 inputs differ -> if you meant it, say so
@@ -271,6 +271,18 @@ known.same-fee added to .flowguard/known.toml: act ask, sites fees.py:late_fee, 
 ```
 
 The entry is checked as a run reads it, and the file is left as it was when it does not load. `--id` names the entry and `--site path:symbol` gives its sites instead of the finding's places.
+
+A matter no check finds, such as a page that names a command the project no longer has, takes `-` for the finding and its sites from `--site`, which may also be a Markdown file's path alone:
+
+```bash
+python -m flowguard known add - --act ask --why "The setup page names a make target that is gone" --ask "Should the setup page name npm run setup?" --site docs/setup.md --id setup-target
+```
+
+```text
+known.setup-target added to .flowguard/known.toml: act ask, sites docs/setup.md
+```
+
+Without `--id` such an entry is `matter` (then `matter-2`, ...).
 
 ### What `show` begins with
 
@@ -295,17 +307,23 @@ The brief still has at most eight lines. It counts the generated regions the las
 
 | 4.3 | 5.0 |
 | --- | --- |
-| `known: known.fee-copies at fees.py:late_fee, fees.py:preview_fee -> ask owner (not asked yet)` | `known: known.fee-copies at fees.py:late_fee, fees.py:preview_fee: Which daily late fee is right, 2 or 3? -> an open question for the owner, not asked yet`. A known line names the sites this change touches, with the entry's count when it has others (`(1 of 12 sites)`), and an `ask` entry's question. |
+| `known: known.fee-copies at fees.py:late_fee, fees.py:preview_fee -> ask owner (not asked yet)` | `known: known.fee-copies at fees.py:late_fee, fees.py:preview_fee: Which daily late fee is right, 2 or 3? -> an open question for the owner, not asked yet`. This entry names the finding `same:FEE`, and a change that touches that finding gets a known line that names the finding's places, without a count, also when the change edited another of the entry's sites. Otherwise a known line names the entry's sites this change touches, with the entry's count when it has others (`known: known.fee-copies at fees.py:close (1 of 3 sites): ...`). An `ask` entry's question follows the places. |
 | An entry asked on a date: `-> asked on 2026-11-15; leave it until the owner answers`. `leave`: `-> leave it (the owner deferred it)`. `fix`: `-> fix it in this change and say so in your report`. | `-> asked the owner on 2026-11-15; no answer yet`, `-> left as it is on purpose; yours to change only if your task is about it`, `-> marked to fix when its code changes, as this change does`. |
-| `known fixed?: known.fee-copies: copies of FEE now agree -> the owner has not decided: revert, or say why in your report` | `... -> the owner has not answered known.fee-copies: if this change settles it, say so in your report` |
+| `known fixed?: known.fee-copies: copies of FEE now agree -> the owner has not decided: revert, or say why in your report`; for a `leave` entry `-> the owner deferred it: revert, or say why in your report`, for `fix` and `ignore` `-> say so in your report; remove known.fee-copies once the owner agrees`. | `... -> the owner has not answered known.fee-copies: if this change settles it, say so in your report`; `leave`: `-> it was left on purpose: if you meant to fix it, remove known.fee-copies and say so in your report`; `fix`: `-> if you fixed it, remove known.fee-copies and say so in your report`; `ignore`: `-> if it is fixed, remove known.fee-copies and say so in your report`. |
 | `loosened: except=reopen added to together Job.status -> name it in your report; needs the owner's yes` | `... -> name it in your report; loosening an agreement is the owner's decision` |
+| `show`'s fix of a together agreement: `fix: also write Project.leaderId in the same operation; only with the owner's yes add except=path:function(reason) to the together agreement (backend/src/services/project.service.ts:2), which the next run shows as loosened` | `fix: also write Project.leaderId in the same operation as each write marked missing; an except=path:function(reason) on the together agreement (backend/src/services/project.service.ts:2) loosens it, which is the owner's decision and the next run shows as loosened` |
+| `show Assignment.fteShare` on Planning Tool: `with= candidate (reference only): Assignment.periodEnd is written by 10 of the 10 functions that write Assignment.fteShare -> if the owner says they change together: // flowguard: together Assignment.fteShare Assignment.periodEnd` | `together candidate (reference only): Assignment.periodEnd is written by 10 of the 10 functions that write Assignment.fteShare -> if they must change together: // flowguard: together Assignment.fteShare Assignment.periodEnd` |
+| `check --static --all`, a change that adds a writer to a field several files write: `impact: no writers agreement for Job.status: archive.py:archive writes Job.status, which 4 files write without a writers agreement -> fix it, or say why in your report` | `... -> which functions should write it may be the owner's decision; name it in your report` |
+| A `known.toml` entry with `act = "ignore"` took the lines of its finding out of every run, and the brief still counted the finding: `0 open structure issues (1 other fields have multiple writers and no writer agreement); highest severity: write Job.status`. | The brief no longer counts it either, as it did not count a finding a 4.3 `[structure]` decision closed; `leave`, `ask` and `fix` entries keep their finding counted. To have it counted again, write `act = "leave"`. |
 | The brief: `known.fee-copies: ask owner: Which daily late fee is right, 2 or 3?`; an asked question `asked on 2026-11-15; leave it until the owner answers: ...`, a `fix` entry `fix: ...`, a `leave` entry `leave it: ...`. | `known.fee-copies: open question for the owner: Which daily late fee is right, 2 or 3?`; `asked the owner on 2026-11-15, no answer yet: ...`, `to fix when its code changes: ...`, `left as it is: ...`. Their order is a correction, below. |
 | `not compared: ROUND (no recorded JSON inputs) -> not a failure` on every run, for same-name copies no test called (vitest: `not reached by any test`). | Nothing until a change edits a copy or writes its mark; `check --all` still lists them. |
 | `not compared: totalShare (share.ts:1) (only primitive JSON arguments and results are recorded) -> not a failure` | `changed: totalShare (share.ts:1): (rows=[{"fteShare": 0.5}, {"fteShare": 0.25}]) was 0.75, now 0.8; ...` |
-| SQL inside a string literal (`EXEC(N'ALTER TABLE ... ADD ...')`) was read as SQL that runs. | It is not read: a column, a `CHECK` or a write that only such SQL adds is not declared, so the columns check may give one more `before` line. A string ends where its dialect ends it (`E'it\'s'`, a dump's `'O\'Brien'`). |
+| SQL inside a string literal of a SQL file (`EXEC(N'ALTER TABLE ... ADD ...')`) was read as SQL that runs. | It is not read: a column, a `CHECK` or a write that only such SQL adds is not declared, so the columns check may give one more `before` line. A string ends where its dialect ends it (`E'it\'s'`, a dump's `'O\'Brien'`). SQL in Python string literals and TS/JS raw SQL is read as before. |
 | A label-table disagreement was a `before` line for any edit of a file that holds one of its tables. | Only when the change edits the declaration lines of one of its tables; a change that adds a table or changes its keys or labels gets an `impact` line. |
 | `check --static --all`: `before: no writers agreement for Job.status at close.py:close was broken at task start -> leave it unless your task is about it` | `before: Job.status has no writers agreement and 3 files write it, close.py:close among them; so at task start -> leave it unless your task is about it`. The other families still say `was broken at task start`. |
-| `show` of a TS/JS function or anchor printed `not searched: not searched: ... -> bind the real decision site` and `copy search unavailable: ...`. | One line, `copies not searched: ...`, without a bind step. |
+| `show` of a TS/JS function or anchor printed `not searched: not searched: ... -> bind the real decision site` and `copy search unavailable: ...`; an anchor on a Python function printed `copy search unavailable: not searched: no readable decision sites -> bind the real decision function`. | One line, `copies not searched: ...`, without a bind step for a TS/JS function or a Python function an anchor already marks: `copies not searched: no readable decision sites`. |
+| `show Project.lifecycleStatusId` of a TS/JS writers agreement: `anchor Project.lifecycleStatusId -> typescript/backend/src/services/project.service.ts: backend/src/services/project.service.ts:1`, `owner Project.lifecycleStatusId backend/src/services/project.service.ts:1; writers=typescript/backend/src/services/project.service.ts:create,typescript/backend/src/services/project.service.ts:update`, then `Project.lifecycleStatusId: historical observations (not a new verification)`, `results: {}; 0 distinct observed outputs`, `rules: ` and `info: not referenced by a current model: Project.lifecycleStatusId`. A `same` reference read `owner FEE fees.py:2; ...`. | `anchor Project.lifecycleStatusId -> backend/src/services/project.service.ts:1` and `writers Project.lifecycleStatusId projectService.create,projectService.update backend/src/services/project.service.ts:1`, the 4.3 comment spelling at the agreement's place, then its fix, declaration and writes; no empty observation lines or `rules: `, and for a writers or together agreement no `not referenced` line. A `same` reference reads `same FEE ref fees.py:2; ...`. |
+| A long `not compared` line was cut at 200 characters wherever that fell, also inside an item's name or place. | Paths and places do not count toward the 200 characters, the reasons are shortened first, and items that leave no room are counted (`not compared: 3 functions (...) -> not a failure`). A single item keeps its name and place. |
 
 ## Corrections of 4.3 bugs
 
@@ -317,16 +335,22 @@ These are corrections within the existing contract, separate from the new behavi
 - The brief's structure line pointed at `check --static --all`, which runs no copy discovery, so copies that drifted apart were counted but not listed there.
 - A rule source quoting a UTF-16 document ended `show rules` and `check --static` with exit 2 and `flowguard: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte`, and so did `init` on a UTF-16 `AGENTS.md`. Rule sources, ledger rules, the brief and `init` read UTF-16 and UTF-8 with a BOM now, and `init` writes the file back in its encoding; a document in another encoding is that reader's problem, naming the file.
 - A 4.3 cross-file writer or exception (`path:function`) whose target file was renamed gave a false `loosened` line.
+- In TS/JS, a flowguard comment after a line that holds U+2028, U+2029, a form feed or another character Python's `splitlines` breaks at was numbered one line late. For a `// flowguard: same FEE` right above its function, 4.3 said `red: comment a.ts:4: a.ts:4: sensor FEE needs a function declared on the next line -> correct this flowguard comment`; 5.0 counts lines at newlines only, as the JS/TS parser does, and the run is `0 red`.
+- An assignment whose object a resolved Prisma write passes on (`updateData.lifecycleStatusId = ...` before `tx.project.update({ data: updateData })` in a `$transaction` callback) counts as that one write. 4.3 also reported the callback as a writer outside the agreement, a second line for one write: `before: writers Project.lifecycleStatusId at import.service.ts:ImportService.commitProjects.<anonymous@3,31> was broken at task start -> leave it unless your task is about it` beside the line of `ImportService.commitProjects`, or a second `red` when the change added the code.
 
 ## Known limits
 
-- A rule in `tests/intent/` runs only Python functions; TS/JS copies are compared by `same` alone. Functions that call helpers of another file are not compared sealed.
+- A rule in `tests/intent/` runs only Python functions; TS/JS copies are compared by `same` alone. Only inputs the tests used are compared (copies add their numbers and ±1). Functions that read configuration or a database, or call helpers of another file, are not compared sealed.
+- A TS function runs sealed in steps of at most 100 ms, and its `not compared` line does not yet tell a timeout from a failure (`sealed execution failed or timed out`).
+- vitest keeps its own cache in FlowGuard's adapter folder (`flowguard/adapters/vitest/node_modules/.vite`), as in 4.3.
+- Whether `changed` catches an unintended change in a real task is not yet measured. `impact` counts the readers of a model, not yet of one field.
 - zod lines read `z.number(` and `z.coerce.number(` chains, also inside `z.optional(`, `z.nullable(`, `z.nullish(`, `z.preprocess(` and a pipe. zod 4's `z.int()`, `z.union(...)` and a shorthand key (`{ fteShare }`) give no line; `.or(...)` and `.catch(...)` on a number chain are not named, so `z.number().min(0).or(z.string())` reads `0 <= fteShare`; a schema object a function returns is `an unnamed object`.
 - SQL that a string builds at run time is not read, also when an `EXEC(N'...')` holds one complete literal; on Planning Tool, `assignments.internal_order_id`, which only such SQL adds, is one more `before` line of the columns check in `check --static --all`. In a plain string, `\'` counts as MySQL's escaped quote only before a letter or digit: `'rock \' roll'` ends at `\'`, and the statements after it are read as inside a string.
 - An `ALTER TABLE ... ADD` in an upgrade script, on a table another file creates, gives no column line in `show`.
+- `show table.column` reads the SQL files only: no Prisma, zod or value line, and a column that only the Prisma schema maps or only an upgrade script's `ALTER TABLE ... ADD` adds gets `not on the map` (or only the field's writes, as Planning Tool's `assignments.internal_order_id`). Use `show Model.field`.
 - The pair and delete checks still resolve JS/TS member calls by name, and a delete finding says `(calls resolved by name)`. The module view and contracts count resolved calls only, so a destructured dynamic import (`const { x } = await import(...)`) connects nothing.
 - `show` gives no const line for a Python module constant, `generate constants` lists JS/TS constants only, and a Python name whose value is no literal, such as `Status = Literal[...]`, gets a `not on the map` line. A TS interface or type name gets no declaration line. Holder lines cover JS/TS object literals and classes; a Python class gets its node view.
 - `known add` turns a place into a site only where a function, constant or `Model.field` is declared; for another declaration, such as that `Status`, give `--site path:symbol`.
 - Only the writers family states what held at task start; labels, delete, together and the other families still say `was broken at task start`.
-- After the upgrade the brief shows no structure or region line until the first `check` or `python -m flowguard docs` run, because its saved counts moved to a new key; the first run also rebuilds the map.
+- After the upgrade the brief shows no structure or region line until the first `check`, `python -m flowguard docs` run, or pytest run while the task has changed code, because its saved counts moved to a new key; the first run also rebuilds the map.
 - Generated regions cover four kinds; routes, environment variables and package scripts are not generated. A Markdown document that is neither UTF-8 nor UTF-16 is named only when a change edits it.

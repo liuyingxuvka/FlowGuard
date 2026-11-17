@@ -142,9 +142,9 @@ REMOVED_IN_5 = {
     ('docs/upgrade-5.0.md', 'model draft PUBLISH'): f'model draft was removed in 5.0 -> {_NEW}',
     ('docs/upgrade-5.0.md', 'try LIMIT days=4'): f'try was removed in 5.0 -> {_NEW}',
     ('docs/upgrade-5.0.md', 'watch -- python app.py'): f'watch was removed in 5.0 -> {_NEW}',
-    ('docs/upgrade-5.0.md', 'compare'): f'compare was removed in 5.0 -> {_NEW}',
+    ('docs/upgrade-5.0.md', 'compare fees:late_fee fees:preview_fee'): f'compare was removed in 5.0 -> {_NEW}',
     ('docs/upgrade-5.0.md', 'show --draft LIMIT'): 'show --draft was removed in 5.0 -> python -m flowguard show NAME',
-    ('docs/upgrade-5.0.md', 'show --gaps'): 'show --gaps was removed in 5.0 -> python -m flowguard show NAME',
+    ('docs/upgrade-5.0.md', 'show --gaps LIMIT'): 'show --gaps was removed in 5.0 -> python -m flowguard show NAME',
     ('docs/upgrade-5.0.md', 'check --since HEAD~1'):
         'check --since was removed in 5.0 -> python -m flowguard check --base REV',
     ('docs/upgrade-5.0.md', 'check --leads'): 'check --leads was removed in 5.0 -> python -m flowguard show --last',

@@ -7,7 +7,8 @@ import ast
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-ORDERS = ('ask owner', 'ask the owner', 'tell the owner', "owner's yes", 'needs the owner', 'until the owner answers')
+ORDERS = ('ask owner', 'ask the owner', 'tell the owner', "owner's yes", "owner's agreement", 'needs the owner',
+          'until the owner answers')
 
 
 def _texts(path):
@@ -28,7 +29,11 @@ def test_no_line_rule_or_template_orders_the_agent_to_ask_the_owner():
 
 
 def test_the_agent_facing_documents_leave_the_question_to_the_agent():
-    for name in ('AGENTS.md', 'README.md', '.agents/skills/flowguard/SKILL.md', '.agents/skills/flowguard/reference.md'):
+    # The skill's agent prompt still said `tell the owner when it says ask owner` after 5.0 removed that step, and the
+    # intent guide and the reference made the owner's yes or agreement a condition of an except=.
+    for name in ('AGENTS.md', 'README.md', '.agents/skills/flowguard/SKILL.md', '.agents/skills/flowguard/reference.md',
+                 '.agents/skills/flowguard/agents/openai.yaml', 'docs/intent-guide.md'):
         text = (ROOT / name).read_text(encoding='utf-8').casefold()
         assert not [order for order in ORDERS if order in text], name
-        assert 'who decides' in text, name
+        if name != 'docs/intent-guide.md':
+            assert 'who decides' in text, name
