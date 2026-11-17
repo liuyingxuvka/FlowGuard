@@ -307,3 +307,22 @@ the static finding. The observation can record the operation name, code
 identity, input size category and outcome without retaining input content.
 Keep this optional and bounded by the changed call; broad automatic execution
 would add cost and could start operations that the task does not own.
+
+## Check Cloud skill commands against the released CLI
+
+The Cloud skill available in this session tells agents to start with
+`python -m flowguard read` and to locate an owner with
+`python -m flowguard read --find <words>`. The installed CLI identified itself
+as 5.0.1, which was also the latest stable GitHub release at the time of the
+check. `python -m flowguard read --find 'bounded validation'` returned exit 2:
+the parser does not have a `read` command. Its help lists `show`, `check`,
+`init`, `new-task`, `ledger`, `req`, `docs` and `known`. The developer could
+proceed with the actual `new-task` and `show` commands after checking help.
+
+Give the skill a CLI compatibility range and publish a small command index
+from the same release metadata as the parser. A release test can extract each
+recommended top-level command and flag from the skill's examples and verify
+that CLI parsing accepts it with a synthetic local fixture. A Cloud wrapper
+could report its own skill and CLI versions together before recommending
+commands. Keep maintenance notes and copied skill bundles easy to identify
+when they are older than the installed tool.
