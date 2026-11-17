@@ -32,7 +32,7 @@ FlowGuard 4.3 (since 99f025e): 0 red; 0.2 s
 
 1. 开工时运行 `python -m flowguard new-task`，读简报。
 2. 跑项目普通测试，读测试汇总后的 FlowGuard 块。首行给出每一类的数目。只有 `red` 使测试失败：这次改动破坏了已登记的约定，要改代码。`before` 和 `known` 在任务开始前就有：`->` 后面写明已知的情况和由谁决定，什么时候向主人提出未决的问题由你决定。`changed` 表示某个函数对测试用过的输入返回了别的结果：是有意的改动就在汇报里说明。`impact` 和 `not compared` 不算失败；`not compared` 是没有验证，不算通过。`python -m flowguard show --last` 列出上一次运行的每一行和细节。
-3. 修改另一份实现之前，用 `python -m flowguard show "what it decides"` 查函数、字段和约定。
+3. 修改另一份实现之前，用 `python -m flowguard show "what it decides"` 查函数、模型、字段和约定；地图不认识的名字会直说。
 
 ## 登记约定
 

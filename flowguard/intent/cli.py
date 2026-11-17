@@ -504,7 +504,8 @@ def _known_line(entry):
     return _brief_line(_known_brief(entry), tail=f' (python -m flowguard show known.{entry.id})')
 
 
-def _concerning(cfg, data, graph, index, query, *, path, node=None, anchored=(), symbol=None, also=(), full=False):
+def _concerning(cfg, data, graph, index, query, *, path, node=None, anchored=(), symbol=None, also=(), full=False,
+                hidden=None):
     """The first lines of `show NAME` and `show PATH` (`path` is the query's file or folder when it names one, else
     None; `node` the map node of a site query `path:symbol`, `symbol` the symbol of one that names no node, compared
     in its place; `also` a rule's anchors, whose known entries its view lists too), the ids of the intent rules
@@ -532,8 +533,9 @@ def _concerning(cfg, data, graph, index, query, *, path, node=None, anchored=(),
     named only through the last dotted part of such a function with that function (`(site path:symbol)`); the
     agreements of the names in `anchored` (the query's own, which the ANCHOR or rule view lists whole) are left out.
     Last the lines of the last run (`cache.read_last`) placed at the query's function (its node, the functions its
-    name names) or file, one each with its kind, at most FINDINGS_SHOWN without `full` and a count of the others;
-    a known line of that run is left out, its entry being listed by its own words."""
+    name names) or file, one each with its kind, at most FINDINGS_SHOWN without `full` and a count of the others
+    (that count is appended to the list `hidden` when one is given); a known line of that run is left out, its entry
+    being listed by its own words."""
     from flowguard.map.common import is_test_file
     from .owners import agreement_heads, field_spellings, model_known
     from .signals import family_of
@@ -625,17 +627,18 @@ def _concerning(cfg, data, graph, index, query, *, path, node=None, anchored=(),
             parts = [item for item, said in how.items() if said == 'part']
             lines.append(f'{line} (site{"s" * (len(parts) > 1)} {", ".join(parts)})')
     if folder is None or (cfg.root / folder).is_file():         # a function or a file; never a folder
-        lines += _last_run_lines(cfg, graph, query, name, site_names, held=node is None and folder is None, full=full)
+        lines += _last_run_lines(cfg, graph, query, name, site_names, held=node is None and folder is None, full=full,
+                                 hidden=hidden)
     return list(dict.fromkeys(lines)), set(rules), {entry.id for entry in listed}
 
 
-def _last_run_lines(cfg, graph, query, name, site_names, *, held, full):
+def _last_run_lines(cfg, graph, query, name, site_names, *, held, full, hidden=None):
     """The lines of the last run (`cache.read_last`) placed at the function of a `show` query or at its file, as
     `_concerning` lists them last: `before (last run): together Project.leaderId at backend/src/services/project.
     service.ts:create was broken at task start -> leave it unless your task is about it`. A line is placed there when
     one of its places names the query (`site_names`: the node's file and symbol, the file, a symbol the name names)
     or, with `held`, its member is a function that the query `object.method` names (`_held_methods`). None without
-    a recorded run."""
+    a recorded run. The number of lines left out without `full` is appended to `hidden` when it is a list."""
     last = cache.read_last(cfg)
     if last is None:
         return []
@@ -645,6 +648,8 @@ def _last_run_lines(cfg, graph, query, name, site_names, *, held, full):
     shown = found if full else found[:FINDINGS_SHOWN]
     lines = [f'{line["kind"]} (last run): {line["text"]}' + (f' -> {line["step"]}' if line['step'] else '') for line in shown]
     if len(shown) < len(found):
+        if hidden is not None:
+            hidden.append(len(found) - len(shown))
         lines.append(f'... {len(found) - len(shown)} more lines of the last run there: '
                      f'python -m flowguard show {_spelled(query)} --full lists them all')
     return lines
@@ -663,10 +668,11 @@ def _write_line(row):
 
 def _unknown_model(graph, query):
     """The `not on the map` line of `show Model.field` for a model the map does not know (`owners.model_known`), or
-    one whose Prisma models, SQL tables and TS types it knows have no such field (`owners.field_absent`): zod keys of
-    that name and the fields of other Prisma models are not facts about this field; '' otherwise, and for an
-    unknown model whose field name the map does not know either."""
-    from .owners import field_absent, model_known, zod_bounds
+    one whose Prisma models, SQL tables and TS types it knows have no such field (`owners.field_absent`), then the
+    model's field nearest to a misspelt one (`owners.nearest_field`: `CapacityCalendarEntry.valeu` names
+    `CapacityCalendarEntry.value`): zod keys of that name and the fields of other Prisma models are not facts about
+    this field; '' otherwise, and for an unknown model whose field name the map does not know either."""
+    from .owners import field_absent, model_known, nearest_field, zod_bounds
     model, _, field = query.partition('.')
     known = model_known(graph, model)
     absent = field_absent(graph, model, field) if known else []
@@ -682,12 +688,81 @@ def _unknown_model(graph, query):
         noun = 'column' if tables == len(absent) else 'field or column' if tables else 'field'
         what = (', '.join(absent[:-1]) + ' and ' + absent[-1] if len(absent) > 1 else absent[0]) + \
             f' {"have" if len(absent) > 1 else "has"} no {noun} {field}'
+        if near := nearest_field(graph, model, field):        # a misspelt field: the one of that model it may mean
+            what += f', the nearest {noun + " " if noun != "field or column" else ""}is {model}.{near}'
     else:
         what = f'no Prisma model, database table, TS type or class {model}'
     objects = len({(file, schema) for file, schema, _ in keys})
     return (f'not on the map: {what}'
             + (f'; the zod keys {field} of {objects} schema object{"s" if objects != 1 else ""} are not listed, as a key matches by its name alone' if keys else '')
             + (f'; Prisma models with a field {field}: {", ".join(models)}' if models else ''))
+
+
+NODE_NAMES = 3          # the fields a node view names and the callers it names without --full
+NODE_VIEWS = 3          # the functions an exact name names that `show NAME` prints the node view of
+
+
+def _node_lines(graph, node, header, *, full, again, writes=None, callers=None):
+    """The node view of one map function, method or class (`show module:qual`, `show path:symbol`, and each of the
+    few functions an exact name names): `header file:line`, its signature, its doc when it has one, then the fields
+    it writes (the `MapHandle.writes` rows of it and of the functions nested in it, `Model.field`, an unclear write as
+    `Model (fields not visible)`) and, for a function or method, the functions that call it through a call the map
+    resolved (`MapHandle.resolved_calls`: an import or a lexical binding, the store's links; a JS/TS call matched by
+    a name alone is not counted), production code before test files: each a count and the first NODE_NAMES, all of
+    them with `full`, and the view that lists more (`show MODEL.FIELD`, `show AGAIN --full` for the query `again`).
+    `writes` and `callers` are `MapHandle.writes()` and the callers map of `resolved_calls()` when the caller holds
+    them already."""
+    from .owners import _counted
+    ident = node['id']
+    lines = [f'{header} {node["file"]}:{node["line"]}', node['sig'], *([node['doc']] if node['doc'] else [])]
+    rows = [row for row in (graph.writes() if writes is None else writes)
+            if row['node'] == ident or row['node'].startswith(ident + '.')]
+    fields = sorted({f'{row["model"] or row["table"]} (fields not visible)' if row['unclear']
+                     else f'{row["model"] or row["table"]}.{row["field"] or row["db_column"]}' for row in rows})
+    rest = f'python -m flowguard show {_spelled(again)} --full names them all'
+
+    def named(items):
+        shown = items if full else items[:NODE_NAMES]
+        return ', '.join(shown) + (f' and {len(items) - len(shown)} more' if len(shown) < len(items) else '')
+    if fields:
+        lines.append(f'writes {_counted(len(fields), "field")}: {named(fields)} (python -m flowguard show MODEL.FIELD '
+                     'lists the writes and reads of one' + (f'; {rest}' if not full and len(fields) > NODE_NAMES else '') + ')')
+    if node['kind'] in ('function', 'method'):
+        up = graph.resolved_calls()[1] if callers is None else callers
+        found = [caller for caller in up.get(ident, ()) if caller != ident and not caller.startswith(ident + '.')]
+        places = {row[0]: row[1:] for row in graph.con.execute(
+            f"SELECT id, qual, file, line FROM node WHERE id IN ({','.join('?' * len(found))})", found)} if found else {}
+        tests = {path for (path,) in graph.con.execute('SELECT path FROM file WHERE is_test = 1')} if found else set()
+        found.sort(key=lambda caller: (caller in places and places[caller][1] in tests, caller))
+        spelled = [f'{places[caller][0]} ({places[caller][1]}:{places[caller][2]})' if caller in places else caller
+                   for caller in found]
+        if not found:
+            lines.append('called by no function through a call the map resolved (a call matched by its name alone is not counted)')
+        else:
+            lines.append(f'called by {_counted(len(found), "function")} through '
+                         f'{"a resolved call" if len(found) == 1 else "resolved calls"}: {named(spelled)}'
+                         + (f' ({rest})' if not full and len(found) > NODE_NAMES else ''))
+    return lines
+
+
+def _map_knows(graph, name, written=None):
+    """Does the map hold anything named `name`, so that `show NAME` prints no `not on the map` line for it: a node of
+    that qual or name (a function, method, class, interface, constant, enum, Prisma model, SQL table or test), a model
+    the map knows (`owners.model_known`), a column of a SQL table as the columns check reads them (`sql.describe`), a
+    write of that model, table or field (`MapHandle.writes`; `written` when the caller read them already) or a zod
+    object key of that name (`owners.zod_bounds`)? A dotted name is asked only for its node and its writes: its model
+    and field have their own `not on the map` line (`_unknown_model`), and a Prisma field its own line."""
+    from ..structure.readers.sql import describe
+    from .owners import model_known, zod_bounds
+    if graph.con.execute("SELECT 1 FROM node WHERE kind != 'module' AND (qual = ? OR short = ?) LIMIT 1", (name, name)).fetchone():
+        return True
+    if '.' in name or model_known(graph, name):
+        return '.' not in name or bool(graph.writes(name) if written is None else written)
+    for description in describe(graph.schemas()):
+        if any(name.casefold() in columns for columns in [*(table['columns'] or {} for table in description['tables'].values()),
+                                                         *description['altered'].values()]):
+            return True
+    return bool(graph.writes(name) if written is None else written) or bool(zod_bounds(graph, name))
 
 
 def _repository_path(cfg, query):
@@ -812,9 +887,10 @@ def show(cfg, query=None, *, full=False, last=False):
         else:
             name = query
         anchors, pointers = _source_pointers(index, [query], graph, full=full)
+        hidden = []         # the number of last-run lines `concerning` leaves out without --full
         concerning, listed, known = _concerning(cfg, data, graph, index, query, path=path, node=target,
                                                 anchored={query} if anchors else (),
-                                                symbol=name if site and target is None else None, full=full)
+                                                symbol=name if site and target is None else None, full=full, hidden=hidden)
         from .differences import display        # a known entry's words may hold what the console cannot show
         if anchors:
             print('ANCHOR ' + query)
@@ -851,11 +927,8 @@ def show(cfg, query=None, *, full=False, last=False):
             return 0
         node = target or (None if site else graph.node(graph.canonical(query) or query))
         if node:
-            print(f'{query} {node["file"]}:{node["line"]}\n{node["sig"]}\n{node["doc"]}')
-            if notice:
-                print(notice)
-            if concerning:
-                display('\n'.join(concerning))
+            display('\n'.join([*_node_lines(graph, node, query, full=full, again=query), *([notice] if notice else []),
+                               *concerning]))
             found = graph.search_homes(node['id'], k=None)
             if not found['searched']:
                 print(found['reason'])
@@ -863,9 +936,14 @@ def show(cfg, query=None, *, full=False, last=False):
                 print('\n'.join(candidates))
             return 0
         words = tokens(name)
-        from .owners import declaration_lines       # what the map already read about the name comes first
-        ranked = [(3000 - order, line) for order, line in enumerate(declaration_lines(graph, name))]
-        unknown = ''
+        from .owners import _counted, declaration_lines, field_models_line, model_lines    # what the map read first
+        read = declaration_lines(graph, name)
+        if not FIELD_QUERY.fullmatch(name):          # a model or table, a field of Prisma models
+            read += [*model_lines(graph, name), *filter(None, [field_models_line(graph, name)])]
+        ranked = [(3000 - order, line) for order, line in enumerate(read)]
+        knows = bool(read)          # the map read the name itself: names that share a word with it wait for --full
+        named = False               # a rule or an import names it too: no `not on the map` line
+        unknown, written = '', None
         if FIELD_QUERY.fullmatch(name):      # Model.field or table.column: who writes it
             written = graph.writes(name)
             ranked.extend((2000 - bool(row['unclear']), _write_line(row)) for row in written)
@@ -882,6 +960,7 @@ def show(cfg, query=None, *, full=False, last=False):
                 ranked.append((2001, f'structure: {issue.text} -> {issue.step}'))
         for rid, rule in rules.items():
             score = 1000 if name.casefold() in {rid.casefold(), rule['decides'].casefold()} else 0
+            named = named or bool(score)
             score += 4 * len(words & tokens(rule['decides'] + ' ' + rule.get('doc', '')))
             if score and rid not in listed:        # a rule that concerns the query is listed first already
                 ranked.append((score, f'rule {rid}: {rule["decides"]} {rule.get("doc", "")}'))
@@ -892,8 +971,9 @@ def show(cfg, query=None, *, full=False, last=False):
         owners = graph.outline(('function', 'method', 'class'))
         held = _held_methods(graph, name)
         decided = {}
-        for node, field, identity in graph.con.execute('SELECT node, field, identity FROM site'):
-            decided.setdefault(node, []).append((field or '') + ' ' + (identity or ''))
+        for ident, field, identity in graph.con.execute('SELECT node, field, identity FROM site'):
+            decided.setdefault(ident, []).append((field or '') + ' ' + (identity or ''))
+        exact = []          # the functions, methods and classes the name or `object.method` names
         for ident, item in owners.items():
             names = {ident.casefold(), item['qual'].casefold(), item['qual'].rsplit('.', 1)[-1].casefold()}
             score = 1000 if name.casefold() in names or ident in held else 0
@@ -903,23 +983,47 @@ def show(cfg, query=None, *, full=False, last=False):
                 score += 2 * len(words & tokens(' '.join(s['field'] + ' ' + (s['identity'] or '') for s in sites)))
             if may_share(words, ident + ' ' + item['doc']):
                 score += len(words & tokens(ident + ' ' + item['doc']))
-            if score:
+            if score >= 1000:
+                exact.append((score, ident))
+            elif score:
                 ranked.append((score, f'{ident} {item["file"]}:{item["line"]}'))
+        exact.sort(key=lambda row: (-row[0], row[1]))
+        views = []          # one function or a few: each one's node view, before the word matches
+        if len(exact) <= NODE_VIEWS:
+            writes, callers = (graph.writes(), graph.resolved_calls()[1]) if exact else (None, None)
+            for _, ident in exact:
+                views += _node_lines(graph, graph.node(ident), ident, full=full, again=ident, writes=writes, callers=callers)
+        else:
+            ranked.extend((score, f'{ident} {owners[ident]["file"]}:{owners[ident]["line"]}') for score, ident in exact)
         for ident, aliases in graph.import_aliases(name).items():       # the names an import binds to an owner
             item = graph.node(ident)
             ranked.extend((1000, f'{alias} -> {ident} {item["file"]}:{item["line"]}') for alias in aliases)
+            named = True
+        knows = knows or bool(exact)
+        if not knows and not named and not unknown and not re.search(r'\s', name.strip()) and not _map_knows(graph, name, written):
+            unknown = f'not on the map: no function, class, type, constant, enum, Prisma model or field, or SQL table or column is named {name}'
         ranked.sort(key=lambda row: (-row[0], row[1]))
-        left = []
-        if not full and any(score >= 3000 for score, _ in ranked):
-            # the map knows the name itself: names that merely share a word with it wait for --full, which it says
-            left = [row for row in ranked if row[0] < 1000]
-            ranked = [row for row in ranked if row[0] >= 1000]
+        matches = [line for score, line in ranked if score < 1000]
+        head = [f'show {query}', *([notice] if notice else []), *concerning, *([unknown] if unknown else []), *views,
+                *(line for score, line in ranked if score >= 1000)]
+        complete = [*head, *([f'word matches: the {_counted(len(matches), "line")} below only share'
+                              f'{"s" if len(matches) == 1 else ""} a word with {query}'] if matches else []), *matches]
         from .differences import display          # a structure line carries Chinese text: escape what the console cannot show
-        lines = [f'show {query}'] + ([notice] if notice else []) + concerning + ([unknown] if unknown else []) + [line for _, line in ranked]
-        if left:
-            lines.append(f'... {len(left)} more lines: python -m flowguard show {_spelled(query)} --full lists them all')
-        display('\n'.join(lines if full else _limit(lines, cfg.screen_lines,
-                                                     f'python -m flowguard show {_spelled(query)} --full lists them all')))
+        if full:
+            display('\n'.join(complete))
+            return 0
+        # Without --full the screen holds `screen_lines` lines: when the map knows the name itself, names that merely
+        # share a word with it wait for --full. The last line counts what --full adds below the last line shown, the
+        # last run's lines that its own count line counts aside (unless that line is cut away too).
+        view = head if knows else complete
+        if len(view) > cfg.screen_lines or (knows and matches):
+            kept = view[:cfg.screen_lines - 1]
+            marker = bool(notice) + len(concerning)         # the index of the last run's count line, when it has one
+            adds = len(complete) - len(kept) + (hidden[0] - 1 if hidden and marker >= len(kept) else 0)
+            sharing = f', {len(matches)} of them only share{"s" if len(matches) == 1 else ""} a word with {query}' \
+                if matches and len(head) >= len(kept) else ''
+            view = [*kept, f'... {adds} more lines{sharing}: python -m flowguard show {_spelled(query)} --full lists them all']
+        display('\n'.join(view))
     return 0
 
 

@@ -34,7 +34,7 @@ FlowGuard 4.3 (since 99f025e): 0 red; 0.2 s
 
 1. Start the task with `python -m flowguard new-task` and read the brief.
 2. Run the project's ordinary tests and read the FlowGuard block after the runner's summary. Its first line counts each kind. Only `red` fails the run: your change broke a recorded agreement, so fix the code. `before` and `known` were there before the task: after `->` each line says what is known and who decides, and you choose when to raise an open question with the owner. `changed` means a function returns something else for an input a test used: say so if you meant it. `impact` and `not compared` are not failures; `not compared` is unverified, not success. `python -m flowguard show --last` prints every line of the last run with its details.
-3. Use `python -m flowguard show "what it decides"` to inspect a named function, field or agreement before changing another copy.
+3. Use `python -m flowguard show "what it decides"` to inspect a named function, model, field or agreement before changing another copy; a name the map does not know says so.
 
 ## Record an agreement
 

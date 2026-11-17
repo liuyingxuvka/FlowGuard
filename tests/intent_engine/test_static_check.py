@@ -1487,12 +1487,14 @@ def test_show_a_model_field_lists_sql_file_writes_and_counts_the_lines_it_leaves
     assert 'writes Employee.organizationalUnitId prisma/setup.sql:1 <module> (sql:insert)' in lines, text
     assert 'writes Employee.organizationalUnitId src/employee.ts:2 moveEmployee (update)' in lines, text
     # "employeeDeferred" is no red line; the overflow names the command that prints the rest. The field's
-    # declaration comes first, and the five names that only share a word with it are what is left out.
+    # declaration comes first, and the five names that only share a word with it are what is left out, with the line
+    # that says so: six lines that --full adds.
     assert len(lines) == 6 and lines[2] == 'declared Employee.organizationalUnitId: String @map("organizational_unit_id") (prisma/schema.prisma:3)'
-    assert lines[-1] == ('... 5 more lines: python -m flowguard show Employee.organizationalUnitId '
-                         '--full lists them all'), text
+    assert lines[-1] == ('... 6 more lines, 5 of them only share a word with Employee.organizationalUnitId: python -m '
+                         'flowguard show Employee.organizationalUnitId --full lists them all'), text
     code, full = _flowguard(tmp_path, 'show', 'Employee.organizationalUnitId', '--full')
-    assert code == 0 and len(full.splitlines()) == 10 and 'employeeDeferred' in full and 'more lines' not in full, full
+    assert code == 0 and len(full.splitlines()) == 11 and 'employeeDeferred' in full and 'more lines' not in full, full
+    assert full.splitlines()[5] == 'word matches: the 5 lines below only share a word with Employee.organizationalUnitId', full
 
 
 def test_a_pair_operation_stays_in_production_code_and_in_its_own_package(tmp_path):
@@ -2318,8 +2320,9 @@ def test_the_overflow_of_show_spells_a_phrase_query_so_cmd_exe_reads_it_too(tmp_
     })
     code, text = _flowguard(tmp_path, 'show', 'employee unit')
     # single quotes ('employee unit') are no quotes in cmd.exe: the owner's Windows console would split the query
-    assert code == 0 and text.splitlines()[-1].endswith(
-        'more lines: python -m flowguard show "employee unit" --full lists them all'), text
+    assert code == 0 and text.splitlines()[-1] == (
+        '... 5 more lines, 4 of them only share a word with employee unit: python -m flowguard show "employee unit" '
+        '--full lists them all'), text
 
 
 def test_init_writes_a_jest_test_for_a_jest_project_and_keeps_a_foreign_file(tmp_path):

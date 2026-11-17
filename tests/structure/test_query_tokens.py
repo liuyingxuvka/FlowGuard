@@ -58,7 +58,9 @@ def test_show_finds_camel_case_functions_by_words_and_by_kebab_name(tmp_path, ca
         results[query] = capsys.readouterr().out.splitlines()
     assert 'calendar_tools:countWorkingDays calendar_tools.py:1' in results['countWorkingDays'][1], results
     ranked = results['count working days']
-    assert ranked[0] == 'show count working days' and 'calendar_tools:countWorkingDays' in ranked[1], ranked
+    # a phrase names no function: what shares its words follows the line that says so
+    assert ranked[:2] == ['show count working days', 'word matches: the 1 line below only shares a word with count working '
+                          'days'] and 'calendar_tools:countWorkingDays' in ranked[2], ranked
     ranked = results['employee-lifecycle']
     assert any('people:assessEmployeeLifecycle' in line for line in ranked[1:6]), ranked
     assert 'people:assessEmployeeLifecycle people.py:1' in results['assessEmployeeLifecycle'][1], results

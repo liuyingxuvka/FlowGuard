@@ -805,8 +805,11 @@ def test_show_of_a_name_or_path_begins_with_the_known_entries_and_rules_that_con
     at = lines.index(NOTICE)
     assert lines[0].startswith('typescript/backend/src/services/capacity.service.ts:updateCalendarEntry '
                                'backend/src/services/capacity.service.ts:') and lines[at + 1:at + 3] == [ASKED, FIX], lines
-    # Nothing concerns these: no known or rule line (project-requests names another field of that model).
-    assert shown('frobnicateWidgets') == ['show frobnicateWidgets', NOTICE]
+    # Nothing concerns these: no known or rule line (project-requests names another field of that model); the map knows
+    # no such name and says so.
+    assert shown('frobnicateWidgets') == ['show frobnicateWidgets', NOTICE, 'not on the map: no function, class, type, '
+                                          'constant, enum, Prisma model or field, or SQL table or column is named '
+                                          'frobnicateWidgets']
     lines = shown('ProjectRequest.decisionMetadata')
     assert lines[:2] == ['show ProjectRequest.decisionMetadata', NOTICE] and not [
         line for line in lines if line.startswith(('known.', 'rule'))], lines
@@ -1301,10 +1304,13 @@ def test_a_known_entry_s_bare_id_is_that_entry_and_words_find_the_entries_sharin
     assert cli.show(cfg, 'known.percent-scale') == 0
     whole = capsys.readouterr().out.splitlines()
     assert shown('percent-scale') == whole and whole[0] == 'known.percent-scale: act ask, asked on 2026-11-15', whole
-    assert shown('percent scale')[:3] == ['show percent scale', NOTICE, ASKED]
+    # an entry that shares a word is the first word match, after the line that says they only share a word
+    assert shown('percent scale')[:4] == ['show percent scale', NOTICE,
+                                          'word matches: the 2 lines below only share a word with percent scale', ASKED]
     # After the exact matches: here the intent rule that decides 'iso weeks in a year'.
-    assert shown('ISO weeks in a year')[:4] == ['show ISO weeks in a year', NOTICE, RULE + ' A year has 53 ISO weeks when its '
-                                                '28 December falls in week 53.', LEAVE]
+    lines = shown('ISO weeks in a year')
+    assert lines[:3] == ['show ISO weeks in a year', NOTICE, RULE + ' A year has 53 ISO weeks when its '
+                         '28 December falls in week 53.'] and lines[3].startswith('word matches: the ') and lines[4] == LEAVE, lines
     # Words that no entry's why or ask holds list none.
     assert not [line for line in shown('widget colour') if line.startswith('known.')]
 

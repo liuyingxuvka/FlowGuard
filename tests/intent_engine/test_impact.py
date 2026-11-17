@@ -167,11 +167,14 @@ def test_show_of_a_name_starts_with_what_the_map_read_about_it(tmp_path):
                                         'column jobs.state NVARCHAR(20) (db/setup.sql:4)', 'values Job.state: NEW | DONE (CHECK db/setup.sql:4)'], text
     code, text = _flowguard(tmp_path, 'show', 'MAX_SHARE')
     lines = text.splitlines()
-    # The map knows the name itself, so functions that merely share a word with it wait for --full, which it says.
+    # The map knows the name itself, so functions that merely share a word with it wait for --full, which it says; the
+    # count is what --full adds: the line that says they only share a word, and the one function.
     assert code == 0 and lines[2:] == ['const MAX_SHARE = 2 (app/limits.ts:1, app/schemas.ts:1)',
-                                       '... 1 more lines: python -m flowguard show MAX_SHARE --full lists them all'], text
+                                       '... 2 more lines, 1 of them only shares a word with MAX_SHARE: python -m flowguard '
+                                       'show MAX_SHARE --full lists them all'], text
     code, text = _flowguard(tmp_path, 'show', 'MAX_SHARE', '--full')
-    assert code == 0 and 'shareLimit' in text and 'more lines' not in text, text
+    assert code == 0 and text.splitlines()[3:] == ['word matches: the 1 line below only shares a word with MAX_SHARE',
+                                                   'typescript/app/limits.ts:shareLimit app/limits.ts:3'], text
     code, text = _flowguard(tmp_path, 'show', 'JobKind')
     assert code == 0 and text.splitlines()[2:] == ['values JobKind: A | B (app/limits.ts:2)'], text
 
@@ -1357,7 +1360,8 @@ model Assignment {
     lines = shown('AssignmentStatus')
     assert lines[2:] == ['values AssignmentStatus: DRAFT | ACTIVE | CLOSED (enum AssignmentStatus '
                          'backend/prisma/schema.sqlite.prisma:6, backend/prisma/schema.sqlserver.prisma:6, schemas not in use)',
-                         '... 1 more lines: python -m flowguard show AssignmentStatus --full lists them all'], lines
+                         '... 2 more lines, 1 of them only shares a word with AssignmentStatus: python -m flowguard show '
+                         'AssignmentStatus --full lists them all'], lines
     assert 'typescript/backend/src/services/report.service.ts:isIncludedAssignmentStatus backend/src/services/report.service.ts:1' \
         in shown('AssignmentStatus', '--full')
     assert [line for line in shown('CentralOrgUnitType') if line.startswith('values ')] == [
@@ -1425,7 +1429,8 @@ def test_show_of_a_label_table_prints_its_keys_and_the_finding_its_family_has(tm
         'derive these tables from one source, or align labels and add missing keys; if the differences are meant (abbreviations or '
         'another purpose), python -m flowguard known add labels:frontend/src/components/employee-utilization/UtilizationToolbar.tsx:GRANULARITY_OPTIONS '
         '--act leave --why TEXT records that',
-        '... 1 more lines: python -m flowguard show GRANULARITY_OPTIONS --full lists them all'], lines
+        '... 2 more lines, 1 of them only shares a word with GRANULARITY_OPTIONS: python -m flowguard show '
+        'GRANULARITY_OPTIONS --full lists them all'], lines
     assert any(line.endswith('translateEditsToNewGranularity frontend/src/components/employee-utilization/EmployeeUtilizationView.tsx:1')
                for line in shown('GRANULARITY_OPTIONS', '--full'))
     # the lookup table that lacks a key gets its family's finding too; a test's table of that name is left out
@@ -1484,3 +1489,320 @@ def test_show_of_a_ts_function_or_anchor_says_once_that_the_map_reads_no_decisio
     code, text = _flowguard(tmp_path, 'show', 'app.policy:describe')
     assert code == 0 and text.count('not searched') == 1 and \
         'copies not searched: no readable decision sites -> bind the real decision function' in text.splitlines(), text
+
+
+# Planning Tool's capacity code (2026-11, K3), as backend/src/utils/capacity-conversion.ts, capacity.service.ts,
+# employee.service.ts and their routes spell it: an exported function its own file calls, object-literal services whose
+# methods a route calls as `capacityService.updateCalendarEntry(...)` (a call matched by the holder's name, not
+# resolved), a method that writes through a nested `persist`, a test file of callbacks, and the three Prisma schemas,
+# the SQL setup script and the migrations folder that declare the model and its table.
+PT_CAPACITY_MODEL = """model CapacityCalendarEntry {
+  id         String   @id @default(uuid())
+  employeeId String   @map("employee_id")
+  startDate  DateTime @map("start_date")
+  value      Decimal  @db.Decimal(10, 4)
+  unitType   String   @map("unit_type")
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  @@map("capacity_calendar_entries")
+}
+
+model Employee {
+  id                   String  @id
+  name                 String
+  organizationalUnitId String? @map("organizational_unit_id")
+  fteShare             Decimal @map("fte_share")
+  entries              CapacityCalendarEntry[]
+  @@map("employees")
+}
+
+model CentralEmployee {
+  id    String @id
+  name  String
+  email String
+  @@map("central_employees")
+}
+
+model Assignment {
+  id       String  @id
+  fteShare Decimal @map("fte_share")
+  @@map("assignments")
+}
+
+model AbsencePhase {
+  id       String  @id
+  fteShare Decimal @map("fte_share")
+  @@map("absence_phases")
+}
+"""
+PT_CAPACITY_TABLE = """CREATE TABLE capacity_calendar_entries (
+  id NVARCHAR(36) NOT NULL PRIMARY KEY,
+  employee_id NVARCHAR(36) NOT NULL,
+  start_date DATETIME2 NOT NULL,
+  value DECIMAL(10,4) NOT NULL,
+  unit_type NVARCHAR(20) NOT NULL
+);
+"""
+PT_CAPACITY = {
+    'backend/prisma/schema.prisma': 'datasource db {\n  provider = "sqlserver"\n  url      = env("DATABASE_URL")\n}\n\n' + PT_CAPACITY_MODEL,
+    'backend/prisma/schema.sqlite.prisma': 'datasource db {\n  provider = "sqlite"\n  url      = "file:./dev.db"\n}\n\n' + PT_CAPACITY_MODEL,
+    'backend/prisma/schema.sqlserver.prisma': 'datasource db {\n  provider = "sqlserver"\n  url      = env("DATABASE_URL")\n}\n\n' + PT_CAPACITY_MODEL,
+    'backend/prisma/azure-sql-setup.sql': PT_CAPACITY_TABLE,
+    'backend/prisma/migrations/20260317073846_init/migration.sql': PT_CAPACITY_TABLE.replace(',\n  unit_type NVARCHAR(20) NOT NULL', ''),
+    'backend/prisma/migrations/20260427120000_add_unit_type/migration.sql':
+        'ALTER TABLE capacity_calendar_entries ADD unit_type NVARCHAR(20) NOT NULL;\n',
+    'backend/src/utils/capacity-conversion.ts': """export const DAILY_BASELINE_HOURS = 8;
+
+export function convertHoursToPercent(hours: number, baselineHours: number): number {
+  return (hours / baselineHours) * 100;
+}
+
+/** Hours of a percent share of the baseline. */
+export function convertPercentToHours(percent: number, baselineHours: number, precision = 4): number {
+  return Number(((percent / 100) * baselineHours).toFixed(precision));
+}
+
+export function convertCapacityValue(value: number, unit: string): number {
+  return unit === 'PERCENT' ? convertPercentToHours(value, DAILY_BASELINE_HOURS) : value;
+}
+""",
+    'backend/src/services/capacity.service.ts': """export const capacityService = {
+  async updateCalendarEntry(prisma: any, entryId: string, input: any) {
+    const entry = await prisma.capacityCalendarEntry.findUnique({ where: { id: entryId } });
+    return prisma.capacityCalendarEntry.update({ where: { id: entry.id }, data: { value: input.value, unitType: input.unitType } });
+  },
+  async listCalendarEntries(prisma: any, employeeId: string) {
+    return prisma.capacityCalendarEntry.findMany({ where: { employeeId } });
+  },
+};
+""",
+    'backend/src/services/employee.service.ts': """export const employeeService = {
+  async update(prisma: any, id: string, input: any) {
+    const persist = async () => prisma.employee.update({
+      where: { id }, data: { name: input.name, organizationalUnitId: input.unitId, fteShare: input.share },
+    });
+    await persist();
+    return prisma.centralEmployee.update({ where: { id }, data: { name: input.name, email: input.email } });
+  },
+};
+""",
+    'backend/src/services/central-employee.service.ts': """export const centralEmployeeService = {
+  async update(prisma: any, id: string, input: any) {
+    return prisma.centralEmployee.update({ where: { id }, data: { email: input.email } });
+  },
+};
+""",
+    'backend/src/services/absence.service.ts': 'export async function update(prisma: any, id: string) { return id; }\n',
+    'backend/src/services/allocation.service.ts': 'export async function update(prisma: any, id: string) { return id; }\n',
+    'backend/src/api/routes/capacity.routes.ts': """import { capacityService } from '../../services/capacity.service';
+
+export async function putCalendarEntry(prisma: any, request: any) {
+  return capacityService.updateCalendarEntry(prisma, request.params.id, request.body);
+}
+""",
+    'frontend/src/components/employee-utilization/UtilizationTable.tsx': """export function percentToHours(percent: number): number {
+  return percent * 0.4;
+}
+""",
+    'frontend/tests/unit/UtilizationTable.summary-hours.test.tsx': """import { percentToHours } from '../../src/components/employee-utilization/UtilizationTable';
+
+describe('summary hours', () => {
+  it('converts a percent to hours', () => {
+    expect(percentToHours(50)).toBe(20);
+  });
+});
+""",
+    'frontend/src/components/import/ImportResultStep.tsx': """export function CountCard(props: { count: number }) {
+  return props.count;
+}
+export function countLeaves(rows: number[]): number {
+  return rows.length;
+}
+""",
+}
+
+
+def _shown_lines(root, *arguments):
+    code, text = _flowguard(root, 'show', *arguments)
+    assert code == 0, text
+    return text.splitlines()
+
+
+def test_show_of_an_exact_function_or_object_method_name_prints_its_node_view_before_the_word_matches(tmp_path):
+    """Planning Tool (5.0 re-review, pt-rereview-5 and 20): `show convertPercentToHours` printed the function's id among
+    35 functions that share a word with it, test callbacks included, and no signature; `show
+    capacityService.updateCalendarEntry` 36 such lines and `... 3375 more lines`; the node view said nothing of what a
+    function writes or who calls it. A name that names one function, or a few, now prints each one's node view first:
+    its id and place, signature and doc, the fields it writes (its nested functions' too) and the functions that call
+    it through a call the map resolved, a count and the first three; the names that only share a word wait for --full.
+    `show module:qual` prints the same node lines, with no empty line for a missing doc (the map reads no TS doc
+    comment)."""
+    _commit(tmp_path, PT_CAPACITY)
+    conversion = 'backend/src/utils/capacity-conversion.ts'
+    lines = _shown_lines(tmp_path, 'convertPercentToHours')
+    assert lines[2:5] == [f'typescript/{conversion}:convertPercentToHours {conversion}:8',
+                          'function convertPercentToHours(percent: number, baselineHours: number, precision = 4): number ',
+                          f'called by 1 function through a resolved call: convertCapacityValue ({conversion}:12)'], lines
+    # the functions and test callbacks that share a word follow in --full, after the line that says so; the count is
+    # what --full adds
+    full = _shown_lines(tmp_path, 'convertPercentToHours', '--full')
+    label = full.index('word matches: the 5 lines below only share a word with convertPercentToHours')
+    assert full[:label] == lines[:5] and len(full) == label + 6, full
+    test = 'tsx/frontend/tests/unit/UtilizationTable.summary-hours.test.tsx'
+    assert {line.partition(' ')[0] for line in full[label + 1:]} == {
+        f'typescript/{conversion}:convertHoursToPercent', f'typescript/{conversion}:convertCapacityValue',
+        'tsx/frontend/src/components/employee-utilization/UtilizationTable.tsx:percentToHours', f'{test}:<anonymous@3,27>',
+        f'{test}:<anonymous@3,27>.<anonymous@4,37>'}, full
+    assert lines[5:] == ['... 6 more lines, 5 of them only share a word with convertPercentToHours: python -m flowguard '
+                         'show convertPercentToHours --full lists them all'], lines
+    # object.method: the method of that object, what it writes; a route's `capacityService.updateCalendarEntry(...)` is
+    # matched by the holder's name only, so no caller is counted
+    service = 'backend/src/services/capacity.service.ts'
+    lines = _shown_lines(tmp_path, 'capacityService.updateCalendarEntry')
+    assert lines[2:6] == [f'typescript/{service}:updateCalendarEntry {service}:2',
+                          'async updateCalendarEntry(prisma: any, entryId: string, input: any) ',
+                          'writes 2 fields: CapacityCalendarEntry.unitType, CapacityCalendarEntry.value (python -m '
+                          'flowguard show MODEL.FIELD lists the writes and reads of one)',
+                          'called by no function through a call the map resolved (a call matched by its name alone is '
+                          'not counted)'], lines
+    assert lines[6].startswith('... ') and 'only share a word with capacityService.updateCalendarEntry' in lines[6], lines
+    # the writes of a nested `persist` are the method's; past three fields the line counts them and --full names all
+    employee = 'backend/src/services/employee.service.ts'
+    lines = _shown_lines(tmp_path, 'employeeService.update')
+    assert lines[2:4] == [f'typescript/{employee}:update {employee}:2', 'async update(prisma: any, id: string, input: any) '], lines
+    assert lines[4] == ('writes 5 fields: CentralEmployee.email, CentralEmployee.name, Employee.fteShare and 2 more (python -m '
+                        f'flowguard show MODEL.FIELD lists the writes and reads of one; python -m flowguard show '
+                        f'typescript/{employee}:update --full names them all)'), lines
+    assert not [line for line in lines if 'central-employee.service.ts:update ' in line], lines
+    node = _shown_lines(tmp_path, f'typescript/{employee}:update', '--full')
+    assert node[:3] == [f'typescript/{employee}:update {employee}:2', 'async update(prisma: any, id: string, input: any) ',
+                        'writes 5 fields: CentralEmployee.email, CentralEmployee.name, Employee.fteShare, Employee.name, '
+                        'Employee.organizationalUnitId (python -m flowguard show MODEL.FIELD lists the writes and reads of one)'], node
+    assert node[4].startswith('Map: ') and '' not in node, node
+    # a generic name that names more functions than the views hold lists them, and its word matches wait too
+    lines = _shown_lines(tmp_path, 'update')
+    assert lines[2:] == [f'typescript/backend/src/services/{name}.service.ts:update backend/src/services/{name}.service.ts:{line}'
+                         for name, line in (('absence', 1), ('allocation', 1), ('central-employee', 2), ('employee', 2))] + [
+        '... 3 more lines, 2 of them only share a word with update: python -m flowguard show update --full lists them all'], lines
+
+
+def test_show_of_a_prisma_model_or_table_name_prints_its_declarations_and_counts_its_writes_and_reads(tmp_path):
+    """Planning Tool (5.0 re-review, pt-rereview-6): `show CapacityCalendarEntry` and `show capacity_calendar_entries`
+    printed only functions that share a word with them (updateCalendarEntry, normalizeEntryEndDate, an integration
+    test's ensureCatalogEntry): no declaration, no @@map table, no write or read, though `show
+    CapacityCalendarEntry.valeu` listed the model's reads. A model or table name now prints one line per Prisma schema
+    that declares it, with its @@map table and its number of fields, one per SQL description that has the table (a
+    migrations folder as its migrations leave it), and a line that counts the writes and reads and names `show
+    MODEL.FIELD`; the names that only share a word wait for --full."""
+    _commit(tmp_path, PT_CAPACITY)
+    models = [f'model CapacityCalendarEntry (table capacity_calendar_entries): 6 fields (backend/prisma/{schema}:6)'
+              for schema in ('schema.prisma', 'schema.sqlite.prisma', 'schema.sqlserver.prisma')]
+    tables = ['table capacity_calendar_entries: 5 columns (backend/prisma/azure-sql-setup.sql:1)',
+              'table capacity_calendar_entries: 5 columns (backend/prisma/migrations/ as its migrations leave it, created at '
+              'backend/prisma/migrations/20260317073846_init/migration.sql:1)']
+    counts = ('CapacityCalendarEntry on the map: 1 write in 1 function, 2 reads in 2 functions: python -m flowguard show '
+              'CapacityCalendarEntry.FIELD lists the writes and reads of one')
+    for query in ('CapacityCalendarEntry', 'capacity_calendar_entries'):
+        lines = _shown_lines(tmp_path, query)
+        assert lines[2:] == [*models, *tables, counts, f'... 7 more lines, 6 of them only share a word with {query}: '
+                             f'python -m flowguard show {query} --full lists them all'], lines
+        full = _shown_lines(tmp_path, query, '--full')
+        assert full[:8] == lines[:8] and full[8] == f'word matches: the 6 lines below only share a word with {query}', full
+    # a model without @@map is its own table; a name that is no model or table gets no model line
+    lines = _shown_lines(tmp_path, 'Employee')
+    assert lines[2:5] == [f'model Employee (table employees): 5 fields (backend/prisma/{schema}:16)'
+                          for schema in ('schema.prisma', 'schema.sqlite.prisma', 'schema.sqlserver.prisma')], lines
+    assert lines[5] == ('Employee on the map: 1 write in 1 function, 0 reads in 0 functions: python -m flowguard show '
+                        'Employee.FIELD lists the writes and reads of one'), lines
+    assert not [line for line in _shown_lines(tmp_path, 'convertCapacityValue') if line.startswith(('model ', 'table '))]
+
+
+def test_show_of_a_bare_field_name_names_the_prisma_models_that_declare_it(tmp_path):
+    """Planning Tool (5.0 re-review, pt-rereview-7): `show fteShare` printed about 37 functions that share a word with it
+    and no fact, though the Prisma models Assignment, LendingAssignment and AbsencePhase declare fteShare. A bare field
+    name, or its `@map` column, now prints one line naming each model's field as its own view takes it."""
+    _commit(tmp_path, {**PT_CAPACITY, 'frontend/src/utils/absence-phase-units.ts':
+                       'export function displayValueToFteShare(value: number): number {\n  return value / 100;\n}\n'})
+    line = ('Prisma models with a field {}: AbsencePhase.fteShare, Assignment.fteShare, Employee.fteShare (python -m '
+            'flowguard show MODEL.FIELD lists the facts of one)')
+    for query in ('fteShare', 'fte_share'):
+        lines = _shown_lines(tmp_path, query)
+        assert lines[2:] == [line.format(query), f'... 2 more lines, 1 of them only shares a word with {query}: python -m '
+                             f'flowguard show {query} --full lists them all'], lines
+    assert not [line for line in _shown_lines(tmp_path, 'unitTypes') if line.startswith('Prisma models with')]
+
+
+def test_show_says_in_one_line_when_the_map_knows_no_such_name_and_names_the_nearest_field(tmp_path):
+    """Planning Tool (5.0 re-review, pt-rereview-19 and 4): `show zebraQuokka` printed the header and the map notice
+    only, `show frobnicate_widget_count` 38 count functions as if they were matches, and `show
+    CapacityCalendarEntry.valeu` named no near field. A name the map does not know says so in one line, the names that
+    only share a word follow a line that says so, and a misspelt field of a known model names that model's nearest
+    field. A Python module constant, a TS interface, a SQL table or column and a phrase are no unknown names."""
+    _commit(tmp_path, {**PT_CAPACITY, 'tools/limits.py': 'MAX_IMPORT_ROWS = 500\n',
+                       'backend/src/types/employee.types.ts': 'export interface UpdateEmployeeInput {\n  name: string;\n}\n',
+                       'backend/prisma/report-views.sql': 'CREATE TABLE report_rows (\n  id INT,\n  booked_hours DECIMAL(10,2)\n);\n'})
+    unknown = 'not on the map: no function, class, type, constant, enum, Prisma model or field, or SQL table or column is named {}'
+    for query in ('zebraQuokka', 'zebra.quokka'):
+        assert _shown_lines(tmp_path, query)[2:] == [unknown.format(query)], query
+    lines = _shown_lines(tmp_path, 'frobnicate_widget_count')
+    assert lines[2:] == [unknown.format('frobnicate_widget_count'),
+                         'word matches: the 2 lines below only share a word with frobnicate_widget_count',
+                         'tsx/frontend/src/components/import/ImportResultStep.tsx:CountCard frontend/src/components/import/ImportResultStep.tsx:1',
+                         'tsx/frontend/src/components/import/ImportResultStep.tsx:countLeaves frontend/src/components/import/ImportResultStep.tsx:4'], lines
+    assert _shown_lines(tmp_path, 'CapacityCalendarEntry.valeu')[2] == (
+        'not on the map: Prisma model CapacityCalendarEntry has no field valeu, the nearest field is CapacityCalendarEntry.value')
+    assert _shown_lines(tmp_path, 'capacity_calendar_entries.unit_tpye')[2] == (
+        'not on the map: Prisma model CapacityCalendarEntry (table capacity_calendar_entries) and database table '
+        'capacity_calendar_entries have no field or column unit_tpye, the nearest is capacity_calendar_entries.unit_type')
+    # a field far from every field of the model names none
+    assert _shown_lines(tmp_path, 'CapacityCalendarEntry.approvedBy')[2] == (
+        'not on the map: Prisma model CapacityCalendarEntry has no field approvedBy')
+    for query in ('MAX_IMPORT_ROWS', 'UpdateEmployeeInput', 'booked_hours', 'report_rows', 'percent hours'):
+        assert not [line for line in _shown_lines(tmp_path, query) if line.startswith('not on the map')], query
+
+
+def test_the_count_show_gives_without_full_is_what_full_adds(tmp_path):
+    """Planning Tool (5.0 re-review, pt-rereview-3): `show CapacityCalendarEntry.value` ended `... 67 more lines`, but
+    --full printed 1048 lines more: the count left out the names that wait for --full and counted their own line as
+    one. The last line now counts every line --full adds below the last line shown, the line that says the rest only
+    share a word included; the last run's lines that their own count line counts are not counted again, unless that
+    line is cut away too."""
+    fields = ['name', 'email', 'firstName', 'surname', 'startDate', 'endDate', 'resourceTypeId']
+    data = ', '.join(f'{field}: input.{field}' for field in fields)
+    _commit(tmp_path, {
+        'pyproject.toml': '[tool.flowguard]\nscreen_lines = 6\n',
+        'backend/prisma/schema.prisma': 'datasource db {\n  provider = "sqlserver"\n  url      = env("DATABASE_URL")\n}\n\n'
+                                        'model Employee {\n  id String @id\n' + ''.join(f'  {field} String\n' for field in fields)
+                                        + '  @@map("employees")\n}\n',
+        # three files write each field without a writers agreement: seven last-run lines at employeeService.update
+        'backend/src/services/employee.service.ts': ('export const employeeService = {\n  async update(prisma: any, id: string, '
+                                                     f'input: any) {{\n    return prisma.employee.update({{ where: {{ id }}, data: '
+                                                     f'{{ {data} }} }});\n  }},\n}};\n'),
+        'backend/src/services/import.service.ts': ('export async function importEmployees(prisma: any, input: any) {\n  return '
+                                                   f'prisma.employee.create({{ data: {{ id: input.id, {data} }} }});\n}}\n'),
+        'backend/src/services/sync.service.ts': ('export async function syncEmployees(prisma: any, input: any) {\n  return '
+                                                 f'prisma.employee.update({{ where: {{ id: input.id }}, data: {{ {data} }} }});\n}}\n'),
+        'backend/src/services/employee-update.helpers.ts': 'export function updateLabel(id: string) {\n  return id;\n}\n',
+    })
+
+    def counted(query):
+        lines, full = _shown_lines(tmp_path, query), _shown_lines(tmp_path, query, '--full')
+        return lines, full, int(lines[-1].split()[1])
+    # facts cut by the screen, and the names that only share a word, which wait for --full
+    lines, full, count = counted('Employee.email')
+    assert len(lines) == 6 and count == len(full) - 5 == 10, (lines, full)
+    assert full[-3] == 'word matches: the 2 lines below only share a word with Employee.email', full
+    assert lines[-1] == ('... 10 more lines, 2 of them only share a word with Employee.email: python -m flowguard show '
+                         'Employee.email --full lists them all'), lines
+    # the last run's count line cut away: --full adds its lines too
+    code, text = _flowguard(tmp_path, 'check', '--static', '--all')
+    assert code == 0 and 'no writers agreement for Employee.email at employee.service.ts:update' in text, text
+    lines, full, count = counted('employeeService.update')
+    assert lines[2:5] == [f'before (last run): no writers agreement for Employee.{field} at '
+                          'backend/src/services/employee.service.ts:update was broken at task start -> leave it unless your '
+                          'task is about it' for field in ('email', 'endDate', 'firstName')], lines
+    assert count == len(full) - 5 == 12, (lines, full)
+    # shown, it counts its own lines: the last line counts the rest
+    (tmp_path / 'pyproject.toml').write_text('[tool.flowguard]\nscreen_lines = 9\n', encoding='utf-8')
+    lines, full, count = counted('employeeService.update')
+    assert lines[7] == ('... 2 more lines of the last run there: python -m flowguard show employeeService.update --full '
+                        'lists them all') and count == len(full) - 8 - 2 + 1 == 8, (lines, full)

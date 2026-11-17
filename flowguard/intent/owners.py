@@ -2403,6 +2403,93 @@ def declaration_lines(graph, name):
     return lines
 
 
+def model_lines(graph, name):
+    """`show MODEL` and `show table` (5.0, Planning Tool's `show CapacityCalendarEntry` printed only functions that
+    share a word with it): a Prisma model of that name or `@@map` table, or a SQL table of that name, as one line per
+    Prisma schema that declares it, with its `@@map` table and its number of fields (`model CapacityCalendarEntry
+    (table capacity_calendar_entries): 20 fields (backend/prisma/schema.prisma:984)`), one line per SQL description
+    that has the table (`sql.describe`: a file, or a Prisma migrations folder as its migrations leave the table) with
+    its number of columns, then one line that counts its writes (`MapHandle.writes` rows of the model or table, one
+    per write call) and its reads (`MapHandle.queries` of the model, `MapHandle.sql_reads` of its tables) and names
+    the view that lists a field's: `show MODEL.FIELD`. [] for any other name."""
+    from ..structure.readers.sql import describe
+    folded = name.casefold()
+    lines, models, tables = [], set(), set()
+    for schema in graph.schemas():
+        for item in schema.get('models', ()) if schema['kind'] == 'prisma' else ():
+            table = item.get('table') or item['name']
+            if item['name'] == name or table.casefold() == folded:
+                models.add(item['name'])
+                tables.add(table.casefold())
+                mapped = f' (table {table})' if table != item['name'] else ''
+                lines.append(f'model {item["name"]}{mapped}: {_counted(len(item.get("fields", ())), "field")} '
+                             f'({schema["file"]}:{item["line"]})')
+    tables.add(folded)
+    for description in describe(graph.schemas()):
+        for key, table in sorted(description['tables'].items()):
+            if key in tables:
+                columns = 'columns the CREATE TABLE ... AS SELECT does not spell' if table['columns'] is None \
+                    else _counted(len(table['columns']), 'column')
+                where = f'{table["file"]}:{table["line"]}'
+                if description['description'].endswith('/'):        # a migrations folder, read as one
+                    where = f'{description["description"]} as its migrations leave it, created at {where}'
+                lines.append(f'table {table["name"]}: {columns} ({where})')
+    if not lines:
+        return []
+    written = [row for row in graph.writes(name) if row.get('model') in models
+               or str(row.get('table') or '').casefold() in tables]
+    calls = {(row['file'], row['call_line'], row['function'], row['kind']) for row in written}
+    reads = [*(row for model in sorted(models) for row in graph.queries(model)),
+             *(row for table in sorted(tables) for row in graph.sql_reads(table))]
+    shown = sorted(models)[0] if models else name
+    readers = {(row['file'], row['function']) for row in reads}
+    lines.append(f'{shown} on the map: {_counted(len(calls), "write")} in '
+                 f'{_counted(len({(row["file"], row["function"]) for row in written}), "function")}, '
+                 f'{_counted(len(reads), "read")} in {_counted(len(readers), "function")}: python -m flowguard show '
+                 f'{shown}.{"FIELD" if models else "COLUMN"} lists the writes and reads of one')
+    return lines
+
+
+def field_models_line(graph, name):
+    """`show FIELD` of a bare field name (5.0, Planning Tool's `show fteShare` printed only functions that share a word
+    with it): one line naming the Prisma models that declare a field of that name or `@map` column, each as the
+    `Model.field` its own view takes (`Prisma models with a field fteShare: AbsencePhase.fteShare, Assignment.fteShare
+    (python -m flowguard show MODEL.FIELD lists the facts of one)`); '' when none does."""
+    folded = name.casefold()
+    found = sorted({f'{item["name"]}.{column["name"]}' for schema in graph.schemas() if schema['kind'] == 'prisma'
+                    for item in schema.get('models', ()) for column in item.get('fields', ())
+                    if column['name'] == name or (column.get('column') or '').casefold() == folded})
+    return (f'Prisma models with a field {name}: {", ".join(found)} (python -m flowguard show MODEL.FIELD lists the '
+            'facts of one)') if found else ''
+
+
+NEAREST = 0.75          # difflib ratio from which a field of the model is named as the one a misspelt query meant
+
+
+def nearest_field(graph, model, field):
+    """The field of `model` nearest to `field`, a name `field_absent` found the model lacks: among the fields of its
+    Prisma models (by name or `@@map` table; a field's `@map` column too) and the columns of its SQL tables, the
+    closest by `difflib` from a ratio of NEAREST, compared casefolded (`CapacityCalendarEntry.valeu` gives `value`);
+    '' when none is that close."""
+    import difflib
+    from ..structure.readers.sql import describe
+    folded, names, tables = model.casefold(), {}, {model.casefold()}
+    for schema in graph.schemas():
+        for item in schema.get('models', ()) if schema['kind'] == 'prisma' else ():
+            if item['name'] == model or (item.get('table') or '').casefold() == folded:
+                tables.add((item.get('table') or item['name']).casefold())
+                for column in item.get('fields', ()):
+                    for spelled in (column['name'], column.get('column') or column['name']):
+                        names.setdefault(spelled.casefold(), spelled)
+    for description in describe(graph.schemas()):
+        for key, table in description['tables'].items():
+            if key in tables and table['columns']:
+                for spelled in table['columns'].values():
+                    names.setdefault(spelled.casefold(), spelled)
+    close = difflib.get_close_matches(field.casefold(), sorted(names), n=1, cutoff=NEAREST)
+    return names[close[0]] if close else ''
+
+
 ZOD_BOUNDS = {'min': ('low', True), 'gte': ('low', True), 'gt': ('low', False), 'max': ('high', True),
               'lte': ('high', True), 'lt': ('high', False)}
 ZOD_SIGNS = {'positive': ('low', '0', False), 'nonnegative': ('low', '0', True), 'negative': ('high', '0', False),
