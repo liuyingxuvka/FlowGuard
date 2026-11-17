@@ -58,11 +58,13 @@ operation and staging location together when handing work between processes.
 
 ## Make the test report easier to act on
 
-In one run of 426 application checks, pytest reported 145.79 s and FlowGuard
-reported 91.7 s. FlowGuard summarized 29 impact findings and 182 unverified
-comparisons. This is one observed run with a mixed Qt and service suite, not a
-benchmark. The branch was undergoing a substantial integration, so volume and
-cost can vary with the change.
+Two local runs illustrate the timing. An early run of 426 checks took
+145.79 s, including 91.7 s reported by FlowGuard. After the import regression
+was corrected, 452 checks passed in 160.77 s. FlowGuard reported 98.1 s, zero
+red findings, 30 impact findings and 201 unavailable comparisons. These are
+observations from two different revisions of a mixed Qt and service suite.
+A source-index and result-comparison timing breakdown would make a controlled
+comparison easier to design.
 
 Same-named private helpers in different modules accounted for some of the first
 impact lines. For example, independent report section helpers with different
