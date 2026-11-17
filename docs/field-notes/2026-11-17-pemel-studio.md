@@ -113,6 +113,15 @@ bounded evidence and leave the test in charge of that behavior. Use stable
 command IDs and state checks so a translated label or different desktop DPI
 does not create a false code-change warning.
 
+The same approach covers two later failures. A simulation saved as stopped
+still looked active to the workspace index because its accepted state set
+lacked `stopped`. A zoomed chart also showed a negative measurement that
+the overview masked because its bounded read skipped the observation mask.
+The corrected regressions compare the stored terminal state after reopening
+and require the same validity mask through overview and zoom. FlowGuard
+could link those assertions to their expected consumers and show the
+specific transition or read path that disagrees.
+
 The development value here is having one place to find confirmed decisions and
 check their actual writers during ordinary tests. The two reproduced fixes above
 would make that workflow more reliable before adding wider review features.
