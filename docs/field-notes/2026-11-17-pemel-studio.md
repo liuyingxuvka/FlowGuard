@@ -251,3 +251,21 @@ check for modal dialogs and asynchronous document previews. Start with an
 explicit opt-in helper and a synthetic paired test. The report can flag a
 confirmed write after an identity change without needing paths, input bytes,
 native event replay, or project contents.
+
+## Make moved writes and unsupported observations easier to read
+
+An affected run passed 276 pytest cases. FlowGuard reported zero red
+agreements, five impacts and 42 unavailable comparisons in 24.2 seconds.
+Two first impacts covered the same default-model update: writing the fields
+moved from a public function into its new private helper. The linked readers
+and other writers were useful to review. A single paired finding could show
+both functions, the unchanged call path, and the additional callers now
+sharing the helper. Retain the independent writer findings when the call
+path cannot be established or the mutation moved across a condition.
+
+The same run showed "calibration closure is unsupported" against ordinary
+Qt dialog constructors. The observer means a Python function with free
+variables in `intent/sites.py`. The wording confused that instrumentation
+step with the application's own calibration. Describe the missing
+observation in Python terms, and make the affected test and field easy
+to identify. The ordinary pytest outcome can still be shown alongside it.
