@@ -3,7 +3,7 @@
 Observed on upstream `4807f259e07285c2a53afcd11a931a551641929e`. The project is a
 Python/PySide6 application with a nested `pyproject.toml`. It runs ordinary pytest
 with `-p flowguard.intent.plugin`. These notes include two failures reproduced
-in a small synthetic repository and one observation from an application run.
+in a small synthetic repository and observations from application runs.
 
 ## High priority: baseline comparisons respect excluded files
 
@@ -116,3 +116,21 @@ does not create a false code-change warning.
 The development value here is having one place to find confirmed decisions and
 check their actual writers during ordinary tests. The two reproduced fixes above
 would make that workflow more reliable before adding wider review features.
+
+## Keep application test failure visible beside agreement results
+
+The subsequent simulation regression returned exit 1 with 12 failed and 246
+passed tests. Its FlowGuard lines reported zero reds, 38 impacts and 189
+unavailable comparisons. Six of the failures were on real Qt key delivery:
+buttons and the context menu dispatched, while the keyboard step did not
+reach the expected callback. Waiting for the active window and the focused
+tree, and asserting `QShortcut.activated` separately from the command
+dispatch, resolved those six failures in the next run.
+
+When a FlowGuard summary is read on its own, preserve the scope of both
+outcomes. Store the ordinary pytest exit state and completed test counts
+beside the agreement counts, especially for interrupted and early-stop runs.
+Link failed test IDs even when the agreement count is zero. For desktop
+tests, named evidence at the input-delivery and command-admission boundaries
+makes the same observation useful for refused commands: a key can be
+delivered, the command can be correctly refused, and no task should start.
