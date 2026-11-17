@@ -1,0 +1,332 @@
+# Moving from FlowGuard 4.3 to 5.0
+
+5.0 is a major release. FlowGuard 4.3 announced a set of commands, options, intent API names, comment spellings and ledger sections for removal in 5.0. They are removed now, and each use is refused with its replacement: a removed command or option exits 2 with one line on stderr, and a removed intent name, comment spelling or ledger section is a red line whose step says what to write instead. Nothing of them is read with its old meaning. The work prepared as 4.4, documents that follow the code, was never released; it ships here. Everything 4.3 did not announce keeps its meaning and bytes: 4.3 comments, intent rules, literal rows, sources, flows (nodes, edges, relations), the ledger's handler entries, `rules.toml`, `known.toml` and the owner-word archive, its glossary and adoption records included.
+
+FlowGuard is the agent's tool. Its lines say what is known and who decides; none of them tells the agent to ask or tell the owner, and the agent chooses when to raise a question. An old problem stays out of an ordinary run until a change touches its place, and stays visible in the brief's counts, in `python -m flowguard show NAME` and in `python -m flowguard check --all`.
+
+## Upgrade steps
+
+1. Install 5.0 from this repository's tag; the PyPI project named `flowguard` is a different project: `python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@v5.0.0"`. Add `[languages]` after `flowguard` if the project reads TS/JS, Prisma or SQL, as before.
+2. Run `python -m flowguard init`. It rewrites the FlowGuard block of `AGENTS.md`, and of `CLAUDE.md` when it holds one, in the file's own encoding (UTF-8, or UTF-16 or UTF-8 with a BOM). In an npm project it also rewrites `flowguard.static.test.mjs` (or `.js`) and `flowguard.vitest.mjs`, so the project's tests run as usual on a machine without FlowGuard. Until then the brief says `AGENTS.md holds a FlowGuard rules block that differs from the one FlowGuard 5.0 writes: python -m flowguard init rewrites it`.
+3. Start the task with `python -m flowguard new-task`, run the project's tests and `python -m flowguard check --static --all`, and follow each red line: its step after `->` is what to write instead. The sections below list every case.
+4. Reinstall the skill with `scripts/install_skill.py --target <skills folder>`.
+
+The block `init` writes:
+
+```text
+## FlowGuard rules for the project agent
+1. Start each task with `python -m flowguard new-task`; read its brief (owner rules, open items) before you change code.
+2. Run the project's tests. FlowGuard prints last; its first line counts each kind. `python -m flowguard show NAME` explains any name.
+3. `red` means your change broke a recorded agreement: fix the code. An `except=`, a removed flowguard comment or a `.flowguard/known.toml` edit that clears it loosens the agreement, which is the owner's decision.
+4. `known` and `before` were there before your task; after `->` each line says what is known and who decides. You choose when to raise an open question with the owner.
+5. `changed` means a function returns something else for the input shown: if you meant it, say so in your report; if not, fix it. `impact` and `not compared` are not failures.
+6. When you find two places that must agree, mark each with `flowguard: same NAME` in the same change; record a problem only the owner can decide in `.flowguard/known.toml` with `act = "ask"` (`known add` writes one).
+7. Store the owner's own words once with `python -m flowguard req add - --id R<n>`, never your own text, and keep `.flowguard/rules.toml` current, each rule's source quoting those words.
+```
+
+Rules 3, 4 and 6 changed. 4.3's rule 3 ended `Never add except= ... without the owner's yes`, rule 4 said `do what the line says after ->. Tell the owner only when it says ask owner`, and rule 6 said `add it to .flowguard/known.toml`.
+
+### A 4.3 project, upgraded
+
+This project ran green on 4.3, which printed its `deprecated:` notices on stderr after the block. It has two copies of `FEE` in `fees.py`, an `owner ... with=` comment in `booking.py`, two `Status` declarations that differ (`status.py` and `report.py`) and a `[structure]` decision in its ledger that says why they differ, citing the stored owner words R1. Its first test run with 5.0:
+
+```text
+FlowGuard 5.0 (since 5c633bf): 4 red; 0.1 s
+red: comment booking.py:1: owner with= was removed in 5.0 -> write # flowguard: together Booking.employee_id Booking.unit_id
+red: comment fees.py:1: owner NAME above a function was removed in 5.0 -> write # flowguard: same FEE ref
+red: comment fees.py:6: sensor was removed in 5.0 -> write # flowguard: same FEE
+red: ledger.toml: [structure] was removed in 5.0 -> delete the section and record each decision in .flowguard/known.toml: python -m flowguard known add NAME --act leave|ignore --why TEXT
+```
+
+Write the three comments as the steps say and empty the `[structure]` section (keep `.flowguard/ledger.toml` itself: deleting the file is red). The decision's problem is then an old one again, which `check --static --all` lists:
+
+```text
+FlowGuard 5.0 (since 5c633bf): 0 red, 1 before; 0.1 s
+before: declarations Status at report.py:3 was broken at task start -> leave it unless your task is about it
+```
+
+Record the decision in `known.toml`, from its words and its source:
+
+```bash
+python -m flowguard known add declarations:Status --act leave --why "The report shows late bookings; a booking itself is never stored as late (R1)" --site report.py:Status
+```
+
+```text
+known.declarations-status added to .flowguard/known.toml: act leave, sites report.py:Status, finding declarations:Status
+the next run lists it as loosened, as every new entry whose act is not ask
+```
+
+The next test run says `FlowGuard 5.0 (since 5c633bf): 0 red, 1 loosened; 0.2 s` with `loosened: known.declarations-status added with act = "leave" -> name it in your report; loosening an agreement is the owner's decision`: the report names the entry, whose decision R1 already holds. The brief then lists `known.declarations-status: left as it is: The report shows late bookings; a booking itself is never stored as late (R1)`.
+
+## Commands and options
+
+Each use exits 2 before any project file is read or written, with one line on stderr; nothing of the command runs, is ignored or is read as another command.
+
+| 4.3 accepted | 5.0 prints on stderr, exit 2 | Instead |
+| --- | --- | --- |
+| `python -m flowguard anchor draft LIMIT` | `flowguard: anchor draft was removed in 5.0 -> python -m flowguard new-task, check or show NAME` | `python -m flowguard show LIMIT` |
+| `python -m flowguard model draft PUBLISH` | `flowguard: model draft was removed in 5.0 -> python -m flowguard new-task, check or show NAME` | `python -m flowguard show PUBLISH` |
+| `python -m flowguard try LIMIT days=4` | `flowguard: try was removed in 5.0 -> python -m flowguard new-task, check or show NAME` | a test that calls the function with `days=4`; its run compares it |
+| `python -m flowguard watch -- python app.py` | `flowguard: watch was removed in 5.0 -> python -m flowguard new-task, check or show NAME` | the project's tests |
+| `python -m flowguard compare` | `flowguard: compare was removed in 5.0 -> python -m flowguard new-task, check or show NAME` | the project's tests: `changed` lines compare the task start with now |
+| `python -m flowguard show --draft LIMIT` | `flowguard: show --draft was removed in 5.0 -> python -m flowguard show NAME` | `python -m flowguard show LIMIT` |
+| `python -m flowguard show --gaps` | `flowguard: show --gaps was removed in 5.0 -> python -m flowguard show NAME` | `python -m flowguard show LIMIT` |
+| `python -m flowguard check --since HEAD~1` | `flowguard: check --since was removed in 5.0 -> python -m flowguard check --base REV` | `python -m flowguard check --base HEAD~1` |
+| `python -m flowguard check --leads` | `flowguard: check --leads was removed in 5.0 -> python -m flowguard show --last` | `python -m flowguard show --last` |
+| `python -m flowguard req add owner.txt --kind glossary` | `flowguard: req add --kind glossary was removed in 5.0 -> python -m flowguard req add FILE --id R<n>` | `python -m flowguard req add owner.txt --id R2` |
+| `python -m flowguard req add owner.txt --kind adoption` | `flowguard: req add --kind adoption was removed in 5.0 -> python -m flowguard req add FILE --id R<n>` | `python -m flowguard req add owner.txt --id R2` |
+
+`req add --kind request`, 4.3's default, is still accepted and changes nothing. Glossary and adoption records already in `.flowguard/requests/` keep loading, listing and showing. `status` and `where` of FlowGuard 0.7x still print the command to run instead.
+
+## Intent API names
+
+An intent file that imports, reads or calls one of these names is refused before it runs. Its `load` line is red at that file and line, in pytest, `check` and the vitest report: `red: load FILE:LINE: NAME was removed in 5.0 -> STEP; until then none of its file is checked`. A name the file reaches only when it runs (`api.distinct(...)`) gives the same line, and reading it from `flowguard.intent` raises `IntentError` with the same text. The block shortens a long line; `python -m flowguard show --last` prints it whole.
+
+| 4.3 accepted | The step of its 5.0 red line |
+| --- | --- |
+| `precedes`, `guarded_by` | `declare the order as flow(ID, source=..., nodes=[Node(...), ...], edges=[...])` |
+| `transitions`, `Transition` | `delete it; 5.0 checks no state changes, states(...) still checks the values a field is given` |
+| `flow(..., transitions=...)` | `delete transitions= from this flow; 5.0 checks no state changes` |
+| `checks` | `bind the rule to its scenario test with flow(ID, ..., relations=[Relation(RULE, {...}, Read(...))])` |
+| `distinct` | `delete it; two rules of one decides= key must agree unless one overrides= the other, and python -m flowguard known add copies:NAME --act ignore --why TEXT records copies that are meant to differ once python -m flowguard check --all lists them` |
+| `structure_rule` | `delete it; states(...) checks the literal values a field is given, an ordinary test can check any other source fact` |
+| `allow` | `delete it with its structure_rule` |
+| `@pytest.mark.rule("LIMIT")` on a test | a red `marker` line at the test: `delete the marker; a rule is checked at its anchors, not through marked tests` |
+
+Without `distinct`, two rules of one `decides=` key that disagree are a conflict, and two keys on one decision site get the question `one decision under two names?`, which ends `(merge the keys)`. A flow's finite model is its graph alone, one state per node; a finite invariant over a state field stays unverified.
+
+In the two-copy example of the [skill's reference](../.agents/skills/flowguard/reference.md), this flow over the `ACCEPT` copies loads and passes in 5.0:
+
+```python
+from flowguard.intent import flow, Node
+
+flow('ACCEPT_FLOW', source='doc policy.txt "At most three days."',
+     nodes=[Node('check', 'ACCEPT'), Node('answer', 'ACCEPT', phase='return')],
+     edges=[('check', 'answer'), ('answer', 'check')])
+```
+
+The 4.3 form with `transitions=[Transition('check', 'answer')]` (and `Transition` imported) is refused:
+
+```text
+red: load order_flow.py:1: Transition was removed in 5.0 -> delete it; 5.0 checks no state changes, states(...) still checks the values a field is given; until then none of its file is checked
+red: load order_flow.py:3: flow(transitions=) was removed in 5.0 -> delete transitions= from this flow; 5.0 checks no state changes; until then none of its file is checked
+```
+
+## Comment spellings
+
+5.0 no longer reads the 4.2 spellings, with `#` in Python and `//` in TS/JS. Each is a red line of its own at its place, binds nothing, and its step is the 4.3 comment that says the same, as the "Comment spellings" table of the [4.3 notes](upgrade-4.3.md) gives it. pytest, `check` and `check --static` print the same step.
+
+| 4.2 comment, in `shop.py` | 5.0 red line |
+| --- | --- |
+| `# flowguard: owner FEE` above `late_fee` | `red: comment shop.py:1: owner NAME above a function was removed in 5.0 -> write # flowguard: same FEE ref` |
+| `# flowguard: sensor FEE` | `red: comment shop.py:6: sensor was removed in 5.0 -> write # flowguard: same FEE` |
+| `# flowguard: owner Booking.status with=Booking.closed_at=None on=update alone=reopen(the owner reopens by hand)` | `red: comment shop.py:11: owner with= and alone= were removed in 5.0 -> write # flowguard: together Booking.status Booking.closed_at=None on=update except=shop.py:reopen(the owner reopens by hand)` |
+| `# flowguard: owner Booking.unit_id writers=move,reserve` | `red: comment shop.py:21: owner writers= was removed in 5.0 -> write # flowguard: writers Booking.unit_id move,hold.py:reserve,reserve` |
+| `# flowguard: owner Booking.price writers=price_up with=Booking.priced_at` | `red: comment shop.py:30: owner writers= and with= were removed in 5.0 -> write # flowguard: together Booking.price Booking.priced_at and, on its own line, # flowguard: writers Booking.price price_up` |
+
+A 4.2 bare name in `alone=` or `writers=` meant the function of that name in any file, so the step names every such function of the map: here `hold.py` also has a `reserve`. Written as the steps say, the agreements loosen nothing and the run is `0 red`. Leaving out `hold.py:reserve` allows less and loosens nothing either; deleting a 4.2 line, dropping a partner, or adding a writer or an `except=` is a `loosened` line, as it would be for the 4.3 comment (`loosened: reopen added to writers Booking.unit_id -> name it in your report; loosening an agreement is the owner's decision`). An `owner NAME` on no function is told to write `same NAME ref` above the function it names, or to delete the comment.
+
+## The ledger's `[structure]` and `[unverified]` sections
+
+A ledger that still has one of these sections gets one red line naming it, in pytest, `check`, `check --static` and `python -m flowguard ledger check`, and what the section holds is not read. The handler entries of the ledger keep their meaning.
+
+This 4.3 decision is refused:
+
+```toml
+[structure."declarations:Status"]
+decision = "The report shows late bookings while a booking itself is never stored as late."
+source = "R1"
+```
+
+```text
+red: ledger.toml: [structure] was removed in 5.0 -> delete the section and record each decision in .flowguard/known.toml: python -m flowguard known add NAME --act leave|ignore --why TEXT
+```
+
+The 5.0 form is the `known.toml` entry that `known add` writes from the decision's words (see the upgraded project above):
+
+```toml
+[known.declarations-status]
+sites = ["report.py:Status"]
+why = "The report shows late bookings; a booking itself is never stored as late (R1)"
+act = "leave"
+finding = "declarations:Status"
+```
+
+`act = "ignore"` is for a false finding: it takes the finding out of the brief's count of open structure problems, as a 4.3 decision did, and its line out of every run; `leave` keeps it counted and lists it as `known` when a change touches its site.
+
+`[unverified]` has no replacement:
+
+```toml
+[unverified]
+"rule.WINDOW" = { reason = "the window rule reads a clock the tests cannot set" }
+```
+
+```text
+red: ledger.toml: [unverified] was removed in 5.0 -> delete the section; nothing replaces it: restore each rule's observability so it is checked again
+```
+
+`check --all` fails a grey rule whose source quotes the owner's words, and nothing exempts it.
+
+## Notices and hidden leads
+
+| 4.3 | 5.0 |
+| --- | --- |
+| `deprecated: sensor goes in 5.0 -> write same NAME` on stderr, once per process, after the block. | No notice: the feature is a red line or a usage error, as above. Nothing is announced for a later removal. |
+| `show --last` ended with `deprecated features used (5.0): function owner, owner with=, sensor`. | Under each line, `show --last` names its finding (`finding declarations:Status`), the name `known add` takes. |
+| `show --last` listed FlowGuard's own leads under `deprecated leads (5.0)`: old values that other decisions still spell, label spellings, similar implementations, the copy discovery listing and `copies at X changed; rule R is unchanged`. | Gone, with nothing in their place. The findings those checks also make stay: `copies:` for a diverged copy, `changed-alone:` and `declarations:`. |
+
+## New in 5.0
+
+### What the map knows about a name
+
+`python -m flowguard show NAME` starts, after the entries and agreements that concern the name, with what the map read about it. In a project with a Prisma schema, one migration and one zod schema:
+
+```text
+show Assignment.fteShare
+Map: prisma 1/1 parsed; sql 1/1 parsed; typescript 3/3 parsed; static facts, foreign native-home execution not verified.
+declared Assignment.fteShare: Float @map("fte_share") (backend/prisma/schema.prisma:8)
+column assignments.fte_share DOUBLE (backend/prisma/migrations/20260101000000_init/migration.sql:3)
+range assignments.fte_share: 0 <= fte_share <= 2 (CHECK backend/prisma/migrations/20260101000000_init/migration.sql:5)
+zod key fteShare in assignmentSchema: 0 <= fteShare <= MAX_FTE_SHARE=1 (backend/src/schemas.ts:6)
+... 3 more lines, 2 of them only share a word with Assignment.fteShare: python -m flowguard show Assignment.fteShare --full lists them all
+```
+
+The SQL reader reads a `CHECK` that bounds one column by numbers (`>=`, `>`, `<=`, `<`, `BETWEEN`, either side) in `CREATE TABLE` and `ALTER TABLE ... ADD CONSTRAINT`. `show AssignmentStatus` gives `values AssignmentStatus: DRAFT | ACTIVE | CLOSED (enum AssignmentStatus backend/prisma/schema.prisma:13)`, `show MAX_FTE_SHARE` gives `const MAX_FTE_SHARE = 1 (backend/src/schemas.ts:3)`, and `show Assignment` gives one line per schema and table and the count of writes and reads:
+
+```text
+model Assignment (table assignments): 3 fields (backend/prisma/schema.prisma:6)
+table assignments: 3 columns (backend/prisma/migrations/ as its migrations leave it, created at backend/prisma/migrations/20260101000000_init/migration.sql:1)
+Assignment on the map: 0 writes in 0 functions, 0 reads in 0 functions: python -m flowguard show Assignment.FIELD lists the writes and reads of one
+```
+
+A function's name gives its node view: its id and place, its signature, the fields it writes and the functions that call it through a call the map resolved. An object literal or class that holds functions gives its place and members. A name the map does not know gets one `not on the map` line, and a misspelt field names the model's nearest field.
+
+### Lists generated from the code
+
+The lines between `<!-- flowguard: generate KIND ARG -->` and `<!-- flowguard: end -->` in a Markdown file are FlowGuard's. `python -m flowguard docs` writes them; the kinds are `fields Model`, `values NAME`, `functions path` and `constants path`, and none carries a line number. With an empty region under `<!-- flowguard: generate fields Assignment -->`:
+
+```text
+impact: assignments.md:8 generate fields Assignment is out of date -> python -m flowguard docs rewrites it
+```
+
+```markdown
+<!-- flowguard: generate fields Assignment -->
+| Field | Type | Column |
+|---|---|---|
+| id | Int | id |
+| fteShare | Float | fte_share |
+| status | AssignmentStatus | status |
+<!-- flowguard: end -->
+```
+
+A region is named when the change edits what it is written from, or the region or its marker. One this change writes that cannot be generated is red: `red: generate values Nope: no value set of that name -> correct the marker at lists.md:12`. Write around a region, not inside it.
+
+### Texts tied to the code they describe
+
+```markdown
+<!-- flowguard: about backend/src/share.ts:totalShare -->
+The total share of a person adds the shares of their assignments.
+```
+
+When a change edits `totalShare` and not the text, the run says `impact: assignments.md:3 describes backend/src/share.ts:totalShare, which this change edits -> reread that text and correct it if it no longer holds`. It never fails a run, and a change that edits both says nothing. A marker this change writes that names nothing is red (`red: about backend/src/share.ts:sumShares: ...`). A `known.toml` site may be a Markdown file's path alone (`sites = ["docs/setup.md"]`); FlowGuard 4.3 reads such an entry as invalid.
+
+### Module contracts
+
+A text about a file or a folder (`<!-- flowguard: about backend/src/report.ts -->`, a folder with its trailing `/`) is that module's contract. A change to a function of another file that the module calls, or that calls it, names the contract once:
+
+```text
+impact: report.md:3 describes backend/src/report.ts, whose backend/src/report.ts:overbooked calls backend/src/share.ts:totalShare, which this change edits -> reread that text and correct it if it no longer holds
+```
+
+`python -m flowguard show backend/src/share.ts` lists a module's contracts and connections:
+
+```text
+module backend/src/share.ts: 1 file, 1 function
+described by no text: put <!-- flowguard: about backend/src/share.ts --> above the Markdown text that is its contract
+called by backend/src/report.ts (1 call; described by docs/report.md:3)
+```
+
+The connections are the calls the map resolved, never a method matched by its name alone.
+
+### JSON data in TS/JS
+
+A TS/JS call is recorded and compared when its arguments and result are JSON data: `null`, booleans, strings, finite numbers, and arrays and plain objects of them, at most 200 values and 6 levels deep. 4.3 recorded only primitives, and this call of a function that takes rows was `not compared`; 5.0 compares it:
+
+```text
+changed: totalShare (share.ts:1): (rows=[{"fteShare": 0.5}, {"fteShare": 0.25}]) was 0.75, now 0.8; 1/1 inputs differ -> if you meant it, say so
+```
+
+A getter, a proxy, a class instance, a `toJSON`, a symbol key, a hole, `undefined`, `-0` or a key that starts with `$` is not data, and telling so runs no project code.
+
+### Recording a finding
+
+`python -m flowguard known add FINDING --act leave --why TEXT` (or `--act ask`, `fix` or `ignore`) appends a `known.toml` entry whose sites are the places of the last run's lines of that finding; `show --last` names each line's finding. After a run with `before: same FEE disagreed at task start on days=5: ...`:
+
+```bash
+python -m flowguard known add same:FEE --act ask --why "The preview charges 3 per late day, the invoice 2" --ask "Which daily late fee is right, 2 or 3?"
+```
+
+```text
+known.same-fee added to .flowguard/known.toml: act ask, sites fees.py:late_fee, fees.py:preview_fee, finding same:FEE
+```
+
+The entry is checked as a run reads it, and the file is left as it was when it does not load. `--id` names the entry and `--site path:symbol` gives its sites instead of the finding's places.
+
+### What `show` begins with
+
+`show NAME`, `show PATH`, a rule's and a flow's view begin with what is already known and decided about the query: the `known.toml` entries in the brief's words, the intent rules and the `rules.toml` rules they cite, the flowguard comment agreements, and the last run's lines there (five without `--full`):
+
+```text
+module fees.py: 1 file, 3 functions
+known.same-fee: open question for the owner: Which daily late fee is right, 2 or 3? (python -m flowguard show known.same-fee)
+same FEE ref fees.py:2
+same FEE fees.py:7
+together Job.status Job.closed_at fees.py:11
+described by no text: put <!-- flowguard: about fees.py --> above the Markdown text that is its contract
+```
+
+`show same-fee`, an entry's bare id, prints the entry, and `show "late fee"` also lists the entries whose why or ask shares those words.
+
+### The brief
+
+The brief still has at most eight lines. It counts the generated regions the last check or docs run found out of date (`1 generated region is out of date (last check or docs run): python -m flowguard docs rewrites it`, and those that cannot be written), says when `AGENTS.md` or `CLAUDE.md` holds another FlowGuard rules block, and names such a file that is no UTF-8 or UTF-16 text with the decoder's error. Its structure line points at `check --all`, which also lists copies that drifted apart.
+
+## What you may notice
+
+| 4.3 | 5.0 |
+| --- | --- |
+| `known: known.fee-copies at fees.py:late_fee, fees.py:preview_fee -> ask owner (not asked yet)` | `known: known.fee-copies at fees.py:late_fee, fees.py:preview_fee: Which daily late fee is right, 2 or 3? -> an open question for the owner, not asked yet`. A known line names the sites this change touches, with the entry's count when it has others (`(1 of 12 sites)`), and an `ask` entry's question. |
+| An entry asked on a date: `-> asked on 2026-11-15; leave it until the owner answers`. `leave`: `-> leave it (the owner deferred it)`. `fix`: `-> fix it in this change and say so in your report`. | `-> asked the owner on 2026-11-15; no answer yet`, `-> left as it is on purpose; yours to change only if your task is about it`, `-> marked to fix when its code changes, as this change does`. |
+| `known fixed?: known.fee-copies: copies of FEE now agree -> the owner has not decided: revert, or say why in your report` | `... -> the owner has not answered known.fee-copies: if this change settles it, say so in your report` |
+| `loosened: except=reopen added to together Job.status -> name it in your report; needs the owner's yes` | `... -> name it in your report; loosening an agreement is the owner's decision` |
+| The brief: `known.fee-copies: ask owner: Which daily late fee is right, 2 or 3?`; an asked question `asked on 2026-11-15; leave it until the owner answers: ...`, a `fix` entry `fix: ...`, a `leave` entry `leave it: ...`. | `known.fee-copies: open question for the owner: Which daily late fee is right, 2 or 3?`; `asked the owner on 2026-11-15, no answer yet: ...`, `to fix when its code changes: ...`, `left as it is: ...`. Their order is a correction, below. |
+| `not compared: ROUND (no recorded JSON inputs) -> not a failure` on every run, for same-name copies no test called (vitest: `not reached by any test`). | Nothing until a change edits a copy or writes its mark; `check --all` still lists them. |
+| `not compared: totalShare (share.ts:1) (only primitive JSON arguments and results are recorded) -> not a failure` | `changed: totalShare (share.ts:1): (rows=[{"fteShare": 0.5}, {"fteShare": 0.25}]) was 0.75, now 0.8; ...` |
+| SQL inside a string literal (`EXEC(N'ALTER TABLE ... ADD ...')`) was read as SQL that runs. | It is not read: a column, a `CHECK` or a write that only such SQL adds is not declared, so the columns check may give one more `before` line. A string ends where its dialect ends it (`E'it\'s'`, a dump's `'O\'Brien'`). |
+| A label-table disagreement was a `before` line for any edit of a file that holds one of its tables. | Only when the change edits the declaration lines of one of its tables; a change that adds a table or changes its keys or labels gets an `impact` line. |
+| `check --static --all`: `before: no writers agreement for Job.status at close.py:close was broken at task start -> leave it unless your task is about it` | `before: Job.status has no writers agreement and 3 files write it, close.py:close among them; so at task start -> leave it unless your task is about it`. The other families still say `was broken at task start`. |
+| `show` of a TS/JS function or anchor printed `not searched: not searched: ... -> bind the real decision site` and `copy search unavailable: ...`. | One line, `copies not searched: ...`, without a bind step. |
+
+## Corrections of 4.3 bugs
+
+These are corrections within the existing contract, separate from the new behaviour above:
+
+- On a machine without FlowGuard, the npm static test and the vitest plugin failed every run, so a project's own tests could not pass there. Now the static test is skipped under a name that says FlowGuard is not installed, and the vitest config gets no plugin and one notice; a `FLOWGUARD_PYTHON` that cannot import FlowGuard still fails. Run `init` to rewrite the two generated files.
+- An unchanged copy compared on some of its inputs was `not compared` when a made-up input gave a result that is not data (Planning Tool's three ISO week copies in every frontend run: `86400000 + 1` taken as a year gives `NaN`). Only a real call that could not be recorded or run is `not compared` now.
+- The brief put an asked but unanswered question after the `fix` and `leave` entries, so Planning Tool's open questions fell out of its eight lines.
+- The brief's structure line pointed at `check --static --all`, which runs no copy discovery, so copies that drifted apart were counted but not listed there.
+- A rule source quoting a UTF-16 document ended `show rules` and `check --static` with exit 2 and `flowguard: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte`, and so did `init` on a UTF-16 `AGENTS.md`. Rule sources, ledger rules, the brief and `init` read UTF-16 and UTF-8 with a BOM now, and `init` writes the file back in its encoding; a document in another encoding is that reader's problem, naming the file.
+- A 4.3 cross-file writer or exception (`path:function`) whose target file was renamed gave a false `loosened` line.
+
+## Known limits
+
+- A rule in `tests/intent/` runs only Python functions; TS/JS copies are compared by `same` alone. Functions that call helpers of another file are not compared sealed.
+- zod lines read `z.number(` and `z.coerce.number(` chains, also inside `z.optional(`, `z.nullable(`, `z.nullish(`, `z.preprocess(` and a pipe. zod 4's `z.int()`, `z.union(...)` and a shorthand key (`{ fteShare }`) give no line; `.or(...)` and `.catch(...)` on a number chain are not named, so `z.number().min(0).or(z.string())` reads `0 <= fteShare`; a schema object a function returns is `an unnamed object`.
+- SQL that a string builds at run time is not read, also when an `EXEC(N'...')` holds one complete literal; on Planning Tool, `assignments.internal_order_id`, which only such SQL adds, is one more `before` line of the columns check in `check --static --all`. In a plain string, `\'` counts as MySQL's escaped quote only before a letter or digit: `'rock \' roll'` ends at `\'`, and the statements after it are read as inside a string.
+- An `ALTER TABLE ... ADD` in an upgrade script, on a table another file creates, gives no column line in `show`.
+- The pair and delete checks still resolve JS/TS member calls by name, and a delete finding says `(calls resolved by name)`. The module view and contracts count resolved calls only, so a destructured dynamic import (`const { x } = await import(...)`) connects nothing.
+- `show` gives no const line for a Python module constant, `generate constants` lists JS/TS constants only, and a Python name whose value is no literal, such as `Status = Literal[...]`, gets a `not on the map` line. A TS interface or type name gets no declaration line. Holder lines cover JS/TS object literals and classes; a Python class gets its node view.
+- `known add` turns a place into a site only where a function, constant or `Model.field` is declared; for another declaration, such as that `Status`, give `--site path:symbol`.
+- Only the writers family states what held at task start; labels, delete, together and the other families still say `was broken at task start`.
+- After the upgrade the brief shows no structure or region line until the first `check` or `python -m flowguard docs` run, because its saved counts moved to a new key; the first run also rebuilds the map.
+- Generated regions cover four kinds; routes, environment variables and package scripts are not generated. A Markdown document that is neither UTF-8 nor UTF-16 is named only when a change edits it.

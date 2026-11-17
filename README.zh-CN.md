@@ -25,7 +25,7 @@ python -m pytest
 `new-task` 记下任务起点。任务中途提交不会移动这个基准；没有基准时，第一次测试也会记下。没有意图规则时，检查输出：
 
 ```text
-FlowGuard 4.3 (since 99f025e): 0 red; 0.2 s
+FlowGuard 5.0 (since 99f025e): 0 red; 0.2 s
 ```
 
 ## 日常使用
@@ -55,7 +55,7 @@ def preview_amount(value: float) -> int:
 # flowguard: writers Booking.employee_id reserve,release
 ```
 
-`together A B,C` 是单向约定：写 A 的操作也必须写 B、C。`on=` 只取 `create` 或 `update`；`B=值` 要求写成该值。裸函数名只指注释所在文件；别的文件写仓库相对位置，例如 `src/store.py:reserve`。例外写成 `except=路径:函数(理由)`，需要主人同意。不要为了消掉发现而放宽约定。
+`together A B,C` 是单向约定：写 A 的操作也必须写 B、C。`on=` 只取 `create` 或 `update`；`B=值` 要求写成该值。裸函数名只指注释所在文件；别的文件写仓库相对位置，例如 `src/store.py:reserve`。例外写成 `except=路径:函数(理由)`；加上例外就放宽了约定，这由主人决定。不要为了消掉发现而放宽约定。
 
 FlowGuard 5.0 删除了 4.2 的注释写法（`sensor NAME`、`owner NAME`、`owner A with=...`、`alone=`、`owner A writers=...`）：每一处都在所在行报 red，并给出应改写成的 4.3 注释。
 
@@ -69,6 +69,10 @@ FlowGuard 5.0 删除了 4.2 的注释写法（`sensor NAME`、`owner NAME`、`ow
 
 可执行的双副本规则示例和上下文注释见[本地参考](./.agents/skills/flowguard/reference.md)。
 
+## 文档与代码挂钩
+
+在描述代码的 Markdown 文字上方写 `<!-- flowguard: about path:symbol -->`（或只写文件路径）。改动改了那段代码却没改这段文字时，运行会用一行 `impact` 点出这段文字。描述一个文件或 `folder/` 的文字就是这个模块的契约：它调用的函数或调用它的函数改了，也会点出它；`python -m flowguard show PATH` 列出模块的契约和连接。代码里已有的清单放在 `<!-- flowguard: generate fields Model -->`（或 `values NAME`、`functions path`、`constants path`）和 `<!-- flowguard: end -->` 之间，由 `python -m flowguard docs` 写入。`python -m flowguard show Model.field` 开头先列出 Prisma schema、SQL 文件和 zod schema 如何声明这个字段；以它为准，而不是文档里的表格。
+
 ## 其他检查与语言
 
 `python -m flowguard check --static` 不跑测试；加 `--all` 查看完整结构清单。`python -m flowguard check` 跑受影响的规则和测试。已有深查和有限 flow 保持冻结，不属于上面的日常接入步骤。
@@ -79,7 +83,7 @@ FlowGuard 只在测试运行里起作用。它从不在测试里把函数再跑�
 
 ## 兼容与仓库
 
-保留的旧输入和 API 继续支持；5.0 删除的功能会被拒绝并给出替代写法，不会悄悄改变旧输入的含义。现有契约见 [4.1 说明](./docs/upgrade-4.1.md)、[4.2 说明](./docs/upgrade-4.2.md)、[4.3 说明](./docs/upgrade-4.3.md) 和 [intent guide](./docs/intent-guide.md)。
+保留的旧输入和 API 继续支持；5.0 删除的功能会被拒绝并给出替代写法，不会悄悄改变旧输入的含义。现有契约见 [4.1 说明](./docs/upgrade-4.1.md)、[4.2 说明](./docs/upgrade-4.2.md)、[4.3 说明](./docs/upgrade-4.3.md)、[5.0 说明](./docs/upgrade-5.0.md) 和 [intent guide](./docs/intent-guide.md)。
 
 - `flowguard/structure/`：源码事实与固定查询。
 - `flowguard/intent/`：约定、意图规则、账本和测试适配器。

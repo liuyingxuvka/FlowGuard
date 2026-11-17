@@ -130,24 +130,38 @@ def test_readme_no_rule_output_and_two_real_homes(tmp_path, capsys):
     assert any(item['verdict'] == 'red' for item in cache.read(cfg)['results']['WINDOW']['items'].values())
 
 
-# The commands of the historical upgrade guides that 5.0 removed, with the line each gives instead of running.
+# The commands of the historical upgrade guides that 5.0 removed, with the line each gives instead of running, and
+# those the 5.0 guide lists with that line.
+_NEW = 'python -m flowguard new-task, check or show NAME'
+_WORDS = 'python -m flowguard req add FILE --id R<n>'
 REMOVED_IN_5 = {
-    ('docs/upgrade-4.0.md', 'try ACCEPT days=4'): 'try was removed in 5.0 -> python -m flowguard new-task, check or show NAME',
-    ('docs/upgrade-4.0.md', 'watch -- python app.py'):
-        'watch was removed in 5.0 -> python -m flowguard new-task, check or show NAME',
-    ('docs/upgrade-4.0.md', 'model draft PUBLISH'):
-        'model draft was removed in 5.0 -> python -m flowguard new-task, check or show NAME',
+    ('docs/upgrade-4.0.md', 'try ACCEPT days=4'): f'try was removed in 5.0 -> {_NEW}',
+    ('docs/upgrade-4.0.md', 'watch -- python app.py'): f'watch was removed in 5.0 -> {_NEW}',
+    ('docs/upgrade-4.0.md', 'model draft PUBLISH'): f'model draft was removed in 5.0 -> {_NEW}',
+    ('docs/upgrade-5.0.md', 'anchor draft LIMIT'): f'anchor draft was removed in 5.0 -> {_NEW}',
+    ('docs/upgrade-5.0.md', 'model draft PUBLISH'): f'model draft was removed in 5.0 -> {_NEW}',
+    ('docs/upgrade-5.0.md', 'try LIMIT days=4'): f'try was removed in 5.0 -> {_NEW}',
+    ('docs/upgrade-5.0.md', 'watch -- python app.py'): f'watch was removed in 5.0 -> {_NEW}',
+    ('docs/upgrade-5.0.md', 'compare'): f'compare was removed in 5.0 -> {_NEW}',
+    ('docs/upgrade-5.0.md', 'show --draft LIMIT'): 'show --draft was removed in 5.0 -> python -m flowguard show NAME',
+    ('docs/upgrade-5.0.md', 'show --gaps'): 'show --gaps was removed in 5.0 -> python -m flowguard show NAME',
+    ('docs/upgrade-5.0.md', 'check --since HEAD~1'):
+        'check --since was removed in 5.0 -> python -m flowguard check --base REV',
+    ('docs/upgrade-5.0.md', 'check --leads'): 'check --leads was removed in 5.0 -> python -m flowguard show --last',
+    ('docs/upgrade-5.0.md', 'req add owner.txt --kind glossary'): f'req add --kind glossary was removed in 5.0 -> {_WORDS}',
+    ('docs/upgrade-5.0.md', 'req add owner.txt --kind adoption'): f'req add --kind adoption was removed in 5.0 -> {_WORDS}',
 }
 
 
 def test_documented_commands_use_the_real_current_parser(tmp_path, monkeypatch, capsys):
     """Every documented command parses as it is written. A historical upgrade guide's command that 5.0 removed is
-    refused with its removal line and exit 2; a current document names none."""
+    refused with its removal line and exit 2, and the 5.0 guide shows that line as FlowGuard prints it; a current
+    document names none."""
     for name in ('show', 'check', 'static_check', 'ledger', 'init', 'requests', 'screen', 'write_docs', 'add_known_entry'):
         monkeypatch.setattr(cli, name, lambda *args, **kwargs: 0)
     docs = [ROOT / 'README.md', ROOT / 'README.zh-CN.md', ROOT / 'AGENTS.md', SKILL / 'SKILL.md',
             ROOT / 'docs/intent-guide.md', ROOT / 'docs/upgrade-2.0.md', ROOT / 'docs/upgrade-4.0.md', ROOT / 'docs/upgrade-4.1.md', ROOT / 'docs/upgrade-4.2.md',
-            ROOT / 'docs/upgrade-4.3.md',
+            ROOT / 'docs/upgrade-4.3.md', ROOT / 'docs/upgrade-5.0.md',
             SKILL / 'reference.md']
     removed = {}
     for path in docs:
@@ -162,6 +176,8 @@ def test_documented_commands_use_the_real_current_parser(tmp_path, monkeypatch, 
             key = (path.relative_to(ROOT).as_posix(), command.strip())
             if key in REMOVED_IN_5:
                 assert (code, errors) == (2, f'flowguard: {REMOVED_IN_5[key]}\n'), (path, command, errors)
+                if path.name == 'upgrade-5.0.md':
+                    assert f'`flowguard: {REMOVED_IN_5[key]}`' in text, (path, command)
                 removed[key] = REMOVED_IN_5[key]
             else:
                 assert code == 0, (path, command, errors)

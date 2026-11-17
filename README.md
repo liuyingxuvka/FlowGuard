@@ -27,7 +27,7 @@ python -m pytest
 `new-task` records the task's baseline commit. Commits during the task keep that baseline. A first test run records it too when none exists. Without intent rules, a check prints:
 
 ```text
-FlowGuard 4.3 (since 99f025e): 0 red; 0.2 s
+FlowGuard 5.0 (since 99f025e): 0 red; 0.2 s
 ```
 
 ## Daily use
@@ -57,7 +57,7 @@ Data agreements have separate comments:
 # flowguard: writers Booking.employee_id reserve,release
 ```
 
-`together A B,C` is directional: an operation writing A must also write B and C. `on=` limits it to `create` or `update`; `B=value` requires that value. Bare writer names refer only to the comment's file; another file uses a repository-relative position such as `src/store.py:reserve`. Exceptions use `except=path:function(reason)` and need the owner's agreement. Do not weaken an agreement to clear a finding.
+`together A B,C` is directional: an operation writing A must also write B and C. `on=` limits it to `create` or `update`; `B=value` requires that value. Bare writer names refer only to the comment's file; another file uses a repository-relative position such as `src/store.py:reserve`. An exception is written `except=path:function(reason)`; adding one loosens the agreement, which is the owner's decision. Do not weaken an agreement to clear a finding.
 
 FlowGuard 5.0 removed the 4.2 comment spellings (`sensor NAME`, `owner NAME`, `owner A with=...`, `alone=`, `owner A writers=...`): each is red at its line, and the red names the 4.3 comment to write instead.
 
@@ -71,6 +71,10 @@ An independent rule in `tests/intent/` states an expected answer and cites its s
 
 The executable two-copy rule example and supported context annotations are in the [local reference](./.agents/skills/flowguard/reference.md).
 
+## Documents tied to code
+
+Put `<!-- flowguard: about path:symbol -->` (or a file's path) above a Markdown text that describes code. When a change edits that code and not the text, the run names the text with an `impact` line. A text about a file or `folder/` is that module's contract: a change to a function it calls, or that calls it, names it too, and `python -m flowguard show PATH` lists a module's contracts and connections. A list the code already holds goes between `<!-- flowguard: generate fields Model -->` (or `values NAME`, `functions path`, `constants path`) and `<!-- flowguard: end -->`; `python -m flowguard docs` writes it. `python -m flowguard show Model.field` begins with how the Prisma schemas, SQL files and zod schemas declare the field; trust that over a document's table.
+
 ## Other checks and languages
 
 Use `python -m flowguard check --static` for checks without running tests, or add `--all` to inspect the complete structure listing. `python -m flowguard check` runs affected rules and tests. Existing deep checks and finite flows are frozen; they are not part of the ordinary setup above.
@@ -81,7 +85,7 @@ FlowGuard acts only inside test runs. It never runs a function a second time ins
 
 ## Compatibility and repository
 
-Retained older inputs and APIs continue to work; a feature 5.0 removed is refused with the step to its replacement rather than silently changing its meaning. See the [4.1 notes](./docs/upgrade-4.1.md), [4.2 notes](./docs/upgrade-4.2.md), [4.3 notes](./docs/upgrade-4.3.md) and [intent guide](./docs/intent-guide.md) for existing contracts.
+Retained older inputs and APIs continue to work; a feature 5.0 removed is refused with the step to its replacement rather than silently changing its meaning. See the [4.1 notes](./docs/upgrade-4.1.md), [4.2 notes](./docs/upgrade-4.2.md), [4.3 notes](./docs/upgrade-4.3.md), [5.0 notes](./docs/upgrade-5.0.md) and [intent guide](./docs/intent-guide.md) for existing contracts.
 
 - `flowguard/structure/`: source facts and fixed queries.
 - `flowguard/intent/`: agreements, intent rules, the ledger and test adapters.
