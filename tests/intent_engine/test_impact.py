@@ -2573,6 +2573,12 @@ def test_a_holder_counts_every_function_valued_member_and_show_finds_each(tmp_pa
     lines = _shown_lines(tmp_path, 'Store')
     assert ('class Store (backend/src/services/session-store.ts:5): 2 methods: run, handle '
             '(python -m flowguard show Store.METHOD prints one)') in lines, lines
+    # An unnamed class expression is held under the name its declaration gives it (const Anon = class {...}).
+    _write(tmp_path, {'backend/src/services/anon.ts': 'export const Anon = class {\n  m() { return 1; }\n};\n'})
+    lines = _shown_lines(tmp_path, 'Anon')
+    assert ('class Anon (backend/src/services/anon.ts:1): 1 method: m '
+            '(python -m flowguard show Anon.METHOD prints one)') in lines, lines
+    assert _shown_lines(tmp_path, 'Anon.m')[2].endswith(' backend/src/services/anon.ts:2'), _shown_lines(tmp_path, 'Anon.m')
 
 
 def test_the_count_show_gives_without_full_is_what_full_adds(tmp_path):

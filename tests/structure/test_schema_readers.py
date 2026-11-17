@@ -63,6 +63,34 @@ def test_sql_statements_read_an_alter_column_type_and_no_statement_a_string_hold
     ], found
 
 
+
+def test_a_string_ends_where_its_dialect_ends_it_so_no_later_statement_is_taken_for_one():
+    """Z-5 follow-up (2026-11): the reader ended a string at any quote not doubled, so a backslash-escaped quote
+    (Postgres `E'it\\'s'`, a mysqldump `'O\\'Brien'`) or an apostrophe in a quoted name (`"o'brien"`) or in a comment
+    left one quote open, and every later statement was taken for SQL inside a string and dropped. A Windows path
+    `'C:\\'` still ends at its quote, and SQL a string holds still gives nothing."""
+    found = [(row['verb'], row['table'], [c['name'] for c in row['columns']]) for row in statements(
+        "UPDATE \"notes\" SET \"body\" = E'it\\'s done' WHERE \"body\" = '';\n"
+        "ALTER TABLE \"notes\" ADD COLUMN \"author\" TEXT;\n"
+        "INSERT INTO people (name) VALUES ('O\\'Brien');\n"
+        "ALTER TABLE people ADD COLUMN nick TEXT;\n"
+        "INSERT INTO paths (dir) VALUES ('C:\\');\n"
+        "ALTER TABLE paths ADD COLUMN drive TEXT;\n"
+        'SELECT "o\'brien" FROM people; -- it\'s the old name\n'
+        "ALTER TABLE people ADD COLUMN alias TEXT; /* don't */\n"
+        "EXEC(N'ALTER TABLE [dbo].[people] ADD [hidden] INT');\n"
+        "ALTER TABLE [o'neil] ADD [seen] INT;\n")]
+    assert found == [
+        ('update', 'notes', ['body']),
+        ('alter', 'notes', ['author']),
+        ('insert', 'people', ['name']),
+        ('alter', 'people', ['nick']),
+        ('insert', 'paths', ['dir']),
+        ('alter', 'paths', ['drive']),
+        ('alter', 'people', ['alias']),
+        ('alter', "o'neil", ['seen']),
+    ], found
+
 def test_prisma_schema_reads_maps_relations_enums_and_reports_unclosed_blocks(tmp_path):
     with closing(project(tmp_path, {
         'prisma/schema.prisma': '''datasource db {

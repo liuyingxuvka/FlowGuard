@@ -24,7 +24,7 @@ from __future__ import annotations
 import os
 import re
 
-from flowguard.map.common import git_run, is_test_file, read_source
+from flowguard.map.common import document_text, git_run, is_test_file
 
 MARKER = re.compile(r'<!--\s*flowguard:\s*about\s+(\S+?)\s*-->')
 HEADING = re.compile(r'(#{1,6})\s')
@@ -52,14 +52,27 @@ def _outside_code(text):
     return lines
 
 
+def document(name, data):
+    """(text, problem) of a Markdown document's bytes as FlowGuard reads them, through the one reader of project
+    documents (`map.common.document_text`: a BOM selects UTF-8 or UTF-16, else UTF-8), with LF newlines; ('', problem)
+    when the bytes are no such text, the problem naming the file and the decoder's error."""
+    decoded, problem = document_text(name, data)
+    return (decoded[0].replace('\r\n', '\n').replace('\r', '\n'), '') if decoded else ('', problem)
+
+
 def documents(root):
-    """The Markdown files of the repository, tracked or not (Git's ignore rules apply), that hold a marker."""
+    """The Markdown files of the repository, tracked or not (Git's ignore rules apply), that hold a marker, as
+    `document` reads them; one whose bytes are no UTF-8 or UTF-16 text is listed when its bytes spell a marker, so
+    that its reader reports why it cannot be read."""
     listed = git_run(root, 'ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', '*.md').stdout
     found = []
     for name in sorted({os.fsdecode(item) for item in listed.split(b'\0') if item}):
         path = root / name
-        if path.is_file() and b'flowguard:' in path.read_bytes():
-            found.append(name)
+        if path.is_file():
+            data = path.read_bytes()
+            text, problem = document(name, data)
+            if 'flowguard:' in text or problem and b'flowguard:' in data:
+                found.append(name)
     return found
 
 
@@ -104,11 +117,18 @@ def findings(change, touched, *, everything=False):
     if not change.baseline:
         return found
     graph, resolve, linked = change.graph, None, None       # both read once, when a marker needs them
-    for document in documents(graph.root):
-        then = change.old_text(document)
+    for name in documents(graph.root):
+        old = graph._baseline_bytes(change.baseline, name)
+        then = document(name, old)[0] if old is not None else None
+        now, unread = document(name, (graph.root / name).read_bytes())
+        if unread:
+            if everything or name in change.files:
+                found.lines.append(Line('impact', f'docs:{name}', '', unread, 'save it as UTF-8 for its markers to be read',
+                                        (name,), ()))
+            continue
         before = {(site, span) for site, _, span in markers(then)} if then is not None else set()
         sites_then = {site for site, _ in before}
-        for site, line, span in markers(read_source(graph.root / document)):
+        for site, line, span in markers(now):
             path = site.rpartition(':')[0] or site
             if ':' not in site:             # a file's or a folder's path alone: the text is that module's contract
                 nodes, files = set(), module_files(graph, site)
@@ -118,12 +138,12 @@ def findings(change, touched, *, everything=False):
                 if resolve is None:
                     resolve = site_resolver(graph, change)
                 nodes, files, problem = resolve(site)
-            place = f'{document}:{line}'
+            place = f'{name}:{line}'
             if problem:
                 if site not in sites_then:          # this change wrote the marker
                     found.issues.append(_input(f'docs:{place}', f'about {site}', place, [problem],
                                                f'name one function, constant or Model.field, a file or a folder (path/), in the marker at {place}',
-                                               [document]))
+                                               [name]))
                 elif everything or path in change.baseline_paths():
                     found.lines.append(Line('impact', f'docs:{place}', '', f'{place} describes {site}, which names nothing now',
                                             'update that text and its marker, or remove them', (place,), (problem,)))
@@ -145,13 +165,13 @@ def findings(change, touched, *, everything=False):
         old_regions = regions(then) if then is not None else []
         regions_then = {(kind, argument) for kind, argument, *_ in old_regions}
         kept = {(kind, argument, body) for kind, argument, _, _, _, body in old_regions}     # as the baseline has them
-        for line, kind, argument, body, problem in stale(graph, document, read_source(graph.root / document)):
-            place = f'{document}:{line}'
+        for line, kind, argument, body, problem in stale(graph, name, now):
+            place = f'{name}:{line}'
             found.stats['stale_regions'] += 1
             found.stats['unwritable_regions'] += bool(problem)
             if problem and (kind, argument) not in regions_then:      # this change wrote the region
                 found.issues.append(_input(f'docs:{place}', f'generate {kind} {argument}', place, [problem],
-                                           f'correct the marker at {place}', [document]))
+                                           f'correct the marker at {place}', [name]))
             elif not (everything or (kind, argument, body) not in kept or _generated_from(change, kind, argument)):
                 continue            # as an earlier change left it, from sources this change leaves alone (R99)
             elif problem:
@@ -320,11 +340,15 @@ def module_lines(graph, site):
     else:
         files = {site}
     contracts = {}          # file -> the places of the markers whose file or folder site covers it
-    for document in documents(graph.root):
-        for marked, line, _ in markers(read_source(graph.root / document)):
+    unread = []             # the documents whose bytes are no UTF-8 or UTF-16 text: their markers are not read
+    for name in documents(graph.root):
+        text, problem = document(name, (graph.root / name).read_bytes())
+        if problem:
+            unread.append(problem)
+        for marked, line, _ in markers(text):
             if ':' not in marked:
                 for path in module_files(graph, marked):
-                    contracts.setdefault(path, []).append(f'{document}:{line}')
+                    contracts.setdefault(path, []).append(f'{name}:{line}')
     functions = graph.functions()
     mine = [node for node, item in functions.items() if item['file'] in files]       # a callback's calls count too
     named = sum('<' not in functions[node]['qual'] for node in mine)
@@ -345,6 +369,7 @@ def module_lines(graph, site):
         f'described by no text: put <!-- flowguard: about {site} --> above the Markdown text that is its contract'])
     lines += [f'calls {path} ({count} call{"s" * (count != 1)}{described(path)})' for path, count in sorted(outward.items())]
     lines += [f'called by {path} ({count} call{"s" * (count != 1)}{described(path)})' for path, count in sorted(inward.items())]
+    lines += [f'{problem}; its about markers are not read' for problem in unread]
     return lines
 
 
@@ -464,7 +489,11 @@ def rewrite(graph):
     done = []
     for document in documents(graph.root):
         path = graph.root / document
-        raw = path.read_bytes().decode('utf-8-sig')
+        decoded, problem = document_text(document, path.read_bytes())
+        if decoded is None:
+            done.append((document, 0, '', '', problem))
+            continue
+        raw, bom, encoding = decoded
         newline = '\r\n' if '\r\n' in raw else '\n'
         lines = raw.replace('\r\n', '\n').split('\n')
         changed = False
@@ -480,5 +509,5 @@ def rewrite(graph):
                 changed = True
                 done.append((document, line, kind, argument, ''))
         if changed:
-            path.write_bytes(newline.join(lines).encode('utf-8'))
+            path.write_bytes(bom + newline.join(lines).encode(encoding))
     return sorted(done)

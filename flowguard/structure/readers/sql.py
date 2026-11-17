@@ -42,53 +42,78 @@ def split_name(qualified: str) -> tuple[str, str]:
     return '.'.join(parts[:-1]), parts[-1] if parts else ''
 
 
-def blank_comments(text: str) -> str:
-    """Comments become spaces (newlines kept), so offsets and line numbers stay those of the source. String
-    literals stay as they are (`string_spans` finds them)."""
+_CLOSE = {'"': '"', '[': ']', '`': '`'}
+
+
+def _lexemes(text: str) -> list[tuple[str, int, int]]:
+    """[(kind, start, end)] of the comments, string literals and quoted identifiers of SQL, in order: `--` to the
+    line's end and `/* */` (kind 'comment'); `'...'` with doubled quotes (kind 'string'; an `E'...'` also takes
+    backslash escapes, and in a plain string a `\\'` before a letter or digit is MySQL's escaped quote, so
+    `'O\\'Brien'` is one string while `'C:\\'` still ends at its quote); `"..."`, `[...]` and `` `...` ``
+    (kind 'identifier', their quote doubled inside), so an apostrophe in a quoted name opens no string. An
+    unclosed one runs to the end."""
     out, i, n = [], 0, len(text)
     while i < n:
-        two = text[i:i + 2]
+        two, ch = text[i:i + 2], text[i]
         if two == '--':
             end = text.find('\n', i)
             end = n if end < 0 else end
-            out.append(' ' * (end - i))
+            out.append(('comment', i, end))
             i = end
         elif two == '/*':
             end = text.find('*/', i + 2)
             end = n if end < 0 else end + 2
-            out.append(re.sub(r'[^\n]', ' ', text[i:end]))
+            out.append(('comment', i, end))
             i = end
-        elif text[i] == "'":                        # a string stays: a CHECK's values are spelled in strings
+        elif ch == "'":
+            escapes = i > 0 and text[i - 1] in 'eE' and (i < 2 or not (text[i - 2].isalnum() or text[i - 2] == '_'))
             end = i + 1
             while end < n:
+                if text[end] == '\\' and end + 1 < n and (escapes or (text[end + 1] == "'" and text[end + 2:end + 3].isalnum())):
+                    end += 2
+                    continue
                 if text[end] == "'" and text[end + 1:end + 2] == "'":
                     end += 2
                     continue
                 if text[end] == "'":
                     break
                 end += 1
-            out.append(text[i:end + 1])
+            out.append(('string', i, min(end + 1, n)))
+            i = end + 1
+        elif ch in _CLOSE:
+            close, end = _CLOSE[ch], i + 1
+            while end < n:
+                if text[end] == close and text[end + 1:end + 2] == close:
+                    end += 2
+                    continue
+                if text[end] == close:
+                    break
+                end += 1
+            out.append(('identifier', i, min(end + 1, n)))
             i = end + 1
         else:
-            out.append(text[i])
             i += 1
+    return out
+
+
+def blank_comments(text: str) -> str:
+    """Comments become spaces (newlines kept), so offsets and line numbers stay those of the source. String
+    literals and quoted identifiers stay as they are (`_lexemes` tells them apart; `string_spans` finds the
+    strings)."""
+    out, at = [], 0
+    for kind, start, end in _lexemes(text):
+        if kind == 'comment':
+            out.append(text[at:start])
+            out.append(re.sub(r'[^\n]', ' ', text[start:end]))
+            at = end
+    out.append(text[at:])
     return ''.join(out)
 
 
 def string_spans(source: str) -> list[tuple[int, int]]:
-    """[(start, end)] of the string literals of comment-blanked SQL (`blank_comments`): each `'...'` with its
-    doubled quotes, an `N'...'` or `E'...'` prefix being outside it; an unclosed string runs to the end."""
-    spans, i, n = [], 0, len(source)
-    while i < n:
-        if source[i] != "'":
-            i += 1
-            continue
-        end = i + 1
-        while end < n and not (source[end] == "'" and source[end + 1:end + 2] != "'"):
-            end += 2 if source[end] == "'" else 1
-        spans.append((i, min(end + 1, n)))
-        i = end + 1
-    return spans
+    """[(start, end)] of the string literals of comment-blanked SQL (`blank_comments`), as `_lexemes` reads them:
+    an `N'...'` or `E'...'` prefix is outside the span, a quoted identifier is no string."""
+    return [(start, end) for kind, start, end in _lexemes(source) if kind == 'string']
 
 
 def balanced(text: str, start: int) -> int:

@@ -1157,7 +1157,7 @@ def write_docs(cfg):
             with graph.con:
                 cache.save_structure(graph.con, dict(saved, regions=left, unwritable=left))
     for document, line, kind, argument, problem in done:
-        print(f'{document}:{line} generate {kind} {argument}: ' + (problem or 'rewritten'))
+        print(f'{document}:{line} generate {kind} {argument}: ' + (problem or 'rewritten') if kind else problem)
     if not done:
         print('no generated region is out of date')
     return int(any(problem for *_, problem in done))

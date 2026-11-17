@@ -1002,3 +1002,35 @@ def test_a_region_is_named_by_the_set_a_ts_alias_reads_and_by_a_prisma_schema_th
     assert said() == [fields]
     _write(tmp_path, {schema: PT_SCHEMA, roles: PT_ROLES.replace("'EMPLOYEE'", "'FINANCE_ADMIN', 'EMPLOYEE'")})
     assert said() == [values]                             # the set the alias names, in another file
+
+
+def test_a_utf16_document_is_read_and_rewritten_in_its_own_encoding_and_one_that_is_neither_is_named(tmp_path):
+    """Z-6 follow-up (2026-11): the brief, init and rule sources read AGENTS.md and CLAUDE.md through one decoder
+    (a BOM selects UTF-8 or UTF-16), but the document markers did not: a UTF-16 Markdown file, as Windows
+    PowerShell 5.1's `>` writes it, was never found (its bytes hold no `flowguard:`), and `docs` could not decode it.
+    Read through the same decoder, its stale region is named and `docs` writes it back in UTF-16 with its BOM and CRLF;
+    a document that is neither UTF-8 nor UTF-16 is named with the decoder's error when this change edits it."""
+    from tests.intent_engine.test_static_check import _flowguard
+    calc = 'def add(a, b):\n    return a + b\n\n\ndef sub(a, b):\n    return a - b\n'
+    notes = '# Notes\r\n\r\n<!-- flowguard: generate functions app/calc.py -->\r\nold\r\n<!-- flowguard: end -->\r\n'
+    (tmp_path / 'NOTES.md').write_bytes(b'\xff\xfe' + notes.encode('utf-16-le'))
+    _commit(tmp_path, {'app/__init__.py': '', 'app/calc.py': calc})
+    _write(tmp_path, {'app/calc.py': calc.replace('a - b', 'b - a')})
+    code, text = _static(tmp_path)
+    assert code == 0 and [line for line in _block(text) if 'NOTES.md' in line] == [
+        'impact: NOTES.md:3 generate functions app/calc.py is out of date -> python -m flowguard docs rewrites it'], text
+    code, out = _flowguard(tmp_path, 'docs')
+    assert code == 0 and out.splitlines() == ['NOTES.md:3 generate functions app/calc.py: rewritten'], out
+    data = (tmp_path / 'NOTES.md').read_bytes()
+    assert data.startswith(b'\xff\xfe') and data[2:].decode('utf-16-le') == (
+        '# Notes\r\n\r\n<!-- flowguard: generate functions app/calc.py -->\r\n| Function | Signature |\r\n|---|---|\r\n'
+        '| `add` | `(a, b)` |\r\n| `sub` | `(a, b)` |\r\n<!-- flowguard: end -->\r\n'), data
+    # Latin-1 bytes are no UTF-8 or UTF-16 text: named, with the decoder's error, when this change edits the file.
+    (tmp_path / 'latin.md').write_bytes('Caf\xe9\n\n<!-- flowguard: about app/calc.py:add -->\nAdds.\n'.encode('latin-1'))
+    code, text = _static(tmp_path)
+    assert code == 0 and [line for line in _block(text) if 'latin.md' in line] == [
+        "impact: latin.md is no UTF-8 or UTF-16 text: 'utf-8' codec can't decode byte 0xe9 in position 3: invalid "
+        "continuation byte -> save it as UTF-8 for its markers to be read"], text
+    code, out = _flowguard(tmp_path, 'docs')
+    assert code == 1 and out.splitlines() == ["latin.md is no UTF-8 or UTF-16 text: 'utf-8' codec can't decode byte 0xe9 "
+                                              "in position 3: invalid continuation byte"], out

@@ -899,6 +899,8 @@ def extract(root, rel, data, module, is_test):
             return dict(holder=text(field(holder, 'name'), source), member=member, holder_kind='class',
                         holder_line=holder.start_point.row + 1)
         kind = 'class' if body.type == 'class_body' else 'object' if body.type == 'object' else None
+        if kind == 'class':             # an unnamed class expression: its declaration names it
+            holder = holder.parent
         while holder is not None and holder.type in WRAPPERS:
             holder = holder.parent
         if kind is not None and holder is not None and holder.type == 'variable_declarator' and field(holder, 'name') is not None:
