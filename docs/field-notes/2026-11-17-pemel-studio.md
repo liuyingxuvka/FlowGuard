@@ -415,3 +415,14 @@ first implementation can check exact repo-relative dependency declarations and
 non-cone sparse paths. Treat unresolved dynamic paths as unknown and avoid
 materializing files. The suggested fix should name the smallest required file
 set so a broad checkout does not bring unrelated or private data into the job.
+
+The next hosted run passed the Linux source checks and failed the Windows
+step that compares generated resource bytes. A separate Git filter check
+showed why line-ending policy matters to this kind of gate. With Windows-style
+checkout conversion enabled, both the generated YAML files and their hash
+sidecars differed from their tracked blobs. One backend file tracked by a
+calibration resume hash also differed. An explicit LF checkout preserved all
+five blobs byte for byte. A dependency report that tracks private or versioned
+inputs could flag a byte-sensitive file whose checkout attributes allow
+conversion. It can show the relevant attribute and Git setting, leaving the
+user's source and input files untouched.
