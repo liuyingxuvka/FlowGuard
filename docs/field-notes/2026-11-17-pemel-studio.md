@@ -395,3 +395,23 @@ with a tiny Qt tree and an embedded button. Keep data payloads and widget
 contents out of the record. A conflicting user click should be visible in
 the comparison so the tool does not confuse intentional navigation with a
 queued callback that overrode the command.
+
+## Compare the selected test dependencies with the build checkout
+
+The first full hosted validation passed 2,077 tests but reported 26 setup
+errors from the same missing source file. Both jobs used a sparse checkout.
+The official runtime-export tests generate synthetic models and inputs, but
+their fixture extracts a schema from two tracked source files outside the
+application subtree. The source paths existed locally and were absent from
+both hosted test checkouts. As a separate failure class, older tests still
+expected former dialog signatures and labels after the corresponding native
+journeys had passed. These failures required different repairs.
+
+Offer an optional preflight that joins the CI checkout paths, the test
+selection, and declared read-only fixture dependencies. Report common missing
+paths once and list the affected test nodes and jobs beneath each path. Keep
+the result beside the ordinary test summary and agreement coverage. A useful
+first implementation can check exact repo-relative dependency declarations and
+non-cone sparse paths. Treat unresolved dynamic paths as unknown and avoid
+materializing files. The suggested fix should name the smallest required file
+set so a broad checkout does not bring unrelated or private data into the job.
