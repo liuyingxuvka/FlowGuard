@@ -426,3 +426,18 @@ five blobs byte for byte. A dependency report that tracks private or versioned
 inputs could flag a byte-sensitive file whose checkout attributes allow
 conversion. It can show the relevant attribute and Git setting, leaving the
 user's source and input files untouched.
+
+## Compare platform values by their operational identity
+
+Two later hosted failures came from the tests' observation boundaries. One
+compared the desktop toolkit's local file URL with the platform's printed
+path. Both links addressed the expected file and folder with different slash
+conventions. A cancellation test observed that a numeric PID still existed
+after the worker handle had been joined. A PID lookup alone cannot establish
+which process the test observed or whether the original handle had exited.
+
+Provide examples of comparisons at the right boundary. Record native path
+identity while retaining the exact ordered destinations. Capture an original
+process handle on admission, then observe its exit status, task-slot release,
+and staged-file cleanup together. These observations remain meaningful across
+platforms and can still detect a different destination or a live worker.
