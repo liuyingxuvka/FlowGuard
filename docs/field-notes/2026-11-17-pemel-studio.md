@@ -441,3 +441,18 @@ identity while retaining the exact ordered destinations. Capture an original
 process handle on admission, then observe its exit status, task-slot release,
 and staged-file cleanup together. These observations remain meaningful across
 platforms and can still detect a different destination or a live worker.
+
+## Follow retained acceptance checks across a design revision
+
+The delivery audit found that a passing Help journey could still omit two
+accepted detail checks. The new design moved About and the support command
+into Help, while the older review still specified their required contents.
+The first journey confirmed the Help entry and navigation. It did not prove
+that About contained the public product information or that the support
+preview required an explicit Save before opening a file chooser.
+
+Allow a changed requirement to point to the earlier acceptance checks that
+survive it. A journey can then show which retained checks have direct
+assertions and which remain unobserved. Keep the requirement pointers and
+observed properties lightweight. The two details in this case were closed
+with real Qt interactions and separate before and after screenshots.
