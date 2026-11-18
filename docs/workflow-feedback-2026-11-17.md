@@ -146,6 +146,10 @@
 
 证据来自本地单测、FlowGuard 日志和源代码核对。
 
+V1-25 遇到同一诊断在跨文件委派上的情形。应用基线 `c8fe0305cad5` 的 `v1-25-owner-red-2.log` 报告 `0 red, 1 impact, 2 not compared`，影响项写为 `assignProjectManager no longer writes ProjectMember...`，列出 21 个读者。调用函数仍直接用 `updateMany` 撤销成员状态。创建或复活成员的写入转由已有的 `reactivateOrCreateMember(tx, identity, actor)` 执行，源码可定位到写入和来自调用方的事务参数。该轮应用单测同时有 21 例失败，静态证据只说明代码位置和委派关系。
+
+建议在同一影响项中显示“函数内直接写入减少”“可定位的委派写入”和“待确认”，附上字段、调用方、帮助函数及事务参数绑定的位置。这样维护者能按真实写入位置选测试，也能继续核对调用条件和失败回滚。最小夹具可对照同事务委派、真正移除写入、接收另一客户端或未知来源的委派。有限静态解析保留未确认项，运行时的成功条件与事务一致性仍需可执行用例证明。
+
 ## V1-22 提前显示已经完成的静态检查详情
 
 2026-11-18。应用基线为 `edc46e3`。`v1-22-frontend-full-1.log` 在生成的 `flowguard.static.test.mjs` 执行约 6.33 秒后，已经打印失败标记 `× FlowGuard check --static`。观察整轮运行已持续 145 秒以上时，控制台仍未显示可操作的 red 详情；当时运行尚未结束，不能据此报告完整测试或 FlowGuard 已通过。维护过程中读取活动观察目录的 `static.json`，已经能看到三条具体账目诊断及其检查指引。生成的静态用例在收到这些 red 后抛出的提示是 `FlowGuard: 3 red, see the FlowGuard block at the end`。
