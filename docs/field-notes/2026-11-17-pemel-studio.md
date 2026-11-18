@@ -456,3 +456,30 @@ survive it. A journey can then show which retained checks have direct
 assertions and which remain unobserved. Keep the requirement pointers and
 observed properties lightweight. The two details in this case were closed
 with real Qt interactions and separate before and after screenshots.
+
+## Check the transport boundary as well as the parser
+
+A real long-record review passed input parsing but failed before the preview
+opened. The task response had a separate 16 MiB JSON limit. The checked Data
+metadata was about 171 kB. The candidate list reached 31.7 MB because every
+candidate included both interval bounds and a repeated list of row numbers,
+as well as sample points the dialogs never read. Smaller parser and desktop
+fixtures had passed. FlowGuard's static check reported zero red findings, and
+its plugin explicitly marked some changed behaviors as uncomparable.
+
+A useful check would tie a bounded task result to an inventory of the fields
+its receiver demonstrably uses. Apply each declared cardinality and field
+size at the serialization boundary, especially when several individually
+bounded collections multiply. Report the resulting byte budget beside the
+existing transport limit. A synthetic fixture can raise candidate density
+without large private histories. Check the exact retained interval, identity
+and confirmation behavior alongside the limit, so reducing the task message
+does not reduce the data used for validation.
+
+A related desktop check should assert the same command admission through
+the page button, the context menu and the shortcut. A disabled button
+previously hid a shortcut that could still open the export dialog. Similarly,
+a checked calibration progress page did not prove that the project overview
+noticed the same job's state transition while its editor stayed open. A
+small shared set of click and state assertions would expose both gaps and
+state which surfaces a change actually covers.
