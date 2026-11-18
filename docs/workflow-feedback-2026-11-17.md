@@ -120,4 +120,14 @@
 
 另有一份本地环境预检证据：这次反馈仓库的 `check --all --deep` 在 Linux / Python 3.12.14 下实际退出 1，原始摘要为 `16 failed, 2767 passed, 2 skipped, 1 deselected, 2 warnings, 16 subtests passed, 32 unverified`；FlowGuard 为 `16 red, 3 before, 33 not compared`。随后用同一个外部虚拟环境解释器核对：普通模式能定位 `pytest`，`-I` 模式不能；普通模式导入 `anyio.pytest_plugin` 又实际复现了针对 `CallSpec2` 的 `PytestRemovedIn10Warning`。完整日志中的若干隔离子进程确实缺少 `pytest`，另有摘要断言被插入的警告文本打断，`-W error` 用例还在插件加载时退出。这只核实了本次环境下的缺模块和警告断言形状，未解释全部 16 项失败，也未做基线节点对照或据此判断发布版本失效。建议长检查开始前分别核对普通与隔离解释器的必需模块、插件和警告，显示可检查的差异，避免运行很久后才发现子进程看不到依赖；不自动禁用插件或放宽测试预期。
 
+## V1-19 按身份说明片段的消费语义
+
+`v1-19-existing-demand-fill-backend-red.log` 实际退出 1：4 例失败、5 例通过、4637 例被过滤；FlowGuard 报 0 red、2 known、91 not compared。其中 `planning-period-coverage.test.ts` 的“adds to the current employee Demand row without replacing its existing share or creating overlapping live rows”给定已有 0.4 FTE，期望补位后为 1.0；实际服务回执在已有片段重叠的前半段返回 0.6，后半段才为 1.0。用例先在回执断言失败，后面的有效覆盖断言没有执行，不能把这份日志称为数据库覆盖值或生产写入的证明。
+
+核对应用基线 `8e13de2`：`allocationRowKey` 按员工、Demand 和 receiver 身份分组；`resolveAllocationSegments` 在同身份的重叠日期按版本、再按行 ID 选择最新片段。因此正值片段经过新增写入，读者仍可能把它解释成同身份替换，而非原份额上的增量。后续 `v1-19-backend-targeted-1.log` 中该具名用例通过，验证了 1.0 回执、检查日期的有效覆盖和有效行数；同轮为 90 通过、4 失败，FlowGuard 为 0 red、2 known、95 not compared，不能扩大成整组已通过。以上只使用真实服务与内存事务替身，没有连接数据库。
+
+建议在现有影响或字段来源报告中，允许维护者关联“写入身份 → 区间/版本选择 → 受影响读者的覆盖语义”，展示由哪个所有者决定同身份替换、独立身份累加。关联具名真实用例，保留未知身份别名、版本来源或条件分支的未解析说明；不执行应用写入，也不自动把正值、新建行或字段齐全判断为补位已经成功。
+
+小夹具先保留两类：同身份重叠的 0.4 与 0.6，检查实际读者的替换结果与命令目标 1.0 的差异；另一个合法独立身份的 0.6，检查它仍能与原 0.4 累加。这个增量关注写入被怎样消费，与上节的草稿跨事件来源不同；不自动禁止所有重叠写，也不在缺少业务约定和执行证据时推断写入保证。
+
 证据来自本地单测、FlowGuard 日志和源代码核对。
