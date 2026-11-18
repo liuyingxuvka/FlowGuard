@@ -369,3 +369,29 @@ pytest exit classification with the reading identity so a later
 `show --last` call can carry both. A two-test plugin fixture can reproduce
 an unobserved ordinary failure with zero changed red agreements, then
 assert that the final summary still identifies the run as failed.
+
+## Observe queued GUI events after a successful command
+
+A native Qt journey saved a new version of a generated record. The project
+and library both held the correct version. The completion callback also
+selected the new version and showed its report. The next queued focus event
+went to a tree button, selected that button's group, and replaced the report.
+The defect appeared after the command had returned. Checking only the write
+and the first selection would have missed it.
+
+A bounded diagnostic observed command entry and return, task-owner release,
+the selected domain key, the current tree item, and the visible document key.
+It also observed the first normal stable point after queued Qt events. The
+app repair kept keyboard focus on the selected tree row. The same real
+journey then kept all four selection identities aligned in English and
+Japanese at both reviewed scales. The focused regression suite passed
+18 tests.
+
+Offer an opt-in pair of observations around an existing toolkit-specific
+settle step. At the first point, record the command's stored identity and
+the expected visible owner. At the second, record whether focus, navigation,
+or a newer user action changed that owner. An example can reproduce this
+with a tiny Qt tree and an embedded button. Keep data payloads and widget
+contents out of the record. A conflicting user click should be visible in
+the comparison so the tool does not confuse intentional navigation with a
+queued callback that overrode the command.
