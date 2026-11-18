@@ -313,3 +313,11 @@ V1-30 另用实际共享 Button、配置及编译 CSS 离线测了四个普通�
 其中 `parseSnapshotConfig` 的 11/11 项 `changed` 帮助确认了变更范围。`v3-inclusive-demand-first-flowguard-show.log` 给出完整前后值。逐项核对后，唯一新增字段是 `demandPeriodConvention`，已有的 `baseline`、`reportVersion` 和 `version` 值都相同。10 个未标记输入得到 `legacy-half-open`，一个带新口径标记的输入得到 `inclusive`。覆盖单测还对比了相同日期在两个口径下的末日结果，使历史快照语义有独立断言。
 
 建议让 `changed` 详情可选地列出新增、移除和变值的字段，并关联维护者确认的有意差异和其他字段一致的具名测试。日期规则可标明每个夹具适用的数据口径，并引用同一组日期在历史和当前模式下的断言结果。这样维护者可直接核对约定的字段变化，以及服务层行为在哪些用例中真正执行过，同时保留原有比较和红项。
+
+## G55 按写入用途核对字段约定
+
+`v3-employment-source-backend-flowguard-show.log` 展开 `Employee.planningEnabled` 的影响后，可以定位四个运行时写入入口，也能找到员工规划名单、姓名解析等实际 `Employee` 读取入口。对照源码，两处常规新建和一处导入写 `true`，仅为中央库已有人员建立本地镜像的旧同步分支写 `false`。读者列表的范围是整个模型，便于继续核对各入口是否使用新字段。
+
+报告未列出的九个本地种子创建分支，由 TypeScript AST 单测核对实际 `create.data` 和 `upsert.create` 参数。`v3-employment-schema-red.log` 记录这九处原先都没有显式设值，当轮定向检查 8 例失败，FlowGuard 为 0 red，静态检查入口未选中。写入路径补齐后，`v3-employment-source-backend-full-1.log` 的 6,037 例后端单测全过，FlowGuard 为 0 red、9 impact、13 not compared。上述核对均离线，种子脚本只作为源码读取。
+
+建议让维护者按字段定义可选的写入规则，分别记录普通新建、导入、本地种子、修复或镜像的允许值与具名证据，并显示本次扫描实际纳入的入口。比如同样显式写 `false`，旧镜像符合约定，普通新建应报出差异。报告可保留现有影响提示，并标出只由独立 AST 用例核对的分支。
