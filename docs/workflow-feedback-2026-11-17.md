@@ -327,3 +327,9 @@ V1-30 另用实际共享 Button、配置及编译 CSS 离线测了四个普通�
 团队网格允许中央人员记录的入职日为空。`v3-grid-roster-frontend-focused-green.log` 的 8 个前端定向用例全部通过，FlowGuard 报 0 red、1 changed。`v3-grid-roster-frontend-compare.log` 展开了 `isEmploymentActive` 的变化。10 个输入中，有 5 个带空入职日的输入从 `TypeError` 改为返回布尔值。逐项核对得到 3 个 `true` 和 2 个 `false`，符合开放起日及包含末日的规则。当查询的是带时间戳的合同末日当天时，返回 `true`，次日返回 `false`。这些结果来自合成前端夹具。
 
 `show --last` 会为每个输入重复打印完整的员工对象，包括合成的姓名、标识和分配子行。核对此项变化只需员工起止日期、查询列的起止日期和前后结果。建议允许维护者为诊断显示选填字段，并提示省略了哪些路径。执行比较时仍用完整参数，报告保留原有比较计数和结果。可以用本例验收，核对精简显示是否同时保留空起日、含末日和次日的布尔差异，同时减少评审日志中无关的人员字段。
+
+## G59 找出被新前置查询拦住的用例
+
+`v3-grid-write-scope-backend-red.log` 的定向用例有 26 例失败和 4 例通过。引入关联人员授权读取后，`v3-grid-write-scope-backend-full-1.log` 有 6,118 例通过，7 个既有测试文件中的 27 例失败，FlowGuard 报 0 red、10 not compared。首轮全量中，24 例在员工未找到的分支结束，2 例因 ADB 事务替身缺少 `employee` 委托而在读取 `findMany` 时出现 `TypeError`，另有 1 例 HTTP 保存得到 403。测试已调用真实服务，旧替身仍提供迁移前的人员读取形状。调整前，有越权用例只核对 403 和写服务未调用，这两个断言也会在人员读取未取得结果时成立。调整后的路由夹具为越权用例提供了完整的关联和中央库的越权归属。
+
+建议扩展 V1-24 的替身兼容性提示，定位在新前置查询处提前退出的用例。对于可解析的 `requireEmployee → readLinkedPlanningAuthorities → readLinkedPersonnelByIds`，显示调用方 ADB 事务中的 `employee.findMany`、结果所需的 `centralLink.centralEmployeeId`，以及 CDB `centralEmployee.findMany`。可静态确认的字面替身缺项可按共同依赖归组，实际首个失败位置由运行记录提供。用同一个离线夹具核对旧替身、关联齐全且归属越权、故意缺链三种情况。只有具名用例实际到达了目标授权分支，才显示已见证该分支。动态替身或无法定位的首个失败保留待核对提示，完整套件继续按原入口运行。
