@@ -379,3 +379,9 @@ V1-30 另用实际共享 Button、配置及编译 CSS 离线测了四个普通�
 `v3-grid-write-scope-backend-red.log` 的定向用例有 26 例失败和 4 例通过。引入关联人员授权读取后，`v3-grid-write-scope-backend-full-1.log` 有 6,118 例通过，7 个既有测试文件中的 27 例失败，FlowGuard 报 0 red、10 not compared。首轮全量中，24 例在员工未找到的分支结束，2 例因 ADB 事务替身缺少 `employee` 委托而在读取 `findMany` 时出现 `TypeError`，另有 1 例 HTTP 保存得到 403。测试已调用真实服务，旧替身仍提供迁移前的人员读取形状。调整前，有越权用例只核对 403 和写服务未调用，这两个断言也会在人员读取未取得结果时成立。调整后的路由夹具为越权用例提供了完整的关联和中央库的越权归属。
 
 建议扩展 V1-24 的替身兼容性提示，定位在新前置查询处提前退出的用例。对于可解析的 `requireEmployee → readLinkedPlanningAuthorities → readLinkedPersonnelByIds`，显示调用方 ADB 事务中的 `employee.findMany`、结果所需的 `centralLink.centralEmployeeId`，以及 CDB `centralEmployee.findMany`。可静态确认的字面替身缺项可按共同依赖归组，实际首个失败位置由运行记录提供。用同一个离线夹具核对旧替身、关联齐全且归属越权、故意缺链三种情况。只有具名用例实际到达了目标授权分支，才显示已见证该分支。动态替身或无法定位的首个失败保留待核对提示，完整套件继续按原入口运行。
+
+## G72 给服务对象方法关联实际测试证据
+
+`v3-72-linked-person-identity-edit-backend-full-final.log` 的 6,206 例全部通过，FlowGuard 报 `0 red, 18 not compared`。`v3-72-linked-person-identity-edit-flowguard-show.log` 明确指出，服务对象上的 `findById`、`update`、`updateAsManager` 没有运行时包装。现有具名后端用例直接调用这些方法，断言链接后的详情来源，以及员工和经理两条编辑入口的公司资料保存。该次后端运行验证了这些具名断言，FlowGuard 的行为比较仍将三种方法列为未比较。
+
+建议允许维护者为可静态定位的导出对象字面量方法选填具名测试及对应断言，在现有 Vitest 详情显示实际见证、未运行或未定位的状态。若增加可选的调用观测，应保留原 `this`、参数及返回或抛错行为，只观察现有测试已经发起的调用。最小对照可以用读取 `this` 的真实方法、替换该方法的测试替身，以及同一真实用例被过滤的情形，核对见证的边界。保留原比较状态及报告入口，测试见证不计入基线回放。
