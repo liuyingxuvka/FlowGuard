@@ -385,3 +385,9 @@ V1-30 另用实际共享 Button、配置及编译 CSS 离线测了四个普通�
 `v3-72-linked-person-identity-edit-backend-full-final.log` 的 6,206 例全部通过，FlowGuard 报 `0 red, 18 not compared`。`v3-72-linked-person-identity-edit-flowguard-show.log` 明确指出，服务对象上的 `findById`、`update`、`updateAsManager` 没有运行时包装。现有具名后端用例直接调用这些方法，断言链接后的详情来源，以及员工和经理两条编辑入口的公司资料保存。该次后端运行验证了这些具名断言，FlowGuard 的行为比较仍将三种方法列为未比较。
 
 建议允许维护者为可静态定位的导出对象字面量方法选填具名测试及对应断言，在现有 Vitest 详情显示实际见证、未运行或未定位的状态。若增加可选的调用观测，应保留原 `this`、参数及返回或抛错行为，只观察现有测试已经发起的调用。最小对照可以用读取 `this` 的真实方法、替换该方法的测试替身，以及同一真实用例被过滤的情形，核对见证的边界。保留原比较状态及报告入口，测试见证不计入基线回放。
+
+## G74 按报告中的发现 ID 定位诊断
+
+`v3-74-person-delete-authority-flowguard-first.log` 把应用库人员硬删除列为基线已有的 `before`，并打印 `delete:backend/src/services/employee.service.ts:hardDelete:Employee`。实际将完整 ID 传给 `python -m flowguard show`，得到 `not on the map` 和 27,998 条普通词匹配，未取到对应的诊断详情。
+
+建议 `show` 先在已有运行记录中按完整发现 ID 查找，显示原分类、基线、源码位置和可用的依赖证据。删除诊断可以指出直接解析到的清理调用，或标明通过引用登记表的路径尚无法判定。最小对照用一个已报告的完整 ID、一个在当前记录中不存在的发现 ID 和一个普通符号名，核对准确诊断、无记录提示及既有符号查询。保留原始发现和摘要分类，未知的清理路径仍待核实。
