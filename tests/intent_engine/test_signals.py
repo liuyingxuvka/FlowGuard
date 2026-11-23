@@ -227,6 +227,19 @@ def test_the_comment_a_step_tells_the_user_to_write_keeps_its_whole_paths():
     assert _block([other])[1] == 'red: rule R: x at fees.py:move -> change fees.py:move or write // flowguard: same R above pkg/fees.py:move'
 
 
+def test_a_conflict_step_says_who_decides_and_both_routes_of_storing_his_decision():
+    """R101, R105: 5.0.1's conflict step said `choose one by asking the owner`, and stored his decision only as typed
+    words (`store the exact owner words with python -m flowguard req add`), while rule 7 of the rules block also names
+    his pick among options the agent offered, which a plain request under its id would close."""
+    said = ['conflict THREE vs FOUR at days=4: F vs T (1 of 6 shared cells) (owner R1, R2) -> the owner\'s words of the '
+            'two rules disagree; only the owner can settle which holds']
+    assert signals.rule_steps('FOUR', ['FOUR binding'], 'tests/intent/days.py:9', said) == [
+        'rules THREE and FOUR conflict; only the owner can choose which holds; ',
+        'when the owner decides, first store his typed words with python -m flowguard req add - --id R<n>, or his pick '
+        'among options you offered with python -m flowguard req add REPLY --id R<n> --offer FILE --picked "TEXT", then '
+        'update rule tests/intent/days.py:9']
+
+
 def test_a_line_names_at_most_three_places_and_paths_are_file_names_unless_two_share_one():
     places = tuple(f'src/a{number}.py:f' for number in range(5))
     line = Line('known', 'known.k', '', 'known.k at ' + ', '.join(places), 'an open question for the owner, not asked yet', places)

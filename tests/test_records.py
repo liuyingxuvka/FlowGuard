@@ -155,7 +155,7 @@ def test_a_damaged_request_sidecar_is_named_and_never_dropped_silently(tmp_path)
     code, text, _ = _integrity(tmp_path)
     assert code == 1 and sidecar.name in text and 'immutable file bytes changed' in text
     row = owner_words(tmp_path)['rows'][0]
-    assert row['id'] == 'R1' and row['edited'] and row['first_line'] == ''
+    assert row['id'] == 'R1' and row['edited'] and 'first_line' not in row      # a row holds no words of his
     assert sidecar.name in row['edited'] and 'restore its original bytes' in row['edited']
 
 

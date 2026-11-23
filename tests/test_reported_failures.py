@@ -59,7 +59,7 @@ def test_an_unreadable_request_is_named_by_its_reader_and_refuses_a_link(tmp_pat
     sidecar.write_bytes(b'{')
     row = owner_words(root)['rows'][0]
     problem = row['edited'] or row['invalid']
-    assert row['id'] == 'R1' and sidecar.name in problem and row['first_line'] == ''
+    assert row['id'] == 'R1' and sidecar.name in problem and 'first_line' not in row     # a row holds no words
     assert 'copy, archive or backup' in problem and 'map check' not in problem
     with pytest.raises(MapError, match='request_meta_edited'):
         validate_request_links(root, [dict(id='R1', part=False)])

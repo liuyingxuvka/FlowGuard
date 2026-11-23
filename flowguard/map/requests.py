@@ -363,16 +363,15 @@ def _readable(path: Path) -> bool:
 def _owner_row(root, identifier, retired, cited, common):
     # A retire record applies as written, whatever the state of the request files it hides. Every
     # request's files, retired or not, are checked against their original bytes; edited text is never shown.
+    # The row holds no words of the request: `show` and the source checks read its bytes themselves.
     edited, invalid, item, offer = _request_problems(root, identifier, [])
-    intact = invalid is None and edited is None and offer is None
-    text = read_request_bytes(root, identifier).decode('utf-8-sig', errors='replace').splitlines() if intact else []
     if invalid is not None:
         # A sidecar whose bytes can be read but are not the stored ones was edited; only a sidecar that
         # cannot be read is unreadable. Either way none of its fields are trusted or shown.
         files = [(REQUEST_DIR / (identifier + suffix)).as_posix() for suffix in ('.md', '.json')]
         problem = f'{invalid}; {restore_advice(root, files, common)}'
         readable = item is not None or _readable(root / REQUEST_DIR / (identifier + '.json'))
-        return dict(id=identifier, kind=None, received='', first_line='', extra_lines=0, supersedes=[],
+        return dict(id=identifier, kind=None, received='', supersedes=[],
                     superseded_by=[], retired=identifier in retired, cited_by=[],
                     edited=problem if readable else None, invalid=None if readable else problem,
                     offer='', picked=[], reply='', offer_edited=False)
@@ -385,7 +384,6 @@ def _owner_row(root, identifier, retired, cited, common):
                   f"{restore_advice(root, [offer_path(identifier).as_posix()], common)}")
     choice = item['kind'] == 'choice'
     return dict(id=identifier, kind=item['kind'], received=item['received'],
-                first_line=text[0] if text else '', extra_lines=max(0, len(text) - 1),
                 supersedes=item.get('supersedes', []), superseded_by=[],
                 retired=identifier in retired, cited_by=cited.get(identifier, []), edited=edited, invalid=None,
                 offer=offer_path(identifier).as_posix() if choice else '', picked=list(item['picked']) if choice else [],

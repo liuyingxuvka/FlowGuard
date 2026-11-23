@@ -460,8 +460,11 @@ def test_a_violated_rule_has_the_next_step_of_its_kind_in_pytest_and_every_check
     # in its detail (show --last).
     steps = {'code': [f'change the code so {root.name}.py:accept follows rule LIMIT', REQ_ADD.strip()],
              'own row': ['correct regression rows or rule tests/intent/policy.py:2 so the rule and its regression rows agree', REQ_ADD.strip()],
-             'conflict': ['rules LIMIT and LONGER conflict; choose one by asking the owner',
-                          'when the owner decides, first store the exact owner words with python -m flowguard req add, then update rule tests/intent/policy.py:2'],
+             # R101, R105: who decides, and both routes of storing his decision (rule 7 of the rules block).
+             'conflict': ['rules LIMIT and LONGER conflict; only the owner can choose which holds',
+                          'when the owner decides, first store his typed words with python -m flowguard req add - --id R<n>, '
+                          'or his pick among options you offered with python -m flowguard req add REPLY --id R<n> --offer '
+                          'FILE --picked "TEXT", then update rule tests/intent/policy.py:2'],
              'gap': ['add rules or regression rows at tests/intent/policy.py:2 so undecided cells have a rule result', REQ_ADD.strip()],
              'decision of': ['correct regression rows or rule tests/intent/policy.py:2 so the rule and its regression rows agree', REQ_ADD.strip()]}[kind]
     cli.init(cfg)

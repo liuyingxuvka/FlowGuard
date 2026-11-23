@@ -116,6 +116,8 @@ def _problems(found, name):
     ('text = "x"\nsource = \'R1 words\'\n', "source 'R1 words' is neither R<id> \"exact words\", R<id> picked \"exact words\" nor doc PATH \"exact words\""),
     # R105-5: a pick without its words between double quotes says where they go.
     ('text = "x"\nsource = "R1 picked \'Keep one version\'"\n', 'source "R1 picked \'Keep one version\'" names a pick: the option\'s words go between double quotes, R1 picked "exact words"'),
+    # ... and one whose words are between them names the text after them.
+    ('text = "x"\nsource = \'R1 picked "Keep one version" (A)\'\n', 'source \'R1 picked "Keep one version" (A)\' names a pick with text after the closing double quote of its words: \' (A)\''),
     ('text = "x"\nsource = \'rule.other\'\n', "source rule.other cites another catalog entry: quote the owner's words or a document instead"),
     ('text = "x"\nsource = 1\n', 'source is a string R<id> "exact words", R<id> picked "exact words" or doc PATH "exact words", not 1'),
 ])

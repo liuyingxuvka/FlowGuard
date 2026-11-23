@@ -116,7 +116,7 @@ def test_damaged_retired_sidecar_stays_retired_and_names_the_sidecar(tmp_path, c
     assert retired_requests(root) == {'R1': None}
     row = next(row for row in owner_words(root)['rows'] if row['id'] == 'R1')
     assert row['id'] == 'R1' and row['retired'] and row['edited']
-    assert 'R1.json' in row['edited'] and row['first_line'] == ''
+    assert 'R1.json' in row['edited'] and 'first_line' not in row      # a row holds no words of his
 
 
 def test_show_does_not_present_retired_ai_prose_as_owner_words(tmp_path, capsys):
@@ -172,6 +172,31 @@ def test_a_source_checks_only_the_cited_request_and_reads_what_the_whole_archive
     assert [archive.status(rid)[0] for rid in ('R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7')] == [False, True, False, False, True, False, False]
     assert set(archive.rows) == {'R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7'}
     assert Archive(tmp_path / 'nothing').status('R1') == (False, 'R1 missing -> req add the actual owner words')
+
+
+def test_stored_request_bytes_have_one_decoder_and_a_row_holds_no_words_of_them(tmp_path):
+    """R105: `owner R1` with a quote read the stored request with read_text('utf-8-sig'), a third decoder of stored
+    owner bytes beside `decode_text` (`R1 "words"`, `owner R1` at the baseline, `show R1`): a request stored as UTF-16
+    with its byte order mark (Windows PowerShell 5.1's `>`) stopped the rule with UnicodeDecodeError while the same
+    words held in every other form. And `owner_words` decoded each request's first line with errors='replace' for a
+    field nothing read, which put U+FFFD into the rows of bytes that are no such text."""
+    from flowguard.intent.sources import Archive, _legacy_match
+    from flowguard.map.requests import owner_words, store_request
+    root = tmp_path / 'project'
+    root.mkdir()
+    store_request(root, 'Loans last three d\u00e4ys.\r\n'.encode('utf-16'), identifier='R1')
+    store_request(root, 'Loans last four d\u00e4ys.\n'.encode('latin-1'), identifier='R2')
+    archive = Archive(root)
+    assert archive.status('R1', 'three d\u00e4ys') == (True, 'owner R1')
+    assert archive.status('R1', 'ten days') == (False, 'R1 quote gone -> quote the actual stored words')
+    # Bytes that are no UTF-8 or UTF-16 text stop the owner form as they stop the others: one decoder, one error.
+    for compare in (lambda: archive.status('R2', 'four d\u00e4ys'),
+                    lambda: _legacy_match((root / '.flowguard/requests/R2.md').read_bytes(), 'four d\u00e4ys')):
+        with pytest.raises(UnicodeDecodeError):
+            compare()
+    for row in owner_words(root)['rows']:
+        assert 'first_line' not in row and 'extra_lines' not in row, row
+        assert not any('\ufffd' in str(value) or 'Loans' in str(value) for value in row.values()), row
 
 
 def test_a_choice_supersedes_retires_and_lists_like_a_request_and_offers_is_no_request(tmp_path, capsys):

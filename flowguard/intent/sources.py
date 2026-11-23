@@ -72,13 +72,25 @@ def source_text(source, cfg, archive=None):
     return source.quote or source.text
 
 
+SOURCE_WORDS = ('doc', 'owner', 'rule', 'assumed', 'lesson')     # the words that begin a source form, never a request id
+
+
 def _unquoted_pick(text):
-    """What a refusal says of a source written as the picked form without its words between double quotes (after
-    `source` or the source itself), or None for any other text."""
+    """What a refusal of a source written as the picked form (`R1 picked ...`, its head a request id) says (after
+    `source` or the source itself), or None when it says no more than the list of every form: where the option's
+    words go when the text after `R1 picked ` does not start with words between double quotes, and the text after
+    their closing double quote when there is some. Any other text that is no picked form (more white space after
+    `picked`, a head such as `owner` or `doc`) gets the list, which names the picked form."""
     start = PICKED_START.match(text)
-    if start is None or start[1] == 'doc':
+    if start is None or start[1] in SOURCE_WORDS:
         return None
-    return f'names a pick: the option\'s words go between double quotes, {start[1]} picked "exact words"'
+    rest = text[start.end():]
+    if rest[:1].isspace():
+        return None
+    if not rest.startswith('"') or rest.count('"') == 1:
+        return f'names a pick: the option\'s words go between double quotes, {start[1]} picked "exact words"'
+    after = rest[rest.rindex('"') + 1:]
+    return f'names a pick with text after the closing double quote of its words: {after!r}' if after else None
 
 
 def parse(text, strict=False):
@@ -149,6 +161,8 @@ class Archive:
         return self.rows.get(rid)
 
     def status(self, rid, quote=None):
+        """(valid, reason) of the stored request `rid` cited by the intent form `owner R1`, with its `quote` compared
+        to the stored bytes as every source reads them (`_legacy_match`: UTF-8, or UTF-16 by its byte order mark)."""
         item = self.row(rid)
         if item is None:
             return False, f'{rid} missing -> req add the actual owner words'
@@ -159,8 +173,7 @@ class Archive:
         if quote is not None and item['reply'] == 'selected':
             return False, f'{rid}\'s answer was selected, not written by the owner -> {SELECTED_STEP.format(rid=rid)}'
         if quote is not None:
-            text = (self.root / '.flowguard/requests' / (rid + '.md')).read_text(encoding='utf-8-sig')
-            if not quote_matches(text, quote):
+            if not _legacy_match(read_request_bytes(self.root, rid), quote):
                 return False, f'{rid} quote gone -> quote the actual stored words'
         return True, f'owner {rid}'
 
@@ -650,37 +663,44 @@ OWNER_KINDS = ('owner', 'request', 'picked')       # the sources that name a rec
 def conflict_owners(declarations, cfg, archive):
     """The tail of a conflict between two rules (`declarations`, in the order the line names them) whose sources both
     name a record of the owner (OWNER_KINDS, `rule.<id>` by its entry's source), or '' when one does not: only the owner
-    can settle which holds. Each side is named by what its source holds (R105): his typed words by the id, `(owner R1,
-    R2) -> the owner's words of the two rules disagree`; a pick by its words, `R1 picked "Three days."`, and a record
-    whose reply he selected without typing as `R5 selected`, with `CHOICE_NOTE` while the source holds, never as his
-    words. A pick whose source does not hold is named as the rule writes it and is not his choice; its red says why."""
+    can settle which holds. Each side is judged by `authority` and named by what its source holds (R105); the `(owner
+    ...)` list names only sides that hold: his typed words by the id, `(owner R1, R2) -> the owner's words of the two
+    rules disagree`; a pick by its words, `R1 picked "Three days."`, and `owner R5` on a record whose reply he selected
+    without typing as `R5 selected`, with `CHOICE_NOTE`, never as his words. A side whose source does not hold is named
+    outside that list as the rule writes it, `THREE cites R2 picked "Three days.", which does not hold`, and is neither
+    his choice nor his words (its red says why): `the pick THREE cites` for the picked form or `owner R5` on a selected
+    record, `the words THREE cites` for any other. Whether a side is a choice follows its source's form, never the
+    record alone: `R5 "words"` quotes his words, which a selected record refuses."""
     sides = []
     for declaration in declarations:
         src = cited(parse(declaration.source), cfg)
         if src.kind not in OWNER_KINDS:
             return ''
         rid = src.rids[0]
-        row = archive.row(rid) if src.kind != 'picked' else None
+        row = archive.row(rid) if src.kind == 'owner' else None
         selected = row is not None and row['kind'] == 'choice' and row['reply'] == 'selected'
         choice = src.kind == 'picked' or selected
-        holds = choice and authority(src, declaration.confirmed, cfg, archive, declaration.quote)[0]
-        sides.append((declaration.id, _pick(src) if src.kind == 'picked' else f'{rid} selected' if selected else rid,
+        holds = authority(src, declaration.confirmed, cfg, archive, declaration.quote)[0]
+        name = _pick(src) if src.kind == 'picked' else f'{rid} selected' if selected else rid
+        sides.append((declaration.id, name if holds else f'{declaration.id} cites {src.text}, which does not hold',
                       choice, holds))
     settle = 'only the owner can settle which holds'
-    listed = ', '.join(name for _, name, _, _ in sides)
-    if not any(choice for _, _, choice, _ in sides):
+    held = [side for side in sides if side[3]]
+    listed = ', '.join(name for _, name, _, _ in held)
+    if len(held) == len(sides) and not any(choice for _, _, choice, _ in sides):
         return f"(owner {listed}) -> the owner's words of the two rules disagree; {settle}"
-    if all(holds for _, _, _, holds in sides):
+    if len(held) == len(sides) and all(choice for _, _, choice, _ in sides):
         return f"(owner {listed}; {CHOICES_NOTE}) -> the owner's choices behind the two rules disagree; {settle}"
-    names, nouns, whose = [], [], "the owner's"
-    for rule_id, name, choice, holds in sides:
-        names.append(f'{name} ({CHOICE_NOTE})' if choice and holds else name)
-        if choice and not holds:
-            nouns.append(f'the pick {rule_id} cites')
-        else:
+    owners = ', '.join(f'{name} ({CHOICE_NOTE})' if choice else name for _, name, choice, _ in held)
+    named = '; '.join(([f'owner {owners}'] if held else []) + [name for _, name, _, holds in sides if not holds])
+    nouns, whose = [], "the owner's"
+    for rule_id, _, choice, holds in sides:
+        if holds:
             nouns.append(f"{whose} {'choice' if choice else 'words'} behind {rule_id}")
             whose = 'his'
-    return f"(owner {', '.join(names)}) -> {' and '.join(nouns)} disagree; {settle}"
+        else:
+            nouns.append(f"the {'pick' if choice else 'words'} {rule_id} cites")
+    return f"({named}) -> {' and '.join(nouns)} disagree; {settle}"
 
 
 def _declarations_at(cfg, revision):

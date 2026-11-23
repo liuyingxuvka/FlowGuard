@@ -147,8 +147,8 @@ def test_a_choice_row_carries_its_reply_offer_and_picks_and_its_offer_is_checked
     git(root, 'add', '.')
     git(root, 'commit', '-qm', 'Store the choice')
     row = request_state(root, 'R106')
-    assert (row['kind'], row['first_line'], row['offer'], row['picked'], row['reply'], row['edited'], row['offer_edited']) == (
-        'choice', '选 A', '.flowguard/requests/offers/R106.md', [PICKED], 'typed', None, False)
+    assert (row['kind'], row['offer'], row['picked'], row['reply'], row['edited'], row['offer_edited']) == (
+        'choice', '.flowguard/requests/offers/R106.md', [PICKED], 'typed', None, False)
     cfg = load_config(root)
     picked = sources.parse('R106 picked "先保留一个版本"', strict=True)
     assert sources.catalog_authority(picked, cfg, None)[0]
@@ -161,7 +161,7 @@ def test_a_choice_row_carries_its_reply_offer_and_picks_and_its_offer_is_checked
         row = request_state(root, 'R106')
         assert row['offer_edited'] and row['edited'].startswith('offer of R106 differs from its stored original (')
         assert 'git -C' in row['edited'] and '.flowguard/requests/offers/R106.md' in row['edited'], row['edited']
-        assert row['first_line'] == ''
+        assert 'first_line' not in row         # a row holds no words of his, edited or not
         assert [item['edited'] for item in owner_words(root)['rows']] == [row['edited']]
         code, output, errors = call(root, capsys, 'show', 'R106')
         assert code == 2 and not output and 'stored original is not verified' in errors

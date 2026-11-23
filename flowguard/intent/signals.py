@@ -1165,9 +1165,10 @@ def rule_steps(rule_id, homes, where, messages=()):
     correct the code at `homes`, the places where it disagrees (`change the code so a.py:f follows rule R`, `so
     a.py:f and b.py:g follow rule R`). The rule disagrees with its own regression rows (`self:`, `row`): correct the rows
     or the rule at `where`; it leaves cells undecided (`gap in`): add the rule or rows. Two rules decide a cell
-    differently (`conflict A vs B`): one of them stays, which the owner decides. Any other red without a step of
-    its own: correct the rule's source, binding or rows. When the need changed, the owner's new words are stored
-    first, then the rule changes."""
+    differently (`conflict A vs B`): one of them stays, which only the owner can choose; his decision is stored first,
+    by either route of the FlowGuard rules block (his typed words, or his pick among options the agent offered), then
+    the rule changes. Any other red without a step of its own: correct the rule's source, binding or rows. When the
+    need changed, the owner's new words are stored first, then the rule changes."""
     kinds, conflicts = set(), []
     # A row the rule itself contradicts (`self:`), or the rule that decides over it (`row X L6 ... the decision of`),
     # also fails against the code that agrees with what decides (`(row L6)`): that is the row's red, not the code's.
@@ -1180,7 +1181,7 @@ def rule_steps(rule_id, homes, where, messages=()):
         if '-> rule ' in text and row and row[1] in wrong_rows:
             continue
         if pair:
-            conflicts.append(f'rules {pair[1]} and {pair[2]} conflict; choose one by asking the owner; ')
+            conflicts.append(f'rules {pair[1]} and {pair[2]} conflict; only the owner can choose which holds; ')
         elif text.startswith(('self: ', 'row ')):
             kinds.add('rows')
         elif text.startswith('gap in '):
@@ -1196,7 +1197,9 @@ def rule_steps(rule_id, homes, where, messages=()):
         ('gap', f'add rules or regression rows at {where} so undecided cells have a rule result; '),
         ('other', f'inspect rule {where} and correct its source, binding or regression rows; ')) if kind in kinds]
     if conflicts:
-        steps.append(f'when the owner decides, first store the exact owner words with python -m flowguard req add, then update rule {where}')
+        steps.append('when the owner decides, first store his typed words with python -m flowguard req add - --id R<n>, '
+                     'or his pick among options you offered with python -m flowguard req add REPLY --id R<n> --offer '
+                     f'FILE --picked "TEXT", then update rule {where}')
     elif steps:
         steps.append(f'if requirements changed, first store the new owner words with python -m flowguard req add, then update rule {where}')
     return steps

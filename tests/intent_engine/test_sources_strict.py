@@ -558,15 +558,41 @@ LOAN_RULES = '''
     ('owner R5', 'R3 "Loans last three days."',
      '(owner R5 selected (the agent\'s option, the owner\'s pick), R3) -> the owner\'s choice behind THREE and his '
      'words behind FOUR disagree; only the owner can settle which holds'),
-    # A pick that does not hold (R2 picked B) is named as the rule writes it, not as his choice.
+    # A side whose source does not hold (R2 picked B) is named outside the owner's list as the rule writes it, first
+    # or second, and neither as his choice nor as his words.
     ('R1 picked "Three days."', 'R2 picked "Three days."',
-     '(owner R1 picked "Three days." (the agent\'s option, the owner\'s pick), R2 picked "Three days.") -> the owner\'s '
-     'choice behind THREE and the pick FOUR cites disagree; only the owner can settle which holds'),
+     '(owner R1 picked "Three days." (the agent\'s option, the owner\'s pick); FOUR cites R2 picked "Three days.", which '
+     'does not hold) -> the owner\'s choice behind THREE and the pick FOUR cites disagree; only the owner can settle '
+     'which holds'),
+    ('R2 picked "Three days."', 'R1 picked "Three days."',
+     '(owner R1 picked "Three days." (the agent\'s option, the owner\'s pick); THREE cites R2 picked "Three days.", '
+     'which does not hold) -> the pick THREE cites and the owner\'s choice behind FOUR disagree; only the owner can '
+     'settle which holds'),
+    # With no side holding there is no owner's list.
+    ('R2 picked "Three days."', 'R1 picked "Four days."',
+     '(THREE cites R2 picked "Three days.", which does not hold; FOUR cites R1 picked "Four days.", which does not '
+     'hold) -> the pick THREE cites and the pick FOUR cites disagree; only the owner can settle which holds'),
+    # The picked form on his typed request holds no options; his own words that a quote misses are not his words.
+    ('R3 picked "three days"', 'R2 picked "Four days."',
+     '(owner R2 picked "Four days." (the agent\'s option, the owner\'s pick); THREE cites R3 picked "three days", '
+     'which does not hold) -> the pick THREE cites and the owner\'s choice behind FOUR disagree; only the owner can '
+     'settle which holds'),
+    ('R3 "Loans last ten days."', 'R2 picked "Four days."',
+     '(owner R2 picked "Four days." (the agent\'s option, the owner\'s pick); THREE cites R3 "Loans last ten days.", '
+     'which does not hold) -> the words THREE cites and the owner\'s choice behind FOUR disagree; only the owner can '
+     'settle which holds'),
+    # The request form on a reply he selected quotes words he never wrote: refused, the words it cites, not a pick.
+    ('R5 "A. Three days."', 'R3 "Loans last three days."',
+     '(owner R3; THREE cites R5 "A. Three days.", which does not hold) -> the words THREE cites and the owner\'s words '
+     'behind FOUR disagree; only the owner can settle which holds'),
 ])
 def test_two_rules_citing_the_owners_picks_that_disagree_name_his_picks_never_his_words(tmp_path, three, four, owners):
     """R105-1: a conflict of two rules whose sources name the owner's picks said `(owner R1, R2) -> the owner's words of
     the two rules disagree`, while the words compared were the agent's option texts, or a reply he selected with no
-    words of his own. The tail names each side by what its source holds."""
+    words of his own. The tail names each side by what its source holds, and its `(owner ...)` list only the sides
+    that hold: 5.1's first fix still listed a pick that did not hold there (`(owner R2 picked "Three days.", R1 picked
+    "Four days.")`), as it listed a typed quote that did not hold as his words, and called `R5 "words"` on a selected
+    reply `R5 selected`, a pick."""
     from flowguard.map.requests import store_choice
     _project(tmp_path, rules='''
         [rule.three]
@@ -655,6 +681,34 @@ def test_a_picked_source_without_its_words_between_double_quotes_says_where_they
         sources.parse('nothing of the kind')
     assert str(refused.value) == ('source needs rule.<id> (a rule of .flowguard/rules.toml), R<id> "exact words", R<id> '
                                   'picked "exact words", owner R-id, doc PATH "quoted words", assumed: or lesson:')
+
+
+STRICT_FORMS = ('source is R<id> "exact words" (a stored request), R<id> picked "exact words" (an option the owner '
+                'picked) or doc PATH "exact words" (a document of authority_docs)')
+INTENT_FORMS = ('source needs rule.<id> (a rule of .flowguard/rules.toml), R<id> "exact words", R<id> picked "exact '
+                'words", owner R-id, doc PATH "quoted words", assumed: or lesson:')
+
+
+@pytest.mark.parametrize('text, problem', [
+    # Its words are between double quotes: what is wrong is the text after them.
+    ('R1 picked "Keep one version" (A)', "names a pick with text after the closing double quote of its words: ' (A)'"),
+    ('R1 picked "Keep one version"\n', "names a pick with text after the closing double quote of its words: '\\n'"),
+    # Its words are between double quotes after two spaces, and `owner` is no request id: neither is told where the
+    # words go; each gets the list of every form, which names the pick.
+    ('R1 picked  "Keep one version"', None),
+    ("owner picked 'Keep one version'", None),
+])
+def test_a_malformed_picked_source_is_refused_with_what_holds_of_its_text(text, problem):
+    """5.1's first fix told every text that starts with `<word> picked ` that the option's words go between double
+    quotes, also a source whose words were already there (`R1 picked "Keep one version" (A)`, two spaces before
+    them) and one whose head is no id (`owner picked 'x'`, answered with `owner picked "exact words"`)."""
+    for strict, forms in ((True, STRICT_FORMS), (False, INTENT_FORMS)):
+        with pytest.raises(IntentError) as refused:
+            sources.parse(text, strict=strict)
+        assert str(refused.value) == (f'source {problem}' if problem else forms)
+    assert sources._source_problems(text) == [f'source {text!r} {problem}' if problem else
+                                              f'source {text!r} is neither R<id> "exact words", R<id> picked "exact '
+                                              'words" nor doc PATH "exact words"']
 
 
 def test_a_picked_source_holds_only_for_words_of_an_option_the_owner_picked(tmp_path):
