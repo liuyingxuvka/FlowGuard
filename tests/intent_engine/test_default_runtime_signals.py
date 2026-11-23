@@ -485,6 +485,35 @@ def test_fixed_7_rule_failure_preserves_its_independent_source_sentence(tmp_path
     assert '    STANDING_RULE source: At most three days.' in _last(tmp_path).splitlines()
 
 
+def test_a_red_rule_whose_source_is_a_picked_option_names_it_as_the_agents_option_and_the_owners_pick(tmp_path):
+    """R105: words of an option the owner picked are the agent's text: the red's detail prints them as the agent's
+    option and the owner's pick, never as his words alone."""
+    from flowguard.map.requests import store_choice
+    store_choice(tmp_path, b'A', b'How many days?\nA. At most three days.\nB. At most four days.\n',
+                 ['A. At most three days.'], identifier='R106')
+    policy = _project(tmp_path, '''
+        # flowguard: same STANDING
+        def standing(days: int) -> bool:
+            return days <= 3
+    ''', '''
+        from policy import standing
+        def test_native():
+            assert standing(0) is True
+    ''', rule='''
+        from flowguard.intent import rule, row
+        @rule('STANDING_RULE', decides='standing', fields={'days': int}, anchor='STANDING',
+              source='R106 picked "At most three days."')
+        def STANDING_RULE(days):
+            return days <= 3
+    ''')
+    policy.write_text(policy.read_text().replace('return days <= 3', 'return days <= 4'))
+    result = _run(tmp_path)
+    text = _text(result)
+    assert result.returncode == 1 and 'red: rule STANDING_RULE: ' in text, text
+    assert ("    STANDING_RULE source: owner R106 picked \"At most three days.\" (the agent's option, the owner's pick)"
+            in _last(tmp_path).splitlines()), _last(tmp_path)
+
+
 def test_fixed_9_reused_connection_calls_run_once_each_and_are_not_compared(tmp_path):
     policy = _project(tmp_path, '''
         import sqlite3

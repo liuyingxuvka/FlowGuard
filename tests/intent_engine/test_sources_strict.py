@@ -545,3 +545,124 @@ def test_check_all_fails_a_grey_rule_that_cites_the_owners_words_through_the_cat
     assert [(issue.name, issue.family, issue.fresh) for issue in issues] == [('unverified:LIMIT', 'rule', frozenset({''}))], issues
     assert issues[0].text == ('rule LIMIT: cites original words from the owner (R1), but is now grey (unverified): field days could not '
                               'be read'), issues
+
+
+# ---- R105: words of an option the owner picked (`R106 picked "words"`) ----------------------------------------------
+
+CHOICE_OFFER = '要怎么处理旧的 PSP 字段？\nA. 先保留一个版本，并在 CHANGELOG 写迁移\nB. 直接删除\n'.encode()
+CHOICE_PICKED = 'A. 先保留一个版本，并在 CHANGELOG 写迁移'
+LABEL = 'Keep one version and write the migration in CHANGELOG'
+ASKED = (f'How should the old PSP field be handled?\r\n1. {LABEL} - old exports stay readable\r\n'
+         '2. Delete it now - the schema gets smaller\r\n').encode()
+
+
+def _choices(tmp_path):
+    from flowguard.map.requests import store_choice
+    store_choice(tmp_path, '选 A'.encode(), CHOICE_OFFER, [CHOICE_PICKED], identifier='R106')
+    store_choice(tmp_path, LABEL.encode(), ASKED, [LABEL], identifier='R107', selected=True)
+    store_request(tmp_path, b'Members pay less.\n', identifier='R104')
+
+
+def test_the_picked_form_is_a_strict_source_of_the_catalog_and_of_intent_rules():
+    for strict in (True, False):
+        source = sources.parse('R106 picked "先保留一个版本"', strict=strict)
+        assert (source.kind, source.rids, source.quote, source.strict) == ('picked', ('R106',), '先保留一个版本', True)
+    assert sources._source_problems('R106 picked "先保留一个版本"') == []
+    # Words that start with `picked` are still the request form; `doc picked "x"` is a document named picked.
+    assert sources.parse('R74 "picked \\"x\\""', strict=True).kind == 'request'
+    assert sources.parse('doc picked "x"', strict=True).kind == 'doc'
+    assert sources.source_text(sources.parse('R106 picked "先保留一个版本"')) == (
+        'owner R106 picked "先保留一个版本" (the agent\'s option, the owner\'s pick)')
+    assert sources.source_text(sources.parse('R74 "words"')) == 'words'
+
+
+def test_a_picked_source_holds_only_for_words_of_an_option_the_owner_picked(tmp_path):
+    cfg = _project(tmp_path)
+    _choices(tmp_path)
+    assert _authority(cfg, 'R106 picked "先保留一个版本"') == (
+        True, 'owner R106 picked "先保留一个版本" (the agent\'s option, the owner\'s pick)')
+    assert _authority(cfg, f'R106 picked "{CHOICE_PICKED}"')[0]
+    # Option B was offered, not picked; words in no option are not his pick either.
+    assert _authority(cfg, 'R106 picked "直接删除"') == (
+        False, '"直接删除" is in the options R106 offered, not in one the owner picked -> quote the option R106 picked')
+    assert _authority(cfg, 'R106 picked "保留两个版本"') == (
+        False, '"保留两个版本" is not in the option R106 picked -> quote the picked option exactly')
+    # His typed reply is his words; a reply he selected without typing holds the agent's option, not his words.
+    assert _authority(cfg, 'R106 "选 A"') == (True, 'owner R106')
+    assert _authority(cfg, f'R107 "{LABEL}"') == (
+        False, 'R107\'s answer was selected, not written by the owner -> quote the option: R107 picked "words"')
+    assert _authority(cfg, 'R107 picked "write the migration in CHANGELOG"')[0]
+    assert sources.Archive(tmp_path).status('R107', LABEL) == (
+        False, 'R107\'s answer was selected, not written by the owner -> quote the option: R107 picked "words"')
+    # The counterexample: a plain request holds no options.
+    assert _authority(cfg, 'R104 picked "Members pay less."') == (
+        False, 'R104 holds no offered options -> quote its words: R104 "words"')
+    assert _authority(cfg, 'R104 "Members pay less."') == (True, 'owner R104')
+
+
+def test_a_picked_source_is_judged_at_a_commit_with_that_commits_sidecar_reply_and_offer(tmp_path):
+    cfg = _project(tmp_path)
+    base = _commit(tmp_path)
+    _choices(tmp_path)
+    # Stored in this task: at the baseline the choice is not stored, in the existing words.
+    assert _authority(cfg, 'R106 picked "先保留一个版本"', revision=base) == (
+        False, "R106 was not stored then -> store the owner's words with python -m flowguard req add - --id R106")
+    base = _commit(tmp_path, message='choices stored')
+    import shutil
+    shutil.rmtree(tmp_path / '.flowguard/requests')         # nothing in the working tree: only the commit's blobs
+    assert _authority(cfg, 'R106 picked "先保留一个版本"', revision=base) == (
+        True, 'owner R106 picked "先保留一个版本" (the agent\'s option, the owner\'s pick)')
+    assert _authority(cfg, 'R106 picked "直接删除"', revision=base)[1].startswith('"直接删除" is in the options R106 offered')
+    assert _authority(cfg, f'R107 "{LABEL}"', revision=base)[1].startswith("R107's answer was selected")
+    assert _authority(cfg, 'R104 picked "Members"', revision=base)[1].startswith('R104 holds no offered options')
+    assert _authority(cfg, 'R106 picked "先保留一个版本"')[1].startswith('R106 is not stored')
+
+
+def test_a_catalog_rule_citing_a_pick_is_a_source_finding_when_the_pick_does_not_hold(tmp_path, capsys):
+    _project(tmp_path, rules='''
+        [rule.psp]
+        text = "Keep one version of the old PSP field and write its migration in the CHANGELOG."
+        source = 'R106 picked "直接删除"'
+    ''')
+    _choices(tmp_path)
+    base = _commit(tmp_path)
+    found = _source_findings(tmp_path, base)['source:rule.psp']
+    assert found.parts[0][2:] == ('"直接删除" is in the options R106 offered, not in one the owner picked',
+                                  'quote the option R106 picked'), found.parts
+    assert found.files == {'.flowguard/rules.toml', '.flowguard/requests/R106.md', '.flowguard/requests/offers/R106.md'}
+    _write(tmp_path, {'.flowguard/rules.toml': '[rule.psp]\ntext = "Keep one version."\nsource = \'R106 picked "先保留一个版本"\'\n'})
+    assert _source_findings(tmp_path, base) == {}
+    from flowguard.intent import cli
+    assert cli.main(['--root', str(tmp_path), 'show', 'rule.psp']) == 0
+    assert capsys.readouterr().out.splitlines() == [
+        'rule.psp: Keep one version.',
+        '    source: R106 picked "先保留一个版本" (holds: the agent\'s option, the owner\'s pick)']
+
+
+def test_an_intent_rule_citing_a_pick_holds_and_depends_on_the_offer(tmp_path):
+    _project(tmp_path)
+    _choices(tmp_path)
+    base = _commit(tmp_path, {'tests/intent/days.py': INTENT.format(source='R106 picked "先保留一个版本"')})
+    assert _state(tmp_path, 'R106 picked "先保留一个版本"', base) == (
+        'ok', 'owner R106 picked "先保留一个版本" (the agent\'s option, the owner\'s pick)')
+    assert _state(tmp_path, 'R106 picked "直接删除"', base)[0] == 'red'
+    cfg = load_config(tmp_path)
+    model = load(cfg)
+    with closing(build(tmp_path, workers=1)) as graph:
+        keys = deps.record(cfg, model, model.rules['DAYS'], [dict(verdict='ok')], graph)['dependencies']
+    assert {'file:.flowguard/requests/R106.md', 'file:.flowguard/requests/R106.json',
+            'file:.flowguard/requests/offers/R106.md'} <= set(keys), sorted(keys)
+
+
+def test_check_all_fails_a_grey_rule_that_cites_the_owners_pick_and_names_it_as_his_pick(tmp_path):
+    from flowguard.intent.cli import _owner_rules_unverified
+    cfg = _project(tmp_path, rules='''
+        [rule.psp]
+        text = "Keep one version."
+        source = 'R106 picked "先保留一个版本"'
+    ''')
+    grey = dict(kind='cells', verdict='grey', grey=['field days could not be read'])
+    rules = {'PSP': dict(source='rule.psp', decides='psp', file='tests/intent/psp.py', line=3)}
+    issues = _owner_rules_unverified(cfg, dict(summary=dict(rules=rules), results={'PSP': dict(items={'cells': grey})}))
+    assert [issue.text for issue in issues] == ["rule PSP: cites the owner's pick among the agent's options (R106), but is "
+                                                'now grey (unverified): field days could not be read'], issues

@@ -13,6 +13,7 @@ import sys
 import tomllib
 
 from flowguard.map.common import content_digest, read_source
+from flowguard.map.requests import offer_path
 from .sources import RULES, cited, parse
 
 
@@ -670,6 +671,7 @@ def record(cfg, model, rule, results, graph, now=None, found=None):
             seeds.add(source.path)
         for rid in source.rids + ((declaration.confirmed,) if getattr(declaration, 'confirmed', None) else ()):
             seeds.update('.flowguard/requests/' + rid + suffix for suffix in ('.md', '.json'))
+            seeds.add(offer_path(rid).as_posix())        # a choice's offered options ('gone' for any other record)
             authorities.add(rid)
     for entry in entries:
         seeds.update(entry.get('files', ()))

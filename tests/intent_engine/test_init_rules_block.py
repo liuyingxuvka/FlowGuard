@@ -99,8 +99,11 @@ def test_rule_one_starts_each_task_with_new_task_and_the_block_holds_the_seven_r
     assert rules[3].endswith('after `->` each line says what is known and who decides. You choose when to raise an '
                              'open question with the owner.'), rules[3]
     assert not any(word in rule for rule in rules for word in ('ask owner', 'Tell the owner', 'tell the owner', 'Never ')), rules
+    # R105: the owner's pick among options the agent offered is stored too, the options as the agent's words.
     assert rules[6] == ("7. Store the owner's own words once with `python -m flowguard req add - --id R<n>`, never your own "
-                        "text, and keep `.flowguard/rules.toml` current, each rule's source quoting those words."), rules[6]
+                        "text; when he picks one of options you offered, store his reply with them (`--offer FILE --picked "
+                        "TEXT`), the options as your words and the pick as his. Keep `.flowguard/rules.toml` current, each "
+                        "rule's source quoting those words."), rules[6]
 
 
 def test_other_level_one_headings_are_not_touched(tmp_path, capsys):

@@ -191,3 +191,25 @@ def test_unreadable_receipt_is_reported_as_unreadable_not_as_an_edit(tmp_path):
         from flowguard.map.requests import owner_words
         owner_words(root)
     assert str(receipt) in str(error.value) and (not _damaged_request_paths(str(error.value)))
+
+
+def test_a_choice_offer_is_protected_like_the_owner_text_in_a_clone_and_a_copy(tmp_path):
+    """R105: the options of a choice keep their first bytes as its reply does: by the first commit in a clone, and
+    in a copy without Git they are unverifiable, not edited."""
+    from flowguard.map.requests import request_state, store_choice
+    root = tmp_path / 'project'
+    _project(root)
+    offer = b'Which limit?\r\n1. three days\r\n2. four days\r\n'
+    store_choice(root, b'1', offer, ['1. three days'], identifier='R106')
+    _seed_git(root)
+    clone = tmp_path / 'clone'
+    _git(tmp_path, 'clone', '-q', str(root), str(clone))
+    copy = tmp_path / 'copy'
+    shutil.copytree(root, copy, ignore=shutil.ignore_patterns('.git', 'cache'))
+    for checkout in (clone, copy):
+        assert (checkout / '.flowguard/requests/offers/R106.md').read_bytes() == offer
+        assert request_state(checkout, 'R106')['edited'] is None, checkout
+    for checkout in (clone, copy):
+        path = checkout / '.flowguard/requests/offers/R106.md'
+        path.write_bytes(offer + b'3. five days\r\n')
+        assert request_state(checkout, 'R106')['offer_edited'], checkout

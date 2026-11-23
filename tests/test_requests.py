@@ -325,3 +325,159 @@ def test_req_add_reports_empty_input_before_writing(tmp_path, capsys, monkeypatc
     empty.write_bytes(b"Keep the owner's words.\r\n")
     code, _, errors = _call(tmp_path, capsys, "req", "add", str(empty), "--id", "REmpty")
     assert code == 0 and not errors
+
+
+# ---- R105: the owner's pick among options the agent offered (a `choice` record) ---------------------------------
+
+OFFER = '要怎么处理旧的 PSP 字段？\nA. 先保留一个版本，并在 CHANGELOG 写迁移\nB. 直接删除\n'.encode()
+PICKED = 'A. 先保留一个版本，并在 CHANGELOG 写迁移'
+REPLY = '选 A'.encode()
+# An AskUserQuestion-style offer: the owner clicks an option, and the interface returns its label as his answer.
+ASKED = (b'How should the old PSP field be handled?\r\n'
+         b'1. Keep one version and write the migration in CHANGELOG - old exports stay readable\r\n'
+         b'2. Delete it now - the schema gets smaller\r\n')
+LABEL = 'Keep one version and write the migration in CHANGELOG'
+
+
+def _choice(tmp_path, root, capsys, identifier, reply, offer, *options):
+    (tmp_path / f'{identifier}-reply.md').write_bytes(reply)
+    (tmp_path / f'{identifier}-offer.md').write_bytes(offer)
+    return _call(root, capsys, 'req', 'add', str(tmp_path / f'{identifier}-reply.md'), '--id', identifier,
+                 '--offer', str(tmp_path / f'{identifier}-offer.md'), *options)
+
+
+def test_req_add_stores_the_owners_reply_and_the_agents_options_apart(tmp_path, capsys):
+    """R105: the owner picked option A of the agent's question by typing `选 A`. 5.0.1 had no route for it: `req add
+    --offer` was an unknown argument, and storing the options as a request would have made the agent's words his. The
+    reply, the options and the picked option text are stored once, each file write-once with its receipt, and the
+    sidecar has exactly the fields of a choice."""
+    root = _project(tmp_path / 'project', capsys)
+    _git(root, 'init', '-q')
+    code, output, errors = _choice(tmp_path, root, capsys, 'R106', REPLY, OFFER, '--picked', PICKED)
+    assert (code, errors) == (0, ''), errors
+    item = json.loads((root / '.flowguard/requests/R106.json').read_bytes())
+    assert output.splitlines() == [
+        f"stored R106 (choice: the owner's reply 5 bytes, the agent's options {len(OFFER)} bytes, 1 picked; "
+        f"sha {hashlib.sha256(REPLY).hexdigest()[:12]})",
+        'if this choice sets a continuing rule, add it to .flowguard/rules.toml: [rule.<id>] text = "..." '
+        'source = \'R106 picked "<words of the picked option>"\' or \'R106 "<his exact words>"\''], output
+    assert (root / '.flowguard/requests/R106.md').read_bytes() == REPLY
+    assert (root / '.flowguard/requests/offers/R106.md').read_bytes() == OFFER
+    assert set(item) == {'id', 'kind', 'sha256', 'bytes', 'received', 'offer', 'picked', 'reply'}
+    assert (item['id'], item['kind'], item['sha256'], item['bytes']) == ('R106', 'choice', hashlib.sha256(REPLY).hexdigest(), 5)
+    assert item['offer'] == dict(sha256=hashlib.sha256(OFFER).hexdigest(), bytes=len(OFFER))
+    assert (item['picked'], item['reply']) == ([PICKED], 'typed')
+    # Write-once, both files: neither the reply nor the offer can be written again, and Git keeps their bytes.
+    from flowguard.map import records
+    from flowguard.map.common import MapError
+    for relative in ('.flowguard/requests/R106.md', '.flowguard/requests/offers/R106.md'):
+        with pytest.raises(MapError, match='immutable file already exists'):
+            records.write_once(root, relative, b'other words')
+        assert records.integrity_problem(root, relative) is None       # its first-write receipt
+    _git(root, 'add', '.flowguard/requests')
+    assert _git(root, 'show', ':.flowguard/requests/offers/R106.md') == OFFER
+    assert _integrity(root)[0] == 0
+
+
+def test_a_selected_reply_and_a_multi_select_with_a_crlf_offer(tmp_path, capsys):
+    root = _project(tmp_path / 'project', capsys)
+    code, output, errors = _choice(tmp_path, root, capsys, 'R107', LABEL.encode(), ASKED, '--picked', LABEL, '--selected')
+    assert (code, errors) == (0, ''), errors
+    item = json.loads((root / '.flowguard/requests/R107.json').read_bytes())
+    assert (item['reply'], item['picked']) == ('selected', [LABEL])
+    # A selected reply holds the option, not words of his: the hint offers only the picked form.
+    assert output.splitlines()[1].endswith('source = \'R107 picked "<words of the picked option>"\''), output
+    # Two picked options, a CRLF offer and an option given with LF: compared after normalize_newlines on both.
+    offer = b'Which exports keep the field?\r\n- the weekly sheet\r\n- the yearly\r\n  summary\r\n- the archive\r\n'
+    code, output, errors = _choice(tmp_path, root, capsys, 'R108', b'the weekly and the yearly ones', offer,
+                                   '--picked', 'the weekly sheet', '--picked', 'the yearly\n  summary')
+    assert (code, errors) == (0, ''), errors
+    assert json.loads((root / '.flowguard/requests/R108.json').read_bytes())['picked'] == ['the weekly sheet',
+                                                                                           'the yearly\n  summary']
+    assert (root / '.flowguard/requests/offers/R108.md').read_bytes() == offer
+
+
+@pytest.mark.parametrize('options, message', [
+    (('--picked', PICKED), 'choice_offer_missing: --picked and --selected'),
+    (('--selected',), 'choice_offer_missing: --picked and --selected'),
+    (('--offer', 'OFFER'), 'choice_picked_missing: --offer needs --picked TEXT'),
+    (('--offer', 'EMPTY', '--picked', PICKED), 'choice_offer_empty: the offer is empty'),
+    (('--offer', 'OFFER', '--picked', '保留两个版本'), 'choice_picked_absent: "保留两个版本" occurs 0 times in the offer'),
+    (('--offer', 'OFFER', '--picked', '. '), 'choice_picked_ambiguous: ". " occurs 2 times in the offer'),
+    (('--offer', 'OFFER', '--picked', PICKED, '--picked', PICKED), 'choice_picked_repeated'),
+    (('--offer', 'OFFER', '--picked', ' '), 'choice_picked_empty'),
+])
+def test_every_choice_refusal_exits_2_with_its_text_and_stores_nothing(tmp_path, capsys, options, message):
+    root = _project(tmp_path / 'project', capsys)
+    (tmp_path / 'reply.md').write_bytes(REPLY)
+    (tmp_path / 'offer.md').write_bytes(OFFER)
+    (tmp_path / 'empty.md').write_bytes(b'')
+    named = {'OFFER': str(tmp_path / 'offer.md'), 'EMPTY': str(tmp_path / 'empty.md')}
+    code, output, errors = _call(root, capsys, 'req', 'add', str(tmp_path / 'reply.md'), '--id', 'R106',
+                                 *[named.get(option, option) for option in options])
+    assert (code, output) == (2, '') and errors.startswith('flowguard: ' + message), errors
+    assert not (root / '.flowguard/requests').exists()
+
+
+def test_a_choice_id_that_is_stored_is_refused_and_nothing_changes(tmp_path, capsys):
+    root = _project(tmp_path / 'project', capsys)
+    assert _choice(tmp_path, root, capsys, 'R106', REPLY, OFFER, '--picked', PICKED)[0] == 0
+    before = {path: path.read_bytes() for path in (root / '.flowguard/requests').rglob('R106.*')}
+    code, _, errors = _choice(tmp_path, root, capsys, 'R106', b'B', OFFER, '--picked', 'B. 直接删除')
+    assert code == 2 and 'request_exists: R106 is stored' in errors
+    assert {path: path.read_bytes() for path in (root / '.flowguard/requests').rglob('R106.*')} == before
+    # A plain request may not take the id either, nor a choice the id of a plain request.
+    assert _call(root, capsys, 'req', 'add', str(tmp_path / 'R106-reply.md'), '--id', 'R106')[0] == 2
+    assert _call(root, capsys, 'req', 'add', str(tmp_path / 'R106-reply.md'), '--id', 'R1')[0] == 0
+    code, _, errors = _choice(tmp_path, root, capsys, 'R1', REPLY, OFFER, '--picked', PICKED)
+    assert code == 2 and 'request_exists: R1 is stored' in errors
+    assert not (root / '.flowguard/requests/offers/R1.md').exists()
+
+
+def test_show_and_list_keep_the_owners_reply_apart_from_the_agents_options(tmp_path, capsys):
+    root = _project(tmp_path / 'project', capsys)
+    assert _choice(tmp_path, root, capsys, 'R106', REPLY, OFFER, '--picked', PICKED)[0] == 0
+    assert _choice(tmp_path, root, capsys, 'R107', LABEL.encode(), ASKED, '--picked', LABEL, '--selected')[0] == 0
+    code, output, errors = _call(root, capsys, 'show', 'R106')
+    assert (code, errors) == (0, '')
+    assert output == ('OWNER R106 chose among options the agent offered\n'
+                      "the owner's reply:\n选 A\n"
+                      "options the agent offered (the agent's words, not the owner's) .flowguard/requests/offers/R106.md:\n"
+                      + OFFER.decode() + f'picked: "{PICKED}"\n'), output
+    code, output, errors = _call(root, capsys, 'show', 'R107')
+    assert (code, errors) == (0, '')
+    assert output.splitlines()[:3] == ['OWNER R107 chose among options the agent offered',
+                                       'the owner selected, with no words of his own:', LABEL], output
+    code, output, errors = _call(root, capsys, 'req', 'list')
+    assert (code, errors) == (0, '')
+    rows = {line.split()[0]: line for line in output.splitlines()[1:]}
+    assert output.splitlines()[0] == 'requests: 2; show ID for the stored words', output
+    assert rows['R106'].split()[1] == 'choice' and rows['R106'].endswith(' stored (1 picked; his reply typed)'), output
+    assert rows['R107'].endswith(' stored (1 picked; selected with no words of his own)'), output
+
+
+def test_a_request_stored_by_5_0_1_loads_lists_and_shows_unchanged(tmp_path, capsys):
+    """The kept valid example: a request record exactly as FlowGuard 5.0.1 stored it (its sidecar's bytes literal)
+    keeps loading, listing, showing and serving as a link and a source beside a choice."""
+    from flowguard.intent import sources
+    from flowguard.intent.config import load_config
+    from flowguard.map.records import prepare_directory, write_once
+    from flowguard.map.requests import REQUEST_DIR, owner_words, request_state, validate_request_links
+    root = _project(tmp_path / 'project', capsys)
+    raw = '这个技能本身你用英文去做没问题吧'.encode()
+    sidecar = (b'{"bytes": 48, "id": "R74", "kind": "request", "received": "2026-11-05T09:12:44.183203+00:00", '
+               b'"sha256": "' + hashlib.sha256(raw).hexdigest().encode() + b'"}\n')
+    prepare_directory(root, REQUEST_DIR, ('.md', '.json'))
+    write_once(root, REQUEST_DIR / 'R74.md', raw)
+    write_once(root, REQUEST_DIR / 'R74.json', sidecar)
+    assert _choice(tmp_path, root, capsys, 'R106', REPLY, OFFER, '--picked', PICKED)[0] == 0
+    row = request_state(root, 'R74')
+    assert (row['kind'], row['edited'], row['invalid'], row['offer'], row['picked'], row['reply']) == (
+        'request', None, None, '', [], '')
+    assert [item['id'] for item in owner_words(root)['rows']] == ['R106', 'R74']        # offers/ is no request
+    validate_request_links(root, [dict(id='R74', part=False), dict(id='R106', part=False)])
+    assert _call(root, capsys, 'show', 'R74') == (0, 'OWNER R74\n' + raw.decode() + '\n', '')
+    assert _call(root, capsys, 'req', 'list')[1].splitlines()[2] == '  R74 request 2026-11-05T09:12:44.183203+00:00 stored'
+    assert (root / '.flowguard/requests/R74.json').read_bytes() == sidecar
+    cfg = load_config(root)
+    assert sources.catalog_authority(sources.parse('R74 "用英文去做"', strict=True), cfg, None) == (True, 'owner R74')

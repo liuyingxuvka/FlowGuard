@@ -126,3 +126,69 @@ def test_show_without_original_fact_keeps_sidecar_comparison(tmp_path, capsys):
     (copied / '.flowguard/requests/Rtarget.md').write_bytes(b'changed copied words')
     code, output, errors = call(copied, capsys, 'show', 'Rtarget')
     assert code == 2 and not output and 'stored original is not verified' in errors
+
+
+OFFER = '要怎么处理旧的 PSP 字段？\nA. 先保留一个版本，并在 CHANGELOG 写迁移\nB. 直接删除\n'.encode()
+PICKED = 'A. 先保留一个版本，并在 CHANGELOG 写迁移'
+
+
+def test_a_choice_row_carries_its_reply_offer_and_picks_and_its_offer_is_checked_like_its_reply(tmp_path, capsys):
+    """R105: the options the agent offered are part of the choice record. An edited or deleted offer makes the whole
+    record unverified, in the row, in show, as a link and as a source, naming the offer file and its restore step."""
+    from flowguard.intent import sources
+    from flowguard.intent.config import load_config
+    from flowguard.map.common import MapError
+    from flowguard.map.requests import owner_words, request_state, store_choice, validate_request_links
+
+    root = tmp_path / 'project'
+    root.mkdir()
+    store_choice(root, '选 A'.encode(), OFFER, [PICKED], identifier='R106')
+    git(root, 'init', '-q')
+    git(root, 'add', '.')
+    git(root, 'commit', '-qm', 'Store the choice')
+    row = request_state(root, 'R106')
+    assert (row['kind'], row['first_line'], row['offer'], row['picked'], row['reply'], row['edited'], row['offer_edited']) == (
+        'choice', '选 A', '.flowguard/requests/offers/R106.md', [PICKED], 'typed', None, False)
+    cfg = load_config(root)
+    picked = sources.parse('R106 picked "先保留一个版本"', strict=True)
+    assert sources.catalog_authority(picked, cfg, None)[0]
+    offer = root / '.flowguard/requests/offers/R106.md'
+    for damage in ('edited', 'deleted'):
+        if damage == 'edited':
+            offer.write_bytes(OFFER.replace('B. 直接删除'.encode(), 'B. 保留'.encode()))
+        else:
+            offer.unlink()
+        row = request_state(root, 'R106')
+        assert row['offer_edited'] and row['edited'].startswith('offer of R106 differs from its stored original (')
+        assert 'git -C' in row['edited'] and '.flowguard/requests/offers/R106.md' in row['edited'], row['edited']
+        assert row['first_line'] == ''
+        assert [item['edited'] for item in owner_words(root)['rows']] == [row['edited']]
+        code, output, errors = call(root, capsys, 'show', 'R106')
+        assert code == 2 and not output and 'stored original is not verified' in errors
+        assert sources.catalog_authority(picked, cfg, sources.Archive(root)) == (
+            False, 'offer of R106 differs from its stored original -> restore the stored original')
+        with pytest.raises(MapError, match='offer_edited: offer of R106 differs from its stored original'):
+            validate_request_links(root, [dict(id='R106', part=False)])
+        git(root, 'checkout', '--', '.flowguard/requests/offers/R106.md')
+        assert request_state(root, 'R106')['edited'] is None
+
+
+def test_a_5_0_sidecar_with_choice_fields_or_a_choice_without_them_is_invalid(tmp_path, capsys):
+    """`_metadata` requires offer, picked and reply on a choice and refuses them on every other kind."""
+    from flowguard.map.records import prepare_directory, write_once
+    from flowguard.map.requests import REQUEST_DIR, request_state
+
+    raw = b'private original words\n'
+    digest = hashlib.sha256(raw).hexdigest()
+    offer = dict(sha256=digest, bytes=len(raw))
+    prepare_directory(tmp_path, REQUEST_DIR, ('.md', '.json'))
+    shapes = {'Rplain': dict(kind='request', picked=['x']), 'Rbare': dict(kind='choice'),
+              'Rreply': dict(kind='choice', offer=offer, picked=['x'], reply='clicked'),
+              'Rnone': dict(kind='choice', offer=offer, picked=[], reply='typed')}
+    for identifier, fields in shapes.items():
+        item = dict(id=identifier, received='2026-11-23T08:00:00+00:00', sha256=digest, bytes=len(raw), **fields)
+        write_once(tmp_path, REQUEST_DIR / (identifier + '.md'), raw)
+        write_once(tmp_path, REQUEST_DIR / (identifier + '.json'), json.dumps(item).encode())
+        assert request_state(tmp_path, identifier)['kind'] is None, identifier
+        code, output, errors = call(tmp_path, capsys, 'show', identifier)
+        assert code == 2 and not output and 'stored original is not verified' in errors

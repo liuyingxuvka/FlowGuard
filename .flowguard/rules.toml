@@ -32,3 +32,7 @@ source = 'R95 "就发现有冲突，可以先先留在里头。FlowGuard 软工�
 [rule.upgrade-consent]
 text = "Rewriting a project's FlowGuard comments and files into a new release's form during an upgrade has the owner's yes."
 source = 'R95 "就是你需要的过程当中把旧的版本变成新的，要主人同意的话，呃，当然当然就是要做"'
+
+[rule.offered-choice]
+text = "An option the agent offered and the owner picked is the owner's original choice and is recorded too, never attributing the agent's option text to him."
+source = 'R105 "但实际上这也是人的原始选择，对不对？说实话，按我的想法，应该是一样记录的。"'

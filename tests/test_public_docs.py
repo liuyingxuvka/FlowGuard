@@ -275,3 +275,23 @@ def test_each_supported_ci_platform_runs_the_full_pytest_route():
            'Verify the frozen source after execution'))
     assert not any(old in text for old in ('--shard', 'aggregate', 'tests/native', 'playwright', 'tests/flow', 'cancel-in-progress: true'))
     assert 'matrix.full' not in text
+
+
+def test_the_documented_choice_command_stores_a_choice(tmp_path, monkeypatch, capsys):
+    """R105: the README, its mirror and the reference each give the command that stores the owner's pick among
+    offered options, and each, run as written on the files it names, stores one choice record."""
+    import json
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'reply.md').write_text('A\n', encoding='utf-8')
+    (tmp_path / 'options.md').write_text('Which way?\nA. Keep one version\nB. Delete it\n', encoding='utf-8')
+    for number, path in enumerate((ROOT / 'README.md', ROOT / 'README.zh-CN.md', SKILL / 'reference.md')):
+        commands = [command for command in re.findall(r'`python -m flowguard([^`\n]*)`', path.read_text(encoding='utf-8'))
+                    if ' --offer ' in command]
+        assert commands, path
+        for command in commands:
+            root = tmp_path / f'project{number}'
+            (root / '.flowguard').mkdir(parents=True, exist_ok=True)
+            assert cli.main(['--root', str(root), *shlex.split(command)]) == 0, (path, command, capsys.readouterr().err)
+            item = json.loads((root / '.flowguard/requests/R2.json').read_text(encoding='utf-8'))
+            assert (item['kind'], item['picked'], item['reply']) == ('choice', ['A. Keep one version'], 'typed'), item
+    capsys.readouterr()

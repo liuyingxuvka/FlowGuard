@@ -11,14 +11,15 @@ import shlex
 import tomllib
 
 from .api import IntentError
-from flowguard.map.requests import (REQUEST_DIR, RETIRED_DIR, added_since, exact_quote, quote_matches, read_request_bytes,
-                                    request_states)
+from flowguard.map.requests import (REQUEST_DIR, RETIRED_DIR, added_since, exact_quote, offer_path, quote_matches,
+                                    read_offer_bytes, read_request_bytes, request_states, sidecar_fields)
 from flowguard.map.common import decode_text, document_text, git_blob, git_common_directory, git_head, git_run
 
 
 @dataclass
 class Source:
-    kind: str                   # owner, doc, assumed, lesson; request (`R74 "words"`); rule (`rule.<id>`)
+    kind: str                   # owner, doc, assumed, lesson; request (`R74 "words"`); picked (`R106 picked "words"`,
+                                # words of an option the owner picked among those the agent offered); rule (`rule.<id>`)
     text: str
     rids: tuple = ()
     path: str = ''
@@ -31,25 +32,39 @@ class Source:
 CATALOG_ID = r'[A-Za-z0-9][A-Za-z0-9_-]*'          # the id of `[rule.<id>]` and `[known.<id>]`: a TOML bare key
 RULE_FORM = re.compile(r'rule\.(' + CATALOG_ID + ')')
 REQUEST_FORM = re.compile(r'([A-Za-z][A-Za-z0-9_-]*) "(.*)"', re.S)
+CHOICE_FORM = re.compile(r'([A-Za-z][A-Za-z0-9_-]*) picked "(.*)"', re.S)
 DOC_FORM = re.compile(r'doc (\S+) "(.*)"', re.S)
+CHOICE_NOTE = "the agent's option, the owner's pick"     # how a line names words of a picked option
 
 
 def _canonical(text):
-    """The source form of rules.toml and known.toml (design 4.4), or None: `R74 "words"` or `doc PATH "words"`, the
-    words between the first `"` and the last one, read as they are written (no escapes)."""
+    """The source form of rules.toml and known.toml (design 4.4), or None: `R74 "words"`, `R106 picked "words"` (words
+    of the option the owner picked in the choice R106) or `doc PATH "words"`, the words between the first `"` and the
+    last one, read as they are written (no escapes)."""
     document = DOC_FORM.fullmatch(text)
     if document:
         return Source('doc', text, path=document[1], quote=document[2], strict=True)
+    choice = CHOICE_FORM.fullmatch(text)
+    if choice and choice[1] != 'doc':
+        return Source('picked', text, (choice[1],), quote=choice[2], strict=True)
     request = REQUEST_FORM.fullmatch(text)
     if request and request[1] != 'doc':
         return Source('request', text, (request[1],), quote=request[2], strict=True)
     return None
 
 
+def source_text(source):
+    """The words a line prints for a source: its quote, or its text when it has none; words of an option the owner
+    picked are printed as what they are, the agent's option and the owner's pick, never as his words alone."""
+    if source.kind == 'picked':
+        return f'owner {source.rids[0]} picked "{source.quote}" ({CHOICE_NOTE})'
+    return source.quote or source.text
+
+
 def parse(text, strict=False):
-    """The source of an intent declaration, or with `strict` one of rules.toml or known.toml (only `R74 "words"` and
-    `doc PATH "words"`, compared exactly). An intent declaration may also cite a rule of rules.toml (`rule.<id>`, its
-    source checked strictly) or the request form; its older forms (`owner R1`, `doc PATH "words"` read as shell words,
+    """The source of an intent declaration, or with `strict` one of rules.toml or known.toml (only `R74 "words"`,
+    `R106 picked "words"` and `doc PATH "words"`, compared exactly). An intent declaration may also cite a rule of
+    rules.toml (`rule.<id>`, its source checked strictly), the request form or the picked form; its older forms (`owner R1`, `doc PATH "words"` read as shell words,
     `assumed:`, `lesson:`) keep their whitespace-folding comparison."""
     if strict:
         if RULE_FORM.fullmatch(text):
@@ -79,6 +94,9 @@ def parse(text, strict=False):
     for kind in ('assumed', 'lesson'):
         if text.startswith(kind + ':'):
             return Source(kind, text, tuple(re.findall(r'\bR\d+[A-Za-z0-9_-]*\b', text)))
+    choice = CHOICE_FORM.fullmatch(text)
+    if choice:
+        return Source('picked', text, (choice[1],), quote=choice[2], strict=True)
     request = REQUEST_FORM.fullmatch(text)
     if request:
         return Source('request', text, (request[1],), quote=request[2], strict=True)
@@ -114,6 +132,8 @@ class Archive:
             return False, f'{rid} bytes unverified -> restore the stored original'
         if item.get('retired') or item.get('superseded_by'):
             return False, f'{rid} is no longer current -> cite the current request'
+        if quote is not None and item['reply'] == 'selected':
+            return False, f'{rid}\'s answer was selected, not written by the owner -> {SELECTED_STEP.format(rid=rid)}'
         if quote is not None:
             text = (self.root / '.flowguard/requests' / (rid + '.md')).read_text(encoding='utf-8-sig')
             if not quote_matches(text, quote):
@@ -121,6 +141,7 @@ class Archive:
         return True, f'owner {rid}'
 
 
+SELECTED_STEP = 'quote the option: {rid} picked "words"'     # a selected reply holds the option, not the owner's words
 _ARCHIVES = {}      # resolved root -> (what its request files are, the Archive read from them)
 
 
@@ -456,34 +477,71 @@ def _added(cfg, revision, rid):
     return _held(cfg, revision, 'added:' + rid, lambda: added_since(cfg.root, revision, rid))
 
 
-def _request_problem(cfg, archive, rid, quote, matches, revision, baseline):
+def _request_problem(cfg, archive, rid, quote, matches, revision, baseline, picked=False):
     """(what is wrong, the step) of a cited request now (`revision` None: the archive's state) or at a commit (the
-    request and its retire record as that commit holds them, and the requests of today's supersession that it holds);
-    None when it holds. `baseline` only words a supersession this task stored."""
+    request, its sidecar, a choice's offer and its retire record as that commit holds them, and the requests of today's
+    supersession that it holds); None when it holds. `baseline` only words a supersession this task stored. With
+    `picked` (`R106 picked "words"`) the words are those of an option the owner picked in a choice (`_picked_problem`);
+    the owner's own words of a choice are its reply, which a reply he selected without typing does not hold."""
     row = archive.row(rid)
     if revision is None:
         if row is None:
             return f'{rid} is not stored', f"store the owner's words with python -m flowguard req add - --id {rid}"
         if row['invalid'] or row['edited']:
-            return f'{rid} differs from its stored original', 'restore the stored original'
+            return (f'offer of {rid}' if row['offer_edited'] else rid) + ' differs from its stored original', \
+                'restore the stored original'
         retired, later = row['retired'], list(row['superseded_by'])
-        raw = read_request_bytes(cfg.root, rid) if not retired and not later else None
+        current = not retired and not later
+        raw = read_request_bytes(cfg.root, rid) if current else None
+        record = row
+        offer = read_offer_bytes(cfg.root, rid) if current and row['kind'] == 'choice' else None
     else:
         if _added(cfg, revision, rid):
             return f'{rid} was not stored then', f"store the owner's words with python -m flowguard req add - --id {rid}"
         retired = _bytes_at(cfg, revision, (RETIRED_DIR / (rid + '.json')).as_posix()) is not None
         later = [other for other in (row['superseded_by'] if row else ()) if not _added(cfg, revision, other)]
         raw = _bytes_at(cfg, revision, (REQUEST_DIR / (rid + '.md')).as_posix())
+        sidecar = _bytes_at(cfg, revision, (REQUEST_DIR / (rid + '.json')).as_posix())
+        try:
+            record = sidecar_fields(sidecar, rid) if sidecar is not None else None
+        except ValueError as error:         # that commit's sidecar is no valid record: its words are not judged
+            return f'{rid} had no valid sidecar then ({error})', 'restore the stored original'
+        offer = (_bytes_at(cfg, revision, offer_path(rid).as_posix())
+                 if record is not None and record['kind'] == 'choice' else None)
     if retired:
         return f"{rid} was retired as not the owner's words", "quote the owner's own words"
     if later:
         stored = baseline is not None and revision is None and any(_added(cfg, baseline, other) for other in later)
         return (f'{rid} is superseded by {", ".join(later)}' + (' (stored in this task)' if stored else ''),
                 f"update it from {later[0]}'s words")
-    if raw is None:
+    if raw is None or record is None:
         return f'{rid} was not stored then', f"store the owner's words with python -m flowguard req add - --id {rid}"
+    choice = record['kind'] == 'choice'
+    if picked:
+        if not choice:
+            return f'{rid} holds no offered options', f'quote its words: {rid} "words"'
+        return _picked_problem(rid, quote, record['picked'], offer)
+    if quote is not None and choice and record['reply'] == 'selected':
+        return f"{rid}'s answer was selected, not written by the owner", SELECTED_STEP.format(rid=rid)
     if quote is not None and not matches(raw, quote):
         return f'"{_short(quote)}" is not in {rid}', 'quote the stored words exactly'
+    return None
+
+
+def _picked_problem(rid, quote, picked, offer):
+    """(what is wrong, the step) of words cited as an option the owner picked in the choice `rid`, or None: they occur
+    exactly (`exact_quote`) in one of its picked option texts, and that text in the offer as stored (`offer`, None when
+    that commit holds no offer)."""
+    if offer is None:
+        return f'the offer of {rid} was not stored then', 'restore the stored original'
+    holding = [text for text in picked if exact_quote(text.encode('utf-8'), quote)]
+    if not holding:
+        if exact_quote(offer, quote):
+            return f'"{_short(quote)}" is in the options {rid} offered, not in one the owner picked', \
+                f'quote the option {rid} picked'
+        return f'"{_short(quote)}" is not in the option {rid} picked', 'quote the picked option exactly'
+    if not any(exact_quote(offer, text) for text in holding):
+        return f'the option {rid} picked is not in its offer', 'restore the stored original'
     return None
 
 
@@ -522,9 +580,9 @@ def _problem(src, cfg, archive, *, revision=None, baseline=None, quote=None):
                     else (f'rule.{src.rule} is not in {RULES}', f'add [rule.{src.rule}] to {RULES}, or cite a rule it has'))
         problem = _problem(parse(entry.source, strict=True), cfg, archive, revision=revision, baseline=baseline)
         return None if problem is None else (f'rule.{src.rule}: {problem[0]}', problem[1])
-    if src.kind in ('owner', 'request'):
-        return _request_problem(cfg, archive, src.rids[0], src.quote if src.kind == 'request' else quote, matches,
-                                revision, baseline)
+    if src.kind in ('owner', 'request', 'picked'):
+        return _request_problem(cfg, archive, src.rids[0], quote if src.kind == 'owner' else src.quote, matches,
+                                revision, baseline, picked=src.kind == 'picked')
     if src.kind == 'doc':
         return _doc_problem(cfg, src.path, src.quote, matches, revision)
     raise ValueError(f'an {src.kind}: source is confirmed by a request, never judged by its own words')
@@ -539,6 +597,7 @@ def catalog_authority(src, cfg, archive, *, revision=None, baseline=None):
     if problem is not None:
         return False, f'{problem[0]} -> {problem[1]}'
     return True, (f'rule.{src.rule}' if src.kind == 'rule' else f'owner {src.rids[0]}' if src.kind == 'request'
+                  else f'owner {src.rids[0]} picked "{_short(src.quote)}" ({CHOICE_NOTE})' if src.kind == 'picked'
                   else f'doc {src.path}')
 
 
@@ -804,8 +863,12 @@ def input_findings(cfg, mapped):
     return [*now.issues, *known_sites(mapped(), now.known.values())[1]]
 
 
-def _cited_file(source):
-    return (REQUEST_DIR / (source.rids[0] + '.md')).as_posix() if source.kind == 'request' else source.path
+def _cited_files(source):
+    """The files whose bytes a catalog source quotes: the request, also a choice's offer for a picked option, or the
+    document."""
+    if source.kind == 'picked':
+        return ((REQUEST_DIR / (source.rids[0] + '.md')).as_posix(), offer_path(source.rids[0]).as_posix())
+    return ((REQUEST_DIR / (source.rids[0] + '.md')).as_posix(),) if source.kind == 'request' else (source.path,)
 
 
 def _source_issue(identifier, file, entry, source, what, step, fresh):
@@ -813,7 +876,7 @@ def _source_issue(identifier, file, entry, source, what, step, fresh):
     change touches the catalog file or the cited request or document."""
     from .health import Issue
     subject = f'source {identifier}'
-    return Issue(f'source:{identifier}', 0, subject, f'{subject}: {what}', step, files=frozenset({file, _cited_file(source)}),
+    return Issue(f'source:{identifier}', 0, subject, f'{subject}: {what}', step, files=frozenset({file, *_cited_files(source)}),
                  family='source', subject=subject, parts=(('', f'{file}:{identifier}', what, step),),
                  fresh=frozenset({''}) if fresh else frozenset(), detail=(f'{identifier} source: {entry.source}',))
 
@@ -837,7 +900,7 @@ def findings(cfg, graph, change):
     then = catalog(cfg, baseline) if baseline else Catalog()
     words = {(table, entry.id): parse(entry.source, strict=True) for table, entries in (('rule', now.rules), ('known', now.known))
              for entry in entries.values() if entry.source}
-    archive.read([source.rids[0] for source in words.values() if source.kind == 'request'])     # one listing for all
+    archive.read([source.rids[0] for source in words.values() if source.kind in ('request', 'picked')])  # one listing
     for file, table, entries, before in ((RULES, 'rule', now.rules, then.rules), (KNOWN, 'known', now.known, then.known)):
         for entry in entries.values():
             if not entry.source:

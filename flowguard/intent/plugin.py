@@ -960,7 +960,7 @@ class Observations:
         finding, what could not be checked is not compared."""
         from dataclasses import replace
         from .flow import runtime_check, _rule, _test_entry_references, Unverified
-        from .sources import authority
+        from .sources import authority, source_text
         state, guards = self.state, {}
         self.grey.extend(state.anchor_issues)
         observed_anchors = {event.anchor for event in state.events}
@@ -990,7 +990,7 @@ class Observations:
                         source = self._parsed(active)
                         valid, reason = authority(source, active.confirmed, self.cfg, state.engine.archive, active.quote)
                         borrowed = state.engine.borrowed(active)
-                        guards[active.id] = (([reason] if not valid else []) + borrowed, source.quote or source.text)
+                        guards[active.id] = (([reason] if not valid else []) + borrowed, source_text(source))
                     reasons.extend(active.id + ': ' + reason for reason in guards[active.id][0])
                     quotes[active.id] = guards[active.id][1]
                 if reasons:
@@ -1004,7 +1004,7 @@ class Observations:
             observed['grey'].extend([*grey, *([] if valid else [reason])])
             self.grey.extend(identifier + ': ' + reason for reason in observed['grey'])
             if observed['red']:
-                if (quote := source.quote or source.text) not in quotes.values():
+                if (quote := source_text(source)) not in quotes.values():
                     quotes[identifier] = quote
                 where = f'{state.model.file_of[identifier]}:{model.line}'
                 for reason in observed['red']:
@@ -1199,6 +1199,7 @@ class Observations:
         `signals.rule_steps` over every red the engine gave it (a row the rule contradicts is the row's red, not the
         code's), every step and the owner's words in its detail."""
         from . import signals
+        from .sources import source_text
         model = self.state.model
         where = self._declared_at(rule.id)
         source = self._parsed(rule)
@@ -1218,7 +1219,7 @@ class Observations:
         entry['whats'].sort(key=lambda text: not text.startswith(('self: ', 'row ', 'conflict ', 'gap in ')))
         steps = [step.rstrip('; ') for step in signals.rule_steps(rule.id, homes, where, entry['said'])]
         entry['step'] = steps[0] if steps else ''
-        entry['detail'] = [*steps, f'{rule.id} source: ' + (source.quote or source.text if source is not None else rule.source)]
+        entry['detail'] = [*steps, f'{rule.id} source: ' + (source_text(source) if source is not None else rule.source)]
         return key
 
     def _item_name(self, identifier, kind):

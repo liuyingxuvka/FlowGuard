@@ -7,23 +7,80 @@ import os
 from pathlib import Path
 import re
 
-from .common import (MapError, decode_text, git_blob, git_common_directory, git_head, git_run, normalize_newlines,
-                     sha256_bytes)
+from .common import (MapError, decode_text, document_text, git_blob, git_common_directory, git_head, git_run,
+                     normalize_newlines, sha256_bytes)
 from .records import (NO_ORIGINAL_FACT, Unverifiable, integrity_problem, prepare_directory, protected_paths, restore_advice,
                       validate_new_files, write_once, read_original_bytes)
 
 REQUEST_DIR = Path('.flowguard/requests')
 RETIRED_DIR = REQUEST_DIR / 'retired'
+OFFER_DIR = REQUEST_DIR / 'offers'      # a choice's offered options: the agent's words, never listed as a request
 REQUEST_ID = re.compile(r'[A-Za-z][A-Za-z0-9_-]*\Z')
 # Every stored kind: a FlowGuard before 5.0 also stored glossary and adoption records, which stay part of the archive
-# and keep loading; 5.0 stores requests only (`store_request`).
-KINDS = ('request', 'glossary', 'adoption')
+# and keep loading; 5.0 stores requests (`store_request`) and, since 5.1, the owner's pick among options the agent
+# offered (`store_choice`, kind `choice`).
+KINDS = ('request', 'glossary', 'adoption', 'choice')
+CHOICE_FIELDS = ('offer', 'picked', 'reply')        # a choice's own sidecar fields; no other kind has one of them
+REPLIES = ('typed', 'selected')     # the owner typed his reply, or picked an option with no words of his own
 RETIRE_FIELDS = {'id', 'kind', 'not_owner', 'request_sha256', 'retired'}
 
 
 # flowguard: event REQUEST_STORE(root: Path, raw: bytes, identifier: str | None, supersedes: tuple | list)
 def store_request(root: Path, raw: bytes, *, identifier: str | None = None, supersedes: tuple | list = ()) -> dict:
     """Store the owner's words `raw` once, byte for byte, as a request record (kind `request`)."""
+    return _store(root, raw, identifier, supersedes)
+
+
+def offer_path(identifier: str) -> Path:
+    """Where a choice keeps the options the agent offered (`.flowguard/requests/offers/<id>.md`)."""
+    return OFFER_DIR / (identifier + '.md')
+
+
+def _occurrences(text: str, part: str) -> int:
+    """How often `part` occurs in `text`, overlapping occurrences counted."""
+    count, at = 0, text.find(part)
+    while at >= 0:
+        count, at = count + 1, text.find(part, at + 1)
+    return count
+
+
+def store_choice(root: Path, reply: bytes, offer: bytes, picked: tuple | list, *, identifier: str | None = None,
+                 selected: bool = False, supersedes: tuple | list = ()) -> dict:
+    """Store the owner's pick among options the agent offered, once, byte for byte (kind `choice`): `reply` is his
+    answer as it reached the agent (with `selected`, the answer an interface returned for a pick he did not type),
+    `offer` the exact text the agent showed him, the agent's words, kept apart in `offers/<id>.md`, and `picked` the
+    whole text of each option he picked as the offer spells it, each occurring exactly once in it (compared after
+    `normalize_newlines`). The mapping from his reply to an option is the agent's statement; it is stored beside the
+    reply, never as his words."""
+    if not offer:
+        raise MapError('choice_offer_empty: the offer is empty; pass the exact question and options the owner saw, '
+                       'byte for byte')
+    shown, problem = document_text('the offer', offer)
+    if problem:
+        raise MapError(f'choice_offer_unreadable: {problem}')
+    text = normalize_newlines(shown[0].encode('utf-8')).decode('utf-8')
+    picked = list(picked)
+    if not picked:
+        raise MapError('choice_picked_missing: name the option the owner picked with --picked TEXT, its whole text as '
+                       'the offer spells it (once for each option he picked)')
+    for number, option in enumerate(picked):
+        if not isinstance(option, str) or not option.strip():
+            raise MapError(f'choice_picked_empty: a picked option is its text, not {option!r}')
+        if option in picked[:number]:
+            raise MapError(f'choice_picked_repeated: {json.dumps(option, ensure_ascii=False)} is named twice')
+        count = _occurrences(text, normalize_newlines(option.encode('utf-8')).decode('utf-8'))
+        if count != 1:
+            raise MapError(f'choice_picked_{"absent" if count == 0 else "ambiguous"}: '
+                           f'{json.dumps(option, ensure_ascii=False)} occurs {count} times in the offer; pass the whole '
+                           'text of the picked option, as the offer spells it, so that it occurs exactly once')
+    fields = dict(offer=dict(sha256=sha256_bytes(offer), bytes=len(offer)), picked=picked,
+                  reply='selected' if selected else 'typed')
+    return _store(root, reply, identifier, supersedes, choice=(fields, offer))
+
+
+def _store(root, raw, identifier, supersedes, *, choice=None):
+    """Write one record once: the owner's bytes, a choice's offer (`choice` = (its sidecar fields, the offer's bytes)),
+    then the sidecar, each with its first-write receipt; nothing is written when one of them could not be."""
     root = Path(root).resolve()
     if not raw:
         raise MapError('request_empty: no owner words received; pass a nonempty file or pipe the request text to stdin')
@@ -43,17 +100,25 @@ def store_request(root: Path, raw: bytes, *, identifier: str | None = None, supe
         raise MapError('request_id_invalid: use [A-Za-z][A-Za-z0-9_-]*, for example R9 or Owner_note')
     if exists(identifier):
         raise MapError(f'request_exists: {identifier} is stored; a correction from the owner is a new request')
-    item = dict(id=identifier, kind='request', sha256=digest, received=received, bytes=len(raw))
+    item = dict(id=identifier, kind='request' if choice is None else 'choice', sha256=digest, received=received,
+                bytes=len(raw), **(choice[0] if choice else {}))
     if supersedes:
         item['supersedes'] = supersedes
-    prepare_directory(root, REQUEST_DIR, ('.md', '.json'))
+    prepare_directory(root, REQUEST_DIR, ('.md', '.json'))      # its `*.md -text` also guards offers/
     body = REQUEST_DIR / (identifier + '.md')
     sidecar = body.with_suffix('.json')
     metadata = (json.dumps(item, ensure_ascii=False, sort_keys=True) + '\n').encode('utf-8')
-    validate_new_files(root, (body, sidecar))
+    validate_new_files(root, (body, sidecar, *([offer_path(identifier)] if choice else [])))
     write_once(root, body, raw)
+    if choice:
+        write_once(root, offer_path(identifier), choice[1])
     write_once(root, sidecar, metadata)
     return item
+
+
+def read_offer_bytes(root: Path, identifier: str) -> bytes:
+    """The options the agent offered for the choice `identifier`, as stored."""
+    return read_original_bytes(root, offer_path(identifier))
 
 
 # flowguard: same REQUEST_BODY(root: Path, identifier: str) -> body: bytes
@@ -65,7 +130,14 @@ def read_request_bytes(root: Path, identifier: str) -> bytes:
 # flowguard: same REQUEST_METADATA(path: Path, identifier: str) -> metadata: dict
 def _metadata(path: Path, identifier: str) -> dict:
     """The one sidecar validator: any malformed sidecar is a ValueError."""
-    item = json.loads(path.read_bytes())
+    return sidecar_fields(path.read_bytes(), identifier)
+
+
+def sidecar_fields(raw: bytes, identifier: str) -> dict:
+    """The fields of a sidecar's bytes (`_metadata`; a commit's sidecar too): any malformed sidecar is a ValueError. A
+    choice needs its offer {sha256, bytes}, its picked option texts and its reply (typed or selected); every other kind
+    has none of them."""
+    item = json.loads(raw)
     if (not isinstance(item, dict) or item.get('id') != identifier
             or not REQUEST_ID.fullmatch(identifier) or item.get('kind') not in KINDS
             or not re.fullmatch(r'[0-9a-f]{64}', str(item.get('sha256', '')))
@@ -79,6 +151,17 @@ def _metadata(path: Path, identifier: str) -> dict:
     if not isinstance(supersedes, list) or any(not isinstance(value, str) or not REQUEST_ID.fullmatch(value)
                                                for value in supersedes):
         raise ValueError('supersedes must list request IDs')
+    present = [key for key in CHOICE_FIELDS if key in item]
+    if item['kind'] != 'choice' and present:
+        raise ValueError(f'{", ".join(present)} belong to a choice record, not a {item["kind"]}')
+    if item['kind'] == 'choice':
+        offer, picked = item.get('offer'), item.get('picked')
+        if (not isinstance(offer, dict) or set(offer) != {'sha256', 'bytes'}
+                or not re.fullmatch(r'[0-9a-f]{64}', str(offer['sha256'])) or type(offer['bytes']) is not int
+                or offer['bytes'] < 1 or not isinstance(picked, list) or not picked
+                or any(not isinstance(text, str) or not text.strip() for text in picked)
+                or item.get('reply') not in REPLIES):
+            raise ValueError('a choice has offer {sha256, bytes}, picked [option texts] and reply typed or selected')
     return item
 
 
@@ -192,7 +275,9 @@ def retire_request(root: Path, identifier: str, *, note: str | None = None) -> d
 
 
 def _request_problems(root: Path, identifier: str, unverified: list):
-    """(owner text problem, sidecar problem, sidecar) of one stored request: the one check map check and status use.
+    """(owner text problem, sidecar problem, sidecar, offer problem) of one stored request: the one check map check and
+    status use. A choice's offer is checked as its owner text is (original bytes, sidecar digest and size); the offer
+    problem is None for every other kind.
 
     A file with no original-byte fact here is added to `unverified`; the owner text is then still checked
     against its sidecar digest."""
@@ -215,7 +300,15 @@ def _request_problems(root: Path, identifier: str, unverified: list):
         raw = read_request_bytes(root, identifier)
         if sha256_bytes(raw) != item['sha256'] or len(raw) != item['bytes']:
             body_problem = body_problem or 'bytes differ from the immutable sidecar'
-    return body_problem, meta_problem, item
+    offer_problem = None
+    if item is not None and meta_problem is None and item['kind'] == 'choice':
+        offer = offer_path(identifier)
+        offer_problem = problem_of(offer)
+        if offer_problem is None and (root / offer).is_file():
+            raw = read_offer_bytes(root, identifier)
+            if sha256_bytes(raw) != item['offer']['sha256'] or len(raw) != item['offer']['bytes']:
+                offer_problem = 'bytes differ from the immutable sidecar'
+    return body_problem, meta_problem, item, offer_problem
 
 
 
@@ -270,8 +363,8 @@ def _readable(path: Path) -> bool:
 def _owner_row(root, identifier, retired, cited, common):
     # A retire record applies as written, whatever the state of the request files it hides. Every
     # request's files, retired or not, are checked against their original bytes; edited text is never shown.
-    edited, invalid, item = _request_problems(root, identifier, [])
-    intact = invalid is None and edited is None
+    edited, invalid, item, offer = _request_problems(root, identifier, [])
+    intact = invalid is None and edited is None and offer is None
     text = read_request_bytes(root, identifier).decode('utf-8-sig', errors='replace').splitlines() if intact else []
     if invalid is not None:
         # A sidecar whose bytes can be read but are not the stored ones was edited; only a sidecar that
@@ -281,13 +374,22 @@ def _owner_row(root, identifier, retired, cited, common):
         readable = item is not None or _readable(root / REQUEST_DIR / (identifier + '.json'))
         return dict(id=identifier, kind=None, received='', first_line='', extra_lines=0, supersedes=[],
                     superseded_by=[], retired=identifier in retired, cited_by=[],
-                    edited=problem if readable else None, invalid=None if readable else problem)
+                    edited=problem if readable else None, invalid=None if readable else problem,
+                    offer='', picked=[], reply='', offer_edited=False)
+    offer_edited = edited is None and offer is not None
     if edited is not None:
         edited = f"{edited}; {restore_advice(root, [(REQUEST_DIR / (identifier + '.md')).as_posix()], common)}"
+    elif offer_edited:
+        # The options the agent offered are part of the record: an edited offer makes the whole record unverified.
+        edited = (f"offer of {identifier} differs from its stored original ({offer}); "
+                  f"{restore_advice(root, [offer_path(identifier).as_posix()], common)}")
+    choice = item['kind'] == 'choice'
     return dict(id=identifier, kind=item['kind'], received=item['received'],
                 first_line=text[0] if text else '', extra_lines=max(0, len(text) - 1),
                 supersedes=item.get('supersedes', []), superseded_by=[],
-                retired=identifier in retired, cited_by=cited.get(identifier, []), edited=edited, invalid=None)
+                retired=identifier in retired, cited_by=cited.get(identifier, []), edited=edited, invalid=None,
+                offer=offer_path(identifier).as_posix() if choice else '', picked=list(item['picked']) if choice else [],
+                reply=item['reply'] if choice else '', offer_edited=offer_edited)
 
 
 def owner_word(root: Path, identifier: str) -> dict | None:
@@ -394,6 +496,18 @@ def validate_request_links(root: Path, links) -> None:
                 raise ValueError('owner bytes differ from the sidecar')
         except ValueError as error:
             raise MapError(f'request_meta_edited: {identifier}: {error}') from error
+        if item['kind'] == 'choice':        # its offer, as its owner text: original bytes, sidecar digest and size
+            offer = offer_path(identifier)
+            try:
+                problem = integrity_problem(root, offer)
+            except Unverifiable as error:
+                raise MapError(f'request_unverifiable: {identifier}: {error}; link or quote it in a checkout that '
+                               'holds one') from error
+            if problem:
+                raise MapError(f'offer_edited: offer of {identifier} differs from its stored original: {problem}')
+            raw = read_offer_bytes(root, identifier)
+            if sha256_bytes(raw) != item['offer']['sha256'] or len(raw) != item['offer']['bytes']:
+                raise MapError(f'offer_edited: offer of {identifier} differs from its sidecar')
 
 
 # flowguard: same QUOTE_MATCH(text: words, quote: words) -> matched: bool calibrated_by=tests/test_anchor_self_rules.py::test_quote_anchor_case[EXACT]

@@ -172,3 +172,22 @@ def test_a_source_checks_only_the_cited_request_and_reads_what_the_whole_archive
     assert [archive.status(rid)[0] for rid in ('R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7')] == [False, True, False, False, True, False, False]
     assert set(archive.rows) == {'R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7'}
     assert Archive(tmp_path / 'nothing').status('R1') == (False, 'R1 missing -> req add the actual owner words')
+
+
+def test_a_choice_supersedes_retires_and_lists_like_a_request_and_offers_is_no_request(tmp_path, capsys):
+    """R105: a choice is a record of the one archive. It may supersede a request and be retired; the options it keeps
+    in offers/ are never listed as a request, nor is a stray file there."""
+    from flowguard.map.requests import owner_words, retire_request, store_choice, store_request
+    root = _plain(tmp_path)
+    store_request(root, b'Keep the PSP field for now.\n', identifier='R104')
+    offer = '要怎么处理旧的 PSP 字段？\nA. 先保留一个版本，并在 CHANGELOG 写迁移\nB. 直接删除\n'.encode()
+    store_choice(root, '选 B'.encode(), offer, ['B. 直接删除'], identifier='R106', supersedes=['R104'])
+    (root / '.flowguard/requests/offers/R9.md').write_bytes(b'a stray file\n')
+    rows = {row['id']: row for row in owner_words(root)['rows']}
+    assert set(rows) == {'R104', 'R106'}
+    assert rows['R104']['superseded_by'] == ['R106'] and rows['R106']['supersedes'] == ['R104']
+    assert (rows['R106']['kind'], rows['R106']['picked'], rows['R106']['reply']) == ('choice', ['B. 直接删除'], 'typed')
+    retire_request(root, 'R106')
+    assert owner_words(root)['rows'][0]['retired'] and owner_words(root)['retire_problems'] == {}
+    code, output, _ = _call(root, capsys, 'show', 'R106')
+    assert code == 0 and output.startswith('RETIRED R106') and '直接删除' not in output

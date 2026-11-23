@@ -3005,3 +3005,37 @@ def test_an_import_of_a_folder_reads_its_index_file_at_the_task_start_too(tmp_pa
     assert allows['old_source'].startswith('const LIMIT = 3;\n') and allows['source'].startswith('const LIMIT = 5;\n'), allows
     under = _planned(plan, 'src/rules.ts')['under']
     assert 'CAP = 7' not in under['old_source'] + under['source'], under
+
+
+def test_a_red_rule_citing_a_picked_option_names_it_as_the_agents_option_and_the_owners_pick(vitest_home):
+    # R105: the vitest report prints a picked source as pytest does, the agent's option and the owner's pick.
+    from flowguard.map.requests import store_choice
+    root = vitest_home / 'picked-rule'
+    root.mkdir()
+    store_choice(root, b'A', b'What is the next value?\nA. The input plus one.\nB. The input plus two.\n',
+                 ['A. The input plus one.'], identifier='R106')
+    _commit(root, {
+        'package.json': '{"name":"picked-rule","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/sample.ts': '''
+            // flowguard: same CALC
+            export function calc(x: number) { return x + 1; }
+        ''',
+        'tests/app.test.ts': "import {it,expect} from 'vitest'; import {calc} from '../src/sample'; it('actual result',()=>expect(calc(5)).toBeGreaterThan(5));\n",
+        'tests/intent/calc.py': '''
+            from flowguard.intent import rule
+            @rule('CALC_RULE', decides='next value', fields={'x': int}, anchor='CALC', source='R106 picked "The input plus one."')
+            def expected(x):
+                return x + 1
+        ''',
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='intent fixture baseline')
+    code, text = _vitest(root, vitest_home)
+    assert code == 0 and 'CALC_RULE' not in _cli_fixture.last(root), text
+    (root / 'src/sample.ts').write_text('// flowguard: same CALC\nexport function calc(x: number) { return x + 2; }\n',
+                                        encoding='utf-8')
+    code, text = _vitest(root, vitest_home)
+    shown = _cli_fixture.last(root)
+    assert code == 1 and 'red: rule CALC_RULE: ' in shown, text
+    assert ('    CALC_RULE source: owner R106 picked "The input plus one." (the agent\'s option, the owner\'s pick)'
+            in shown.splitlines()), shown

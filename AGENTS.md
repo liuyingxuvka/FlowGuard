@@ -11,7 +11,7 @@ Ordinary edits do not need an intent model or a separate task record.
 4. `known` and `before` were there before your task; after `->` each line says what is known and who decides. You choose when to raise an open question with the owner.
 5. `changed` means a function returns something else for the input shown: if you meant it, say so in your report; if not, fix it. `impact` and `not compared` are not failures.
 6. When you find two places that must agree, mark each with `flowguard: same NAME` in the same change; record a problem only the owner can decide in `.flowguard/known.toml` with `act = "ask"` (`known add` writes one).
-7. Store the owner's own words once with `python -m flowguard req add - --id R<n>`, never your own text, and keep `.flowguard/rules.toml` current, each rule's source quoting those words.
+7. Store the owner's own words once with `python -m flowguard req add - --id R<n>`, never your own text; when he picks one of options you offered, store his reply with them (`--offer FILE --picked TEXT`), the options as your words and the pick as his. Keep `.flowguard/rules.toml` current, each rule's source quoting those words.
 <!-- flowguard:end -->
 
 ## Owners and layout

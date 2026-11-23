@@ -1228,7 +1228,7 @@ def judge(cfg, data, records, package=None):
     from .engine import CONFLICT, Engine, PredicateError, outcome_eq
     from .health import LINES_ONLY, Issue
     from .loader import load
-    from .sources import cited, parse, source_state
+    from .sources import cited, parse, source_state, source_text
     points = {point['id']: point for entry in data['files'].values() for point in entry['points']}
     rows, reasons_by_point, real_reasons, cuts = closed_rows(data, records)
     calls = {}
@@ -1393,7 +1393,7 @@ def judge(cfg, data, records, package=None):
             source = cited(parse(rule.source), cfg)
             issues.append(signals.finding('rule', f'rule:{rule.id}', f'rule {rule.id}', whats, steps[0] if steps else '',
                                           places=tuple(dict.fromkeys((declared, *at, *sites))), files=(model.file_of[rule.id],),
-                                          detail=[*steps, f'{rule.id} source: {source.quote or source.text}']))
+                                          detail=[*steps, f'{rule.id} source: {source_text(source)}']))
     issues += [_issue(fields) for fields in data['inputs']]
     lines += [signals.not_compared(subject, entry['reasons'], function=function, places=entry['places'])
               for (subject, function), entry in unchecked.items()]

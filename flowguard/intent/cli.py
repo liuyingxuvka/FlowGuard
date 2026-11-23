@@ -18,7 +18,8 @@ import typing
 
 from flowguard import __version__
 from flowguard.map.common import MapError, git_files
-from flowguard.map.requests import owner_word, owner_words, retire_request, store_request
+from flowguard.map.requests import (owner_word, owner_words, read_offer_bytes, read_request_bytes, retire_request,
+                                    store_choice, store_request)
 from flowguard.structure import build
 from flowguard.structure.query import may_share, tokens
 from . import cache
@@ -39,7 +40,7 @@ PROJECT_RULES = '''<!-- flowguard:start -->
 4. `known` and `before` were there before your task; after `->` each line says what is known and who decides. You choose when to raise an open question with the owner.
 5. `changed` means a function returns something else for the input shown: if you meant it, say so in your report; if not, fix it. `impact` and `not compared` are not failures.
 6. When you find two places that must agree, mark each with `flowguard: same NAME` in the same change; record a problem only the owner can decide in `.flowguard/known.toml` with `act = "ask"` (`known add` writes one).
-7. Store the owner's own words once with `python -m flowguard req add - --id R<n>`, never your own text, and keep `.flowguard/rules.toml` current, each rule's source quoting those words.
+7. Store the owner's own words once with `python -m flowguard req add - --id R<n>`, never your own text; when he picks one of options you offered, store his reply with them (`--offer FILE --picked TEXT`), the options as your words and the pick as his. Keep `.flowguard/rules.toml` current, each rule's source quoting those words.
 <!-- flowguard:end -->
 '''
 
@@ -451,6 +452,12 @@ def show_last(cfg, full=False):
     return 0
 
 
+def _holds(text):
+    """What `show rules` says of a catalog source that holds; words of a picked option say whose words they are."""
+    from .sources import CHOICE_NOTE, parse
+    return f'(holds: {CHOICE_NOTE})' if parse(text, strict=True).kind == 'picked' else '(holds)'
+
+
 def _finding_state(last, entry):
     """What the last run (`cache.read_last`) said of a known entry's finding."""
     if last is None:
@@ -482,13 +489,13 @@ def show_catalog(cfg, query, full=False):
     if query != 'rules':     # the entry's own problem, and its file's (an entry of an invalid file is not read)
         problems = [issue for issue in problems if issue.subject in (query, RULES if table == 'rule' else KNOWN)]
     cited_words = [parse(item.source, strict=True) for item in [*rules, *entries] if item.source]
-    archive.read([source.rids[0] for source in cited_words if source.kind == 'request'])     # one listing for all
+    archive.read([source.rids[0] for source in cited_words if source.kind in ('request', 'picked')])  # one listing
     lines = [f'FlowGuard rules: {len(found.rules)} in {RULES}, {len(found.known)} known in {KNOWN}, '
              f'{len(problems)} input problems'] if query == 'rules' else []
     for rule in rules:
         valid, reason = catalog_authority(parse(rule.source, strict=True), cfg, archive)
         lines.append(f'rule.{rule.id}: {rule.text}')
-        lines.append(f'    source: {rule.source} ' + ('(holds)' if valid else f'(does not hold: {reason})'))
+        lines.append(f'    source: {rule.source} ' + (_holds(rule.source) if valid else f'(does not hold: {reason})'))
         lines.extend(f'    cited by {place}' for place in cited.get(rule.id, ()))
     for entry in entries:
         act = (f'ask, asked on {entry.asked}' if entry.asked else 'ask, not asked yet') if entry.act == 'ask' else entry.act
@@ -500,7 +507,7 @@ def show_catalog(cfg, query, full=False):
             lines.append(f'    finding {entry.finding}: {_finding_state(last, entry)}')
         if entry.source:
             valid, reason = catalog_authority(parse(entry.source, strict=True), cfg, archive)
-            lines.append(f'    source: {entry.source} ' + ('(holds)' if valid else f'(does not hold: {reason})'))
+            lines.append(f'    source: {entry.source} ' + (_holds(entry.source) if valid else f'(does not hold: {reason})'))
     for issue in problems:
         _, (place,), what, step = issue.parts[0]
         lines.append(f'input {issue.name}: {place} {what} -> {step}')
@@ -967,6 +974,20 @@ def _held_methods(graph, name):
     return held
 
 
+def _choice_view(cfg, identifier, row):
+    """`show R106` of a choice: the owner's reply (or that he selected with no words of his own), the options the agent
+    offered as the agent's words, and the option text each pick is."""
+    def block(raw):
+        text = raw.decode('utf-8-sig', errors='replace')
+        return text if text.endswith(('\n', '\r')) else text + '\n'
+    said = ("the owner selected, with no words of his own:" if row['reply'] == 'selected' else "the owner's reply:")
+    return (f'OWNER {identifier} chose among options the agent offered\n{said}\n'
+            + block(read_request_bytes(cfg.root, identifier))
+            + f"options the agent offered (the agent's words, not the owner's) {row['offer']}:\n"
+            + block(read_offer_bytes(cfg.root, identifier))
+            + '\n'.join(f'picked: {json.dumps(text, ensure_ascii=False)}' for text in row['picked']))
+
+
 def show(cfg, query=None, *, full=False, last=False):
     if last:
         if query:
@@ -982,6 +1003,9 @@ def show(cfg, query=None, *, full=False, last=False):
             if row and not row.get('edited') and not row.get('invalid'):
                 if row.get('retired'):
                     print(f'RETIRED {query}: not the owner\'s words; original bytes remain in the archive.')
+                    return 0
+                if row['kind'] == 'choice':
+                    print(_choice_view(cfg, query, row))
                     return 0
                 print(f'OWNER {query}\n' + request.read_bytes().decode('utf-8-sig'))
                 return 0
@@ -1356,7 +1380,7 @@ def _rule_finding(model, rid, values):
     (`plugin.Observations._rule_red`): the rule's own reds first, then the code's at its homes (the smallest input
     first), its first step from `signals.rule_steps` over every red, every step and the owner's words in its detail."""
     from .signals import finding, rule_steps
-    from .sources import parse
+    from .sources import parse, source_text
     rule = model.rules[rid]
     where = _declared_at(model, rid)
     sites = [_site(rule, home.target) for home in rule.homes if not hasattr(home, 'scenario')]
@@ -1378,7 +1402,7 @@ def _rule_finding(model, rid, values):
     source = parse(rule.source)
     return finding('rule', f'rule:{rid}', f'rule {rid}', whats, steps[0] if steps else '', places=tuple(dict.fromkeys(places)),
                    files=[model.file_of[rid]] if rid in model.file_of else [],
-                   detail=[*steps, f'{rid} source: {source.quote or source.text}'])
+                   detail=[*steps, f'{rid} source: {source_text(source)}'])
 
 
 def _cache_findings(cfg, model, data):
@@ -1962,12 +1986,13 @@ def _owner_rules_unverified(cfg, data):
             source = cited(parse(item.get('source', '')), cfg)     # rule.<id>: the words its rules.toml entry cites
         except IntentError:
             continue        # The load check reports an unreadable source.
-        if source.kind not in ('owner', 'request'):
+        if source.kind not in ('owner', 'request', 'picked'):
             continue
         reasons = [ascii_text(message) for value in result.get('items', {}).values() for message in value.get('grey', ())]
         # The line names no way to silence it (design 4.7): the grey reasons, with their own steps, are its detail.
         issues.append(finding('rule', f'unverified:{rid}', f'rule {rid}',
-                              [f'cites original words from the owner ({source.rids[0]}), but is now grey (unverified): '
+                              [("cites the owner's pick among the agent's options" if source.kind == 'picked' else
+                                'cites original words from the owner') + f' ({source.rids[0]}), but is now grey (unverified): '
                                + (reasons[0].partition(' -> ')[0] if reasons else 'no results yet')],
                               'restore observability so the rule is checked again', detail=reasons))
     return issues
@@ -2890,9 +2915,32 @@ def _ledger_result(cfg, baseline):
         return fallbacks.evaluate(cfg, graph, baseline=baseline)
 
 
+def _input_bytes(name):
+    """The bytes of a file argument, or of stdin for `-`."""
+    return sys.stdin.buffer.read() if name == '-' else Path(name).read_bytes()
+
+
 def requests(cfg, options):
-    if options.operation == 'add':
-        raw = sys.stdin.buffer.read() if options.file == '-' else Path(options.file).read_bytes()
+    if options.operation == 'add' and options.offer is None and (options.picked or options.selected):
+        raise MapError('choice_offer_missing: --picked and --selected record the owner\'s pick among options you '
+                       'offered; pass those options with --offer FILE, byte for byte as he saw them')
+    if options.operation == 'add' and options.offer is not None:
+        if not options.picked:
+            raise MapError('choice_picked_missing: --offer needs --picked TEXT, the whole text of the option the owner '
+                           'picked as the offer spells it (once for each option he picked)')
+        if options.offer == '-' and options.file == '-':
+            raise MapError('choice_offer_stdin: the reply and the offer cannot both come from stdin; pass the offer '
+                           'as a file')
+        item = store_choice(cfg.root, _input_bytes(options.file), _input_bytes(options.offer), options.picked,
+                            identifier=options.identifier, selected=options.selected, supersedes=options.supersedes)
+        print(f'stored {item["id"]} (choice: the owner\'s reply {item["bytes"]} bytes, the agent\'s options '
+              f'{item["offer"]["bytes"]} bytes, {len(item["picked"])} picked; sha {item["sha256"][:12]})')
+        from .differences import display
+        display(f'if this choice sets a continuing rule, add it to .flowguard/rules.toml: [rule.<id>] text = "..." '
+                f'source = \'{item["id"]} picked "<words of the picked option>"\''
+                + (f' or \'{item["id"]} "<his exact words>"\'' if item['reply'] == 'typed' else ''))
+    elif options.operation == 'add':
+        raw = _input_bytes(options.file)
         item = store_request(cfg.root, raw, identifier=options.identifier, supersedes=options.supersedes)
         print(f'stored {item["id"]} ({item["kind"]}, sha {item["sha256"][:12]}, {item["bytes"]} bytes)')
         from .differences import display
@@ -2908,6 +2956,9 @@ def requests(cfg, options):
             state = ('retired' if item.get('retired') else 'superseded' if item.get('superseded_by') else 'stored')
             if item.get('invalid') or item.get('edited'):
                 state = item.get('invalid') or item.get('edited')
+            elif item['kind'] == 'choice':
+                state += (f' ({len(item["picked"])} picked; '
+                          + ('selected with no words of his own)' if item['reply'] == 'selected' else 'his reply typed)'))
             print(f'  {item["id"]} {item["kind"] or "unverified"} {item["received"]} {state}')
     return 0
 
@@ -2971,6 +3022,12 @@ def main(argv=None):
     add.add_argument('--kind', action=_KindOption, what='req add --kind {value}',
                      replacement='python -m flowguard req add FILE --id R<n>')
     add.add_argument('--supersedes', action='append', default=[])
+    add.add_argument('--offer', metavar='FILE', help="the options you offered the owner, byte for byte: FILE is then his "
+                     "reply to them, stored with the options as your words")
+    add.add_argument('--picked', action='append', default=[], metavar='TEXT',
+                     help='with --offer: the whole text of an option he picked, as the offer spells it (once for each)')
+    add.add_argument('--selected', action='store_true',
+                     help='with --offer: he picked without typing; FILE is the answer as the interface returned it')
     operations.add_parser('list')
     retire = operations.add_parser('retire')
     retire.add_argument('identifier')

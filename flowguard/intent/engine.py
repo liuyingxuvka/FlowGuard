@@ -601,7 +601,8 @@ class Engine:
             sa, sb = (cited(parse_source(side.source), self.m.cfg) for side in (a, b))
             out["conflicts"].append(dict(a=a.id, b=b.id, n=len(bad), of=len(both), cell=show_cell(cells[i]),
                                          va=show(va[i]), vb=show(vb[i]),
-                                         ask_owner=sa.kind in ("owner", "request") and sb.kind in ("owner", "request"),
+                                         ask_owner=sa.kind in ("owner", "request", "picked")
+                                         and sb.kind in ("owner", "request", "picked"),
                                          rids=list(sa.rids + sb.rids)))
         if live:
             gap = [i for i in range(len(cells)) if all(vals[r.id][i] is None for r in live)]
