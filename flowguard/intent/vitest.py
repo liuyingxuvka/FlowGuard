@@ -1477,7 +1477,6 @@ def delivered(result):
 SESSION = 'report.json'           # in the observations folder: what the session test judged, for the teardown
 STATIC = 'static.json'            # in the observations folder: the map checks of flowguard.static.test.mjs (signals.last_run)
 STATIC_TEST = 'flowguard.static.test.mjs'       # the static test init writes next to a vitest package.json
-NOT_RUN = 'map checks did not report to this vitest run'
 
 
 def static_lines(observations):
@@ -1540,9 +1539,10 @@ def report(root, plan_path, observations, package=None, *, in_test=False):
     own, ignored, said = delivered(result)
     static = static_lines(observations)
     if static is None and _wired(cfg, package):
-        # D19: the static test is wired but did not report here (a filtered run, or one written by an init before 4.3)
+        # D19: the static test is wired but did not report here (a filtered run, or one written by an init before 4.3);
+        # the block prints this item on a line of its own (`signals.render_block`)
         rel = cfg.rel((Path(package) if package else cfg.root) / STATIC_TEST)
-        own.append(signals.not_compared(rel, [NOT_RUN], places=(rel,)))
+        own.append(signals.not_compared(rel, [signals.MAP_CHECKS_NOT_RUN], places=(rel,)))
     lines = merged(own, static['lines'] if static else [], said)
     carried = {(line.kind, line.name, line.function) for line in static['lines']} if static else set()
     red = sum(line.kind == 'red' for line in lines)

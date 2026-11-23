@@ -1735,6 +1735,44 @@ def test_a_vitest_run_says_each_removed_spelling_red_at_its_line_with_its_rewrit
     assert _block(out)[-1] == 'not compared: flowguard.static.test.mjs (map checks did not report to this vitest run) -> not a failure', out
 
 
+def test_a_filtered_vitest_run_says_on_a_line_of_its_own_that_the_map_checks_did_not_report(vitest_home):
+    """Planning Tool (V1-27, PTWF-3e): `vitest run tests/more.test.ts` after an edit of four functions printed
+    `not compared: 4 items (only JSON data arguments and results are recorded, uses imported or mutable binding counter,
+    or 1 other reason)`, the other reason being that the map checks did not report, which only show --last listed.
+    That line is the block's own, before the three functions summed up as before; a full run has none."""
+    root = vitest_home / 'more-filtered'
+    more = ("import { tax } from './rates';\nlet counter = 0;\nexport function withTax(x: number): number { return x * tax; }\n"
+            "export function next(): number { counter += 1; return counter; }\n"
+            "export function asMap(x: number): Map<number, number> { return new Map([[x, x]]); }\n"
+            "export function fnResult(x: number) { return () => x; }\n")
+    _commit(root, {
+        'package.json': '{"name":"more-filtered","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/rates.ts': 'export const tax = 2;\n',
+        'src/more.ts': more,
+        'src/labels.ts': 'export function over(x: number): boolean { return x > 3; }\n',
+        'tests/more.test.ts': "import { it, expect } from 'vitest';\nimport { withTax, next, asMap, fnResult } from '../src/more';\n"
+                              "it('more', () => { expect(withTax(2)).toBe(4); expect(next()).toBe(1); "
+                              "expect(asMap(1).get(1)).toBe(1); expect(fnResult(1)()).toBe(1); });\n",
+        'tests/labels.test.ts': "import { it, expect } from 'vitest';\nimport { over } from '../src/labels';\n"
+                                "it('over', () => { expect(over(4)).toBe(true); });\n",
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired')
+    (root / 'src/more.ts').write_text(more.replace('x * tax', 'x * tax + 0').replace('counter += 1', 'counter += 1 + 0')
+                                      .replace('[[x, x]]', '[[x, x + 0]]').replace('() => x', '() => x + 0'),
+                                      encoding='utf-8', newline='\n')
+    functions = ('not compared: 3 functions: asMap (more.ts:5), fnResult (more.ts:6) and next (more.ts:4) (only JSON data '
+                 'arguments and results are recorded, or uses imported or mutable binding counter) -> not a failure')
+    code, text = _vitest(root, vitest_home, 'tests/more.test.ts')
+    shown = _block(text)
+    assert code == 0 and shown[0].endswith(': 0 red, 4 not compared; ' + shown[0].rpartition('; ')[2]) and shown[1:] == [
+        'not compared: flowguard.static.test.mjs (map checks did not report to this vitest run) -> not a failure',
+        functions], text
+    code, text = _vitest(root, vitest_home)
+    shown = _block(text)
+    assert code == 0 and ': 0 red, 3 not compared; ' in shown[0] and shown[1:] == [functions], text
+
+
 def test_a_known_site_is_touched_by_an_edit_of_its_text_and_not_by_an_edit_beside_it_as_in_pytest(vitest_home):
     # Review of 4.3: vitest counted a change of a function's sealed text as touching its site, and pytest only a
     # change of its code; both now read D31 alike: a site is touched when the change edits its text (a comment or its

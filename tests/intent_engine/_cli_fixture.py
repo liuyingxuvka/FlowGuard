@@ -10,6 +10,8 @@ import subprocess
 import sys
 import uuid
 
+from flowguard.intent.signals import MAP_CHECKS_NOT_RUN
+
 
 SOURCE = str(Path(__file__).resolve().parents[2])
 _OBSERVED = None
@@ -92,7 +94,8 @@ KINDS = ('red', 'before', 'known', 'known fixed?', 'changed', 'impact', 'loosene
 def block(output):
     """The FlowGuard block a pytest run printed last on stdout (`output` the run, its stdout, or its stdout followed by
     its stderr): its first line and every line after it, each of one of the block's shapes, in the order of the kinds,
-    at most ten lines besides red, loosened and known fixed?."""
+    at most ten lines besides red, loosened, known fixed? and the not compared line of map checks that did not report
+    to a vitest run (`signals.MAP_CHECKS_NOT_RUN`)."""
     text = output.stdout if hasattr(output, 'stdout') else output
     lines = display_text(text).splitlines()
     start = next(index for index, line in enumerate(lines) if re.match(r'FlowGuard \d+\.\d+ \(', line))
@@ -100,7 +103,8 @@ def block(output):
     assert all(SHAPE.match(line) for line in lines), lines
     order = [next(KINDS.index(kind) for kind in sorted(KINDS, key=len, reverse=True) if line.startswith(kind)) for line in lines[1:]]
     assert order == sorted(order), lines
-    assert len([line for line in lines[1:] if not line.startswith(('red: ', 'loosened: ', 'known fixed?: '))]) <= 10, lines
+    assert len([line for line in lines[1:] if not line.startswith(('red: ', 'loosened: ', 'known fixed?: '))
+                and not line.endswith(f' ({MAP_CHECKS_NOT_RUN}) -> not a failure')]) <= 10, lines
     return lines
 
 

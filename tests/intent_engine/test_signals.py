@@ -337,29 +337,72 @@ def test_the_not_compared_line_never_cuts_through_an_item():
     too long the reasons give way in their middle, and items that leave them no room are counted."""
     calendar = 'frontend/src/components/employee-utilization/absence-calendar/AbsenceCalendarCard.tsx:134'
     toolbar = 'frontend/src/components/employee-utilization/utilization-toolbar/UtilizationToolbar.tsx:84'
-    static = 'frontend/flowguard.static.test.mjs'
+    # 5.1: the third item was the static test that did not report, which the block now prints on a line of its own
+    # (test_the_map_checks_that_did_not_report_to_a_vitest_run_keep_a_line_of_their_own); a file of the same length
+    # that cannot be parsed keeps the three items' shape
+    legacy = 'frontend/src/legacy/weeksTable.mjs'
     lines = [signals.not_compared(f'ISO_WEEK_NUMBER ({calendar})', ['not reached by any test'],
                                   function='tsx/AbsenceCalendarCard:getIsoWeek', places=(calendar,)),
              signals.not_compared(f'ISO_WEEK_NUMBER ({toolbar})', ['not reached by any test'],
                                   function='tsx/UtilizationToolbar:getIsoWeekNumber', places=(toolbar,)),
-             signals.not_compared(static, ['map checks did not report to this vitest run'], places=(static,))]
-    # the two copies of ISO_WEEK_NUMBER by their own names (5.1), the static test by its path
+             signals.not_compared(legacy, ['cannot be parsed: an unexpected token'], places=(legacy,))]
+    # the two copies of ISO_WEEK_NUMBER by their own names (5.1), the file by its path
     assert _block(lines)[1] == (
         'not compared: 3 items: getIsoWeek (AbsenceCalendarCard.tsx:134), getIsoWeekNumber (UtilizationToolbar.tsx:84) '
-        'and flowguard.static.test.mjs (not reached by any test, or map checks did not report to this vitest run) -> not a failure')
+        'and weeksTable.mjs (not reached by any test, or cannot be parsed: an unexpected token) -> not a failure')
     # Longer reasons give way in their middle; the items stay whole.
     long = [signals.not_compared(line.text, [reason * 3], function=line.function, places=line.places)
             for line, reason in zip(lines, ('uses imported or mutable binding getIsoWeek ', 'unsupported generator ',
-                                            'map checks did not report to this vitest run '))]
+                                            'cannot be parsed: an unexpected token '))]
     said = _block(long)[1]
     assert said.startswith('not compared: 3 items: getIsoWeek (AbsenceCalendarCard.tsx:134), getIsoWeekNumber '
-                           '(UtilizationToolbar.tsx:84) and flowguard.static.test.mjs (') and '...' in said, said
+                           '(UtilizationToolbar.tsx:84) and weeksTable.mjs (') and '...' in said, said
     assert len(said.replace('AbsenceCalendarCard.tsx:134', '').replace('UtilizationToolbar.tsx:84', '')    # as `_cap` counts
-               .replace('flowguard.static.test.mjs', '')) == signals.WIDTH, said
+               .replace('weeksTable.mjs', '')) == signals.WIDTH, said
     # Items too long to leave the reasons their room are counted.
     named = [signals.not_compared(f'{"ISO_WEEK_NUMBER_OF_THE_CALENDAR_YEAR_" * 2}{index} ({place})', ['not reached by any test'],
-                                  places=(place,)) for index, place in enumerate((calendar, toolbar, static))]
+                                  places=(place,)) for index, place in enumerate((calendar, toolbar, legacy))]
     assert _block(named)[1] == 'not compared: 3 items (not reached by any test) -> not a failure'
+
+
+def test_the_map_checks_that_did_not_report_to_a_vitest_run_keep_a_line_of_their_own():
+    """Planning Tool (V1-27, PTWF-3e): a filtered vitest run whose static test did not run printed `not compared: 4 items
+    (only JSON data arguments and results are recorded, uses imported or mutable binding counter, or 1 other reason)`;
+    that the map checks (every agreement, known entry and ledger entry) did not run was the `1 other reason`. Their item
+    is a line of its own, before the line that sums up the others, which counts and names them as before."""
+    static, reason = 'frontend/flowguard.static.test.mjs', 'map checks did not report to this vitest run'
+    alone = signals.not_compared(static, [reason], places=(static,))
+    others = [signals.not_compared(f'{name} (frontend/src/more.ts:{line})', [reason], function=f'ts/more:{name}',
+                                   places=(f'frontend/src/more.ts:{line}',))
+              for name, line, reason in (('next', 4, 'uses imported or mutable binding counter'),
+                                         ('asMap', 5, 'only JSON data arguments and results are recorded'),
+                                         ('fnResult', 6, 'only JSON data arguments and results are recorded'),
+                                         ('later', 7, 'is async'), ('wait', 8, 'holds an await'))]
+    said = f'not compared: flowguard.static.test.mjs ({reason}) -> not a failure'
+    shown = _block([*others, alone])
+    assert shown[0].endswith(': 0 red, 6 not compared; 1.2 s') and shown[1:] == [
+        said, 'not compared: 5 functions (only JSON data arguments and results are recorded, uses imported or mutable '
+              'binding counter, or 2 other reasons) -> not a failure'], shown
+    shown = _block([alone, *others[:3]])
+    assert shown[1:] == [said, 'not compared: 3 functions: next (more.ts:4), asMap (more.ts:5) and fnResult (more.ts:6) '
+                               '(only JSON data arguments and results are recorded, or uses imported or mutable binding '
+                               'counter) -> not a failure'], shown
+    assert _block([alone])[1:] == [said]
+    # a run whose static test reported has no such line
+    assert not [line for line in _block(others) if reason in line]
+    assert signals.MAP_CHECKS_NOT_RUN == reason         # the reason the vitest report gives this item
+
+
+def test_the_first_line_of_a_run_that_ended_early_says_what_it_did_not_cover():
+    """PEMEL Studio (2026-11-23, PEMEL23-1c): a session pytest ended with INTERNALERROR after 2 of 3 tests printed
+    `FlowGuard 5.0 (since 3e4ecdc): 0 red; 0.1 s`. Its note comes before the time; a finished run has none."""
+    lines = [_line('not compared', 1)]
+    assert signals.title(lines, baseline='a' * 40, kind='task', seconds=0.14,
+                         note='run ended early (exit 3): 2 of 3 selected tests ran, the rest not checked') == (
+        f'FlowGuard {VERSION} (since aaaaaaa): 0 red, 1 not compared; run ended early (exit 3): 2 of 3 selected tests '
+        'ran, the rest not checked; 0.1 s')
+    assert signals.title(lines, baseline='a' * 40, kind='task', seconds=0.14) == \
+        f'FlowGuard {VERSION} (since aaaaaaa): 0 red, 1 not compared; 0.1 s'
 
 
 def test_a_single_not_compared_item_keeps_its_name_and_place_and_its_reasons_give_way_first():
@@ -684,6 +727,87 @@ def test_the_block_follows_pytests_summary_with_every_reporter_option_and_after_
     start = next(index for index, line in enumerate(lines) if line.startswith('FlowGuard '))
     assert result.returncode == 2 and lines[start + 1:] == [changed], lines
     assert any('KeyboardInterrupt' in line for line in lines[:start]) and _re.search(r'\d+ passed in ', lines[start - 1]), lines
+
+
+def _pemel_mod(root):
+    """PEMEL Studio's shape (2026-11-23): app/mod.py edited after the task start, three tests of it in tests/test_a.py, and
+    a conftest whose hook or test stops the session as MODE says."""
+    from tests.intent_engine.test_static_check import _commit
+    from tests.intent_engine.test_default_runtime_signals import _git
+    _commit(root, {
+        'pyproject.toml': '[tool.pytest.ini_options]\npythonpath = ["."]\n',
+        'app/__init__.py': '',
+        'app/mod.py': 'def head():\n    return 1\n\n\ndef area(w, h):\n    return w * h\n\n\ndef tail(x):\n    return x + 1\n',
+        'conftest.py': """
+            import os
+
+
+            def pytest_runtest_logreport(report):
+                if os.environ.get('MODE') == 'internal' and report.nodeid.endswith('test_two') and report.when == 'teardown':
+                    raise RuntimeError('a plugin hook failed')
+        """,
+        'tests/test_a.py': """
+            import os
+            from app.mod import area
+
+
+            def test_one():
+                assert os.environ.get('MODE') != 'fail'
+                assert area(2, 3) == 6
+
+
+            def test_two():
+                if os.environ.get('MODE') == 'interrupt':
+                    raise KeyboardInterrupt
+                assert area(2, 2) == 4
+
+
+            def test_three():
+                assert area(1, 1) == 1
+        """})
+    mod = root / 'app/mod.py'
+    mod.write_text(mod.read_text(encoding='utf-8').replace('w * h', 'h * w'), encoding='utf-8')
+    return _git(root, 'rev-parse', 'HEAD').strip()[:7]
+
+
+def test_the_first_line_of_a_pytest_session_that_ended_early_counts_the_tests_that_ran(tmp_path):
+    """PEMEL23-1c: a session pytest ended early (INTERNALERROR after 2 of 3 tests, exit 3) printed a plain
+    `FlowGuard 5.0 (since 3e4ecdc): 0 red; 0.1 s`: nothing said that the run stopped or that a selected test never ran.
+    An internal error, an interrupt and -x each say so in the first line, with the exit the shell sees and how many of
+    the selected tests ran; show --last keeps that line. A finished run, and one that only collects, says nothing."""
+    import os
+    from tests.intent_engine.test_plugin import run
+    from tests.intent_engine._cli_fixture import block, last
+    head = _pemel_mod(tmp_path)
+    untimed = lambda line: line.rpartition('; ')[0]
+    first = f'FlowGuard {VERSION} (since {head}): 0 red'     # the first session records HEAD as the task start
+    for mode, options, code, ran in (('internal', (), 3, 2), ('interrupt', (), 2, 1), ('fail', ('-x',), 1, 1)):
+        result = run(tmp_path, '-p', 'no:randomly', *options, env=dict(os.environ, MODE=mode))
+        shown = block(result)
+        assert result.returncode == code and untimed(shown[0]) == (
+            f'{first}; run ended early (exit {code}): {ran} of 3 selected tests ran, the rest not checked'), (mode, result.stdout)
+        assert untimed(last(tmp_path).splitlines()[2]) == untimed(shown[0]), mode
+    environment = {name: value for name, value in os.environ.items() if name != 'MODE'}
+    for options in ((), ('--collect-only',)):
+        result = run(tmp_path, *options, env=environment)
+        assert result.returncode == 0 and untimed(block(result)[0]) == first, (options, result.stdout)
+
+
+def test_the_early_end_and_the_completion_policy_count_the_same_tests(tmp_path):
+    """skip_policy = "forbid" fails a session that pytest.exit(returncode=0) ended, naming the selected tests that never
+    ran; the first line counts the same tests, and the exit the policy set."""
+    from tests.intent_engine.test_plugin import run
+    head = _pemel_mod(tmp_path)
+    (tmp_path / 'pyproject.toml').write_text('[tool.pytest.ini_options]\npythonpath = ["."]\n[tool.flowguard]\nskip_policy = "forbid"\n',
+                                             encoding='utf-8')
+    (tmp_path / 'tests/test_0.py').write_text('import pytest\n\n\ndef test_exit():\n    pytest.exit("enough", returncode=0)\n',
+                                              encoding='utf-8')
+    result = run(tmp_path, '-p', 'no:randomly', 'tests/test_0.py', 'tests/test_a.py')
+    assert result.returncode == 1 and '; 4 selected test(s) never ran (' in result.stderr, result.stderr
+    # pytest's own `!!! _pytest.outcomes.Exit: enough !!!` follows the block here
+    first = [line for line in result.stdout.splitlines() if line.startswith(f'FlowGuard {VERSION} (')]
+    assert [line.rpartition('; ')[0] for line in first] == [f'FlowGuard {VERSION} (since {head}): 0 red; run ended early '
+                                                            '(exit 1): 0 of 4 selected tests ran, the rest not checked'], result.stdout
 
 
 def test_a_known_entry_naming_an_old_same_name_disagreement_is_its_known_line_in_pytest(tmp_path):

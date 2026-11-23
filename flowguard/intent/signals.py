@@ -256,6 +256,10 @@ PLACES = 3                  # places one line names; more are counted
 SHOWN = {'changed': 3, 'impact': 2}        # lines of these kinds shown; the others are counted in `+N more`
 OLD = 2                     # before and known lines shown; the others are one count line
 NOT_COMPARED_STEP = 'not a failure'
+# The reason of the one not compared item a vitest run gives when its package's static test did not report to it (a
+# filtered run): the map checks (every agreement, known entry and ledger entry) did not run, so the block prints it on
+# a line of its own (`render_block`), never summed up with the reasons of the other items.
+MAP_CHECKS_NOT_RUN = 'map checks did not report to this vitest run'
 CHANGED_STEP = 'if you meant it, say so'
 LEDGER_STEP = 'python -m flowguard ledger check prints what to change'
 
@@ -286,18 +290,23 @@ def baseline_label(baseline, kind, ahead=None, option='--flowguard-base'):
     return f'since {short}'
 
 
-def title(lines, *, baseline, kind, ahead=None, option='--flowguard-base', seconds):
+def title(lines, *, baseline, kind, ahead=None, option='--flowguard-base', seconds, note=''):
     """The first line of a run: `FlowGuard 4.3 (since 99f025e): 1 red, 2 known; 3.4 s`. Every kind is counted before
-    the budget, red always, the others when there are any; `seconds` is FlowGuard's own work in the run."""
+    the budget, red always, the others when there are any; `seconds` is FlowGuard's own work in the run. `note` says
+    what the run did not cover before the time, for a pytest session that ended before its selected tests had all run
+    (`plugin.ended_early`: `0 red; run ended early (exit 3): 2 of 3 selected tests ran, the rest not checked; 0.1 s`);
+    '' for a run that finished."""
     counts = Counter(line.kind for line in lines)
     told = [f'{counts["red"]} red', *(f'{counts[kind]} {kind}' for kind in KINDS[1:] if counts[kind])]
-    return f'FlowGuard {version()} ({baseline_label(baseline, kind, ahead, option)}): {", ".join(told)}; {seconds:.1f} s'
+    return (f'FlowGuard {version()} ({baseline_label(baseline, kind, ahead, option)}): {", ".join(told)}'
+            + (f'; {_one_line(note)}' if note else '') + f'; {seconds:.1f} s')
 
 
 def render_block(lines, *, title, everything=False, files=()):
     """The block a run prints: `title`, then the lines in KINDS order. red, loosened and known fixed? are listed in
-    full; of the others at most ten: changed 3, before and known 2 (known lines first) and one line counting the rest, impact 2, not
-    compared one line summing every such line up, and one `+N more` for the changed and impact lines left out. One
+    full; of the others at most eleven: changed 3, before and known 2 (known lines first) and one line counting the rest, impact 2, not
+    compared the item whose map checks did not report to a vitest run (MAP_CHECKS_NOT_RUN) on a line of its own and one
+    line summing every other such line up, and one `+N more` for the changed and impact lines left out. One
     line keeps at most 200 characters besides its paths (the middle of its text gives way, never its subject, places
     or step) and names at most three places; a place's path is its file name (the shortest unique end of the path
     where another path has that name, of the block or of the repository's file list `files`, read once per run).
@@ -324,8 +333,13 @@ def render_block(lines, *, title, everything=False, files=()):
     out += [_said(line, names) for line in by['changed'][:SHOWN['changed']]]
     out += [_said(line, names) for line in by['impact'][:SHOWN['impact']]]
     out += [_said(line, names) for line in by['loosened']]
-    if by['not compared']:
-        out.append(_summary(by['not compared'], names))
+    # whether the map checks ran decides what `0 red` covers: their item is never one of the summed reasons
+    alone, summed = [], []
+    for line in by['not compared']:
+        (alone if MAP_CHECKS_NOT_RUN in line.detail else summed).append(line)
+    out += [_summary([line], names) for line in alone]
+    if summed:
+        out.append(_summary(summed, names))
     if more := sum(max(0, len(by[kind]) - shown) for kind, shown in SHOWN.items()):
         out.append(f'+{more} more: {MORE}')
     return '\n'.join(out)

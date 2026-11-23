@@ -123,7 +123,7 @@ The base installation reads Python. The `languages` extra adds TS/JS, Prisma, SQ
 
 ## Inspecting a result
 
-Read the FlowGuard block after the tests. Its first line counts each kind and FlowGuard's own time, and names what the run compared with. Each further line is `kind: what -> step`:
+Read the FlowGuard block after the tests. Its first line counts each kind and FlowGuard's own time, and names what the run compared with; a pytest session that ended before its selected tests had all run says so there (`0 red; run ended early (exit 3): 2 of 3 selected tests ran, the rest not checked; 0.1 s`). Each further line is `kind: what -> step`:
 
 | Kind | Meaning |
 | --- | --- |
@@ -134,7 +134,7 @@ Read the FlowGuard block after the tests. Its first line counts each kind and Fl
 | `changed` | A function this change edited, or one importing a constant it altered, returns something else for an input a test used; plain `check` runs no ordinary tests, so this comes from a test run or `check --all`. A call its task-start version takes as other parameters (`(record)` that became `(kind, record)`) is `not compared` (`parameters differ from the baseline`), not changed. |
 | `impact` | A changed function writes another set of fields, or an automatic structure check found something new. |
 | `loosened` | An `except=`, a removed or narrowed agreement, a changed or removed `known.toml` entry or a removed rule. |
-| `not compared` | A comparison was due but could not run in the closed environment, or the function's file was saved during the run (`source of PATH changed on disk after import`); unverified, not success. |
+| `not compared` | A comparison was due but could not run in the closed environment, or the function's file was saved during the run (`source of PATH changed on disk after import`); unverified, not success. A vitest run whose static test did not report has its own line, `not compared: flowguard.static.test.mjs (map checks did not report to this vitest run)`: the map checks did not run. |
 
 The step after `->` says what is known and who decides; you choose when to raise an open question with the owner. `python -m flowguard show --last` prints every line of the last run with its details: the last run of each vitest package and the one of pytest, `check` and `check --static`, newest first, with the full version, pytest's own outcome (`pytest: exit 1, 1 failed, stopped early (-x)`), a vitest run that started and did not report, and the failed tests the brief counts (`1 test failed when last run and has not run since: tests/test_a.py::test_x`, never called red), each with when it ran and whether the last pytest run selected it. Runs on one repository may go at the same time (two packages' checks, vitest beside `check --static`): each waits only for another's short write to the cache, and a wait longer than 5 s prints `flowguard: waiting for .flowguard/cache/map.sqlite (another FlowGuard run is writing it; ...)` on stderr. Use `python -m flowguard show "what it decides"` for registered functions, fields, copies and rules; use `python -m flowguard check --static --all` for a deliberate structure review.
 

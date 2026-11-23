@@ -675,6 +675,7 @@ class Observations:
         self.event_record = self.capture = None
         self.text = ''
         self.final = None           # FlowGuard's own seconds in the session, taken once after all its work (`_final`)
+        self.note = ''              # what the first line says the session did not cover (`ended_early`, set by `_verify`)
         self.session_red = []       # set by report(): the reds no failed test carries
         # The 4.3 lines (`signals.collect`): findings by (name, member), what was not compared and why, the changed
         # lines, and for `show --last` the unchanged points an explicit comparison compared.
@@ -1302,10 +1303,11 @@ class Observations:
         return self.state.tool_seconds + getattr(self.runtime, 'seconds', 0)
 
     def block(self, seconds):
-        """The end-of-run block (`signals.render_block`) with FlowGuard's own `seconds` in its first line."""
+        """The end-of-run block (`signals.render_block`) with FlowGuard's own `seconds` in its first line, and what the
+        session did not cover when it ended early (`note`)."""
         from . import signals
         heading = signals.title(self.lines, baseline=self.missing or self.runtime.baseline, kind=self.baseline_kind,
-                                ahead=self.baseline_ahead, seconds=seconds)
+                                ahead=self.baseline_ahead, seconds=seconds, note=self.note)
         return signals.render_block(self.lines, title=heading, files=self.repository)
 
     def last(self, seconds):
@@ -1978,9 +1980,9 @@ def _completion_policy(session, state, declared):
     failed = sorted(test for test, reading in state.readings.items() if reading['outcome'] == 'failed')
     if failed:
         problems.append(f'{len(failed)} test(s) failed ({", ".join(failed[:3])})')
-    missing = sorted(state.ordinary_selected - state.readings.keys())
+    missing = sorted(_unrun(state))
     if missing:
-        problems.append(f'{len(missing)} collected test(s) never ran ({", ".join(missing[:3])})')
+        problems.append(f'{len(missing)} selected test(s) never ran ({", ".join(missing[:3])})')
     if recording and declared:
         if state.sentinel != 'ok':
             problems.append('the intent sentinel did not execute successfully')
@@ -2106,6 +2108,30 @@ def session_outcome(session, state):
                 stopped='; '.join(stopped))
 
 
+def _unrun(state):
+    """The selected ordinary tests of the session without a reading: those that never ran (-x, --maxfail, an interrupt,
+    pytest.exit, an internal error). `_completion_policy` names them, and `ended_early` counts them, before the policy
+    records them as failed."""
+    return state.ordinary_selected - state.readings.keys()
+
+
+def ended_early(session, state, exitstatus, unrun):
+    """What the first line of a session that ended before its selected tests had all run says it did not cover
+    (`signals.title`): `run ended early (exit 3): 2 of 3 selected tests ran, the rest not checked`; '' for a session
+    that finished, and for one that only collects or sets up (--collect-only, --setup-only, --setup-plan). It ended
+    early when pytest ended it interrupted or with an internal error (`exitstatus`, as pytest ended the session), or
+    when `unrun` selected ordinary tests never ran (`_unrun`); the exit is the session's own as it ends, as
+    `session_outcome` keeps it (FlowGuard's red makes it 1)."""
+    options = session.config.option
+    if options.collectonly or getattr(options, 'setuponly', False) or getattr(options, 'setupplan', False):
+        return ''
+    if not unrun and exitstatus not in (pytest.ExitCode.INTERRUPTED, pytest.ExitCode.INTERNAL_ERROR):
+        return ''
+    selected = len(state.ordinary_selected)
+    ran = f'{selected - unrun} of {selected} selected test{"s" * (selected != 1)} ran' if selected else 'no test was selected'
+    return f'run ended early (exit {int(session.exitstatus)}): {ran}' + (', the rest not checked' if unrun else '')
+
+
 def _verify(session, exitstatus):
     state = session.config._flowguard_intent
     from .calibration import probe_context
@@ -2115,6 +2141,7 @@ def _verify(session, exitstatus):
         return  # Unselected intent is not part of this ordinary-test probe.
     model = state.get_model()
     declared = set(model.declared_items())
+    ended, unrun = exitstatus, len(_unrun(state))     # as pytest ended the session; before the completion policy runs
     if state.complete_collection is not None:
         unfinished = state.complete_collection - state.completed
         if unfinished:
@@ -2131,6 +2158,8 @@ def _verify(session, exitstatus):
                    deferred=len(state.deferred), missing=missing, sentinel=state.sentinel, exit=int(exitstatus),
                    errors=state.session_errors, stamp=state.started, deep=model.deep)
     state.pytest_outcome = session_outcome(session, state)
+    if state.observations is not None:
+        state.observations.note = ended_early(session, state, ended, unrun)
     if state.complete_collection is not None:
         attempt['complete_collection'] = dict(collected_nodeids=sorted(state.complete_collection),
                                                completed_nodeids=sorted(state.completed))
