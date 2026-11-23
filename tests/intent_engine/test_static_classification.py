@@ -176,9 +176,12 @@ def test_a_new_delete_or_use_of_an_uncreated_table_is_impact_and_an_old_one_in_a
     assert new.parts[0][2].startswith('deletes Parent; Restrict child tables Child are not deleted, cleared or counted')
     ghost = _issue(found, 'uncreated:Ghost')
     assert (ghost.family, ghost.subject, ghost.fresh) == ('uncreated', 'uncreated Ghost', frozenset({purge + ':readGhostNew'}))
+    # The new reader's part names the one that read Ghost so at the task start (PTWF-V116a: 5.0.1 said `whose rows no
+    # code creates` of both, as if every file had been read).
     assert sorted(part[1:3] for part in ghost.parts) == [
-        ('app/purge.ts:readGhostNew', 'reads Ghost, whose rows no code creates'),
-        ('app/remove.ts:readGhost', 'reads Ghost, whose rows no code creates')]
+        ('app/purge.ts:readGhostNew', 'reads Ghost; no creator found; Ghost was already read so at task start '
+                                      '(app/remove.ts:readGhost)'),
+        ('app/remove.ts:readGhost', 'reads Ghost; no creator found')]
     lines = _deliver(found)
     assert _kinds(lines, old.name) == [('before', 'removeOld')] and _kinds(lines, new.name) == [('impact', 'removeNew')]
     assert _kinds(lines, 'uncreated:Ghost') == [('impact', 'readGhostNew')]        # readGhost is old and untouched

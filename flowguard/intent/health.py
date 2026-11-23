@@ -670,18 +670,45 @@ def copies(change, index, *, before=False):
 
 # ---- fields several files write without an owner -------------------------------------------------
 
-def written_field(row, tests):
-    """The `Holder.field` a production write row writes, as the writers check counts it; None for a row it leaves
-    out: a test's, a bookkeeping column, a class-body default, a module's own code, a patch of a module's class, a
-    write whose field is not visible. `tests` are the map's test files."""
+def _production_write(row, tests):
+    """(holder, field) of a write row of production code, whatever its field; None for a row the writers check leaves
+    out for where it is: a test's, a class-body default, a module's own code, a patch of a module's class, a row of no
+    model or table. `tests` are the map's test files."""
     holder, name = row.get('model') or row.get('table'), row.get('field') or row.get('db_column')
     if row.get('language', 'python') == 'python' and row['how'] == 'attribute' and '.' in str(holder):
         return None             # `module.Class.method = ...` patches a module's class; it writes no data field
-    if not holder or row.get('unclear') or name in ('*', '?', None) or row['file'] in tests \
-            or is_test_file(row['file']) or str(name).casefold() in BOOKKEEPING or row['function'] == '<module>' \
+    if not holder or row['file'] in tests or is_test_file(row['file']) or row['function'] == '<module>' \
             or row['function'].rpartition('.')[2] == holder:      # a class-body default declares, it does not write
         return None
-    return f'{holder}.{name}'
+    return holder, name
+
+
+def written_field(row, tests):
+    """The `Holder.field` a production write row writes, as the writers check counts it; None for a row it leaves
+    out: a test's, a bookkeeping column, a class-body default, a module's own code, a patch of a module's class, a
+    write whose field is not visible, a delete. `tests` are the map's test files."""
+    found = _production_write(row, tests)
+    if found is None or row.get('unclear') or found[1] in ('*', '?', None) or str(found[1]).casefold() in BOOKKEEPING:
+        return None
+    return f'{found[0]}.{found[1]}'
+
+
+def unseen_write(row, tests):
+    """The model (or table, or Python class) of a production write row whose fields are not visible, which
+    `written_field` leaves out: data the reader cannot see into (`{...phase, absenceRecordId: id}` writes
+    `AbsencePhase.?`, unclear: `phase is a parameter`), SQL that names no columns. None for any other row, a delete
+    too (`deleted_model`)."""
+    found = _production_write(row, tests)
+    if found is None or row.get('kind') in DELETING or not (row.get('unclear') or found[1] in ('*', '?')):
+        return None
+    return found[0]
+
+
+def deleted_model(row, tests):
+    """The model (or table) a production write row deletes rows of (`DELETING`: delete, deleteMany, a nested delete,
+    SQL DELETE); None for any other row."""
+    found = _production_write(row, tests)
+    return found[0] if found is not None and row.get('kind') in DELETING else None
 
 
 def _test_files(graph):
@@ -833,42 +860,64 @@ def _baseline_queries(change, models):
             for data in facts for row in data.get('queries', ())]
 
 
+UNCREATED_KEPT = 3          # task-start places an uncreated line names; more are counted
+
+
 def uncreated(change):
-    """A Prisma model production code reads or deletes (also updates) while no production code or live SQL
-    makes its rows (create, createMany, upsert, a nested create, INSERT): the rows come from elsewhere or the
-    reads are dead. A Prisma `view` has no rows to make. One issue per model. A member (a function that uses the
-    model) is new when the baseline code did not use it so, or made its rows."""
+    """A Prisma model production code reads or deletes (also updates) while no production code or live SQL in the
+    files FlowGuard reads makes its rows (create, createMany, upsert, a nested create, INSERT): the rows come from
+    elsewhere (seeds, migrations, another system) or the reads are dead. A Prisma `view` has no rows to make. One issue
+    per model. A member (a function that uses the model) is new when the baseline code did not use it so, or made its
+    rows; a new member's line says which functions used the model so at the task start (PTWF-V116a), and its step
+    names the route that records a creator outside the repository (PTWF-G61): FlowGuard reads no seed it does not map,
+    and no other system."""
     from .owners import place, row_function
     found = _findings()
     found.ran.add('uncreated')
     graph = change.graph
     if not graph._models().by_name:
         return found
-    uses = _uses(graph, graph._models(), change.writes(), graph.queries())
-    then = None
-    if uses and change.baseline and not change.baseline_paths():
-        then = {model: {row_function(row) for items in verbs.values() for row in items} for model, verbs in uses.items()}
-    elif uses and change.baseline:
-        models = change.baseline_definitions().models
-        then = {model: {row_function(row) for items in verbs.values() for row in items}
-                for model, verbs in _uses(graph, models, change.baseline_writes(), _baseline_queries(change, models)).items()}
-    for model, verbs in sorted(uses.items()):
-        text = (f'Table whose rows are never created by this code: {model} ' + ', '.join(f'{verb} {_places(verbs[verb])}' for verb in ('read', 'delete', 'update') if verb in verbs)
-                + '; no create/upsert/INSERT exists')
-        step = ('find where these rows come from (seeds, migrations or external systems); with no source these reads and deletes '
-                f'may be dead code; if they are meant, {_leave(f"uncreated:{model}")}')
+
+    def members_of(verbs):
+        """{function: (its first row, [verb])} of one model's uses."""
         members = {}
         for verb in ('read', 'delete', 'update'):
             for row in verbs.get(verb, ()):
                 members.setdefault(row_function(row), (row, []))[1].append(verb)
-        parts = tuple((function, place(row), ' and '.join(verb + 's' for verb in dict.fromkeys(done)) + f' {model}, whose rows no code creates',
-                       'find where these rows come from') for function, (row, done) in sorted(members.items()))
+        return members
+
+    uses = _uses(graph, graph._models(), change.writes(), graph.queries())
+    then = None
+    if uses and change.baseline and not change.baseline_paths():
+        then = {model: members_of(verbs) for model, verbs in uses.items()}
+    elif uses and change.baseline:
+        models = change.baseline_definitions().models
+        then = {model: members_of(verbs)
+                for model, verbs in _uses(graph, models, change.baseline_writes(), _baseline_queries(change, models)).items()}
+    for model, verbs in sorted(uses.items()):
+        text = (f'Rows of {model}: ' + ', '.join(f'{verb} {_places(verbs[verb])}' for verb in ('read', 'delete', 'update') if verb in verbs)
+                + f'; no create/upsert/INSERT of {model} found in the files FlowGuard reads')
+        step = ('find where these rows come from (seeds, migrations, another system) and say so in your report; '
+                f'python -m flowguard known add uncreated:{model} --act leave --why TEXT records a creator outside the '
+                'repository')
+        members = members_of(verbs)
+        old = then.get(model, {}) if then is not None else {}
+        earlier = ''
+        if old:
+            did = ' and '.join(dict.fromkeys({'read': 'read', 'delete': 'deleted', 'update': 'updated'}[verb]
+                                             for _, (_, used) in sorted(old.items()) for verb in used))
+            places = [place(row) for _, (row, _) in sorted(old.items())]
+            earlier = (f'; {model} was already {did} so at task start ({", ".join(places[:UNCREATED_KEPT])}'
+                       + (f' and {len(places) - UNCREATED_KEPT} more' if len(places) > UNCREATED_KEPT else '') + ')')
+        parts = tuple((function, place(row), ' and '.join(verb + 's' for verb in dict.fromkeys(done)) + f' {model}; no creator found'
+                       + (earlier if function not in old else ''), step)
+                      for function, (row, done) in sorted(members.items()))
         found.issues.append(Issue(f'uncreated:{model}', 7, f'row creation {model}', text, step,
                                   frozenset(row_function(row) for items in verbs.values() for row in items),
                                   frozenset(row['file'] for items in verbs.values() for row in items),
                                   family='uncreated',
                                   subject=f'uncreated {model}', parts=parts,
-                                  fresh=frozenset(set(members) - then.get(model, set())) if then is not None else frozenset()))
+                                  fresh=frozenset(set(members) - set(old)) if then is not None else frozenset()))
     return found
 
 

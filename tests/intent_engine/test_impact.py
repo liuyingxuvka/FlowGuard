@@ -3148,3 +3148,254 @@ def test_the_impact_detail_names_ten_readers_and_counts_the_rest(tmp_path):
     assert line.text == 'Job.__init__ now writes Job.state; 0 other writers, 12 readers (untyped reads not counted)'
     assert line.detail == (*(f'reader of Job.state: {modules["app/job.py"]}:read_{n}' for n in (0, 1, 10, 11, 2, 3, 4, 5, 6, 7)),
                            '2 more readers of Job.state: python -m flowguard show Job.state --full lists them'), line.detail
+
+
+# ---- what a field line says of a field a function no longer writes (U11) ----------------------------------------
+
+MOVED_SCHEMA = '''
+model AbsenceRecord {
+  id     Int @id @default(autoincrement())
+  status String
+  phases AbsencePhase[]
+}
+
+model AbsencePhase {
+  id              Int    @id @default(autoincrement())
+  absenceRecordId Int
+  startDate       DateTime
+  endDate         DateTime
+  share           Float
+  absence         AbsenceRecord @relation(fields: [absenceRecordId], references: [id])
+}
+
+model ProjectRequest {
+  id        Int @id @default(autoincrement())
+  orgUnitId Int
+}
+
+model ProjectMember {
+  id        Int @id @default(autoincrement())
+  projectId Int
+  userId    Int
+  active    Boolean
+}
+
+model Assignment {
+  id     Int    @id @default(autoincrement())
+  status String
+  userId Int
+}
+'''
+
+
+def _absence_ts(data):
+    return f'''import {{ prisma }} from './db';
+
+export async function update(id: number, phases: {{ startDate: Date; endDate: Date; share: number }}[]) {{
+  await prisma.$transaction(async (tx) => {{
+    await tx.absenceRecord.update({{ where: {{ id }}, data: {{ status: 'OPEN' }} }});
+    await tx.absencePhase.createMany({{ data: phases.map((phase) => ({data})) }});
+  }});
+}}
+
+export async function readPhases(id: number) {{
+  return prisma.absencePhase.findMany({{ where: {{ absenceRecordId: id }} }});
+}}
+'''
+
+
+def _members_ts(body, imports=''):
+    return f'''{imports}import {{ prisma }} from './db';
+
+export async function assignProjectManager(projectId: number, userId: number, deps: any) {{
+  await prisma.$transaction(async (tx) => {{
+    await tx.projectMember.updateMany({{ where: {{ projectId }}, data: {{ active: false }} }});
+    {body}
+  }});
+}}
+
+export async function listMembers(projectId: number) {{
+  return prisma.projectMember.findMany({{ where: {{ projectId }} }});
+}}
+'''
+
+
+MEMBER_HELPER = '''export async function reactivateOrCreateMember(tx: any, projectId: number, userId: number) {
+  await tx.projectMember.create({ data: { projectId, userId, active: true } });
+}
+'''
+MOVED_BASE = {
+    'prisma/schema.prisma': MOVED_SCHEMA,
+    'src/db.ts': 'export const prisma: any = {};\n',
+    'src/absence.ts': _absence_ts('{ startDate: phase.startDate, endDate: phase.endDate, share: phase.share, absenceRecordId: id }'),
+    'src/members.ts': _members_ts('await tx.projectMember.create({ data: { projectId, userId, active: true } });'),
+    'src/registry.ts': '''import { prisma } from './db';
+
+export async function countRequests(orgUnitId: number) {
+  return prisma.projectRequest.count({ where: { orgUnitId } });
+}
+''',
+}
+
+
+def test_a_field_still_written_through_data_whose_fields_are_not_visible_is_not_said_to_be_no_longer_written(tmp_path):
+    """PTWF-FIa (Planning Tool): `phases.map((phase) => ({ startDate: phase.startDate, ... }))` became `({ ...phase,
+    absenceRecordId: id })`, and 5.0.1 said `update no longer writes AbsencePhase.endDate, AbsencePhase.share,
+    AbsencePhase.startDate`, while `show AbsencePhase.endDate` listed that write as `AbsencePhase.?` (`phase is a
+    parameter`): the fields may still be among the spread's. A field really dropped from the literal is no longer
+    written."""
+    _commit(tmp_path, MOVED_BASE)
+    _write(tmp_path, {'src/absence.ts': _absence_ts('{ ...phase, absenceRecordId: id }')})
+    found, modules = _impact(tmp_path)
+    [line] = found.lines
+    assert (line.kind, line.function) == ('impact', modules['src/absence.ts'] + ':update')
+    assert line.text == ('update writes AbsencePhase.? where it wrote endDate, share, startDate (fields not visible: phase '
+                         'is a parameter); 0 other writers, 1 reader of AbsencePhase'), line.text
+    assert 'no longer writes' not in line.text
+    assert line.step == 'check them for this change only (python -m flowguard show AbsencePhase.endDate)'
+    _write(tmp_path, {'src/absence.ts': _absence_ts('{ startDate: phase.startDate, share: phase.share, absenceRecordId: id }')})
+    [line] = _impact(tmp_path)[0].lines
+    assert line.text == 'update no longer writes AbsencePhase.endDate; 0 other writers, 1 reader of AbsencePhase', line.text
+
+
+def test_writes_moved_into_a_helper_the_function_calls_are_one_line_and_an_unresolved_call_keeps_two(tmp_path):
+    """PTWF-V125 (Planning Tool): `assignProjectManager no longer writes ProjectMember.projectId, ProjectMember.userId`
+    beside `reactivateOrCreateMember now writes ProjectMember.active, ...`, two lines that did not say that the one
+    calls the other. A call the map resolves links them in one line, naming the helper's other callers; a call it does
+    not resolve (through a parameter) links nothing."""
+    _commit(tmp_path, {**MOVED_BASE, 'src/member-helpers.ts': '// helpers\n',
+                       'src/other.ts': "export async function other(tx: any) {\n  return tx;\n}\n"})
+    _write(tmp_path, {'src/member-helpers.ts': MEMBER_HELPER,
+                      'src/members.ts': _members_ts('await reactivateOrCreateMember(tx, projectId, userId);',
+                                                 "import { reactivateOrCreateMember } from './member-helpers';\n")})
+    found, modules = _impact(tmp_path)
+    caller = modules['src/members.ts'] + ':assignProjectManager'
+    [line] = found.lines
+    assert (line.kind, line.name, line.function) == ('impact', 'impact:' + caller, caller)
+    assert line.text == ("assignProjectManager's writes of ProjectMember.projectId, ProjectMember.userId moved to "
+                         'reactivateOrCreateMember, which it calls (src/member-helpers.ts:1); 0 other writers, 1 reader '
+                         'of ProjectMember'), line.text
+    assert line.places == ('src/members.ts:assignProjectManager', 'src/member-helpers.ts:1')
+    assert line.detail == (
+        'assignProjectManager calls reactivateOrCreateMember at src/members.ts:7',
+        'reactivateOrCreateMember now writes ProjectMember.active, ProjectMember.projectId, ProjectMember.userId',
+        'no other caller of reactivateOrCreateMember through a call the map resolved',
+        f'reader of ProjectMember: {caller.rpartition(":")[0]}:listMembers'), line.detail
+    # Another function that calls the helper is named on the line.
+    _write(tmp_path, {'src/other.ts': "import { reactivateOrCreateMember } from './member-helpers';\n\n"
+                                      'export async function other(tx: any) {\n  return reactivateOrCreateMember(tx, 1, 2);\n}\n'})
+    [line] = _impact(tmp_path)[0].lines
+    assert '(src/member-helpers.ts:1); other callers of reactivateOrCreateMember: other; 0 other writers' in line.text, line.text
+    assert f'other caller of reactivateOrCreateMember: {modules["src/other.ts"]}:other' in line.detail, line.detail
+    # Called through a parameter, the call is not resolved: two lines, as 5.0.1 gave them.
+    _write(tmp_path, {'src/members.ts': _members_ts('await deps.reactivateOrCreateMember(tx, projectId, userId);')})
+    found, _ = _impact(tmp_path)
+    assert sorted(line.text for line in found.lines) == [
+        'assignProjectManager no longer writes ProjectMember.projectId, ProjectMember.userId; 1 other writer, 1 reader of '
+        'ProjectMember',
+        'reactivateOrCreateMember now writes ProjectMember.active, ProjectMember.projectId, ProjectMember.userId; 1 other '
+        'writer, 1 reader of ProjectMember'], [line.text for line in found.lines]
+
+
+def test_a_python_function_whose_writes_moved_into_a_private_helper_it_calls_gets_one_line(tmp_path):
+    """PEMEL17-18 (PEMEL Studio): set_default's writes moved into `_apply`, which it calls, and 5.0.1 gave `_apply now
+    writes Prefs.model; 1 other writer, ...` and `set_default no longer writes Prefs.model; 2 other writers, ...`."""
+    base = ('class Prefs:\n    def __init__(self):\n        self.model = ""\n        self.revision = 0\n\n\n'
+            'def set_default(prefs: Prefs, name):\n    prefs.model = name\n    prefs.revision += 1\n\n\n'
+            'def show(prefs: Prefs):\n    return prefs.model\n')
+    _commit(tmp_path, {'pyproject.toml': '[project]\nname = "mv"\nversion = "0"\n', 'model.py': base})
+    _write(tmp_path, {'model.py': base.replace(
+        'def set_default(prefs: Prefs, name):\n',
+        'def _apply(prefs: Prefs, name):\n').replace(
+        '\n\ndef show', '\n\ndef set_default(prefs: Prefs, name):\n    _apply(prefs, name)\n\n\ndef show')})
+    found, modules = _impact(tmp_path)
+    [line] = found.lines
+    assert line.function == 'model:set_default'
+    assert line.text == ("set_default's writes of Prefs.model moved to _apply, which it calls (model.py:7); 1 other "
+                         'writer, 1 reader (untyped reads not counted)'), line.text
+    assert line.detail == ('set_default calls _apply', '_apply now writes Prefs.model',
+                           'no other caller of _apply through a call the map resolved',
+                           'other writer of Prefs.model: model:Prefs.__init__', 'reader of Prefs.model: model:show'), line.detail
+    code, text = _flowguard(tmp_path, 'check', '--static', '--base', 'HEAD')
+    assert code == 0 and text.count('impact: ') == 1 and '_apply now writes' not in text, text
+
+
+def test_a_function_whose_update_became_a_delete_says_it_now_deletes_the_model(tmp_path):
+    """PTWF-4255 (Planning Tool): `remove no longer writes Assignment.status` was right, the status update having
+    become a delete, and said nothing of the delete. A delete the function had at the baseline is not new."""
+    assignments = '''import { prisma } from './db';
+
+export async function create(userId: number) {
+  return prisma.assignment.create({ data: { userId, status: 'ACTIVE' } });
+}
+
+export async function remove(id: number) {
+  return prisma.assignment.update({ where: { id }, data: { status: 'REMOVED' } });
+}
+
+export async function purge(id: number) {
+  await prisma.assignment.update({ where: { id }, data: { status: 'GONE', userId: 0 } });
+  return prisma.assignment.deleteMany({ where: { status: 'GONE' } });
+}
+
+export async function listAssignments(userId: number) {
+  return prisma.assignment.findMany({ where: { userId } });
+}
+'''
+    _commit(tmp_path, {**MOVED_BASE, 'src/assignments.ts': assignments})
+    _write(tmp_path, {'src/assignments.ts': assignments.replace(
+        "return prisma.assignment.update({ where: { id }, data: { status: 'REMOVED' } });",
+        'return prisma.assignment.delete({ where: { id } });').replace("status: 'GONE', userId: 0", "status: 'GONE'")})
+    found, modules = _impact(tmp_path)
+    by_function = {line.function.rpartition(':')[2]: line for line in found.lines}
+    assert by_function['remove'].text == ('remove no longer writes Assignment.status; now deletes Assignment '
+                                          '(src/assignments.ts:8); 2 other writers, 1 reader of Assignment'), by_function['remove'].text
+    assert 'src/assignments.ts:8' in by_function['remove'].places
+    assert by_function['purge'].text == 'purge no longer writes Assignment.userId; 1 other writer, 1 reader of Assignment'
+
+
+def test_a_new_read_of_a_model_no_code_creates_says_what_was_searched_and_that_it_was_read_so_at_task_start(tmp_path):
+    """PTWF-V116a, PTWF-G61 (Planning Tool): a new `prisma.projectRequest.count` printed `uncreated ProjectRequest:
+    registry2.ts:referenceCount reads ProjectRequest, whose rows no code creates -> fix it, or say why in your report`,
+    while registry.ts:countRequests had read it so at the task start and the owner keeps the table: FlowGuard reads only
+    the repository's files, and `fix it` asked for a creation path no one asked for."""
+    _commit(tmp_path, MOVED_BASE)
+    _write(tmp_path, {'src/registry2.ts': '''import { prisma } from './db';
+
+export async function referenceCount(orgUnitId: number) {
+  return prisma.projectRequest.count({ where: { orgUnitId } });
+}
+'''})
+    cfg = load_config(tmp_path)
+    with closing(build(tmp_path, roots=cfg.roots)) as graph:
+        found = owners.static_findings(cfg, graph, anchors.collect(graph), 'HEAD')
+    issue = next(issue for issue in found.issues if issue.name == 'uncreated:ProjectRequest')
+    assert issue.text == ('Rows of ProjectRequest: read src/registry.ts:4  src/registry2.ts:4; no create/upsert/INSERT of '
+                          'ProjectRequest found in the files FlowGuard reads'), issue.text
+    step = ('find where these rows come from (seeds, migrations, another system) and say so in your report; python -m '
+            'flowguard known add uncreated:ProjectRequest --act leave --why TEXT records a creator outside the repository')
+    lines, _ = signals.deliver(found.issues, touched_functions=found.touched_functions, touched_files=found.touched_files,
+                               ran=found.ran, extra=found.lines)
+    [line] = [line for line in lines if line.name == 'uncreated:ProjectRequest']
+    assert (line.kind, line.text, line.step) == (
+        'impact', 'uncreated ProjectRequest: src/registry2.ts:referenceCount reads ProjectRequest; no creator found; '
+        'ProjectRequest was already read so at task start (src/registry.ts:countRequests)', step), line
+    # A model no code used at the task start has no such clause; the line is impact, the old reader's before.
+    code, text = _flowguard(tmp_path, 'check', '--static', '--all', '--base', 'HEAD')
+    assert code == 0 and ('before: uncreated ProjectRequest at registry.ts:countRequests was broken at task start -> '
+                          'leave it unless your task is about it') in text, text
+    assert f'-> {step}' in text and 'fix it, or say why' not in text, text
+    _commit(tmp_path, message='registry2')
+    _write(tmp_path, {'src/assign.ts': '''import { prisma } from './db';
+
+export async function listAll() {
+  return prisma.assignment.findMany({ where: { status: 'ACTIVE' } });
+}
+'''})
+    cfg = load_config(tmp_path)
+    with closing(build(tmp_path, roots=cfg.roots)) as graph:
+        found = owners.static_findings(cfg, graph, anchors.collect(graph), 'HEAD')
+    lines, _ = signals.deliver(found.issues, touched_functions=found.touched_functions, touched_files=found.touched_files,
+                               ran=found.ran, extra=found.lines)
+    assert [(line.kind, line.text) for line in lines if line.name.startswith('uncreated:')] == [
+        ('impact', 'uncreated Assignment: src/assign.ts:listAll reads Assignment; no creator found')], lines

@@ -1413,6 +1413,9 @@ def loosened(change, index):
     return found
 
 
+CALLERS_NAMED = 3           # other callers of a helper a moved-writes line names; more are counted
+
+
 def field_impact(change, index):
     """One `impact` line (4.6) per function this change edits or adds whose set of written fields (`Model.field`
     or `table.column`, bookkeeping columns aside) differs from the baseline code's: the fields it now writes and no
@@ -1423,8 +1426,18 @@ def field_impact(change, index):
     name or a declared field type, tests included; the line says `(untyped reads not counted)`, for a read through a
     name nothing types is not one; 5.0.1 said `0 readers of Settings` for every Python class). Counts and one name
     only; the first ten of each in the detail, and a last detail line counts the readers past them;
-    `show NAME` lists them. A test's, a seed script's or a module's own code is no function this reports."""
-    from .health import _test_files, written_field, writers
+    `show NAME` lists them. A test's, a seed script's or a module's own code is no function this reports.
+
+    A field it no longer writes is said as what the code shows of it (PTWF-FIa, PTWF-V125, PEMEL17-18, PTWF-4255):
+    while the function still writes that model with data whose fields are not visible (`health.unseen_write`), `update
+    writes AbsencePhase.? where it wrote endDate, share, startDate (fields not visible: phase is a parameter)`, for the
+    field may still be among them; when a function it calls through a call the map resolved
+    (`MapHandle.resolved_calls`) writes it now, `set_default's writes of Prefs.model moved to _apply, which it calls
+    (model.py:7)`, with that function's other resolved callers, and that function's own line is left out when every
+    field it newly writes is one the caller wrote at the baseline (the detail keeps what it said); otherwise `no longer
+    writes`. A delete of such a field's model the function did not have at the baseline is added, `now deletes
+    Assignment (assignments.ts:9)`. A call the map does not resolve links nothing: the two functions keep a line each."""
+    from .health import _test_files, deleted_model, unseen_write, written_field, writers
     from .signals import Line
     found = Findings()
     touched = change.touched() if change.baseline else set()
@@ -1433,27 +1446,68 @@ def field_impact(change, index):
     graph = change.graph
     tests = _test_files(graph)
 
-    def fields(rows):
-        by_function = {}
+    def facts(rows):
+        """({function: {field: row}}, {function: {model: row}} of the writes whose fields are not visible,
+        {function: {model: row}} of the deletes), production code's, seed scripts aside; a row each, the first."""
+        fields, unseen, deleted = {}, {}, {}
         for row in rows:
-            if (key := written_field(row, tests)) is not None and not seeding(row['file']):
-                by_function.setdefault(row_function(row), {}).setdefault(key, row)
-        return by_function
+            if seeding(row['file']):
+                continue
+            if (key := written_field(row, tests)) is not None:
+                fields.setdefault(row_function(row), {}).setdefault(key, row)
+            elif (model := unseen_write(row, tests)) is not None:
+                unseen.setdefault(row_function(row), {}).setdefault(model, row)
+            elif (model := deleted_model(row, tests)) is not None:
+                deleted.setdefault(row_function(row), {}).setdefault(model, row)
+        return fields, unseen, deleted
 
-    now, then = fields(change.writes()), None
-    open_writers, readers_of = None, {}
+    now, unseen, deleted = facts(change.writes())
+    then, _, deleted_then = facts(change.baseline_writes())
+    changes = {}
     for function in sorted(touched):
-        written = now.get(function, {})
-        if then is None:
-            then = fields(change.baseline_writes())
-        before = then.get(function, {})
+        written, before = now.get(function, {}), then.get(function, {})
         added, removed = sorted(written.keys() - before.keys()), sorted(before.keys() - written.keys())
-        if not added and not removed:
+        if added or removed:
+            changes[function] = added, removed
+    moves, calls = _moved_writes(graph, changes, now, unseen)
+    movers = {}
+    for function, moved in moves.items():
+        for callee, _ in moved:
+            movers.setdefault(callee, []).append(function)
+    # a helper whose new writes are all its callers' old ones says nothing its caller's moved line does not
+    absorbed = {callee for callee, callers in movers.items() if callee in changes and changes[callee][0]
+                and not changes[callee][1]
+                and set(changes[callee][0]) <= {key for caller in callers for key in then.get(caller, {})}}
+    nodes = {}
+
+    def node(ident):
+        """(name, file, line) of a function node, read once."""
+        if ident not in nodes:
+            row = graph.con.execute('SELECT qual, file, line FROM node WHERE id = ?', (ident,)).fetchone()
+            nodes[ident] = tuple(row) if row else (ident.partition(':')[2] or ident, '', 0)
+        return nodes[ident]
+
+    open_writers, readers_of = None, {}
+    for function, (added, removed) in changes.items():
+        if function in absorbed:
             continue
-        shown = (added or removed)[0]
-        row = written[shown] if shown in written else before[shown]      # a field it no longer writes: the baseline's row
+        moved = moves.get(function, [])
+        taken = {key for _, keys in moved for key in keys}
+        hidden, gone = {}, []
+        for key in removed:
+            if key in taken:
+                continue
+            if (holder := key.rpartition('.')[0]) in unseen.get(function, {}):
+                hidden.setdefault(holder, []).append(key)
+            else:
+                gone.append(key)
+        shown = (added or [key for _, keys in moved for key in keys] or [key for keys in hidden.values() for key in keys]
+                 or gone)[0]
+        # a field it no longer writes: the baseline's row
+        row = now[function][shown] if shown in now.get(function, {}) else then[function][shown]
         model = shown.rpartition('.')[0]
-        others = sorted({other for other, items in now.items() if other != function and shown in items})
+        mover = next((callee for callee, keys in moved if shown in keys), None)
+        others = sorted({other for other, items in now.items() if other not in (function, mover) and shown in items})
         if row.get('language', 'python') == 'python' and row['how'] == 'attribute':
             # A Python class's field: the functions that read it as `MapHandle.field_reads` types a read (through
             # self, an annotated name or a declared field type), which a read through an untyped name is not.
@@ -1470,18 +1524,76 @@ def field_impact(change, index):
         if open_writers is None:
             open_writers = {issue.name for issue in writers(change, index).issues}
         qual = function.partition(':')[2] or function
-        text = (f'{qual} now writes {", ".join(added)}' if added else f'{qual} no longer writes {", ".join(removed)}') \
-            + (f'; no longer writes {", ".join(removed)}' if added and removed else '') \
-            + f'; {_counted(len(others), "other writer")}' + (' (no writers agreement)' if f'writers:{shown}' in open_writers else '') \
-            + counted
         here = f'{row["file"]}:{qual}'
-        detail = tuple(f'other writer of {shown}: {other}' for other in others[:10]) \
+        said, places, detail = [], [here], []
+        if added:
+            said.append(f'{qual} now writes {", ".join(added)}')
+        for callee, keys in moved:
+            name, file, line = node(callee)
+            at = f'{file}:{line}' if file else callee
+            calling = sorted(caller for caller in calls[1].get(callee, ()) if caller not in (function, callee))
+            listed = ', '.join(node(caller)[0] for caller in calling[:CALLERS_NAMED]) \
+                + (f' and {len(calling) - CALLERS_NAMED} more' if len(calling) > CALLERS_NAMED else '')
+            said.append((f"{qual}'s" if not said else 'its') + f' writes of {", ".join(keys)} moved to {name}, which it '
+                        f'calls ({at})' + (f'; other callers of {name}: {listed}' if listed else ''))
+            places.append(at)
+            # A JS/TS call edge holds the call's line; a Python one its caller's def line, and a call
+            # `_imported_member_calls` resolved has no edge: the call is then named without a place.
+            sites = sorted({f'{file}:{line}' for src, file, line in graph.con.execute(
+                "SELECT src, file, line FROM edge WHERE kind = 'calls' AND dst = ? AND prov != 'guessed'", (callee,))
+                if file and named(src) == function}) if row.get('language', 'python') != 'python' else []
+            detail += [f'{qual} calls {name} at {site}' for site in sites] or [f'{qual} calls {name}']
+            if callee in absorbed:
+                detail.append(f'{name} now writes {", ".join(changes[callee][0])}')
+            detail += [f'other caller of {name}: {caller}' for caller in calling[:10]] if calling else \
+                [f'no other caller of {name} through a call the map resolved']
+        for held, keys in hidden.items():
+            unclear = unseen[function][held]
+            said.append(('' if said else f'{qual} ') + f'writes {held}.? where it wrote '
+                        + ', '.join(key.rpartition('.')[2] for key in keys)
+                        + ' (fields not visible' + (f': {unclear["reason"]}' if unclear.get('reason') else '') + ')')
+        if gone:
+            said.append(('' if said else f'{qual} ') + f'no longer writes {", ".join(gone)}')
+        for gone_from in sorted({key.rpartition('.')[0] for key in removed} & deleted.get(function, {}).keys()
+                                - deleted_then.get(function, {}).keys()):
+            at = f'{deleted[function][gone_from]["file"]}:{deleted[function][gone_from]["line"]}'
+            said.append(f'now deletes {gone_from} ({at})')
+            places.append(at)
+        text = '; '.join(said) + f'; {_counted(len(others), "other writer")}' \
+            + (' (no writers agreement)' if f'writers:{shown}' in open_writers else '') + counted
+        detail = tuple(detail) + tuple(f'other writer of {shown}: {other}' for other in others[:10]) \
             + tuple(f'reader of {read}: {reader}' for reader in readers[:10]) \
             + ((f'{_counted(len(readers) - 10, "more reader")} of {read}: python -m flowguard show {shown} --full lists '
                 'them',) if len(readers) > 10 else ())
         found.lines.append(Line('impact', f'impact:{function}', function, text,
-                                f'check them for this change only (python -m flowguard show {shown})', (here,), detail))
+                                f'check them for this change only (python -m flowguard show {shown})', tuple(places),
+                                detail))
     return found
+
+
+def _moved_writes(graph, changes, now, unseen):
+    """({function: [(callee, [field])]}, (down, up)): of each function this change made stop writing fields itself, the
+    fields a function it calls through a call the map resolved (`MapHandle.resolved_calls`, its anonymous callbacks'
+    calls its own: `named`) writes now, each field to the first such callee by id; a field of a model the function
+    still writes with data whose fields are not visible is none (`unseen`: it may still write it). `down` and `up` are
+    the resolved calls by named function, read only when some function stopped writing a field."""
+    if not any(removed for _, removed in changes.values()):
+        return {}, ({}, {})
+    down, up = {}, {}
+    for src, targets in graph.resolved_calls()[0].items():
+        for target in targets:
+            caller, callee = named(src), named(target)
+            if caller != callee:
+                down.setdefault(caller, set()).add(callee)
+                up.setdefault(callee, set()).add(caller)
+    moves = {}
+    for function, (_, removed) in changes.items():
+        left = [key for key in removed if key.rpartition('.')[0] not in unseen.get(function, {})]
+        for callee in sorted(down.get(function, ())):
+            if taken := [key for key in left if key in now.get(callee, {})]:
+                moves.setdefault(function, []).append((callee, taken))
+                left = [key for key in left if key not in taken]
+    return moves, (down, up)
 
 
 def static_findings(cfg, graph, index, base=None, *, everything=False, replay=False):

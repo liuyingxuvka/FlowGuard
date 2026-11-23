@@ -74,6 +74,10 @@ IMPACT_STEP = 'fix it, or say why in your report'
 # BEFORE_STEP, keeps it in its detail. A member's line also holds the places of the finding's other members, which its
 # text need not name, so that `known add` records every copy's site (PEMEL23-15a).
 COPIES = 'copies'
+# The families whose impact line states its finding's own step in place of IMPACT_STEP: a new writer has nothing to
+# fix, only a design matter; copies say how they resemble and who decides (COPIES); a table no code FlowGuard reads
+# creates rows of may be filled elsewhere, and `fix it` would ask for a creation path no one asked for (PTWF-V116a).
+OWN_STEP = ('writers', COPIES, 'uncreated')
 # The steps of known lines say what is known and who decides (R101): FlowGuard orders no question to the owner; the
 # agent decides when to raise one.
 KNOWN_STEPS = {'leave': 'left as it is on purpose; yours to change only if your task is about it',
@@ -165,7 +169,8 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
     disagreed at task start {what}` for same-name copies, `was broken at task start` otherwise). A finding that
     breaks no agreement states its `held` fact instead (pt-smoke-3, a field several files write without a writers
     agreement): `Job.status has no writers agreement and 4 files write it, cancel.py:cancel among them; so at task
-    start`. The `copies` family (COPIES): an impact line takes the part's step, a before line keeps it in its detail
+    start`. An impact line takes the part's step in the families OWN_STEP names, IMPACT_STEP in any other. The `copies`
+    family (COPIES): a before line keeps the part's step in its detail
     (`copies _literal at model_source.py:_literal differed from its same-named copies at task start`), every line of a
     member holds the other members' places too, and a finding that gives `Issue.joint` and whose members this change
     all added is one impact line, `{subject}: {joint}`, holding every member's place, its members still counted one by
@@ -214,10 +219,10 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
                 elif shown and joint:
                     if function == issue.parts[0][0]:
                         lines.append(Line(new or 'impact', issue.name, function, f'{issue.subject}: {issue.joint}',
-                                          step if copies else IMPACT_STEP, held, issue.detail))
-                elif shown:          # a new writer's own step: there is nothing to fix, only a design matter
+                                          step if issue.family in OWN_STEP else IMPACT_STEP, held, issue.detail))
+                elif shown:
                     lines.append(Line(new or 'impact', issue.name, function, text,
-                                      step if issue.family == 'writers' or copies else IMPACT_STEP, held, issue.detail))
+                                      step if issue.family in OWN_STEP else IMPACT_STEP, held, issue.detail))
             elif ignoring:
                 ignored.add((issue.name, function))
             elif shown and (everything or (function in touched_functions if function else bool(issue.files & touched_files))):
