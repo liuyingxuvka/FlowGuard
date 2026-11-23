@@ -3138,6 +3138,54 @@ def test_show_of_a_field_this_change_stopped_writing_lists_its_writes_and_reads_
     assert not [line for line in _shown_lines(tmp_path, 'Pane.ui', '--full') if line.endswith('at the task start')]
 
 
+PANEL = '''class PaneHandle:
+    def __init__(self):
+        self._hovered = False
+
+    @property
+    def highlighted(self):
+        return self._hovered
+
+    def paintEvent(self, event):
+        if self.highlighted:
+            return 1
+
+    def tip(self):
+        return self.highlighted
+
+
+class Controller:
+    def request_close(self):
+        return not self._closing_window
+'''
+
+
+def test_show_lists_a_task_start_read_only_for_a_function_that_no_longer_reads_the_field(tmp_path):
+    """Round A of 5.1: on a tree with no change since new-task, `show PaneHandle.highlighted` (a @property) and `show
+    Controller._closing_window` (an attribute only read, PEMEL23-5a/5b) printed each read twice, the second `at the
+    task start`, and once lines had shifted that line named a stale line number. A task-start read is listed only for a
+    function that no longer reads the field now, compared by function and kind, never by line."""
+    _commit(tmp_path, {'shell/__init__.py': '', 'shell/project_panel.py': PANEL})
+    started, text = _flowguard(tmp_path, 'new-task')
+    assert started == 0, text
+    reads = lambda query: [line for line in _shown_lines(tmp_path, query) if line.startswith('reads ')]
+    assert reads('PaneHandle.highlighted') == [
+        'reads PaneHandle.highlighted shell/project_panel.py:10 PaneHandle.paintEvent (attribute)',
+        'reads PaneHandle.highlighted shell/project_panel.py:14 PaneHandle.tip (attribute)']
+    assert reads('Controller._closing_window') == [
+        'reads Controller._closing_window shell/project_panel.py:19 Controller.request_close (attribute)']
+    # an edit that only shifts the lines: each read once, at its line now
+    _write(tmp_path, {'shell/project_panel.py': '# a\n# b\n# c\n' + PANEL})
+    assert reads('PaneHandle.highlighted') == [
+        'reads PaneHandle.highlighted shell/project_panel.py:13 PaneHandle.paintEvent (attribute)',
+        'reads PaneHandle.highlighted shell/project_panel.py:17 PaneHandle.tip (attribute)']
+    # a function that no longer reads it keeps its task-start line, the one that still reads it does not
+    _write(tmp_path, {'shell/project_panel.py': PANEL.replace('        return self.highlighted\n', '        return None\n')})
+    assert reads('PaneHandle.highlighted') == [
+        'reads PaneHandle.highlighted shell/project_panel.py:10 PaneHandle.paintEvent (attribute)',
+        'reads PaneHandle.highlighted shell/project_panel.py:14 PaneHandle.tip (attribute) at the task start']
+
+
 def test_the_impact_detail_names_ten_readers_and_counts_the_rest(tmp_path):
     readers = ''.join(f'\n\ndef read_{n}(job: Job):\n    return job.state\n' for n in range(12))
     base = 'class Job:\n    def __init__(self):\n        self.code = 0\n' + readers

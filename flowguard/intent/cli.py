@@ -887,7 +887,8 @@ def _last_run_lines(cfg, graph, query, name, site_names, *, held, full, hidden=N
 
 
 FIELD_QUERY = re.compile(r'[A-Za-z_]\w*\.[A-Za-z_]\w*')     # Model.field or table.column
-AT_START = ' at the task start'     # a `show Model.field` line of the task-start code, for a field no code writes now
+AT_START = ' at the task start'     # a `show Model.field` line of the task-start code that no function has now, for a
+                                    # field no code writes now
 
 
 def _write_line(row, mark=''):
@@ -1320,12 +1321,16 @@ def show(cfg, query=None, *, full=False, last=False):
             ranked.extend((2001, line) for line in health.co_written(change, name, index))
             ranked.extend((1998 - order, line) for order, line in enumerate(
                 checks.field_lines(graph, name, written, lambda files: _test_marks(cfg, files))))
-            if not written:     # no code writes it now: what wrote and read it at the task start (PEMEL23-6c)
-                then = checks.Change(cfg, graph, checks.baseline(cfg))
+            if not written:     # no code writes it now (PEMEL23-6c): what the task-start code wrote and read of it that
+                then = checks.Change(cfg, graph, checks.baseline(cfg))      # no function does now
                 if then.baseline:
+                    # a read compares by its function and kind, never its line: one only moved, or a field nothing
+                    # writes (a @property, an attribute only read) on an unchanged tree, is listed once, as it reads now
+                    reads = {(row['node'], row['method']) for row in graph.field_reads(name)}
                     old = [*(line + AT_START for line in _write_lines(cfg, then.baseline_writes(name))),
                            *dict.fromkeys(checks.python_read_line(row, name, AT_START)
-                                          for row in then.baseline_field_reads(name))]
+                                          for row in then.baseline_field_reads(name)
+                                          if (row['node'], row['method']) not in reads)]
                     ranked.extend((1500 - order / len(old), line) for order, line in enumerate(old))
         if any(row['name'] == name for row in graph.labels_read(graph.label_rows())):  # the family the block reports
             from . import health, owners as checks

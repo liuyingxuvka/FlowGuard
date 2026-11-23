@@ -320,8 +320,10 @@ def title(lines, *, baseline, kind, ahead=None, option='--flowguard-base', secon
     """The first line of a run: `FlowGuard 4.3 (since 99f025e): 1 red, 2 known; 3.4 s`. Every kind is counted before
     the budget, red always, the others when there are any; `seconds` is FlowGuard's own work in the run. `note` says
     what the run did not cover before the time, for a pytest session that ended before its selected tests had all run
-    (`plugin.ended_early`: `0 red; run ended early (exit 3): 2 of 3 selected tests ran, the rest not checked; 0.1 s`);
-    '' for a run that finished."""
+    (`plugin.ended_early`: `0 red; run ended early (exit 3): 2 of 3 selected tests ran, the rest not checked; 0.1 s`),
+    or, for a vitest run, how long its preparation waited for another FlowGuard run's write to the cache
+    (`common.waited_note`: `0 red; waited 9 s for .flowguard/cache/map.sqlite (another FlowGuard run was writing it);
+    8.5 s`); '' for a run that finished without either."""
     counts = Counter(line.kind for line in lines)
     told = [f'{counts["red"]} red', *(f'{counts[kind]} {kind}' for kind in KINDS[1:] if counts[kind])]
     return (f'FlowGuard {version()} ({baseline_label(baseline, kind, ahead, option)}): {", ".join(told)}'

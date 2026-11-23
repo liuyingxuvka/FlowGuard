@@ -32,7 +32,7 @@ FlowGuard 5.0 (since 99f025e): 0 red; 0.2 s
 
 1. 开工时运行 `python -m flowguard new-task`，读简报。
 2. 跑项目普通测试，读测试汇总后的 FlowGuard 块。首行给出每一类的数目；pytest 运行在选中的测试全部跑完之前就结束时，首行也会写明（`run ended early (exit 3): 2 of 3 selected tests ran, the rest not checked`）。只有 `red` 使测试失败：这次改动破坏了已登记的约定，要改代码。`before` 和 `known` 在任务开始前就有：`->` 后面写明已知的情况和由谁决定，什么时候向主人提出未决的问题由你决定。`changed` 表示某个函数对测试用过的输入返回了别的结果：是有意的改动就在汇报里说明；结果是字典时，这一行列出变化的键（`now adds demandPeriodConvention='legacy-half-open' (3 other keys equal)`）。`impact` 和 `not compared` 不算失败；`not compared` 是没有验证，不算通过；vitest 运行没有收到地图检查的结果时，会单独占一行 `not compared` 说明。`python -m flowguard show --last` 列出上一次运行的每一行和细节：每个 vitest 包各一次，pytest、`check` 和 `check --static` 共一次，附 pytest 自己的退出码和失败数，以及简报计入的失败测试。
-3. 修改另一份实现之前，用 `python -m flowguard show "what it decides"` 查函数、模型、字段和约定；地图不认识的名字会直说。对 Python 类的字段，`show Settings.appearance` 列出写它的地方，以及通过 `self`、带类型注解的名字或已声明类型的字段读它的函数（对它调用 asdict 和 vars 也算），`impact` 行数的就是这些（`5 readers (untyped reads not counted)`）：通过没有类型的名字读取不计入。这次改动不再写的字段，会列出任务开始时写它和读它的地方。
+3. 修改另一份实现之前，用 `python -m flowguard show "what it decides"` 查函数、模型、字段和约定；地图不认识的名字会直说。对 Python 类的字段，`show Settings.appearance` 列出写它的地方，以及通过 `self`、带类型注解的名字或已声明类型的字段读它的函数（对它调用 asdict 和 vars 也算），`impact` 行数的就是这些（`5 readers (untyped reads not counted)`）：通过没有类型的名字读取不计入。这次改动不再写的字段，会列出任务开始时写它和读它、而现在已没有函数这样做的地方。
 
 同时工作的几个智能体各用一个 git worktree（`git worktree add ../task-b`，然后在那里运行 `python -m flowguard new-task`）：每个 worktree 有自己的 `.flowguard/cache`、任务基准和改动集。同一个工作树里的智能体共用这些：一个智能体运行 `new-task` 会移动所有智能体的基准，每个智能体未提交的修改也算进其他智能体的改动。
 
@@ -85,9 +85,9 @@ FlowGuard 5.0 删除了 4.2 的注释写法（`sensor NAME`、`owner NAME`、`ow
 
 保存在仓库里的 SQL 文件（比如手工安装的数据库升级包）描述它所创建的表，并与 Prisma schema 比较；只修改表的文件不描述任何表。有意保留过时的描述时，指定它某个文件里的一张表来记录：`python -m flowguard known add columns:prisma/migrations/~prisma/schema.prisma --site prisma/migrations/20240101_init/migration.sql:central_employees --act leave --why TEXT`。
 
-列在 `[tool.flowguard] exclude = ["translations/*.ts"]` 里的文件（路径从项目根目录算，`**` 跨文件夹）从不被读取，任务起点的版本也不读，也不需要装它的读取器；一个改动把某个文件加进这个列表时，它原有的每条约定都是一行 `loosened`。没被排除、读取器又没装的文件会让 `check --static` 带着错误原文退出（退出码 2），在 pytest 里则是 pytest 自己的汇总之后的一行红色 `map checks`。
+列在 `[tool.flowguard] exclude = ["translations/*.ts"]` 里的文件（路径从项目根目录算，`**` 跨文件夹）从不被读取，任务起点的版本也不读，也不需要装它的读取器；一个改动把某个文件加进这个列表时，它原有的每条约定都是一行 `loosened`；任务起点的 pyproject.toml 解析不了时，这些文件记为一行 `not compared`。没被排除、读取器又没装的文件会让 `check --static` 带着错误原文退出（退出码 2），在 pytest 里则是 pytest 自己的汇总之后的一行红色 `map checks`。
 
-FlowGuard 只在测试运行里起作用。它从不在测试里把函数再跑一遍；打包、开发服务器和正式运行都不会加载它。运行期间被另一个智能体或某个测试保存过的源文件，其中的函数从此不再记录：它们记为 `not compared`，每个测试都和不带 FlowGuard 时一样运行。同一仓库可以同时有几次运行，比如两个包各自的检查，或 vitest 运行与 `check --static` 并行：每次运行只等另一次运行对缓存的短暂写入，等满 5 秒会在 stderr 说明。
+FlowGuard 只在测试运行里起作用。它从不在测试里把函数再跑一遍；打包、开发服务器和正式运行都不会加载它。运行期间被另一个智能体或某个测试保存过的源文件，其中的函数从此不再记录：它们记为 `not compared`，每个测试都和不带 FlowGuard 时一样运行。同一仓库可以同时有几次运行，比如两个包各自的检查，或 vitest 运行与 `check --static` 并行：每次运行只等另一次运行对缓存的短暂写入，等满 5 秒会在 stderr 说明；vitest 运行则在第一行说明（`waited 9 s for .flowguard/cache/map.sqlite`）。
 
 ## 兼容与仓库
 

@@ -717,11 +717,15 @@ def prepare(root, package=None):
     map checks in its block (design 4.7), and a run without a baseline commit (outside Git, before the first commit, a
     recorded task start this repository lacks) compares its same-name copies as pytest does and says in its title
     that nothing was compared with a baseline (D13). A run that is on notes its start in its package's slot of the last
-    runs (`cache.stamp_start`), which its report replaces."""
+    runs (`cache.stamp_start`), which its report replaces. vitest shows a successful preparation's stderr nowhere, so
+    the waits of this preparation for the map cache's write lock that passed CACHE_NOTICE (`LOCK_WAITS`, whose
+    stderr line `check --static` and pytest show) are kept in the plan by its package's slot (`waits`; one plan
+    serves every package's run of this change, and each keeps its own), and the report's first line says them."""
     from . import cache
     from .config import load_config
-    from ..map.common import atomic_write_text, git_common_directory, git_run
+    from ..map.common import LOCK_WAITS, atomic_write_text, git_common_directory, git_run
     started = time.perf_counter()
+    first = len(LOCK_WAITS)
     cfg = load_config(root)
     commit = label = kind = None        # the commit compared with, the commit the title names, and its kind
     if git_common_directory(cfg.root) is not None:
@@ -744,14 +748,20 @@ def prepare(root, package=None):
             old.unlink()                # one current plan; an older one belongs to another change
     else:
         data = json.loads(path.read_text(encoding='utf-8'))
+    on = bool(data['files'] or data['unplanned'] or commit is None or _wired(cfg, package))
+    scope = cache.vitest_scope(cfg, package)
+    if on:
+        # The run's report replaces this note; one that never reports (killed, timed out) leaves it, and show --last
+        # says so above the package's earlier lines, never the static test's lines as a finished check.
+        cache.keep_last(cfg, started=(scope, time.time(), 'vitest'))
     data['prepare_seconds'] = time.perf_counter() - started
+    # another package's preparation of this plan may have written it since: its slot keeps its own waits
+    held = json.loads(path.read_text(encoding='utf-8'))['waits'] if path.is_file() else {}
+    data['waits'] = {**held, scope: [(cfg.rel(name), seconds) for name, seconds in LOCK_WAITS[first:]]}
     atomic_write_text(path, json.dumps(data, ensure_ascii=False))
-    if not data['files'] and not data['unplanned'] and commit is not None and not _wired(cfg, package):
+    if not on:
         return dict(status='off', reason='no functions to observe in this change (anchors or changed module-level functions)',
                     seconds=data['prepare_seconds'])
-    # The run's report replaces this note; one that never reports (killed, timed out) leaves it, and show --last says so
-    # above the package's earlier lines, never the static test's lines as a finished check.
-    cache.keep_last(cfg, started=(cache.vitest_scope(cfg, package), time.time(), 'vitest'))
     return dict(status='on', plan=path.as_posix(), adapter=(ADAPTER / 'index.mjs').as_posix(), seconds=data['prepare_seconds'])
 
 
@@ -1529,7 +1539,7 @@ def report(root, plan_path, observations, package=None, *, in_test=False):
     from . import cache, signals
     from .config import load_config
     from .differences import display
-    from ..map.common import git_files
+    from ..map.common import git_files, waited_note
     started = time.perf_counter()
     cfg = load_config(root)
     data = json.loads(Path(plan_path).read_text(encoding='utf-8'))
@@ -1550,8 +1560,11 @@ def report(root, plan_path, observations, package=None, *, in_test=False):
     files = git_files(cfg.root)         # the repository's files, which no shortened path of the block may name
     seconds = (float(os.environ.get('FLOWGUARD_VITEST_PREPARE_SECONDS', 0)) + recorded + (static['seconds'] if static else 0)
                + time.perf_counter() - started)
+    # the preparation's waits for the cache's write lock, which vitest did not show (`prepare`); a report whose package
+    # names another slot than its preparation's (a config whose `root` is another folder) has none recorded
+    waits = data['waits'].get(cache.vitest_scope(cfg, package), ())
     heading = signals.title(lines, baseline=result['baseline'], kind=result['baseline_kind'], ahead=result['baseline_ahead'],
-                            seconds=seconds)
+                            seconds=seconds, note=waited_note(waits))
     text = signals.render_block(lines, title=heading, files=files)
     # this package's slot (`cache.vitest_scope`): another package's run keeps its own, and this one replaces the start
     # its preparation noted

@@ -15,6 +15,8 @@ import subprocess
 import sys
 import xml.etree.ElementTree as ET
 
+import pytest
+
 from flowguard.intent import anchors, owners, signals
 from flowguard.intent.config import load_config
 from flowguard.structure import build
@@ -265,3 +267,47 @@ def test_comment_agreements_reads_comment_lines_only():
     rows = anchors.comment_agreements(text, 'typescript/web/b.ts', 'web/b.ts')
     assert [(row['kind'], row['name'], row['line'], row['qual'], row['owner']) for row in rows] == [
         ('owner', 'Job.kind', 2, '', False), ('sensor', 'RATE', 4, '', True)]
+
+
+@pytest.mark.parametrize('broken, cause', [
+    (b'[project]\nname = "studio"\nversion = "0"\n<<<<<<< HEAD\n', 'does not parse'),
+    (b'[project]\nname = "studio"\nversion = "0"\ndescription = "caf\xe9"\n', 'is no UTF-8 text'),
+], ids=['conflict-marker', 'latin-1'])
+def test_a_task_that_repairs_an_unreadable_baseline_pyproject_is_one_not_compared_line(tmp_path, broken, cause):
+    # Round A of 5.1, F1: the baseline commit held a pyproject.toml pytest itself refuses (a conflict marker, Latin-1
+    # bytes), so repairing it is a task's natural first change. Every run of that task was red (`map checks:
+    # pyproject.toml at the baseline ... does not parse`, check --static exit 2) and the Latin-1 one ended pytest in a
+    # traceback instead of its summary; 5.0.1 never read it. Which files this change takes out of the map is not
+    # known: one not compared line in the decoder's or parser's words, and the other map checks still run (a `same`
+    # comment removed in the same change is loosened).
+    import tomllib
+    with pytest.raises((UnicodeDecodeError, tomllib.TOMLDecodeError)) as refused:     # the words of this Python's
+        tomllib.loads(broken.decode('utf-8-sig'))                                       # decoder or parser
+    words = f'{cause}: {refused.value}'
+    (tmp_path / 'pyproject.toml').write_bytes(broken)
+    root = _commit(tmp_path, {'pytest.ini': '[pytest]\npythonpath = .\naddopts = -p flowguard.intent.plugin\n',
+                              'app/a.py': '# flowguard: same RATE ref\ndef rate(x):\n    return x * 2\n',
+                              'app/b.py': '# flowguard: same RATE\ndef rate(x):\n    return x * 2\n', **CORE})
+    sha = _git(root, 'rev-parse', '--short=7', 'HEAD').strip()
+    (root / 'pyproject.toml').write_text('[project]\nname = "studio"\nversion = "0"\n', encoding='utf-8')
+    started = _flowguard(root, 'new-task')
+    assert started.returncode == 0, started.stdout + started.stderr
+    (root / 'app/b.py').write_text('def rate(x):\n    return x * 2\n', encoding='utf-8')
+    loosened = f'loosened: same RATE removed from b.py:rate -> {signals.LOOSENED_STEP}'
+    unknown = 'the files this change takes out of the map'
+    subject = f'not compared: {unknown} (pyproject.toml at the baseline {sha} {cause}: '
+    result = _pytest(root)
+    text = display_text(result)
+    assert result.returncode == 0, text
+    shown = text.splitlines()
+    assert '1 passed' in text and 'Traceback' not in text and not [line for line in shown if line.startswith('red: ')], text
+    assert f'FlowGuard 5.0 (since {sha}): 0 red, 1 loosened, 1 not compared;' in text, text
+    assert loosened in shown and [line for line in shown if line.startswith('not compared: ')][0].startswith(subject), text
+    last = _flowguard(root, 'show', '--last').stdout.splitlines()
+    assert last[last.index(f'not compared: {unknown} -> not a failure') + 1] == \
+        f'    pyproject.toml at the baseline {sha} {words}', last
+    static = _flowguard(root, 'check', '--static')
+    shown = display_text(static).splitlines()
+    assert static.returncode == 0 and static.stderr == '', static.stdout + static.stderr
+    assert shown[0].startswith(f'FlowGuard 5.0 (since {sha}): 0 red, 1 loosened, 1 not compared;'), shown
+    assert loosened in shown and shown[-1].startswith(subject), shown

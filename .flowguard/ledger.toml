@@ -530,6 +530,11 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
+["flowguard/intent/owners.py:Change.newly_excluded:UnreadableConfig"]
+count = 1
+reason = "A baseline pyproject.toml whose bytes do not decode or parse leaves unknown which files this change takes out of the map: it becomes one not compared line with the decoder's or parser's own words, the baseline's own problem that the change may repair (R99), and every other map check still runs, as for a baseline .py file that does not parse."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
 ["flowguard/intent/owners.py:_classes:(ValueError, SyntaxError, OSError)"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"

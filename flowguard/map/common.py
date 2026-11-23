@@ -19,6 +19,9 @@ CACHE_RELDIR = Path('.flowguard') / 'cache'
 CACHE_TIMEOUT = 30      # seconds every connection to the map cache waits for another process's lock: a reader as long
                         # as a writer, so a run that reads while another commits waits for it instead of failing (R85)
 CACHE_NOTICE = 5        # seconds `begin_write` waits for the cache's write lock before it says what it waits for
+LOCK_WAITS = []         # (cache path, seconds) of each wait of this process for a cache's write lock that passed
+                        # CACHE_NOTICE (`begin_write`): the vitest preparation, whose stderr vitest shows nowhere,
+                        # reports them in its run's first line (`waited_note`)
 SOURCE_EXTS = {'.py', '.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.go', '.rs',
                '.java', '.kt', '.cs', '.rb', '.php', '.swift', '.c', '.h', '.cpp', '.hpp'}
 DEFAULT_IGNORE = ['.flowguard/**', '.git/**', '**/__pycache__/**', 'node_modules/**',
@@ -369,18 +372,22 @@ def cache_dir(root: Path) -> Path:
 def begin_write(con) -> None:
     """BEGIN IMMEDIATE on a connection to the map cache, waiting for another process's write as long as any
     connection waits (CACHE_TIMEOUT). Once the wait passes CACHE_NOTICE seconds, one stderr line says what it waits
-    for, so a run another FlowGuard run holds up is not silent; a wait that runs out raises sqlite3's error to the
-    caller."""
+    for, so a run another FlowGuard run holds up is not silent, and the wait is kept in LOCK_WAITS once it ends; a
+    wait that runs out raises sqlite3's error to the caller."""
     import threading
+    import time
     name = Path(con.execute('PRAGMA database_list').fetchone()[2])
     notice = threading.Timer(CACHE_NOTICE, _waiting, (name,))
     notice.daemon = True
+    started = time.monotonic()
     notice.start()
     try:
         con.execute('BEGIN IMMEDIATE')
     finally:
         notice.cancel()
         notice.join()
+    if (waited := time.monotonic() - started) >= CACHE_NOTICE:
+        LOCK_WAITS.append((name, waited))
 
 
 def _waiting(path: Path) -> None:
@@ -388,6 +395,17 @@ def _waiting(path: Path) -> None:
     shown = path.relative_to(here).as_posix() if path.is_relative_to(here) else str(path)
     print(f'flowguard: waiting for {shown} (another FlowGuard run is writing it; {CACHE_NOTICE} s so far, '
           f'at most {CACHE_TIMEOUT} s)', file=sys.stderr, flush=True)
+
+
+def waited_note(waits) -> str:
+    """What a run's first line says of its waits for a cache's write lock that passed CACHE_NOTICE (LOCK_WAITS pairs,
+    each path as the run names it), the seconds summed by path: `waited 9 s for .flowguard/cache/map.sqlite (another
+    FlowGuard run was writing it)`; '' for none."""
+    summed = {}
+    for path, seconds in waits:
+        summed[path] = summed.setdefault(path, 0) + seconds
+    return '; '.join(f'waited {seconds:.0f} s for {path} (another FlowGuard run was writing it)'
+                     for path, seconds in summed.items())
 
 
 

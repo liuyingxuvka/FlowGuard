@@ -185,12 +185,23 @@ def connect(path: Path) -> sqlite3.Connection:
     return con
 
 
+class UnreadableConfig(ValueError):
+    """Bytes of a pyproject.toml (`project_config(data=)`) that are no UTF-8 text or no TOML: its text is what is wrong
+    in the decoder's or the parser's own words (`does not parse: Invalid statement (at line 4, column 1)`)."""
+
+
 def project_config(root: Path, *, section='flowguard', data=None) -> dict:
     """Read a tool section from the project's existing TOML, or from `data`, the bytes of a pyproject.toml (as a
-    baseline commit holds it; b'' for none); damaged inputs are errors."""
+    baseline commit holds it; b'' for none); damaged inputs are errors: bytes of `data` that do not decode or parse
+    raise UnreadableConfig for either cause."""
     import tomllib
     if data is not None:
-        return tomllib.loads(data.decode('utf-8-sig')).get('tool', {}).get(section, {})
+        try:
+            return tomllib.loads(data.decode('utf-8-sig')).get('tool', {}).get(section, {})
+        except UnicodeDecodeError as error:
+            raise UnreadableConfig(f'is no UTF-8 text: {error}') from error
+        except tomllib.TOMLDecodeError as error:
+            raise UnreadableConfig(f'does not parse: {error}') from error
     path = Path(root) / 'pyproject.toml'
     if not path.exists() and not path.is_symlink():
         return {}

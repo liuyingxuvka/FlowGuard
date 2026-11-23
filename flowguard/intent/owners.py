@@ -19,7 +19,7 @@ import re
 import threading
 import time
 
-from flowguard.map.common import MapError, git_blob, git_renames, git_run, is_test_file, read_source
+from flowguard.map.common import git_blob, git_renames, git_run, is_test_file, read_source
 
 SIMILAR_SHAPE = 0.5          # 3-gram Jaccard of two function bodies that counts as a similar structure
 TRIVIAL = {0, 1, -1, 2}      # numbers too common to tie two functions together
@@ -80,6 +80,10 @@ def seeding(path):
 
 
 # ---- the change: baseline commit, changed files and their facts at the baseline ---------------------
+
+EXCLUDED_UNKNOWN = 'the files this change takes out of the map'     # not compared when the baseline's pyproject.toml
+                                                                    # cannot be read (`Change.newly_excluded`)
+
 
 class Change:
     """The working tree against one baseline commit, read once; no baseline means nothing is new."""
@@ -199,31 +203,38 @@ class Change:
         return file[:-3].replace('/', '.') if language == 'python' else module_name(file)
 
     def newly_excluded(self):
-        """{path: module} of the files the baseline's map read that the map now leaves out: this change edits
+        """({path: module}, unknown): the files the baseline's map read that the map now leaves out: this change edits
         `[tool.flowguard] exclude` (or its pyproject.toml) so that its ignore patterns take a file with a reader out
         of the map (`store.mapped` with the baseline's pyproject.toml and with the current one). Their agreements are
         gone from the map, which `loosened` reports. The module is the name `graph.impact` gives a file the map lacks.
-        Empty without a baseline or when pyproject.toml is as at the baseline. Read once."""
+        Empty without a baseline or when pyproject.toml is as at the baseline. A baseline pyproject.toml whose bytes
+        do not decode or parse (`store.UnreadableConfig`) leaves those files unknown: no files, and `unknown` holds
+        the one `not compared` line that says so in the decoder's or parser's words, as for a baseline .py file
+        that does not parse; otherwise `unknown` is (). Read once."""
         if not hasattr(self, '_newly_excluded'):
             from flowguard.structure.readers.registry import language_for, module_name
-            from flowguard.structure.store import ignored, mapped, project_config
-            self._newly_excluded = {}
+            from flowguard.structure.store import UnreadableConfig, ignored, mapped, project_config
+            from .signals import not_compared
+            self._newly_excluded = {}, ()
             root = self.graph.root
             then = self.graph._baseline_bytes(self.baseline, 'pyproject.toml') if self.baseline else None
             now = (root / 'pyproject.toml').read_bytes() if (root / 'pyproject.toml').is_file() else None
             if self.baseline and then != now:
-                import tomllib
                 try:
                     before = ignored(root, project_config(root, data=then or b''))
-                except tomllib.TOMLDecodeError as error:
-                    raise MapError(f'pyproject.toml at the baseline {self.baseline[:7]} does not parse: {error}; the '
-                                   'files this change takes out of the map were not compared') from error
-                if before != self._ignore():
-                    sources = [path for path in self.graph._baseline_files(self.baseline) if language_for(path)]
-                    read = mapped(root, sources, before)
-                    kept = set(mapped(root, read, self._ignore()))
-                    self._newly_excluded = {path: path[:-3].replace('/', '.') if language_for(path) == 'python'
-                                            else module_name(path) for path in read if path not in kept}
+                except UnreadableConfig as error:
+                    # the baseline's own problem, which this change may repair (R99): which files it takes out of the
+                    # map is not known, and every other map check still runs
+                    self._newly_excluded = {}, (not_compared(
+                        EXCLUDED_UNKNOWN, [f'pyproject.toml at the baseline {self.baseline[:7]} {error}'],
+                        places=('pyproject.toml',)),)
+                else:
+                    if before != self._ignore():
+                        sources = [path for path in self.graph._baseline_files(self.baseline) if language_for(path)]
+                        read = mapped(root, sources, before)
+                        kept = set(mapped(root, read, self._ignore()))
+                        self._newly_excluded = {path: path[:-3].replace('/', '.') if language_for(path) == 'python'
+                                                else module_name(path) for path in read if path not in kept}, ()
         return self._newly_excluded
 
     def old_facts(self, file):
@@ -1298,7 +1309,8 @@ def loosened(change, index):
     from .signals import LOOSENED_STEP, Line
     found = Findings()
     paths = change.baseline_paths() if change.baseline else frozenset()
-    excluded = change.newly_excluded() if change.baseline else {}
+    excluded, unknown = change.newly_excluded() if change.baseline else ({}, ())
+    found.lines.extend(unknown)
     if not paths and not excluded:
         return found
     from flowguard.structure import store

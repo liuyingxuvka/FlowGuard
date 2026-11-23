@@ -3370,3 +3370,75 @@ def test_a_red_rule_citing_an_option_the_owner_did_not_pick_prints_it_as_written
     assert code == 1 and 'red: rule CALC_RULE: ' in shown, text
     assert '    CALC_RULE source: R106 picked "The input plus two."' in shown.splitlines(), shown
     assert "the owner's pick" not in shown, shown
+
+
+# ---- a vitest preparation that waited for another run's write to the cache (round A of 5.1, PTWF-2) ----------
+
+WAITED = re.compile(r'; waited (\d+) s for \.flowguard/cache/map\.sqlite \(another FlowGuard run was writing it\); [0-9.]+ s$')
+
+
+def _two_packages(root):
+    files = {}
+    for package in ('web', 'api'):
+        files[f'{package}/package.json'] = '{"name": "%s", "private": true, "type": "module"}\n' % package
+        files[f'{package}/src/limit.ts'] = 'export function over(x: number): boolean {\n  return x > 3;\n}\n'
+    return _commit(root, files)
+
+
+def test_each_package_s_first_line_says_how_long_its_own_preparation_waited_for_the_cache(tmp_path, monkeypatch, capsys):
+    """One plan serves both packages' runs of a change. api prepares first and waits for nothing; web prepares while
+    another run holds the cache's write lock, waiting in the note of its start. Each report's first line says its own
+    preparation's wait: web's names it, api's, whose plan web wrote last, names none."""
+    from flowguard.intent import vitest
+    from flowguard.map import common
+    from tests.structure.test_transactions import holding
+    root = _two_packages(tmp_path / 'pt')
+    assert _flowguard(root, 'check', '--static')[0] == 0        # the map and the task baseline exist
+    (root / 'web/src/limit.ts').write_text('export function over(x: number): boolean {\n  return x >= 3;\n}\n',
+                                           encoding='utf-8', newline='\n')
+    monkeypatch.setattr(common, 'CACHE_NOTICE', 0.5)
+    api = vitest.prepare(str(root), str(root / 'api'))
+    holder = holding(root / '.flowguard/cache/map.sqlite', 'IMMEDIATE', 2)
+    try:
+        web = vitest.prepare(str(root), str(root / 'web'))
+    finally:
+        holder.communicate(timeout=30)
+    assert api['status'] == web['status'] == 'on' and api['plan'] == web['plan'], (api, web)
+    capsys.readouterr()
+    titles = {}
+    for package in ('api', 'web'):
+        observations = tmp_path / f'obs-{package}'
+        observations.mkdir()
+        vitest.report(str(root), web['plan'], str(observations), str(root / package))
+        titles[package] = capsys.readouterr().out.splitlines()[0]
+    assert 'waited' not in titles['api'], titles
+    found = WAITED.search(titles['web'])
+    assert found and titles['web'].startswith('FlowGuard ') and int(found[1]) <= 2, titles
+
+
+def test_a_vitest_run_whose_preparation_waited_for_the_cache_says_so_in_its_first_line(vitest_home):
+    """Round A of 5.1: vitest shows a successful preparation's stderr nowhere, so its `flowguard: waiting for ...` line
+    (which check --static and pytest print) was lost: the run paused before RUN and its title only reported a longer
+    time. Another run holds the cache's write lock while this package's vitest run prepares; its first line says how
+    long the preparation waited and for what, and a run that waited for nothing says nothing of it."""
+    from tests.structure.test_transactions import holding
+    root = vitest_home / 'waited'
+    _commit(root, {'package.json': '{"name":"waited","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+                   'src/limit.ts': 'export function over(x: number): boolean {\n  return x > 3;\n}\n',
+                   'tests/limit.test.ts': "import { it, expect } from 'vitest';\nimport { over } from '../src/limit';\n"
+                                          "it('over', () => { expect(over(4)).toBe(true); });\n"})
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired')
+    assert _flowguard(root, 'check', '--static')[0] == 0        # the map is current: the next build writes the edit only
+    (root / 'src/limit.ts').write_text('export function over(x: number): boolean {\n  return x > 3 && x < 99;\n}\n',
+                                       encoding='utf-8', newline='\n')
+    holder = holding(root / '.flowguard/cache/map.sqlite', 'IMMEDIATE', 10)    # past CACHE_NOTICE (5 s) on a slow start
+    try:
+        code, text = _vitest(root, vitest_home)
+    finally:
+        holder.communicate(timeout=30)
+    shown = _block(text)
+    found = WAITED.search(shown[0])
+    assert code == 0 and found and 5 <= int(found[1]) <= 10, text
+    code, text = _vitest(root, vitest_home)
+    assert code == 0 and 'waited' not in _block(text)[0], text
