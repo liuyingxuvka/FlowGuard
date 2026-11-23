@@ -85,7 +85,7 @@ The base installation reads Python. Install `flowguard[languages]` for TS/JS, Pr
 
 A file listed in `[tool.flowguard] exclude = ["translations/*.ts"]` (paths from the project root, `**` across folders) is never read, at the task start either, and its reader need not be installed; a change that adds one to the list makes each agreement it held a `loosened` line. An included file whose reader is not installed stops `check --static` with its error (exit 2) and is one red `map checks` line after pytest's own summary.
 
-FlowGuard acts only inside test runs. It never runs a function a second time inside a test, and builds, the dev server and production never load it.
+FlowGuard acts only inside test runs. It never runs a function a second time inside a test, and builds, the dev server and production never load it. A source file saved during a run, by another agent or by a test, has its functions recorded no further: they are `not compared`, and every test runs as without FlowGuard.
 
 ## Compatibility and repository
 

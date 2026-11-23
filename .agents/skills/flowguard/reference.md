@@ -134,7 +134,7 @@ Read the FlowGuard block after the tests. Its first line counts each kind and Fl
 | `changed` | A function this change edited, or one importing a constant it altered, returns something else for an input a test used; plain `check` runs no ordinary tests, so this comes from a test run or `check --all`. |
 | `impact` | A changed function writes another set of fields, or an automatic structure check found something new. |
 | `loosened` | An `except=`, a removed or narrowed agreement, a changed or removed `known.toml` entry or a removed rule. |
-| `not compared` | A comparison was due but could not run in the closed environment; unverified, not success. |
+| `not compared` | A comparison was due but could not run in the closed environment, or the function's file was saved during the run (`source of PATH changed on disk after import`); unverified, not success. |
 
 The step after `->` says what is known and who decides; you choose when to raise an open question with the owner. `python -m flowguard show --last` prints every line of the last run with its details. Use `python -m flowguard show "what it decides"` for registered functions, fields, copies and rules; use `python -m flowguard check --static --all` for a deliberate structure review.
 

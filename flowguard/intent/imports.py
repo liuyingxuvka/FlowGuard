@@ -25,6 +25,25 @@ def _remember(name, path, fingerprint):
     _finder.loaded[name] = (path, fingerprint, sys.modules.get(name), owner)
 
 
+def changed_since_import(name, filename):
+    """Whether the file this finder imported as module `name` from `filename` now holds other bytes than at that
+    import (util.source_hash, read again only when its status changed) or is gone. False when it holds the same
+    bytes, and when this finder did not import that file (another loader, exec): no bytes were seen to compare."""
+    entry = _finder.loaded.get(name)
+    if entry is None or entry[0] != _finder.resolved(filename):
+        return False
+    path, fingerprint = entry[0], entry[1]
+    return not path.is_file() or _finder.source_hash(path) != fingerprint
+
+
+def project_path(filename):
+    """`filename` as the reports name a file: relative to the project this finder imports for (its root, else the
+    pytest host), with forward slashes; the filename itself outside both."""
+    path = _finder.resolved(filename)
+    root = next((root for root in (_finder.root, _finder.host) if root is not None and path.is_relative_to(root)), None)
+    return str(filename) if root is None else path.relative_to(root).as_posix()
+
+
 def _notify(module):
     filename = getattr(module, '__file__', None)
     if filename:
@@ -100,7 +119,7 @@ class _Finder:
         # Modules already classified by prepare() for (root, host): name -> (module id, file).
         self.verified, self.verified_for = {}, None
         self.applications = {}
-        self.projects, self.hashes = {}, {}
+        self.projects, self.hashes, self.paths = {}, {}, {}
 
     def project(self, filename, root):
         """project_code(filename, root) for the observers, decided once per process: the source tree is fixed
@@ -109,6 +128,13 @@ class _Finder:
         if key not in self.projects:
             self.projects[key] = project_code(filename, root)
         return self.projects[key]
+
+    def resolved(self, filename):
+        """Path(filename).resolve(), once per process for the same text, as project() decides once: every call hook
+        asks it of its function's file (changed_since_import)."""
+        if filename not in self.paths:
+            self.paths[filename] = Path(filename).resolve()
+        return self.paths[filename]
 
     def source_hash(self, path):
         """util.source_hash of the file's bytes, read again only when its status (inode, size, mtime, ctime)

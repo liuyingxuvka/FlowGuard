@@ -14,6 +14,7 @@ import ast
 import enum
 import importlib
 import inspect
+import linecache
 import sys
 import types
 import weakref
@@ -24,6 +25,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
+from . import imports
 from .cells import coerce, const_value, epsilon
 
 _INSTALLED = ContextVar('flowguard_installed_code', default={})
@@ -158,12 +160,45 @@ def _source(fn):
     return ''.join(block)
 
 
+def _imported(fn):
+    """NotMutable when the file of fn's code holds other bytes than when FlowGuard's import finder loaded it: a file
+    saved during the run (by another agent, or a test) can hold another function at the code's lines, or none."""
+    code = fn.__code__
+    if imports.changed_since_import(fn.__module__, code.co_filename):
+        raise NotMutable(f'source of {imports.project_path(code.co_filename)} changed on disk after import')
+
+
+def _elsewhere(fn):
+    code = fn.__code__
+    return NotMutable(f'source of {imports.project_path(code.co_filename)} no longer holds {fn.__qualname__} '
+                      f'at line {code.co_firstlineno}')
+
+
 def _parse(fn):
-    src = textwrap.dedent(_source(fn))
-    tree = ast.parse(src)
+    """The parse of fn's own text, from which its hooks, probes and mutants are compiled. A file saved after its
+    import can hold other text at fn's lines (inspect.findsource then reads the nearest def above inserted lines, or
+    fails), so the text counts as fn's only while the file holds the bytes FlowGuard's import finder loaded (checked
+    before and after the read, and when the read fails), starts at the line fn's code starts at (its first
+    decorator's) and defines fn's code name. The last two also guard a module another loader read: its bytes were
+    not recorded."""
+    _imported(fn)
+    code = fn.__code__
+    try:
+        text = _source(fn)
+        lines = linecache.getlines(code.co_filename, fn.__globals__)
+        if not 0 < code.co_firstlineno <= len(lines) or not text.startswith(lines[code.co_firstlineno - 1]):
+            raise _elsewhere(fn)
+        tree = ast.parse(textwrap.dedent(text))
+    except (OSError, SyntaxError):
+        _imported(fn)       # the file was saved while it was read
+        raise
+    _imported(fn)
     fdef = tree.body[0]
-    if not isinstance(fdef, (ast.FunctionDef, ast.AsyncFunctionDef)):
+    defined = isinstance(fdef, (ast.FunctionDef, ast.AsyncFunctionDef))
+    if not defined and code.co_name == '<lambda>':
         raise NotMutable("not a function definition")
+    if not defined or fdef.name != code.co_name:
+        raise _elsewhere(fn)
     return tree, fdef
 
 

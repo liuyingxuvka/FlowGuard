@@ -1,5 +1,8 @@
-"""The call hook's source text is inspect.getsource's, whatever changed since the last test asked."""
+"""The call hook's source text is inspect.getsource's, whatever changed since the last test asked, while it is still
+the hooked function's own text: a file saved after FlowGuard imported it, or lines inserted above the function, never
+put another function's text into its hook (R85)."""
 import ast
+import re
 import importlib.util
 import inspect
 import linecache
@@ -174,3 +177,188 @@ def test_a_changed_function_hooked_in_two_tests_warns_in_both(tmp_path):
     hooked = [places for message, places in _summary(result.stdout).items()
               if message.startswith('<unknown>:2: ') and message.endswith("invalid escape sequence '\\d'")]
     assert hooked == [['test_policy.py::test_one', 'test_policy.py::test_two']], result.stdout
+
+
+# The PEMEL Studio module: area(w, h) between two other functions (2026-11-23 note).
+AREA = 'def head():\n    return 1\n\n\ndef area(w, h):\n    return w * h\n\n\ndef tail(x):\n    return x + 1\n'
+ABOVE = {'helper': 'def clamp(x): return max(0, x)\n\n\n', 'three parameters': 'def other(a, b, c):\n    return a\n\n\n',
+         'no def': 'LIMIT = 0\n\n\n'}
+
+
+@pytest.mark.parametrize('above', ABOVE.values(), ids=ABOVE)
+def test_lines_inserted_above_a_function_never_become_its_hook(tmp_path, above):
+    # A module another loader read: no import fingerprint, so the text must start at the code's first line and define
+    # the code's name. Before, inspect.findsource read the def above (or, on 3.11/3.12, walked back to head) and the
+    # hook was compiled from that signature into area.__code__.
+    path = tmp_path / 'mod.py'
+    path.write_text(AREA)
+    area = load(path).area
+    code = area.__code__
+    rewrite(path, AREA.replace('def area', above + 'def area', 1))
+    with pytest.raises(sites.NotMutable, match=f'^source of {re.escape(str(path))} no longer holds area at line 5$'):
+        with sites.intercepted(area, lambda original, bound: original(*bound.args, **bound.kwargs)):
+            pass
+    with pytest.raises(sites.NotMutable, match=' no longer holds area at line 5$'):
+        sites.sites_of(area)
+    assert area.__code__ is code and area.__code__.co_varnames == ('w', 'h')
+    assert area(w=1, h=1) == 1
+
+
+def test_a_same_named_def_above_is_not_read_as_the_hooked_method(tmp_path):
+    # Python 3.11 and 3.12 walk back from the code's first line to the nearest def: here Square.area, of the same name.
+    path = tmp_path / 'shapes.py'
+    text = ('class Square:\n    def area(self, side):\n        return side * side\n\n\n'
+            'class Rect:\n    def area(self, w, h):\n        return w * h\n')
+    path.write_text(text)
+    rect = load(path).Rect
+    code = rect.area.__code__
+    rewrite(path, text.replace('class Rect:\n', 'class Rect:\n    LIMIT = 0\n\n', 1))
+    with pytest.raises(sites.NotMutable, match=' no longer holds Rect.area at line 7$'):
+        with sites.intercepted(rect.area, lambda original, bound: original(*bound.args, **bound.kwargs)):
+            pass
+    assert rect.area.__code__ is code and rect().area(w=2, h=3) == 6
+
+
+def test_a_decorated_function_still_hooks_from_its_first_decorator(tmp_path):
+    path = tmp_path / 'mod.py'
+    path.write_text('import functools\n\n\ndef logged(fn):\n    @functools.wraps(fn)\n'
+                    '    def inner(*args, **kwargs):\n        return fn(*args, **kwargs)\n    return inner\n\n\n'
+                    'def mark(fn):\n    return fn\n\n\n@logged\n@mark\ndef area(w, h):\n    return w * h\n')
+    area = load(path).area
+    assert sites.unwrap(area).__code__.co_firstlineno == 15          # the first decorator's line
+    calls = []
+    with sites.intercepted(area, lambda original, bound: calls.append(dict(bound.arguments)) or original(*bound.args)):
+        assert area(w=2, h=3) == 6
+    assert calls == [{'w': 2, 'h': 3}] and area(1, 1) == 1
+
+
+IMPORTED = """
+import os, sys
+from pathlib import Path
+from flowguard.intent import sites
+from flowguard.intent.imports import prepare
+prepare('.')
+import mod
+area, code = mod.area, mod.area.__code__
+calls = []
+hook = lambda original, bound: calls.append(dict(bound.arguments)) or original(*bound.args, **bound.kwargs)
+with sites.intercepted(area, hook):
+    assert area(2, 3) == 6
+assert calls == [{'w': 2, 'h': 3}] and area.__code__ is code
+assert [site.text for site in sites.sites_of(area)] == ['w > 0']
+source = Path('mod.py')
+saved = source.read_text()
+for text in sys.argv[1:]:
+    source.write_text(text)       # the same lines and names: only the bytes show it is not the imported text
+    for read in (lambda: sites.intercepted(area, hook).__enter__(), lambda: sites.sites_of(area)):
+        try:
+            read()
+        except sites.NotMutable as error:
+            assert str(error) == 'source of mod.py changed on disk after import', error
+        else:
+            raise AssertionError('a file saved after import was read as the imported function')
+    assert area.__code__ is code and area(w=1, h=1) == 1
+import warnings
+source.write_text(saved.replace('w * h if', 'len("\\\\d") * w * h if'))
+with warnings.catch_warnings(record=True) as caught:      # its text is not read: no warning of a text never imported
+    warnings.simplefilter('always')
+    try:
+        sites.sites_of(area)
+    except sites.NotMutable as error:
+        assert str(error) == 'source of mod.py changed on disk after import', error
+    else:
+        raise AssertionError('a file saved after import was read as the imported function')
+assert caught == [], [str(warning.message) for warning in caught]
+source.unlink()
+try:
+    sites.sites_of(area)
+except sites.NotMutable as error:
+    assert str(error) == 'source of mod.py changed on disk after import', error
+else:
+    raise AssertionError('a deleted file was read as the imported function')
+read = sites._source
+for text in sys.argv[1:]:         # saved while the text is read: the read fails, or reads the new text
+    def saving(fn, text=text):
+        source.write_text(text)
+        return read(fn)
+    source.write_text(saved)
+    sites._source = saving
+    try:
+        sites.sites_of(area)
+    except sites.NotMutable as error:
+        assert str(error) == 'source of mod.py changed on disk after import', error
+    else:
+        raise AssertionError('a file saved during the read was read as the imported function')
+    finally:
+        sites._source = read
+source.write_text(saved)          # the imported bytes again: hooked and read as before
+with sites.intercepted(area, hook):
+    assert area(4, 5) == 20
+assert calls[-1] == {'w': 4, 'h': 5} and [site.text for site in sites.sites_of(area)] == ['w > 0']
+print('ok')
+"""
+
+
+def test_a_file_saved_after_import_is_not_read_as_the_imported_function(tmp_path):
+    source = 'def head():\n    return 1\n\n\ndef area(w, h):\n    return w * h if w > 0 else 0\n'
+    (tmp_path / 'mod.py').write_text(source)
+    setup = 'import sys;sys.path.insert(0,sys.argv.pop(1));'
+    saves = [source.replace('w * h', 'w + h'), source.replace('area(w, h)', 'area(w, h, d)'), '']
+    result = subprocess.run([sys.executable, '-c', setup + IMPORTED, str(Path(__file__).resolve().parents[2]), *saves],
+                            cwd=tmp_path, capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0 and result.stdout == 'ok\n', result.stdout + result.stderr
+
+
+# The PEMEL Studio run: another agent saves app/mod.py while pytest runs. test_two saves it; test_three and
+# test_four call area after that. Each save is checked with FlowGuard and without it (addopts empty).
+SAVES = {
+    'shorter': "MOD.write_text('def area(w, h):\\n    return max(w * h, 1)\\n')",
+    'helper above': "MOD.write_text(MOD.read_text().replace('def area', 'def clamp(x): return max(0, x)\\n\\n\\ndef area', 1))",
+    'three parameters above': "MOD.write_text(MOD.read_text().replace('def area', 'def other(a, b, c):\\n    return a\\n\\n\\ndef area', 1))",
+    'no save': 'pass',
+}
+
+
+def _pemel(root, save):
+    (root / 'app').mkdir(parents=True)
+    (root / 'tests').mkdir()
+    (root / 'app/__init__.py').write_text('')
+    (root / 'app/mod.py').write_text(AREA)
+    (root / 'tests/test_a.py').write_text(
+        'import pathlib\nfrom app import mod\nfrom app.mod import area\n\n'
+        "MOD = pathlib.Path(__file__).resolve().parents[1] / 'app' / 'mod.py'\n\n\n"
+        'def test_one():\n    assert area(2, 3) == 6\n\n\n'
+        f'def test_two():\n    {save}\n    assert area(2, 2) == 4\n\n\n'
+        "def test_three():\n    assert mod.area.__code__.co_varnames == ('w', 'h')\n    assert area(w=1, h=1) == 1\n\n\n"
+        'def test_four():\n    assert area(0, 5) >= 0\n')
+    (root / '.gitignore').write_text('.flowguard/cache/\n__pycache__/\n')
+    (root / 'pyproject.toml').write_text('[tool.pytest.ini_options]\naddopts = "-p flowguard.intent.plugin"\n'
+                                         'pythonpath = ["."]\n')
+    _git(root, 'init', '-q', '-b', 'main')
+    _git(root, 'add', '.')
+    _git(root, 'commit', '-qm', 'baseline')
+    (root / 'app/mod.py').write_text(AREA.replace('return w * h', 'return max(w * h, 1)'))    # the task's change
+
+
+@pytest.mark.parametrize('save', SAVES, ids=SAVES)
+def test_a_source_saved_during_the_run_never_changes_a_test_outcome(tmp_path, save):
+    from tests.intent_engine._cli_fixture import block
+    _pemel(tmp_path, SAVES[save])
+    changed = (tmp_path / 'app/mod.py').read_text()
+    bootstrap = 'import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; raise SystemExit(pytest.main(sys.argv[1:]))'
+    runs = {}
+    for name, options in (('FlowGuard', ()), ('without', ('-o', 'addopts='))):
+        (tmp_path / 'app/mod.py').write_text(changed)
+        runs[name] = subprocess.run([sys.executable, '-c', bootstrap, str(Path(__file__).resolve().parents[2]), '-q',
+                                     '-p', 'no:cacheprovider', *options], cwd=tmp_path, capture_output=True, text=True,
+                                    timeout=180)
+    for result in runs.values():
+        assert result.returncode == 0 and '4 passed' in result.stdout, result.stdout + result.stderr
+        assert 'INTERNALERROR' not in result.stdout + result.stderr, result.stdout + result.stderr
+    lines = block(runs['FlowGuard'])
+    if save == 'no save':       # an unchanged file is hooked and compared as before
+        assert lines[1:] == ['changed: area (mod.py:5): (w=0, h=5) was 0, now 1; 1/4 inputs differ -> if you meant it, '
+                             'say so'], lines
+    else:
+        assert lines[1:] == ['not compared: area (source of app/mod.py changed on disk after import) -> not a failure'], \
+            lines
