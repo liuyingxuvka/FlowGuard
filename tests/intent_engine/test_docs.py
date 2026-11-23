@@ -85,6 +85,109 @@ def test_a_new_marker_that_names_nothing_is_red_and_an_old_one_whose_code_this_c
                                    'update that text and its marker, or remove them'], text
 
 
+# PEMEL Studio's checked-in generated files (PEMEL23-11, PEMEL23-12): a ZIP or JSON file holds no comment, so a
+# Markdown list ties each one to the function that produces it and the files it is produced from, and a data file to
+# the function that reads it. supplied_model's result changes with model.json, which no Python source shows.
+GENERATED_DOC = """# Checked-in generated files
+
+<!-- flowguard: about src/app/build_model_source.py:support_documents -->
+<!-- flowguard: about docs/manual.txt -->
+- `examples/model_source.zip` holds `EQUATIONS.md`, rendered by `support_documents` from `docs/manual.txt`: regenerate it with `python -m app.build_model_source`.
+
+<!-- flowguard: about src/app/engine.py:supplied_model -->
+<!-- flowguard: about src/app/resources/model.json -->
+- `src/app/resources/model.json` is the model `supplied_model` reads; `tests/test_engine.py` pins its revision.
+"""
+GENERATED = {
+    'pyproject.toml': '[tool.pytest.ini_options]\npythonpath = ["src"]\naddopts = "-p flowguard.intent.plugin"\n',
+    'src/app/__init__.py': '',
+    'src/app/engine.py': '''
+        import json
+        from importlib.resources import files
+
+
+        def supplied_model():
+            return json.loads(files("app").joinpath("resources/model.json").read_text())
+    ''',
+    'src/app/build_model_source.py': '''
+        from pathlib import Path
+
+
+        def support_documents(manual: Path) -> dict:
+            return {"EQUATIONS.md": manual.read_text(encoding="utf-8")}
+    ''',
+    'src/app/resources/model.json': '{"rev": 2}\n',
+    'docs/manual.txt': 'Manual text v1\n',
+    'docs/generated.md': GENERATED_DOC,
+    'tests/test_engine.py': '''
+        from app.engine import supplied_model
+
+
+        def test_supplied_model():
+            assert supplied_model()["rev"] >= 2
+    ''',
+    'tests/test_flowguard_intent.py': '''
+        def test_flowguard_intent(request):
+            from flowguard.intent.plugin import sentinel
+            sentinel(request.config)
+    ''',
+}
+
+
+def _both(root):
+    """(pytest's block, check --static's block) after the first line, each with its exit status."""
+    from tests.intent_engine._cli_fixture import block
+    from tests.intent_engine.test_unverified_outcome import _pytest
+    result, _ = _pytest(root, '-q')
+    code, text = _static(root)
+    return (result.returncode, block(result)[1:]), (code, _block(text))
+
+
+def test_a_data_or_input_file_a_marker_names_gives_its_text_in_pytest_as_in_check_static(tmp_path):
+    """A marker's site may be any file of the repository: a change that edits model.json, which a function reads
+    through a literal path, or the manual a generated ZIP is rendered from, names the text that lists them. 5.0.1 said
+    so in check --static, but pytest ran the map checks only for a changed source file and printed `0 red`."""
+    _commit(tmp_path, GENERATED)
+    _write(tmp_path, {'src/app/resources/model.json': '{"rev": 3}\n'})
+    line = ('impact: generated.md:8 describes src/app/resources/model.json, which this change edits -> reread that text '
+            'and correct it if it no longer holds')
+    assert _both(tmp_path) == ((0, [line]), (0, [line]))
+    _write(tmp_path, {'src/app/resources/model.json': '{"rev": 2}\n', 'docs/manual.txt': 'Manual text v2\n'})
+    line = ('impact: generated.md:4 describes docs/manual.txt, which this change edits -> reread that text and correct it '
+            'if it no longer holds')
+    assert _both(tmp_path) == ((0, [line]), (0, [line]))
+    # A change that edits only a Markdown file runs the map checks in pytest too: a marker it writes that names nothing.
+    _write(tmp_path, {'docs/manual.txt': 'Manual text v1\n',
+                      'docs/generated.md': GENERATED_DOC + '\n<!-- flowguard: about src/app/engine.py:gone -->\nGone.\n'})
+    (code, lines), static = _both(tmp_path)
+    assert code == 1 and len(lines) == 1 and lines[0].startswith('red: about src/app/engine.py:gone: '), lines
+    assert static == (1, lines)
+
+
+def test_markers_stacked_above_one_text_all_describe_it(tmp_path):
+    """A line marked with its producer and its input file: an edit of the producer names the line by its own marker,
+    and rewriting the line answers it, as for a marker of its own. 5.0.1 gave each marker but the last of a stack no
+    text, so the producer's line stayed however the line was rewritten."""
+    from flowguard.intent.docs import markers
+    item = GENERATED_DOC.splitlines()[4]
+    assert markers(GENERATED_DOC)[:2] == [('src/app/build_model_source.py:support_documents', 3, item),
+                                          ('docs/manual.txt', 4, item)]
+    # Blank lines between the markers of a stack are skipped as after one marker; a marker followed by text on its
+    # line ends the stack, and the text below it is that marker's alone.
+    assert markers('<!-- flowguard: about a.py:f -->\n\n<!-- flowguard: about b.py:g -->\nText.\n') == [
+        ('a.py:f', 1, 'Text.'), ('b.py:g', 3, 'Text.')]
+    assert markers('<!-- flowguard: about a.py:f -->\n<!-- flowguard: about b.py:g --> inline\nText.\n') == [
+        ('a.py:f', 1, ''), ('b.py:g', 2, 'Text.')]
+    _commit(tmp_path, GENERATED)
+    producer = GENERATED['src/app/build_model_source.py'].replace('encoding="utf-8")}', 'encoding="utf-8").strip()}')
+    _write(tmp_path, {'src/app/build_model_source.py': producer})
+    line = ('impact: generated.md:3 describes src/app/build_model_source.py:support_documents, which this change edits '
+            '-> reread that text and correct it if it no longer holds')
+    assert _both(tmp_path) == ((0, [line]), (0, [line]))
+    _write(tmp_path, {'docs/generated.md': GENERATED_DOC.replace('regenerate it with', 'rebuild it with')})
+    assert _both(tmp_path) == ((0, []), (0, []))
+
+
 def test_a_marker_written_as_code_is_text_not_a_marker(tmp_path):
     # FlowGuard's own guide shows the syntax in code spans; 4.4 read them as markers and its own run was red.
     guide = '''# Markers

@@ -646,11 +646,14 @@ class Observations:
             self.files = {os.fsdecode(value) for value in (changed + added).split(b'\0')
                           if value and value.endswith(b'.py') and state.is_project(str(self.cfg.root / os.fsdecode(value)))}
             self.differs = {os.fsdecode(value) for value in changed.split(b'\0') if value}
-            # A changed TS/JS, Prisma, SQL or other mapped file is a change too: the map checks read it. A file the map
-            # leaves out (`store.mapped`: its ignore patterns, [tool.flowguard] exclude among them) is none.
+            # Any other changed file the map lists is a change too, as in check --static: the map checks read a TS/JS,
+            # Prisma or SQL file, and a Markdown document or any file an about marker names (`docs.findings`: a data
+            # file, a generated copy). 5.0.1 ran them only for a source file, so a change that edited model.json, or
+            # wrote a marker that names nothing, said nothing in pytest (PEMEL23-11). A file the map leaves out
+            # (`store.mapped`: its ignore patterns, [tool.flowguard] exclude among them) is none.
             from ..structure.store import mapped
             self.mapped = set(mapped(self.cfg.root, [os.fsdecode(value) for value in (changed + added).split(b'\0')
-                                                     if value and language_for(os.fsdecode(value)) not in (None, 'python')]))
+                                                     if value and language_for(os.fsdecode(value)) != 'python']))
             self.renamed = git_renames(self.cfg.root, baseline)
             # every file the change edits, adds or deletes: a finding's member there is touched (`signals.deliver`)
             self.touched = {os.fsdecode(value) for value in (changed + added).split(b'\0') if value}

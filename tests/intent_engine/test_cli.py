@@ -156,10 +156,32 @@ def test_the_help_of_a_command_names_no_option_removed_in_5_0(command, capsys):
     assert not re.search(r'--(draft|gaps|since|leads|kind)\b', text), text
 
 
-@pytest.mark.parametrize('command', ['status', 'where'])
-def test_old_project_commands_only_point_to_the_current_task_entry(command, capsys):
-    assert cli.main([command]) == 0
-    assert capsys.readouterr().out == 'this is a FlowGuard 0.7x command; here run python -m flowguard new-task\n'
+@pytest.mark.parametrize('arguments, line', [
+    # PEMEL Studio's Cloud skill, bundled for 0.7x, told agents to run `read --find`; 5.0.1 gave argparse's
+    # `invalid choice: 'read'`, which names no route, and exited 0 for status and where with a note that sent where's
+    # user to new-task.
+    (['read', '--find', 'bounded validation'], 'read was removed in 1.0 -> python -m flowguard show "words"'),
+    (['change', '--run'], 'change was removed in 1.0 -> python -m flowguard check'),
+    (['map', 'confirm', 'billing'], 'map was removed in 1.0 -> python -m flowguard show NAME or check --static'),
+    (['target', 'start', 'late-fees'], 'target was removed in 1.0 -> python -m flowguard new-task or check'),
+    (['template', '--list'], 'template was removed in 2.0 -> python -m flowguard init'),
+    (['release', '--shards', '4'], 'release was removed in 2.0 -> python -m flowguard check --all'),
+    (['status', '--hook'], 'status was removed in 2.0 -> python -m flowguard, which prints the brief'),
+    (['status'], 'status was removed in 2.0 -> python -m flowguard, which prints the brief'),
+    (['where', 'late fee'], 'where was removed in 2.0 -> python -m flowguard show "words"'),
+    (['decide', 'C1', '--help'], 'decide was removed in 2.0 -> python -m flowguard req add FILE --id R<n>'),
+    (['draft', 'app.py:accept'], 'draft was removed in 2.0 -> python -m flowguard show NAME'),
+])
+def test_a_top_level_command_of_flowguard_0_70_to_1_4_exits_2_and_names_its_replacement(tmp_path, capsys, monkeypatch,
+                                                                                         arguments, line):
+    """Each top-level command an earlier FlowGuard had, which init names in an AGENTS.md that still asks for one, is
+    refused as a command 5.0 removed is: one line on stderr with the release that removed it and the command that does
+    its job now, exit 2, before any project file is read."""
+    for name in ('show', 'check', 'static_check', 'requests', 'screen', 'init'):
+        monkeypatch.setattr(cli, name, lambda *args, **kwargs: pytest.fail('a removed command ran'))
+    assert cli.main(['--root', str(tmp_path), *arguments]) == 2
+    assert capsys.readouterr() == ('', f'flowguard: {line}\n')
+    assert not (tmp_path / '.flowguard').exists()
 
 
 def test_full_check_assembles_static_findings_once_across_pytest_and_cli(tmp_path):

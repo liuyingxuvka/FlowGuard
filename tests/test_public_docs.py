@@ -207,6 +207,22 @@ def test_the_current_docs_say_what_5_0_does(tmp_path, capsys):
     assert f'`{target[1]}`' in said and f'`{target[2]}`' in said, said
 
 
+def test_the_current_docs_quote_each_removal_line_as_flowguard_prints_it(tmp_path, monkeypatch, capsys):
+    """A removal line a current document quotes is the line its command gives, with the release that removed it, among
+    them the one a skill bundled for FlowGuard 0.7x meets: `read --find` (PEMEL17-22), which 5.0.1 met with argparse's
+    `invalid choice`."""
+    for name in ('show', 'check', 'static_check', 'ledger', 'init', 'requests', 'screen', 'write_docs', 'add_known_entry'):
+        monkeypatch.setattr(cli, name, lambda *args, **kwargs: pytest.fail('a removed command ran'))
+    quoted = {}
+    for path in CURRENT_DOCS:
+        for line in re.findall(r'`flowguard: ([^`]+? was removed in \d+\.\d+ -> [^`]+)`', path.read_text(encoding='utf-8')):
+            quoted.setdefault(line, path.name)
+    assert {line.partition(' was removed')[0] for line in quoted} >= {'read', 'try'}, quoted
+    for line, name in quoted.items():
+        code = cli.main(['--root', str(tmp_path), *line.partition(' was removed')[0].split()])
+        assert (code, capsys.readouterr().err) == (2, f'flowguard: {line}\n'), (name, line)
+
+
 def _publish_gate():
     workflow = (ROOT / '.github/workflows/publish-release.yml').read_text(encoding='utf-8')
     script = workflow.split("python - <<'PY'\n", 1)[1].rsplit('\n          PY', 1)[0]

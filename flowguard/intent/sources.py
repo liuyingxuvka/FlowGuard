@@ -1030,7 +1030,7 @@ def add_known(cfg, graph, finding, *, act, why, ask='', identifier='', sites=())
                                    if not _site_problem(cfg, site, None) and not resolve(site)[2]))
         if not given:
             raise ValueError(f'known add: no place of {finding} ({", ".join(places)}) is a site: name one with --site '
-                             'path:symbol (a function, constant or Model.field of that file)')
+                             'path:symbol (a function, constant or Model.field of a file, or a table of a .sql file)')
     if not given:
         raise ValueError('known add: name its sites with --site path:symbol, or the finding the last run reported')
     identifier = identifier or _known_id(finding, found.known)

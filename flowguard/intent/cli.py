@@ -62,14 +62,30 @@ COMMANDS = {
 NEW_COMMANDS = 'python -m flowguard new-task, check or show NAME'
 REMOVED_COMMANDS = {'anchor': 'anchor draft', 'model': 'model draft', 'try': 'try', 'watch': 'watch',
                     'compare': 'compare'}
+# The top-level commands of FlowGuard 0.70 to 1.4: the releases that had each (`ERAS`, which init names in an AGENTS.md
+# that still asks for one), the release that removed it, and the command that now does what a project used it for.
+# `main` refuses each as it refuses REMOVED_COMMANDS (PEMEL17-22: a skill bundled with 0.7x told agents to run
+# `read --find`); 5.0.1 gave argparse's `invalid choice` for most, and `status` and `where` exited 0 with a note.
+EARLIER_COMMANDS = {
+    'read': ('0.70-0.75', '1.0', 'python -m flowguard show "words"'),
+    'change': ('0.70-0.75', '1.0', 'python -m flowguard check'),
+    'map': ('0.70-0.75', '1.0', 'python -m flowguard show NAME or check --static'),
+    'target': ('0.70-0.75', '1.0', 'python -m flowguard new-task or check'),
+    'template': ('0.70-1.4', '2.0', 'python -m flowguard init'),
+    'release': ('0.70-1.4', '2.0', 'python -m flowguard check --all'),
+    'status': ('0.71-1.4', '2.0', 'python -m flowguard, which prints the brief'),
+    'where': ('0.71-1.4', '2.0', 'python -m flowguard show "words"'),
+    'decide': ('0.75-1.4', '2.0', 'python -m flowguard req add FILE --id R<n>'),
+    'draft': ('1.2-1.4', '2.0', 'python -m flowguard show NAME'),
+}
 
 
 class Removed(ValueError):
-    """A command or option FlowGuard 5.0 removed: `main` exits 2 with the one line
-    `flowguard: <what> was removed in 5.0 -> <replacement>` on stderr. The removed command never runs: its use is
-    neither ignored nor read as another command."""
-    def __init__(self, what, replacement):
-        super().__init__(f'{what} was removed in 5.0 -> {replacement}')
+    """A command or option a FlowGuard release removed (5.0, or for EARLIER_COMMANDS 1.0 or 2.0): `main` exits 2 with
+    the one line `flowguard: <what> was removed in <release> -> <replacement>` on stderr. The removed command never
+    runs: its use is neither ignored nor read as another command."""
+    def __init__(self, what, replacement, release='5.0'):
+        super().__init__(f'{what} was removed in {release} -> {replacement}')
 
 
 class _RemovedOption(argparse.Action):
@@ -2773,22 +2789,21 @@ LEGACY_SECTION = re.compile(r'^##[ \t]+(?P<title>[^\r\n]*?(?:workflow|current-ma
 LEGACY_WORDS = re.compile(r'\b0\.70\.\d+|flowguard (?:read|change)\b|\bmap (?:check|confirm)\b|'
                           r'\btarget (?:start|add|check|promote)\b|flowguard_unit_runner|current[- ]map', re.I)
 # A line that still names a command of an earlier FlowGuard, which 4.x does not have. The top-level commands and the
-# releases that had them, as the git tags' flowguard/__main__.py gives them (`ERAS`): read, change, map (0.70.2) and
-# target (0.70.11) up to 0.75; template and release from 0.70.2 to 1.4; status (0.71.0) and where (0.71.1) to 1.4;
-# decide from 0.75 and draft from 1.2, both to 1.4 (4.x drafts with `anchor draft` and `model draft`). The subcommands
-# of map and target are 0.70.14's. After a launcher (python, python3.11, py, python.exe) or a backquote any of them is
-# a command; written bare, only flowguard read, change, `map SUB` and `target SUB` are, all lowercase: the other
-# words are prose after the name ("a FlowGuard release alone", "after each flowguard release", "python -m flowguard
-# before each task"). 0.70's `map check` and `map confirm` are read in any case ("Map check must pass"), also in
-# prose ("the site map check"), which cannot be told from them. A required version (`requires FlowGuard 0.70.14`,
+# releases that had them (`ERAS`, of EARLIER_COMMANDS), as the git tags' flowguard/__main__.py gives them: read, change,
+# map (0.70.2) and target (0.70.11) up to 0.75; template and release from 0.70.2 to 1.4; status (0.71.0) and where
+# (0.71.1) to 1.4; decide from 0.75 and draft from 1.2, both to 1.4 (4.x drafts with `anchor draft` and `model draft`).
+# The subcommands of map and target are 0.70.14's. After a launcher (python, python3.11, py, python.exe) or a backquote
+# any of them is a command; written bare, only flowguard read, change, `map SUB` and `target SUB` are, all lowercase:
+# the other words are prose after the name ("a FlowGuard release alone", "after each flowguard release", "python -m
+# flowguard before each task"). 0.70's `map check` and `map confirm` are read in any case ("Map check must pass"), also
+# in prose ("the site map check"), which cannot be told from them. A required version (`requires FlowGuard 0.70.14`,
 # `FlowGuard 0.70.x is required`, `flowguard==0.70.14`) and the install tag are 0.70's; a minimum that 4.x meets
 # ("requires FlowGuard 0.70.14 or newer") asks for nothing 4.x lacks and is not listed. A launcher may carry the
 # interpreter's own options (`py -3.11 -m`, `python -X utf8 -m`, `python3 -I -m`). A capitalized `FlowGuard map` in
 # backquotes with no subcommand is the map's name ("the `FlowGuard map` shows the owners"). A line that only names 0.70
 # or its files (`.flowguard/models/**`, `flowguard_unit_runner.py` "belong to the earlier 0.70.x workflow") explains
 # them and asks for nothing.
-ERAS = {**dict.fromkeys(('read', 'change', 'map', 'target'), '0.70-0.75'), 'template': '0.70-1.4', 'release': '0.70-1.4',
-        'status': '0.71-1.4', 'where': '0.71-1.4', 'decide': '0.75-1.4', 'draft': '1.2-1.4'}
+ERAS = {name: era for name, (era, _, _) in EARLIER_COMMANDS.items()}
 LAUNCHER = r'\b(?:py|python[\d.]*)(?:\.exe)?\s+(?:-(?!m\b)[\w.]+(?:\s+(?!-)[\w.=]+)?\s+)*'
 MAP_SUB = r'(?:scan|discover|show|find|digest|check|lint|impact|deps|confirm|models|verify)\b'
 TARGET_SUB = r'(?:start|add|drop|check|promote)\b'
@@ -3101,9 +3116,6 @@ def main(argv=None):
             raise SystemExit('--root needs a project directory')
         root = argv[at + 1]
         del argv[at:at + 2]
-    if argv and argv[0] in {'status', 'where'}:
-        print('this is a FlowGuard 0.7x command; here run python -m flowguard new-task')
-        return 0
     parser = argparse.ArgumentParser(prog='flowguard')
     parser.add_argument('--version', action='version', version=__version__)
     commands = parser.add_subparsers(dest='command', metavar='{' + ','.join(COMMANDS) + '}')
@@ -3165,6 +3177,9 @@ def main(argv=None):
     try:
         if argv and argv[0] in REMOVED_COMMANDS:
             raise Removed(REMOVED_COMMANDS[argv[0]], NEW_COMMANDS)
+        if argv and argv[0] in EARLIER_COMMANDS:
+            _, release, replacement = EARLIER_COMMANDS[argv[0]]
+            raise Removed(argv[0], replacement, release)
         options = parser.parse_args(argv)
         cfg = load_config(root or find_root())
         if options.command == 'show':

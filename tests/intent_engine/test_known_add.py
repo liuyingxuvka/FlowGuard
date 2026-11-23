@@ -149,3 +149,69 @@ def test_a_site_on_a_sql_file_is_written_read_and_refused_as_a_site_of_any_other
     reds = [line for line in _block(text) if line.startswith('red')]
     assert code == 1 and 'Traceback' not in text and len(reds) == 1 and reds[0].startswith(
         'red: about prisma/constraints.sql:assignments.fte_share:'), text
+
+
+# Planning Tool's central database (PTW-G68-2): its old Prisma migrations folder lacks columns that a separately delivered
+# SQL package adds. The package's upgrade step only alters the table; its install definition creates it.
+CENTRAL = {
+    'prisma/schema.prisma': '''
+        datasource db {
+          provider = "sqlserver"
+          url      = env("DATABASE_URL")
+        }
+
+        model CentralEmployee {
+          id        Int       @id
+          name      String
+          deletedAt DateTime? @map("deleted_at")
+          entryDate DateTime? @map("entry_date")
+
+          @@map("central_employees")
+        }
+    ''',
+    'prisma/migrations/20240101_init/migration.sql': '''
+        CREATE TABLE central_employees (
+          id INT NOT NULL PRIMARY KEY,
+          name NVARCHAR(200) NOT NULL
+        );
+    ''',
+    'db/central/C4.sql': '''
+        ALTER TABLE central_employees ADD deleted_at DATETIME2 NULL;
+        ALTER TABLE central_employees ADD entry_date DATETIME2 NULL;
+    ''',
+}
+
+
+def test_a_sql_file_kept_in_the_repository_describes_the_tables_it_creates_and_a_table_site_records_an_old_folder(tmp_path):
+    """A SQL file kept in the repository is a description of the tables it creates, compared with the schema; one that
+    only alters a table describes none and closes no gap of the migrations folder. That folder's gap, left on purpose,
+    is recorded by naming a table of one of its files: its finding's place is the folder, which is no site, and 5.0.1's
+    refusal named only a function, constant or Model.field as the site to give."""
+    _commit(tmp_path, CENTRAL)
+    old = ('before: columns migrations/ against prisma/schema.prisma at migrations/ was broken at task start -> leave it '
+           'unless your task is about it')
+    code, text = _static(tmp_path, '--all')
+    assert code == 0 and _block(text, everything=True) == [old], text
+    _write(tmp_path, {'db/central/install.sql': '''
+        CREATE TABLE central_employees (
+          id INT NOT NULL PRIMARY KEY,
+          name NVARCHAR(200) NOT NULL,
+          deleted_at DATETIME2 NULL
+        );
+    '''})
+    code, text = _static(tmp_path, '--all')
+    assert code == 0 and _block(text, everything=True) == [old, (
+        'impact: columns install.sql against prisma/schema.prisma: install.sql lacks central_employees (install.sql:1) '
+        'missing entry_date -> fix it, or say why in your report')], text
+    finding = 'columns:prisma/migrations/~prisma/schema.prisma'
+    code, out = _flowguard(tmp_path, 'known', 'add', finding, '--act', 'leave', '--why', 'upgraded by the delivered package')
+    assert code == 2 and _known(tmp_path) is None and (
+        f'known add: no place of {finding} (prisma/migrations/) is a site: name one with --site path:symbol (a function, '
+        'constant or Model.field of a file, or a table of a .sql file)') in out, out
+    code, out = _flowguard(tmp_path, 'known', 'add', finding, '--act', 'leave', '--why', 'upgraded by the delivered package',
+                           '--site', 'prisma/migrations/20240101_init/migration.sql:central_employees')
+    assert code == 0, out
+    code, text = _static(tmp_path, '--all')
+    assert code == 0 and [line for line in _block(text, everything=True) if line.startswith(('before', 'known:'))] == [
+        'known: known.columns-prisma-migrations-prisma-schema-prisma at migrations/ -> left as it is on purpose; yours to '
+        'change only if your task is about it'], text

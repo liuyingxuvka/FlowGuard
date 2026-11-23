@@ -2,9 +2,10 @@
 
     <!-- flowguard: about backend/src/services/allocation.service.ts:allocationService.create -->
 
-and the text from it to the next marker or heading (or, when a heading follows the marker, that heading's section)
-describes that site, read as a known.toml site is (`sources.site_resolver`: a function, method, object.method,
-constant or Model.field of a file, or a file's path alone). When a change edits the site and not that text, the
+and the text from it to the next marker or heading (or, when a heading follows the marker, that heading's section;
+markers stacked above one text all describe it) describes that site, read as a known.toml site is
+(`sources.site_resolver`: a function, method, object.method, constant or Model.field of a file, or the path alone of
+any file, a data file or a generated one too). When a change edits the site and not that text, the
 block says so with an `impact` line, never a red one: the text may now be out of date, and only a reader can tell.
 A marker this change writes with a site that names nothing is red; one that an earlier change left so, or whose site
 this change removed, is an `impact` line when this change touches it, and `check --all` lists every one.
@@ -77,7 +78,10 @@ def documents(root):
 def markers(text):
     """[(site, line, span)] of the `about` markers of a document's text: `span` is the text the marker describes, the
     lines after it to the next marker or heading; when a heading follows the marker, that heading's section, to the
-    next heading of its level or above. A marker or heading inside code (`_outside_code`) is none."""
+    next heading of its level or above. Markers stacked above one text, on lines of their own, all describe that text:
+    a checked-in generated file's line marked with its producer and each input file (PEMEL23-11), where 5.0.1 gave
+    each marker but the last no text, so that a change to its site named it even when the line was rewritten. A marker
+    or heading inside code (`_outside_code`) is none."""
     lines, plain = text.splitlines(), _outside_code(text)
     found = []
     for index, line in enumerate(plain):
@@ -85,8 +89,9 @@ def markers(text):
         if not match:
             continue
         start = index + 1
-        while start < len(lines) and not lines[start].strip():
-            start += 1
+        while start < len(lines) and (not lines[start].strip()
+                                      or MARKER.search(plain[start]) and not MARKER.sub('', plain[start]).strip()):
+            start += 1          # a blank line, or another marker of a stack above the same text
         heading = HEADING.match(plain[start]) if start < len(lines) else None
         end = start + 1 if heading else start
         while end < len(lines) and not MARKER.search(plain[end]):
