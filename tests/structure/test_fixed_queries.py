@@ -4,7 +4,7 @@ import ast
 import pytest
 
 from flowguard.structure import build
-from flowguard.structure.query import handler_outcome
+from flowguard.structure.query import call_on_every_path, handler_outcome
 
 
 def test_config_roots_accept_the_config_objects_absolute_paths(repo, tmp_path):
@@ -131,3 +131,23 @@ def test_a_real_package_named_venv_is_not_an_environment(repo):
 def test_handler_query_uses_all_paths_instead_of_any_raise(body, always_raises):
     statements = ast.parse(body).body
     assert (handler_outcome(statements) == (False, False)) == always_raises
+
+
+@pytest.mark.parametrize('body,always', [
+    ('_apply(p)', True), ('self._apply(p)', True), ('return _apply(p)', True), ('log(await _apply(p))', True),
+    ('with lock:\n    _apply(p)', True), ('if _apply(p):\n    pass', True), ('x = _apply(p) or q', True),
+    ('for row in _apply(p):\n    pass', True), ('[x for x in _apply(p)]', True),
+    ('if not p:\n    raise ValueError(p)\n_apply(p)', True), ('def later():\n    return 1\n_apply(p)', True),
+    ('if s:\n    _apply(p)', False), ('if s:\n    pass\nelse:\n    _apply(p)', False),
+    ('if not p:\n    return\n_apply(p)', False), ('with lock:\n    if s:\n        return\n_apply(p)', False),
+    ('for row in rows:\n    _apply(row)', False), ('while s:\n    _apply(p)', False),
+    ('try:\n    _apply(p)\nexcept ValueError:\n    pass', False), ('try:\n    pass\nfinally:\n    _apply(p)', False),
+    ('match s:\n    case 1:\n        _apply(p)', False), ('x = _apply(p) if s else None', False),
+    ('x = q or _apply(p)', False), ('[_apply(x) for x in rows]', False), ('assert _apply(p)', False),
+    ('later = lambda: _apply(p)\nlater()', False), ('def later():\n    _apply(p)\nlater()', False),
+    ('apply(p)', False),
+])
+def test_a_call_on_every_path_is_one_no_branch_return_or_nested_scope_can_skip(body, always):
+    """PEMEL17-18: writes moved into a helper are one line only where the call runs whenever the function returns."""
+    function = ast.parse('async def f(self, p, q, s, rows, lock):\n' + ''.join(f'    {line}\n' for line in body.splitlines())).body[0]
+    assert call_on_every_path(function, '_apply') is always

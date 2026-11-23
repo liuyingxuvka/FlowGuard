@@ -127,6 +127,81 @@ def operator(node):
     return found.type if found is not None else ''
 
 
+def anonymous(node):
+    """Whether the map names the function or class `node` by its place (`<anonymous@line,column>`, `extract`'s
+    `name_of`): it has no name of its own, and no variable declaration or export statement names it. The map counts
+    such a callback's calls and writes as those of the function it is in (`owners.named`)."""
+    parent = node.parent
+    return node.child_by_field_name('name') is None and not (
+        parent is not None and parent.type in ('variable_declarator', 'export_statement'))
+
+
+# The parts of a statement or expression that run whenever it does; its other parts run on some paths only.
+ALWAYS_PARTS = {'if_statement': ('condition',), 'while_statement': ('condition',), 'switch_statement': ('value',),
+                'for_statement': ('initializer', 'condition'), 'for_in_statement': ('right',),
+                'ternary_expression': ('condition',)}
+SHORT_CIRCUIT = {'&&', '||', '??', '&&=', '||=', '??='}
+
+
+def _returns(node):
+    """Whether `node` holds a return of the function it is in (none of a nested function or class)."""
+    scopes = FUNCTIONS | CLASSES | {'class'}
+    stack = [] if node.type in scopes else [node]
+    while stack:
+        item = stack.pop()
+        if item.type == 'return_statement':
+            return True
+        stack.extend(child for child in item.named_children if child.type not in scopes)
+    return False
+
+
+def call_on_every_path(source, tree, function, name, lines=None):
+    """The fewest anonymous callbacks (`anonymous`) between the function whose text spans the lines `function`
+    (first, last) of a parsed JS/TS file (`parse`) and a call of `name` in it (`name(...)`, `x.name(...)`; one that
+    starts on a line of `lines` when given) that runs whenever the function returns, or None: a call outside the
+    branches of an if/else, switch, for, for-in/of and while (a do-while's body runs), of a try/catch/finally, a
+    ternary and `&&`, `||`, `??` (and their assignments), not optional (`x?.name()`), inside no named function or class
+    of its own, and after no statement of its blocks that holds a return. A throw ends on an error path, not a return.
+    A callback is counted, not judged: whether the function it is passed to calls it is not read."""
+    first, last = function
+    fewest, stack = None, [tree.root_node]
+    while stack:
+        node = stack.pop()
+        if node.end_point.row + 1 < first or node.start_point.row + 1 > last:
+            continue
+        stack.extend(node.named_children)
+        callee = node.child_by_field_name('function') if node.type == 'call_expression' else None
+        if callee is None or (lines is not None and node.start_point.row + 1 not in lines):
+            continue
+        spelled = callee.child_by_field_name('property') if callee.type == 'member_expression' else callee
+        if spelled is None or text(spelled, source) != name or '?.' in text(callee, source) \
+                or any(child.type in ('?.', 'optional_chain') for child in node.children):
+            continue
+        crossed, child, item = 0, node, node.parent
+        while item is not None:
+            if item.type in FUNCTIONS:
+                if not anonymous(item):         # the function itself, or a named function of its own
+                    if item.start_point.row + 1 == first and item.end_point.row + 1 == last:
+                        fewest = crossed if fewest is None else min(fewest, crossed)
+                    break
+                crossed += 1
+            elif item.type in CLASSES or item.type in ('class', 'try_statement', 'program'):
+                break
+            elif item.type in ALWAYS_PARTS and child not in [item.child_by_field_name(part) for part in ALWAYS_PARTS[item.type]]:
+                break
+            elif item.type in ('binary_expression', 'augmented_assignment_expression') and operator(item) in SHORT_CIRCUIT \
+                    and child == item.child_by_field_name('right'):
+                break
+            elif item.type == 'call_expression' and child == item.child_by_field_name('arguments') \
+                    and '?.' in text(item.child_by_field_name('function'), source):
+                break
+            elif item.type == 'statement_block' and any(_returns(statement) for statement in item.named_children
+                                                        if statement.end_byte <= child.start_byte):
+                break
+            child, item = item, item.parent
+    return fewest
+
+
 def named_scope(scope):
     """The enclosing named function for a stable key: anonymous callbacks and overload suffixes drop out."""
     parts = [part.split('@')[0] for part in scope.split('.') if part and not part.startswith('<anonymous')]
@@ -258,15 +333,12 @@ def extract(root, rel, data, module, is_test):
         return set()
 
     def name_of(node):
+        if anonymous(node):
+            return f'<anonymous@{node.start_point.row + 1},{node.start_point.column + 1}>'
         name = field(node, 'name')
         if name is not None:
             return text(name, source)
-        parent = node.parent
-        if parent and parent.type == 'variable_declarator':
-            return text(field(parent, 'name'), source)
-        if parent and parent.type == 'export_statement':
-            return 'default'
-        return f'<anonymous@{node.start_point.row + 1},{node.start_point.column + 1}>'
+        return text(field(node.parent, 'name'), source) if node.parent.type == 'variable_declarator' else 'default'
 
     def key_of(node):
         if node.type in ('member_expression', 'optional_member_expression'):

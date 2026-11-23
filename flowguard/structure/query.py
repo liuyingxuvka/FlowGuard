@@ -98,6 +98,67 @@ def exit_may_suppress(function):
             stack.extend(ast.iter_child_nodes(node))
     return any(value is not None and not (isinstance(value,ast.Constant) and value.value in (None,False)) for value in values)
 
+
+_SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
+_COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
+_SOME_PATHS = (ast.Try, getattr(ast, 'TryStar', ast.Try), ast.Assert, *_SCOPES)
+
+
+def _returns(node):
+    """Whether `node` holds a return of the function it is in (none of a nested def, lambda or class)."""
+    stack = [] if isinstance(node, _SCOPES) else [node]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, ast.Return):
+            return True
+        stack.extend(child for child in ast.iter_child_nodes(item) if not isinstance(child, _SCOPES))
+    return False
+
+
+def _always_parts(node):
+    """The children of `node` that run whenever it does; a statement list is one child. Of an if or while its test, of
+    a for its iterable, of a match its subject, of and/or its first operand and of a comprehension its first iterable;
+    nothing of a try, assert, nested def, lambda or class; all of any other node, a with block's body too."""
+    if isinstance(node, (ast.If, ast.While, ast.IfExp)):
+        return [node.test]
+    if isinstance(node, (ast.For, ast.AsyncFor)):
+        return [node.iter]
+    if isinstance(node, ast.BoolOp):
+        return node.values[:1]
+    if isinstance(node, ast.Match):
+        return [node.subject]
+    if isinstance(node, _COMPREHENSIONS):
+        return [node.generators[0].iter]
+    if isinstance(node, _SOME_PATHS):
+        return []
+    if isinstance(node, (ast.With, ast.AsyncWith)):
+        return [*node.items, node.body]
+    return list(ast.iter_child_nodes(node))
+
+
+def call_on_every_path(function, name):
+    """Whether `function` (an ast def) calls `name` (`name(...)` or `x.name(...)`) where the call runs whenever the
+    function returns: in a statement of its body or of a with block in it, outside the branches of an if/elif/else,
+    for, while, try/except/finally, match, assert, conditional expression and and/or (`_always_parts`), inside no
+    comprehension, lambda, nested def or class, and after no statement that holds a return. A raise ends on an error
+    path, not a return, so a guard that raises leaves the call on every path. A call under another name (an import
+    alias) is not one of `name`."""
+    def calls(node):
+        callee = node.func if isinstance(node, ast.Call) else None
+        return isinstance(callee, ast.Name) and callee.id == name or isinstance(callee, ast.Attribute) and callee.attr == name
+
+    def reached(item):
+        if isinstance(item, list):
+            for statement in item:
+                if reached(statement):
+                    return True
+                if _returns(statement):
+                    return False
+            return False
+        return calls(item) or any(reached(child) for child in _always_parts(item))
+    return reached(function.body)
+
+
 _CAMEL = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|[0-9]+")
 
 

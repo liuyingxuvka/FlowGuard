@@ -181,3 +181,42 @@ export function f() { const LOCAL = [1, 2]; return LOCAL; }
                     'OFFSETS': (True, [-1, 2.5, -0.5]), 'HOLE': (False, None), 'SPREAD': (False, None),
                     'NAMED': (False, None), 'NESTED': (False, None), 'EMPTY': (False, None),
                     '[first, second]': (False, None), 'LOCAL': (False, None)}
+
+
+ALWAYS_CALLED = [
+    ('await helper(tx);', 0), ('await svc.helper(tx);', 0), ('return helper(tx);', 0), ('if (helper(tx)) {}', 0),
+    ('const x = helper(tx) ? 1 : 2;', 0), ('helper(tx) && s;', 0), ('for (const i of helper(tx)) {}', 0),
+    ('do {\n  helper(tx);\n} while (s);', 0), ("if (!s) throw new Error('no');\nhelper(tx);", 0),
+    ('function later() { return 1; }\nhelper(tx);', 0),
+    ('await prisma.$transaction(async (tx) => {\n  await helper(tx);\n});', 1),
+    ('await prisma.$transaction((tx) => helper(tx));', 1), ('items.forEach((item) => helper(item));', 1),
+    ('if (s) {\n  helper(tx);\n}', None), ('if (s) helper(tx);', None), ('if (s) {} else {\n  helper(tx);\n}', None),
+    ('const x = s ? helper(tx) : null;', None), ('s && helper(tx);', None), ('const x = s ?? helper(tx);', None),
+    ('x ||= helper(tx);', None), ('svc?.helper(tx);', None), ('helper?.(tx);', None), ('a?.b(helper(tx));', None),
+    ('for (const item of items) {\n  helper(item);\n}', None), ('for (let i = 0; i < n; i++) {\n  helper(i);\n}', None),
+    ('while (s) {\n  helper(tx);\n}', None), ('try {\n  helper(tx);\n} catch (error) {}', None),
+    ('try {} finally {\n  helper(tx);\n}', None), ('switch (s) {\n  case 1:\n    helper(tx);\n}', None),
+    ('if (!s) return;\nhelper(tx);', None),
+    ('await prisma.$transaction(async (tx) => {\n  if (!s) return;\n  await helper(tx);\n});', None),
+    ('function later() {\n  helper(tx);\n}\nlater();', None), ('const later = () => helper(tx);\nlater();', None),
+    ('helperX(tx);', None),
+]
+
+
+def test_a_call_on_every_path_crosses_no_branch_or_named_function_and_counts_its_callbacks():
+    """PEMEL17-18 for JS/TS: the fewest anonymous callbacks a call of `helper` crosses where it runs whenever the
+    function returns (Planning Tool's `prisma.$transaction(async (tx) => ...)` is one), or None."""
+    from flowguard.structure.readers.common import parse
+    from flowguard.structure.readers.ecma import call_on_every_path
+    for body, crossed in ALWAYS_CALLED:
+        text = ('export async function f(tx: any, s: any, items: any[], x: any, a: any, n: number, svc: any) {\n'
+                + ''.join(f'  {line}\n' for line in body.splitlines()) + '}\n')
+        source, tree = parse(text.encode(), 'typescript')
+        assert not tree.root_node.has_error, body
+        assert call_on_every_path(source, tree, (1, text.count('\n')), 'helper') == crossed, body
+    # only the calls on the lines of the map's call edges, when it has them
+    source, tree = parse(b'export function g(s: any) {\n  if (s) helper(1);\n  helper(2);\n}\n', 'typescript')
+    assert [call_on_every_path(source, tree, (1, 4), 'helper', lines) for lines in (None, {2}, {3})] == [0, None, 0]
+    # a callback on the function's own line is still a callback
+    source, tree = parse(b'export const f = (items: any[]) => items.forEach((item) => helper(item));\n', 'typescript')
+    assert call_on_every_path(source, tree, (1, 1), 'helper') == 1

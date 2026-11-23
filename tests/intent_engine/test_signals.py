@@ -405,6 +405,44 @@ def test_the_first_line_of_a_run_that_ended_early_says_what_it_did_not_cover():
         f'FlowGuard {VERSION} (since aaaaaaa): 0 red, 1 not compared; 0.1 s'
 
 
+def test_an_impact_line_of_moved_writes_keeps_what_moved_where_and_its_other_words_give_way_first():
+    """PTWF-V125, PEMEL17-18 (5.1 review): the block cut a moved-writes line in its middle, `set_default_model's
+    wri...model, which it calls (model_preferences.py:10); other callers of _ap...yped reads not counted)`: what moved
+    where was gone. `F's writes of FIELDS moved to G, which it calls (place)` stays whole; the other callers and the
+    counts give way first, then the fields are counted where that is shorter, and the line is longer than WIDTH
+    rather than cut inside that clause."""
+    step = 'check them for this change only (python -m flowguard show Prefs.model)'
+    def said(text, *places):
+        line = Line('impact', 'impact:model:f', 'model:f', text, step, ('src/model.py:f', *places), ())
+        shown = _block([line])[1]
+        return shown, len(shown.replace('model.py:12', '').replace('model.py:7', '').replace('model.py', ''))
+    # the rest gives way in its middle; the fields keep their names
+    assert said("set_default's writes of Prefs.model, Prefs.source moved to _apply, which it calls (src/model.py:7); other "
+                'callers of _apply: import_default, load_settings, reset_all and 4 more; 12 other writers (no writers '
+                'agreement), 31 readers of Prefs', 'src/model.py:7') == (
+        "impact: set_default's writes of Prefs.model, Prefs.source moved to _apply, which it calls (model.py:7); other "
+        f'callers ...eaders of Prefs -> {step}', signals.WIDTH)
+    # longer field names are counted, and the rest gets the room that frees
+    assert said("set_default's writes of ModelPreferences.default_model, ModelPreferences.default_source, "
+                'ModelPreferences.revision_note moved to _apply, which it calls (src/model.py:7); other callers of _apply: '
+                'import_default_model; 0 other writers, 1 reader (untyped reads not counted)', 'src/model.py:7') == (
+        "impact: set_default's writes of 3 ModelPreferences fields moved to _apply, which it calls (model.py:7); other "
+        f'callers ...ds not counted) -> {step}', signals.WIDTH)
+    # where the clause alone is longer than WIDTH, the rest is `...`; a clause before it keeps the function's name,
+    # and a single short field its name
+    shown, width = said('set_default now writes Prefs.theme; its writes of Prefs.model moved to _apply, which it calls '
+                        '(src/model.py:7); its writes of Prefs.source moved to _apply_the_source_of_the_default_model, '
+                        'which it calls (src/model.py:12); other callers of _apply: import_default; 3 other writers, 31 '
+                        'readers of Prefs', 'src/model.py:7', 'src/model.py:12')
+    assert shown == ('impact: set_default ...; its writes of Prefs.model moved to _apply, which it calls (model.py:7); its '
+                     'writes of Prefs.source moved to _apply_the_source_of_the_default_model, which it calls (model.py:12); '
+                     f'... -> {step}') and width > signals.WIDTH, shown
+    # any other impact line is cut as before
+    shown, width = said('set_default now writes ' + ', '.join(f'Prefs.field_{number}' for number in range(20))
+                        + '; 0 other writers, 1 reader (untyped reads not counted)')
+    assert width == signals.WIDTH and shown.startswith('impact: set_default now writes Prefs.') and '...' in shown, shown
+
+
 def test_a_single_not_compared_item_keeps_its_name_and_place_and_its_reasons_give_way_first():
     """H4-3: one not compared item whose own text besides its paths and places was longer than about 125 characters
     lost its name and place (`not compared: 1 function (not reached by any test) -> not a failure`). Its reasons give

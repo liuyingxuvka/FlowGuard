@@ -519,6 +519,9 @@ def _shorten(text, places, names):
 
 _CHANGED = re.compile(r'(\(.*?\))( was )(.*)(, now )(.*)(; \d+/\d+ inputs differ)', re.S)    # `changed_line`'s words
 _KEYED = re.compile(r'(\(.*?\))( now )((?:adds|removes|changes) .*)(; \d+/\d+ inputs differ)', re.S)    # `_keys_said`'s
+# `owners.field_impact`'s moved writes: `F's writes of M.a, M.b moved to G, which it calls (place)` (`its` after a
+# clause before it)
+_MOVED = re.compile(r"((?:[^\s;]+'s|its) writes of )([^;]+?)( moved to [^\s;,]+, which it calls \()([^()]*)(\))")
 _GIVE = ((0, 36), (1, 4), (0, 4))      # (rank, characters kept at least) in the order the text gives way
 
 
@@ -528,13 +531,16 @@ def _cap(said, paths=(), places=()):
     of its longest stretches, cut to one length together: first the input the line is about (a changed line's inputs,
     a same-name line's `on ...:`), down to 36 characters, then the other stretches, then that input further. A
     changed line keeps the words between its values: `(inputs) was X, now Y; k/n inputs differ`, and between its
-    inputs and the keys that changed: `(inputs) now adds K=V (3 other keys equal); k/n inputs differ`. A line that would
-    still be longer than WIDTH with every stretch cut as far as it goes keeps its words (a copies line, whose step
-    names who decides and the route that records it): cutting would leave it neither within WIDTH nor readable."""
+    inputs and the keys that changed: `(inputs) now adds K=V (3 other keys equal); k/n inputs differ`. An impact line of
+    writes moved to a helper keeps what moved where (`_cap_moved`). A line that would still be longer than WIDTH with
+    every stretch cut as far as it goes keeps its words (a copies line, whose step names who decides and the route that
+    records it): cutting would leave it neither within WIDTH nor readable."""
     def width(text):
         return _width(text, (*places, *paths))
     if width(said) <= WIDTH:
         return said
+    if said.startswith('impact: ') and _MOVED.search(said):
+        return _cap_moved(said, width, {piece for piece in (*places, *paths) if piece})
     head, _, body = said.partition(': ')
     subject, colon, body = body.partition(': ') if ': ' in body[:80] else ('', '', body)
     body, arrow, step = body.rpartition(' -> ') if ' -> ' in body else (body, '', '')
@@ -566,17 +572,76 @@ def _cap(said, paths=(), places=()):
     if width(head + ''.join(piece if own is None else piece[:shortest] for piece, own in pieces) + arrow + step) > WIDTH:
         return said
     for rank, least in _GIVE:
-        excess = total() - WIDTH
-        free = [index for index, (piece, own) in enumerate(pieces) if own == rank and len(piece) > least + 3]
-        if excess <= 0 or not free:
-            continue
-        # the longest stretches of this rank give way together, to one length, until the line fits or each is `least`
-        level = max(len(pieces[index][0]) for index in free)
-        while level > least + 3 and sum(max(0, len(pieces[index][0]) - level) for index in free) < excess:
-            level -= 1
-        for index in free:
-            pieces[index][0] = _middle(pieces[index][0], level)
+        _give(pieces, rank, least, total() - WIDTH)
     return head + ''.join(piece for piece, _ in pieces) + arrow + step
+
+
+def _give(pieces, rank, least, excess):
+    """The longest stretches of `rank` among `pieces` ([text, rank]) give way in their middle together, to one length,
+    until `excess` characters are gone or each keeps `least`."""
+    free = [index for index, (piece, own) in enumerate(pieces) if own == rank and len(piece) > least + 3]
+    if excess <= 0 or not free:
+        return
+    level = max(len(pieces[index][0]) for index in free)
+    while level > least + 3 and sum(max(0, len(pieces[index][0]) - level) for index in free) < excess:
+        level -= 1
+    for index in free:
+        pieces[index][0] = _middle(pieces[index][0], level)
+
+
+def _cap_moved(said, width, kept):
+    """An impact line of writes moved to a helper (`owners.field_impact`) within WIDTH, as far as what moved where
+    allows: each `F's writes of FIELDS moved to G, which it calls (place)` stays whole, the function's name at the
+    line's start too. The rest (the other callers of G, the writer and reader counts) gives way first, in its middle
+    down to 7 characters; then each field list is counted where that is shorter (`writes of 2 ProjectMember fields
+    moved to G`) and the rest gets the room that frees. Where even that leaves the rest no room, it is `...`, and the line is longer than WIDTH
+    rather than not saying what moved where (PTWF-V125, PEMEL17-18). `show --last` keeps the whole line."""
+    body, arrow, step = said.rpartition(' -> ')
+    if not arrow:
+        body, step = said, ''
+    pattern = '(' + '|'.join(re.escape(piece) for piece in sorted(kept, key=len, reverse=True)) + ')' if kept else None
+
+    def rest(text):
+        """[text, 1] of the stretches of `text` between its places ([place, None]: never cut)."""
+        return [[piece, None if piece in kept else 1] for piece in (re.split(pattern, text) if pattern else [text]) if piece]
+    pieces, at = [['impact: ', None]], len('impact: ')
+    for found in _MOVED.finditer(body, at):
+        before = body[at:found.start()]
+        if at == len('impact: ') and ' ' in before:     # `impact: F now writes X; its writes of ...`: F stays
+            name, space, before = before.partition(' ')
+            pieces.append([name + space, None])
+        pieces += rest(before) + [[found[1], None], [found[2], 'fields'], [found[3], None], [found[4], None],
+                                  [found[5], None]]
+        at = found.end()
+    pieces += rest(body[at:])
+    whole = [piece for piece, _ in pieces]
+
+    def line():
+        return ''.join(piece for piece, _ in pieces) + arrow + step
+
+    def fit():
+        """The rest gives way to fit, from its whole words."""
+        for index, (_, own) in enumerate(pieces):
+            if own == 1:
+                pieces[index][0] = whole[index]
+        _give(pieces, 1, 4, width(line()) - WIDTH)
+    fit()
+    if width(line()) > WIDTH:
+        for index, (fields, own) in enumerate(pieces):
+            if own == 'fields':
+                names = fields.split(', ')
+                models = {name.rpartition('.')[0] for name in names}
+                kind = f' {next(iter(models))}' if len(models) == 1 else ''
+                counted = f'{len(names)}{kind} field{"s" * (len(names) != 1)}'
+                if len(counted) < len(fields):
+                    pieces[index][0] = whole[index] = counted
+        fit()
+    if width(line()) > WIDTH:
+        for index, (piece, own) in enumerate(pieces):
+            gone = '; ' * whole[index].startswith('; ') + '...' + '; ' * whole[index].endswith('; ')
+            if own == 1 and len(gone) < len(piece):
+                pieces[index][0] = gone
+    return line()
 
 
 def _width(text, pieces):
