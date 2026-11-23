@@ -1003,8 +1003,7 @@ def add_known(cfg, graph, finding, *, act, why, ask='', identifier='', sites=())
         if problem:
             raise ValueError(f'known add: {problem}')
     if not given and finding:
-        last = cache.read_last(cfg)
-        places = list(dict.fromkeys(place for line in (last['lines'] if last else ()) if line['name'] == finding
+        places = list(dict.fromkeys(place for run in cache.read_runs(cfg) for line in run['lines'] if line['name'] == finding
                                     for place in line['places']))
         if not places:
             raise ValueError(f'known add: the last run reported no {finding}: python -m flowguard check --all reports '

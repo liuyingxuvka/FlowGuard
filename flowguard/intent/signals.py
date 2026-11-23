@@ -613,13 +613,17 @@ def collect(deliveries, found=None, *, everything=False):
     return lines, ignored
 
 
-def last_run(lines, ignored, *, run, stamp, baseline, kind, title, seconds, compared=()):
-    """What `cache.save_last` keeps of a run for `show --last`, in one shape for every run ('pytest', 'check',
-    'check --static', 'vitest'): its first line and seconds, every line, the ignored count and the unchanged points
-    it compared."""
+def last_run(lines, ignored, *, scope, run, stamp, baseline, kind, title, seconds, compared=(), pytest=None):
+    """What `cache.save_last` keeps of a run for `show --last` and the brief, in one shape for every run ('pytest',
+    'check', 'check --static', 'vitest'): its slot (`cache.REPO`, or `cache.vitest_scope` of its package), the full
+    version of the FlowGuard that ran it, its first line and seconds, every line, the ignored count, the unchanged
+    points it compared and, for a pytest session, pytest's own outcome (`plugin.session_outcome`: exit, failed, errors,
+    stopped), None for the others."""
     from dataclasses import asdict
-    return dict(stamp=stamp, run=run, baseline=baseline, baseline_kind=kind, title=title, seconds=seconds,
-                lines=[asdict(line) for line in lines], ignored=ignored, compared=list(compared))
+    from flowguard import __version__
+    return dict(scope=scope, version=__version__, stamp=stamp, run=run, baseline=baseline, baseline_kind=kind, title=title,
+                seconds=seconds, lines=[asdict(line) for line in lines], ignored=ignored, compared=list(compared),
+                pytest=pytest)
 
 
 def changed_line(name, target, file, line, changes, compared, *, cause=None, why=''):

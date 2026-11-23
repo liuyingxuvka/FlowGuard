@@ -9,6 +9,7 @@ import time
 
 import pytest
 
+from flowguard import __version__
 from flowguard.map.common import MapError
 from flowguard.structure import build, store
 
@@ -438,4 +439,4 @@ def test_reading_the_cache_waits_for_another_runs_commit(tmp_path):
     assert checked.returncode == 1, checked.stdout + checked.stderr
     assert sum(line.startswith('red: ') for line in checked.stdout.splitlines()) == 2
     assert last.returncode == 0, shown
-    assert shown[0].startswith('FlowGuard last run: check --static')
+    assert shown[0].startswith(f'FlowGuard {__version__} last run: check --static')

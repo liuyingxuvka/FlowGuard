@@ -491,27 +491,104 @@ def structure_summary(cfg):
     return json.loads(row[0]) if row else None
 
 
-LAST = 'last_lines'
+LAST = 'last_lines'        # the `repo` slot's key, as 5.0 kept its one last run; a vitest package's is `last_lines:vitest:web`
+REPO = 'repo'               # the slot of pytest, check and check --static
+LEGACY_VITEST = 'vitest'    # a 5.0 record of a vitest run, which names no package
+
+
+def vitest_scope(cfg, package):
+    """The slot of a vitest run of the package in folder `package` (the repository's top folder when None):
+    `vitest:web`, `vitest:.` for the top folder."""
+    return 'vitest:' + cfg.rel(Path(package) if package else cfg.root)
+
+
+def _last_key(scope):
+    return LAST if scope == REPO else f'{LAST}:{scope}'
+
+
+def _legacy_vitest(payload):
+    """Is this the one record FlowGuard 5.0 kept, of a vitest run? It names no package and no scope."""
+    return 'scope' not in payload and payload.get('run') == 'vitest'
 
 
 def save_last(con, payload):
-    """The last run's lines for `show --last` (a disposable key: the next run replaces it): a JSON object with the
-    run's stamp, kind ('pytest', 'check', 'check --static', 'vitest'), baseline, title, seconds, every line as a
-    dict of `signals.Line`, the number of ignored members and the unchanged points it compared."""
-    put_meta(con, LAST, json.dumps(payload, ensure_ascii=False, sort_keys=True))
+    """The last run's lines for `show --last` and the brief, in the slot `payload['scope']` names (a disposable key: the
+    next run of that slot replaces it, the other slots stay): a JSON object with the run's scope, FlowGuard's full
+    version, stamp, kind ('pytest', 'check', 'check --static', 'vitest'), baseline, title, seconds, every line as a
+    dict of `signals.Line`, the number of ignored members, the unchanged points it compared and, for pytest, its own
+    outcome (`signals.last_run`). A vitest run also replaces the record 5.0 kept of a vitest run, which names no package,
+    as the next vitest run replaced it there."""
+    _write_transaction(con)
+    if payload['scope'] != REPO:
+        row = con.execute('SELECT v FROM meta WHERE k = ?', (LAST,)).fetchone()
+        if row and _legacy_vitest(json.loads(row[0])):
+            con.execute('DELETE FROM meta WHERE k = ?', (LAST,))
+    put_meta(con, _last_key(payload['scope']), json.dumps(payload, ensure_ascii=False, sort_keys=True))
 
 
-def read_last(cfg):
-    """The last run's lines as `save_last` stored them, read without building the map; None when no run stored
+def stamp_start(con, scope, stamp, run):
+    """Note in the slot `scope` that a run of it (kind `run`) started at `stamp`, before it has any lines (vitest's
+    preparation). The run's own `save_last` replaces the note; a run that never reports (killed, timed out) leaves it,
+    beside the lines of the slot's earlier run, which stay. A slot without an earlier run gets the note alone."""
+    from flowguard import __version__
+    _write_transaction(con)
+    row = con.execute('SELECT v FROM meta WHERE k = ?', (_last_key(scope),)).fetchone()
+    earlier = json.loads(row[0]) if row else dict(scope=scope, version=__version__, run=run, stamp=None, baseline=None,
+                                                    baseline_kind=None, title=None, seconds=None, lines=[], ignored=0,
+                                                    compared=[], pytest=None)
+    put_meta(con, _last_key(scope), json.dumps(dict(earlier, started=stamp), ensure_ascii=False, sort_keys=True))
+
+
+def keep_last(cfg, payload=None, *, started=None):
+    """`save_last` (or, with `started` = (scope, stamp, run), `stamp_start`) for a run that holds no map connection of
+    its own (`check`, the vitest preparation and report)."""
+    import sqlite3
+    from flowguard.map.common import cache_dir
+    cache_dir(cfg.root)
+    with closing(sqlite3.connect(cfg.cache / 'map.sqlite', timeout=CACHE_TIMEOUT)) as con:
+        con.execute('CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT)')
+        with con:
+            if started is not None:
+                stamp_start(con, *started)
+            else:
+                save_last(con, payload)
+
+
+def _package_present(cfg, scope):
+    """Does the folder of a vitest slot still hold a vitest (or vite) config? A slot whose package is gone is not read; the
+    repository's top folder (`vitest:.`) is always there."""
+    from .vitest import CONFIGS
+    folder = scope.partition(':')[2]
+    return folder == '.' or any((cfg.root / folder / name).is_file() for name in CONFIGS)
+
+
+def read_runs(cfg):
+    """Every slot's last run as `save_last` (or `stamp_start`) stored it, with its `scope`, newest first (by its stamp or
+    a later start), read without building the map: `repo` (pytest, check, check --static) and one `vitest:FOLDER` per
+    vitest package whose folder still holds its config. The one record of FlowGuard 5.0 is the `repo` slot, or for a
+    vitest run, which named no package, the slot `vitest` until the next vitest run replaces it. [] when no run stored
     any."""
     path = cfg.cache / 'map.sqlite'
     if not path.is_file():
-        return None
+        return []
     with _read_only(path) as con:
         if not con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta'").fetchone():
-            return None
-        row = con.execute('SELECT v FROM meta WHERE k = ?', (LAST,)).fetchone()
-    return json.loads(row[0]) if row else None
+            return []
+        rows = con.execute('SELECT k, v FROM meta WHERE k = ? OR substr(k, 1, ?) = ?',
+                           (LAST, len(LAST) + 1, LAST + ':')).fetchall()
+    runs = []
+    for key, value in rows:
+        payload = json.loads(value)
+        scope = key[len(LAST) + 1:] if key != LAST else LEGACY_VITEST if _legacy_vitest(payload) else REPO
+        if scope.startswith('vitest:') and not _package_present(cfg, scope):
+            continue
+        runs.append(dict(payload, scope=scope))
+    return sorted(runs, key=lambda run: max(run['stamp'] or 0, run.get('started') or 0), reverse=True)
+
+
+def read_last(cfg, scope=REPO):
+    """The last run of one slot (`read_runs`), None when that slot holds none."""
+    return next((run for run in read_runs(cfg) if run['scope'] == scope), None)
 
 
 def save_dependencies(con, records):

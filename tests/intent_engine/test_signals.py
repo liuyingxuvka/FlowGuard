@@ -544,12 +544,13 @@ def _shaped(stdout, stderr):
 
 
 def _counted(root, block):
-    """{(kind, finding name): lines} of the run `show --last` keeps, whose first line is the block's and counts every
-    kind as many times as the run has lines of it (before the budget)."""
+    """{(kind, finding name): lines} of the run `show --last` keeps (the newest slot: pytest's, check's and check
+    --static's, or the vitest package's), whose first line is the block's and counts every kind as many times as the
+    run has lines of it (before the budget)."""
     from flowguard.intent import cache
     from flowguard.intent.config import load_config
     from collections import Counter
-    last = cache.read_last(load_config(root))
+    last = cache.read_runs(load_config(root))[0]
     assert last['title'] == block[0], (last['title'], block)
     kinds = Counter(line['kind'] for line in last['lines'])
     counts = block[0].partition('): ')[2].rpartition('; ')[0]          # `1 red, 2 known; 3.4 s`: before the seconds

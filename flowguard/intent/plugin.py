@@ -102,6 +102,8 @@ class Session:
         self.marked = []                 # `file:line` of each collected test marked pytest.mark.rule, which 5.0 removed
         self.sentinel = None
         self.ordinary_selected, self.early_exit, self.session_errors = set(), [], []
+        self.failures = dict(failed=0, error=0)     # pytest's own counts of the session's failed and error reports
+        self.pytest_outcome = None                   # `session_outcome`, fixed with the session's verdict (`_verify`)
         self.ordinary_files, self.ordinary_deselected = set(), False
         self.last_test = None
         self.completed = set()
@@ -1307,11 +1309,14 @@ class Observations:
         return signals.render_block(self.lines, title=heading, files=self.repository)
 
     def last(self, seconds):
-        """The payload `cache.save_last` keeps for `show --last` (`signals.last_run`)."""
+        """The payload `cache.save_last` keeps for `show --last` (`signals.last_run`) in the `repo` slot, with pytest's own
+        outcome (`session_outcome`, set when the session's verdict is fixed)."""
         from . import signals
-        return signals.last_run(self.lines, self.ignored, run='pytest', stamp=self.state.started,
+        from .cache import REPO
+        return signals.last_run(self.lines, self.ignored, scope=REPO, run='pytest', stamp=self.state.started,
                                 baseline=self.missing or self.runtime.baseline, kind=self.baseline_kind,
-                                title=self.block(seconds).partition('\n')[0], seconds=seconds, compared=self.compared)
+                                title=self.block(seconds).partition('\n')[0], seconds=seconds, compared=self.compared,
+                                pytest=self.state.pytest_outcome)
 
     def _found(self, family, name, subject, what, step, *, function='', places=(), files=(), detail=()):
         """Add `what` to the finding (name, function) of this session; returns that key."""
@@ -1864,6 +1869,8 @@ def pytest_runtest_makereport(item, call):
     if state.complete_collection is not None and report.when == 'teardown':
         state.completed.add(item.nodeid)
     _skip_violation(item, call, report)
+    if report.failed:           # as pytest's summary counts them: a failed call is failed, a failed setup or teardown an error
+        state.failures['failed' if report.when == 'call' else 'error'] += 1
     if not report.passed and not isinstance(item, IntentItem) and state.observations is not None:
         state.runtime.outcome(item.nodeid, report.when, report.outcome, call.excinfo)       # what calibration reads
     state.durations[item.nodeid] = state.durations.get(item.nodeid, 0.0) + report.duration
@@ -1904,6 +1911,7 @@ def pytest_make_collect_report(collector):
                                f'collection skip{cause}: {report.longrepr!s} -> report the missing dependency or original error; do not skip collection')
     if report.failed:
         state = collector.config._flowguard_intent
+        state.failures['error'] += 1           # a collection error, as pytest's summary counts it
         kind, reason = ('code', 'unguarded collection skip') if violation else classify_collection(str(report.longrepr), state.cfg)
         state.readings[report.nodeid] = dict(outcome='failed', kind=kind, reason=reason, phase='collect', seconds=0.0)
 
@@ -2080,6 +2088,24 @@ def _refused(model, declaration):
     return any(error['file'] == model.file_of[declaration.id] and error['line'] == declaration.line for error in model.errors)
 
 
+def session_outcome(session, state):
+    """pytest's own outcome of the session, which `show --last` prints beside FlowGuard's lines of it (the block's
+    `0 red` counts agreements, not tests): its exit status as the session ends, the failed and error reports as its
+    summary counts them, and how it stopped before its selected tests had run, '' when it did not: `interrupted`,
+    the early end FlowGuard recorded (`pytest.exit`, a refused process exit), or pytest's `-x`/`--maxfail` stop."""
+    stopped = list(state.early_exit)
+    if int(session.exitstatus) == pytest.ExitCode.INTERRUPTED and not stopped:
+        stopped.append('interrupted')
+    if session.shouldfail:
+        maxfail = session.config.option.maxfail
+        stopped.append('stopped early (-x)' if maxfail == 1 else f'stopped early (--maxfail={maxfail})' if maxfail
+                       else f'stopped early ({session.shouldfail})')
+    elif session.shouldstop:
+        stopped.append(f'stopped early ({session.shouldstop})')
+    return dict(exit=int(session.exitstatus), failed=state.failures['failed'], errors=state.failures['error'],
+                stopped='; '.join(stopped))
+
+
 def _verify(session, exitstatus):
     state = session.config._flowguard_intent
     from .calibration import probe_context
@@ -2104,6 +2130,7 @@ def _verify(session, exitstatus):
     attempt = dict(declared=len(declared), collected=len(state.collected), selected=len(state.selected),
                    deferred=len(state.deferred), missing=missing, sentinel=state.sentinel, exit=int(exitstatus),
                    errors=state.session_errors, stamp=state.started, deep=model.deep)
+    state.pytest_outcome = session_outcome(session, state)
     if state.complete_collection is not None:
         attempt['complete_collection'] = dict(collected_nodeids=sorted(state.complete_collection),
                                                completed_nodeids=sorted(state.completed))

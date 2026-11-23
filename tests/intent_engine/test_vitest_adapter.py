@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from flowguard import __version__
 from flowguard.intent import signals
 from tests.intent_engine import _cli_fixture
 from tests.intent_engine._cli_fixture import SOURCE, display_text
@@ -281,6 +282,7 @@ def test_the_report_merges_the_map_checks_the_static_test_saved_and_fails_only_o
         'web/src/a.ts': '// flowguard: same LIMIT\nexport function over(x: number) { return x > 3; }\n',
         'web/src/b.ts': '// flowguard: same LIMIT\nexport function enough(x: number) { return x > 3; }\n',
         'web/flowguard.static.test.mjs': INIT_MARK + ": FlowGuard's map checks inside `npm test`.\n",
+        'web/vitest.config.mjs': 'export default {};\n',        # the package's config: show --last reads its slot
         '.flowguard/known.toml': '[known.gone]\nsites = ["web/src/a.ts:missing"]\nwhy = "a site that names nothing"\nact = "leave"\n',
     })
     head = _git(tmp_path, 'rev-parse', 'HEAD').strip()
@@ -301,7 +303,7 @@ def test_the_report_merges_the_map_checks_the_static_test_saved_and_fails_only_o
                             'also write Order.tax in save', ('shop/orders.ts:save',)),
                        Line('not compared', 'not compared:shop/legacy.ts', '', 'shop/legacy.ts', 'not a failure', ('shop/legacy.ts',),
                             ('cannot be parsed: line 3',))],
-                      2, run='check --static', stamp=0, baseline=head, kind='HEAD', title='FlowGuard', seconds=2.5)
+                      2, scope='repo', run='check --static', stamp=0, baseline=head, kind='HEAD', title='FlowGuard', seconds=2.5)
     code, saved = _report(tmp_path, plan, package='web', records=records, static=static, in_test=True)
     block = _cli_fixture.block(saved['text'])
     assert code == 1 and (saved['status'], saved['red']) == (1, 1), saved       # the static test failed on its reds itself
@@ -312,7 +314,8 @@ def test_the_report_merges_the_map_checks_the_static_test_saved_and_fails_only_o
         'red: together Order.total: orders.ts:save writes Order.total without Order.tax -> also write Order.tax in save',
         'not compared: legacy.ts (cannot be parsed: line 3) -> not a failure'], block
     shown = _cli_fixture.last(tmp_path)
-    assert shown.splitlines()[0].startswith('FlowGuard last run: vitest at ') and shown.splitlines()[1] == block[0], shown
+    # the package's own slot, with the full version (5.0: `FlowGuard last run: vitest at`)
+    assert shown.splitlines()[0].startswith(f'FlowGuard {__version__} last run: vitest web/ at ') and shown.splitlines()[1] == block[0], shown
     assert 'ignored: 2 (act = "ignore")' in shown, shown
 
 
@@ -348,7 +351,7 @@ def test_the_report_title_says_how_far_head_lies_after_the_task_start_as_pytest_
     # the block names the function, not its agreement (5.1)
     assert block[1:] == ['not compared: limit (limits.ts:2) (not reached by any test) -> not a failure'], text
     shown = _cli_fixture.last(tmp_path).splitlines()      # show --last reads this run
-    assert shown[0].startswith('FlowGuard last run: vitest at ') and shown[1] == block[0], shown
+    assert shown[0].startswith(f'FlowGuard {__version__} last run: vitest at ') and shown[1] == block[0], shown
     assert _flowguard(tmp_path, 'new-task')[0] == 0
     head = _git(tmp_path, 'rev-parse', 'HEAD').strip()
     (tmp_path / 'src/limits.ts').write_text(limit.format(6), encoding='utf-8')
@@ -1879,7 +1882,8 @@ def test_the_observations_folder_reaches_every_worker_and_its_map_checks_join_th
     saved = last_run([Line('red', 'pair:Order.total>Order.tax', 'shop/orders.ts:save',
                            'together Order.total: shop/orders.ts:save writes Order.total without Order.tax',
                            'also write Order.tax in save', ('shop/orders.ts:save',))],
-                     0, run='check --static', stamp=0, baseline='0' * 40, kind='task', title='FlowGuard', seconds=0.5)
+                     0, scope='repo', run='check --static', stamp=0, baseline='0' * 40, kind='task', title='FlowGuard',
+                     seconds=0.5)
     _commit(root, {
         'package.json': '{"name":"observed","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
         'src/a.ts': '// flowguard: same LIMIT\nexport function over(x: number) { return x > 3; }\n',
@@ -2179,6 +2183,76 @@ def test_a_run_lists_only_its_own_packages_unreached_points_one_per_place(vitest
     assert _cli_fixture.unchecked(root) == {'B_LIMIT (web/src/b.ts:2)': ['not reached by any test'],
                                             'B_LIMIT (web/src/c.ts:2)': ['not reached by any test']}, text
     assert 'API_LIMIT' not in text and 'api/src' not in text, text      # no web test can reach the api package
+
+
+def test_each_package_keeps_its_last_run_and_a_run_killed_before_it_reports_says_so(vitest_home):
+    """PTWF-3b, PTW-V2-2: Planning Tool checks web/ and api/ apart. 5.0 kept one last run: api/'s pass covered web/'s red,
+    the brief said nothing of it and `show --last` named no package. A run that an outer timeout killed left the lines of
+    the static test from inside it as a finished `check --static` with 0 red. Each package now has its own slot, the
+    static test inside vitest keeps nothing of its own, and a run that started and never reported says so above the
+    package's earlier lines."""
+    import time
+    from flowguard.intent import cache
+    from flowguard.intent.config import load_config
+    root = vitest_home / 'packages'
+    files = {}
+    for package in ('web', 'api'):
+        files.update({
+            f'{package}/package.json': '{"name": "' + package + '", "private": true, "type": "module", "scripts": {"test": "vitest run"}, '
+                                       '"devDependencies": {"vitest": "' + VITEST + '"}}\n',
+            f'{package}/src/a.ts': f'// flowguard: same {package.upper()}_LIMIT\nexport function over(x: number): boolean {{\n  return x > 3;\n}}\n',
+            f'{package}/src/b.ts': f'// flowguard: same {package.upper()}_LIMIT\nexport function enough(x: number): boolean {{\n  return x > 3;\n}}\n',
+            f'{package}/tests/a.test.ts': "import { expect, it } from 'vitest';\nimport { over } from '../src/a';\n"
+                                         "import { enough } from '../src/b';\n\nit('limits', () => { expect(over(4) && enough(4)).toBe(true); });\n",
+        })
+    _commit(root, files)
+    code, text = _flowguard(root, 'init')
+    assert code == 0 and 'Generated web/flowguard.static.test.mjs' in text and 'Generated api/flowguard.static.test.mjs' in text, text
+    _commit(root, message='flowguard init')
+    other = root / 'web/src/b.ts'
+    other.write_text(other.read_text(encoding='utf-8').replace('x > 3', 'x >= 3'), encoding='utf-8', newline='\n')
+    red = ('red: same WEB_LIMIT: on x=3: web/src/a.ts:over returns False, web/src/b.ts:enough returns True -> decide which copy '
+           'is right, then make the other agree')
+    code, text = _vitest(root / 'web', vitest_home)
+    assert code == 1 and _block(text)[1:] == [red], text
+    code, text = _vitest(root / 'api', vitest_home)
+    assert code == 0 and _block(text)[1:] == [], text
+    code, text = _flowguard(root)
+    assert text.splitlines()[-1] == '1 red in the last run of web/: python -m flowguard show --last', text
+    shown = _cli_fixture.last(root).splitlines()
+    heads = [line for line in shown if ' last run: ' in line]
+    assert [head.rpartition(' at ')[0] for head in heads] == [f'FlowGuard {__version__} last run: vitest api/',
+                                                              f'FlowGuard {__version__} last run: vitest web/'], shown
+    assert red in shown and 'check --static' not in '\n'.join(shown), shown
+    # a run killed while its slow test runs, after the static test inside it has saved its map checks, never reports
+    _write(root, {'web/tests/slow.test.ts': "import { it } from 'vitest';\n\n"
+                                            "it('slow', async () => { await new Promise((done) => setTimeout(done, 30000)); }, 60000);\n"})
+    cfg = load_config(root)
+    reported = cache.read_last(cfg, 'vitest:web')['stamp']
+    # its own process group: the kill reaches vitest's workers too, as an outer timeout ends the whole run
+    killed = subprocess.Popen([_tool('node'), str(vitest_home / 'node_modules/vitest/vitest.mjs'), 'run', '--maxWorkers=4'],
+                              cwd=root / 'web', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=_environment(),
+                              **({'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == 'nt' else {'start_new_session': True}))
+    try:
+        deadline = time.monotonic() + 120
+        while not list((cfg.cache / 'vitest').glob('obs-*/static.json')) and killed.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.2)
+        assert killed.poll() is None and list((cfg.cache / 'vitest').glob('obs-*/static.json')), 'the static test did not save'
+    finally:
+        if os.name == 'nt':
+            subprocess.run(['taskkill', '/T', '/F', '/PID', str(killed.pid)], capture_output=True, timeout=60)
+        else:
+            import signal
+            os.killpg(killed.pid, signal.SIGKILL)
+        killed.wait(timeout=60)
+    shown = _cli_fixture.last(root).splitlines()
+    at = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(reported))
+    web = shown.index(f'FlowGuard {__version__} last run: vitest web/ at {at}')
+    assert re.fullmatch(rf'a vitest run of web/ started at [0-9: -]+ did not report; the lines below are from the run at {at}',
+                        shown[web + 1]) and shown[web + 3] == red, shown
+    assert 'check --static' not in '\n'.join(shown), shown          # 5.0: `FlowGuard last run: check --static at ...`, 0 red
+    code, text = _flowguard(root)
+    assert text.splitlines()[-1] == '1 red in the last run of web/: python -m flowguard show --last', text
 
 
 def test_sealed_comparison_does_not_run_writes_or_database_clients_and_the_real_call_still_runs(vitest_home):

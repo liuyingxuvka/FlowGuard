@@ -181,7 +181,7 @@ def test_red_overflow_is_counted_and_cached_green_is_not_claimed_current(tmp_pat
     cli.screen(cfg)
     lines = capsys.readouterr().out.splitlines()
     # The brief names no intent rule: the last check's reds are one count, with the command that lists them.
-    assert lines[1:] == ['20 still red: python -m flowguard show --last'], lines
+    assert lines[1:] == ['20 red in the last run: python -m flowguard show --last'], lines
     assert 'No disagreement' not in '\n'.join(lines)
     result(cfg,verdict='ok')
     cli.screen(cfg)
@@ -193,7 +193,7 @@ def test_load_failure_remains_visible_even_without_a_current_rule_id(tmp_path, c
     _, cfg = project(tmp_path)
     result(cfg, rule='__load__',kind='load',messages=['Skipped: declaration missing'])
     assert cli.screen(cfg) == 0
-    assert capsys.readouterr().out.splitlines()[-1] == '1 still red: python -m flowguard show --last'
+    assert capsys.readouterr().out.splitlines()[-1] == '1 red in the last run: python -m flowguard show --last'
 
 
 def test_only_the_rule_text_is_displayed_never_archive_words_and_archive_bytes_are_unchanged(tmp_path, capsys):
@@ -251,13 +251,15 @@ def test_brief_drops_failed_readings_of_folders_norecursedirs_keeps_pytest_out_o
         (root / test).write_text('def test_value(): pass\n')
     cli.screen(cfg)
     output = capsys.readouterr().out
-    assert output.splitlines()[-1] == '2 still red: python -m flowguard show --last', output
+    # failed tests, never called red (5.0 said `2 still red`), the most recent named; same stamp: by their ids
+    assert output.splitlines()[-1] == ('2 tests failed when last run and have not run since: tests/legacy/test_old_binding.py '
+                                       'and 1 more: python -m flowguard show --last'), output
     # The legacy folder is added to pytest's own list: pytest no longer collects it, so its old failure is gone.
     (root / 'pyproject.toml').write_text((root / 'pyproject.toml').read_text()
                                          + '\n[tool.pytest.ini_options]\nnorecursedirs = [".*", "node_modules", "legacy"]\n')
     cli.screen(cfg)
     output = capsys.readouterr().out
-    assert output.splitlines()[-1] == '1 still red: python -m flowguard show --last', output
+    assert output.splitlines()[-1] == '1 test failed when last run and has not run since: tests/test_current.py', output
     from flowguard.intent import deps
     scope = deps.test_scope(load_config(root))
     assert not scope('tests/legacy/test_old_binding.py') and scope('tests/test_current.py')
@@ -688,7 +690,7 @@ def test_the_brief_stays_within_eight_lines_with_every_part_present(tmp_path, ca
     assert len(lines) == 8, lines
     assert [line.partition(':')[0] for line in lines[1:5]] == ['rule.r0', 'rule.r1', 'rule.r2', 'rule.r3']
     assert lines[4].endswith('; +5 more: python -m flowguard show rules') and lines[6].endswith('; +2 more: python -m flowguard show rules')
-    assert lines[7] == ('1 still red: python -m flowguard show --last; 1 invalid entries in .flowguard/rules.toml or '
+    assert lines[7] == ('1 red in the last run: python -m flowguard show --last; 1 invalid entries in .flowguard/rules.toml or '
                         'known.toml: python -m flowguard show rules'), lines
 
 
@@ -697,7 +699,7 @@ def _last_run(cfg, baseline, lines):
     from flowguard.intent.signals import Line
     from flowguard.structure.store import connect
     with closing(connect(cfg.cache / 'map.sqlite')) as con, con:
-        cache.save_last(con, dict(run='check --static', baseline=baseline, baseline_kind='task',
+        cache.save_last(con, dict(scope='repo', stamp=1.0, run='check --static', baseline=baseline, baseline_kind='task',
                                   lines=[asdict(Line(*line)) for line in lines]))
 
 
@@ -712,20 +714,40 @@ def test_new_task_says_which_reds_of_the_previous_task_are_before_now(tmp_path, 
                     ('before', 'pair:Order.a>Order.b', 'app:eligible', 'together Order.a', 'leave it', ('app.py:eligible',))])
     # Within the task the last run's reds still stand.
     assert cli.screen(cfg) == 0
-    assert capsys.readouterr().out.splitlines()[-1] == '2 still red: python -m flowguard show --last'
+    assert capsys.readouterr().out.splitlines()[-1] == '2 red in the last run: python -m flowguard show --last'
     # The next task's baseline makes a red whose files are clean against HEAD old: before; a dirty one stays red.
     (root / 'app.py').write_text('def eligible(days: int): return days <= 3  # committed\n')
     git(root, 'commit', '--quiet', '-am', 'the previous task')
     (root / 'other.py').write_text('def write(): return 1\n')
     assert cli.main(['--root', str(root), 'new-task']) == 0
-    moved = ('1 red from the previous task are now before; 1 still red: python -m flowguard show --last')
+    moved = ('1 red from the previous task are now before; 1 red in the last run: python -m flowguard show --last')
     assert capsys.readouterr().out.splitlines()[-1] == moved
     # The brief says so until the next run records its own lines (a brief after a loss of context, new-task again).
     assert cli.screen(cfg) == 0 and capsys.readouterr().out.splitlines()[-1] == moved
     assert cli.main(['--root', str(root), 'new-task']) == 0 and capsys.readouterr().out.splitlines()[-1] == moved
     _last_run(cfg, cache.session_baseline(cfg), [('red', 'values:Order.status', 'other:write', 'values Order.status: ...',
                                                   'use one', ('other.py:write',))])
-    assert cli.screen(cfg) == 0 and capsys.readouterr().out.splitlines()[-1] == '1 still red: python -m flowguard show --last'
+    assert cli.screen(cfg) == 0 and capsys.readouterr().out.splitlines()[-1] == '1 red in the last run: python -m flowguard show --last'
+
+
+def test_checks_own_pytest_red_counts_with_its_run_and_a_failed_tests_red_line_counts_as_a_failed_test(tmp_path, capsys):
+    """`check` says a failed test as `red: test ...` and a pytest that failed with no finding to say why as `red: pytest:
+    exit 2`. The brief counts the test by its reading, as a failed test, and the pytest red with the run's reds; 5.0.1
+    counted the test as red and the pytest red nowhere."""
+    root, cfg = project(tmp_path, rules=0)
+    start = cache.session_baseline(cfg, remember=True)
+    test = 'tests/test_a.py::test_x'
+    (root / 'tests/test_a.py').write_text('def test_x(): assert False\n')
+    with closing(sqlite3.connect(cfg.cache / 'map.sqlite')) as con, con:
+        con.execute('CREATE TABLE IF NOT EXISTS reading(test TEXT PRIMARY KEY, outcome TEXT, kind TEXT, reason TEXT, '
+                    'phase TEXT, seconds REAL, stamp REAL)')
+        con.execute('INSERT INTO reading VALUES(?,?,?,?,?,?,?)', (test, 'failed', 'code', '', 'call', 0.0, 1.0))
+    _last_run(cfg, start, [('red', f'test:{test}', '', f'test {test}: call', 'rerun this test after correcting the cause',
+                            ('tests/test_a.py',)),
+                           ('red', 'test:pytest', '', 'pytest: exit 2', 'read .flowguard/cache/check-output.txt and correct the reported error', ())])
+    assert cli.screen(cfg) == 0
+    assert capsys.readouterr().out.splitlines()[-1] == ('1 red in the last run: python -m flowguard show --last; '
+                                                        '1 test failed when last run and has not run since: tests/test_a.py::test_x')
 
 
 def test_new_task_keeps_every_red_no_baseline_moves_and_one_without_places(tmp_path, capsys):
@@ -744,7 +766,7 @@ def test_new_task_keeps_every_red_no_baseline_moves_and_one_without_places(tmp_p
     # The pair's file is clean: before. The ledger red names no place and the comment's red is no baseline's: still
     # red. The rule's red, the invalid entry and the load error are counted where they are read now (none here).
     assert capsys.readouterr().out.splitlines()[-1] == (
-        '1 red from the previous task are now before; 2 still red: python -m flowguard show --last')
+        '1 red from the previous task are now before; 2 red in the last run: python -m flowguard show --last')
 
 
 # FlowGuard 4.3's rules block, as Planning Tool's AGENTS.md still holds it: its rule 4 tells the agent to tell the owner

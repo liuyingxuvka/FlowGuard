@@ -5,6 +5,7 @@ from dataclasses import asdict
 import json
 import time
 
+from flowguard import __version__
 from flowguard.intent import cache, cli, sources
 from flowguard.intent.config import load_config
 from flowguard.intent.engine import Engine
@@ -24,9 +25,10 @@ def test_the_last_run_round_trips_through_the_cache_meta_and_is_none_before_any_
     with closing(connect(cfg.cache / 'map.sqlite')) as con, con:
         cache.put_meta(con, 'task_baseline', json.dumps({'commit': '0' * 40}))
     assert cache.read_last(cfg) is None                     # a cache without the key
-    payload = dict(stamp=1.5, run='check --static', baseline='abc', baseline_kind='task', title='FlowGuard 4.2 (since abc)',
-                   seconds=0.25, lines=[asdict(Line('red', 'pair:A>B', 'm:f', 'together A: caf\u00e9.py:f writes A', 'also write B',
-                                                    ('caf\u00e9.py:f',), ('detail',)))], ignored=2, compared=[])
+    payload = dict(scope='repo', version='5.1.0', stamp=1.5, run='check --static', baseline='abc', baseline_kind='task',
+                   title='FlowGuard 4.2 (since abc)', seconds=0.25, pytest=None,
+                   lines=[asdict(Line('red', 'pair:A>B', 'm:f', 'together A: caf\u00e9.py:f writes A', 'also write B',
+                                      ('caf\u00e9.py:f',), ('detail',)))], ignored=2, compared=[])
     with closing(connect(cfg.cache / 'map.sqlite')) as con, con:
         cache.save_last(con, payload)
     assert cache.read_last(cfg) == json.loads(json.dumps(payload))
@@ -45,14 +47,16 @@ def test_show_last_prints_every_line_and_the_catalog_queries_read_the_catalog_an
                   ('JS/TS calls resolved by name',)),
              *(Line('not compared', f'not compared:{name}', '', name, 'not a failure', (), ('uses attribute close',)) for name in 'NM')]
     with closing(connect(cfg.cache / 'map.sqlite')) as con, con:
-        cache.save_last(con, dict(stamp=1.0, run='pytest', baseline='a' * 40, baseline_kind='task', seconds=0.5,
+        cache.save_last(con, dict(scope='repo', version='5.1.0', stamp=1.0, run='pytest', baseline='a' * 40, baseline_kind='task',
+                                  seconds=0.5, pytest=dict(exit=1, failed=2, errors=1, stopped=''),
                                   title='FlowGuard 4.2 (since aaaaaaa): 1 red, 2 not compared; 0.5 s',
                                   lines=[asdict(line) for line in lines], ignored=2,
                                   compared=['K0 (knobs.py:2): 2 inputs compared, none differs']))
     assert cli.main(['--root', root, 'show', '--last']) == 0
     # No budget and no shortening: every line, its paths in full, its detail indented under it.
     assert capsys.readouterr().out.splitlines() == [
-        f'FlowGuard last run: pytest at {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(1.0))}',
+        f'FlowGuard 5.1.0 last run: pytest at {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(1.0))}',
+        'pytest: exit 1, 2 failed, 1 error',         # pytest's own outcome: the first line counts agreements
         'FlowGuard 4.2 (since aaaaaaa): 1 red, 2 not compared; 0.5 s',
         'red: together A: src/deep/a.py:f writes A without B -> also write B in f', '    JS/TS calls resolved by name',
         '    finding pair:A>B',          # the name known add takes; a line that is no finding has none
@@ -66,7 +70,7 @@ def test_show_last_prints_every_line_and_the_catalog_queries_read_the_catalog_an
         cache.save_last(con, dict(cache.read_last(cfg), ignored=0, compared=[]))
     assert cli.main(['--root', root, 'show', '--last']) == 0
     shown = capsys.readouterr().out.splitlines()
-    assert shown[1:] == ['FlowGuard 4.2 (since aaaaaaa): 1 red, 2 not compared; 0.5 s',
+    assert shown[1:] == ['pytest: exit 1, 2 failed, 1 error', 'FlowGuard 4.2 (since aaaaaaa): 1 red, 2 not compared; 0.5 s',
                          'red: together A: src/deep/a.py:f writes A without B -> also write B in f', '    JS/TS calls resolved by name',
                          '    finding pair:A>B', 'not compared: N -> not a failure', '    uses attribute close', 'not compared: M -> not a failure',
                          '    uses attribute close'], shown
@@ -101,7 +105,8 @@ def test_the_leads_only_show_last_kept_are_gone_since_5_0(tmp_path):
     code, text = _static(tmp_path)
     assert code == 0 and _cli_fixture.block(text)[1:] == [], text
     last = cache.read_last(load_config(tmp_path))
-    assert sorted(last) == ['baseline', 'baseline_kind', 'compared', 'ignored', 'lines', 'run', 'seconds', 'stamp', 'title'], last
+    assert sorted(last) == ['baseline', 'baseline_kind', 'compared', 'ignored', 'lines', 'pytest', 'run', 'scope', 'seconds',
+                            'stamp', 'title', 'version'], last
     shown = _cli_fixture.last(tmp_path).splitlines()
     assert shown[1:] == [last['title']], shown
 
@@ -186,9 +191,9 @@ def test_every_pytest_run_that_prints_a_block_keeps_it_for_show_last(tmp_path):
     nothing = _run(tmp_path, '-k', 'nothing_matches')
     assert nothing.returncode == 5, nothing.stdout + nothing.stderr
     shown = last(tmp_path).splitlines()
-    assert shown[0].startswith('FlowGuard last run: pytest at '), shown
+    assert shown[0].startswith(f'FlowGuard {__version__} last run: pytest at ') and shown[1] == 'pytest: exit 5, 0 failed', shown
     untimed = lambda title: title.rpartition('; ')[0]
-    assert untimed(shown[1]) == untimed(block(nothing)[0]) and not any(line.startswith('red: ') for line in shown), (shown, nothing.stdout)
+    assert untimed(shown[2]) == untimed(block(nothing)[0]) and not any(line.startswith('red: ') for line in shown), (shown, nothing.stdout)
 
 
 def test_the_terminal_junit_and_show_last_give_one_run_the_same_first_line(tmp_path):
@@ -226,5 +231,159 @@ plugin._save_readings = _slow
     failures = [failure.text for failure in ET.parse(tmp_path / 'junit.xml').iter('failure')]
     assert [text.splitlines()[0] for text in failures] == [title], (failures, title)
     shown = last(tmp_path).splitlines()
-    assert shown[1] == title, (shown, title)
+    assert shown[1:3] == ['pytest: exit 1, 0 failed', title], (shown, title)
     assert float(title.rpartition('; ')[2].removesuffix(' s')) >= 0.4, title
+
+
+def _slot(scope, stamp, lines=(), *, run='vitest', baseline='a' * 40, started=None):
+    """A last run as `signals.last_run` keeps it, of slot `scope`, its lines given as Line fields."""
+    payload = dict(scope=scope, version='5.1.0', stamp=stamp, run=run, baseline=baseline, baseline_kind='task', seconds=0.5,
+                   title=f'FlowGuard 5.1 (since aaaaaaa): {sum(line[0] == "red" for line in lines)} red; 0.5 s', pytest=None,
+                   lines=[asdict(Line(*line)) for line in lines], ignored=0, compared=[])
+    return dict(payload, started=started) if started else payload
+
+
+RED = ('red', 'same:WEB_LIMIT', 'web/src/a.ts:over', 'same WEB_LIMIT: on x=3: web/src/a.ts:over returns False, web/src/b.ts:enough '
+       'returns True', 'decide which copy is right, then make the other agree', ('web/src/a.ts:over', 'web/src/b.ts:enough'))
+
+
+def _package(root, folder):
+    (root / folder).mkdir(parents=True, exist_ok=True)
+    (root / folder / 'vitest.config.mjs').write_text('export default {};\n', encoding='utf-8')
+
+
+def test_each_vitest_package_keeps_its_own_last_run_and_another_packages_pass_never_covers_its_red(tmp_path, capsys):
+    """PTWF-3b: 5.0 kept one last run, which the next run replaced, so a red of web/ followed by a pass of api/ left the
+    brief silent and `show --last` named neither package. pytest, check and check --static share the `repo` slot; each
+    vitest package has its own, `show --last` prints every slot newest first with the full version, and the brief
+    counts every slot's reds by the run that left them."""
+    for folder in ('web', 'api'):
+        _package(tmp_path, folder)
+    cfg = load_config(tmp_path)
+    cfg.cache.mkdir(parents=True)
+    with closing(connect(cfg.cache / 'map.sqlite')) as con, con:
+        cache.save_last(con, _slot('vitest:web', 10.0, [RED]))
+        cache.save_last(con, _slot('vitest:api', 20.0))
+        cache.save_last(con, _slot('repo', 5.0, run='check --static'))
+    assert [run['scope'] for run in cache.read_runs(cfg)] == ['vitest:api', 'vitest:web', 'repo']
+    assert cache.read_last(cfg)['run'] == 'check --static' and cache.read_last(cfg, 'vitest:web')['lines'][0]['kind'] == 'red'
+    assert cli.main(['--root', str(tmp_path), 'show', '--last']) == 0
+    at = lambda stamp: time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(stamp))
+    assert capsys.readouterr().out.splitlines() == [
+        f'FlowGuard 5.1.0 last run: vitest api/ at {at(20.0)}', 'FlowGuard 5.1 (since aaaaaaa): 0 red; 0.5 s',
+        f'FlowGuard 5.1.0 last run: vitest web/ at {at(10.0)}', 'FlowGuard 5.1 (since aaaaaaa): 1 red; 0.5 s',
+        'red: ' + RED[3] + ' -> ' + RED[4], '    finding same:WEB_LIMIT',
+        f'FlowGuard 5.1.0 last run: check --static at {at(5.0)}', 'FlowGuard 5.1 (since aaaaaaa): 0 red; 0.5 s']
+    assert cli.screen(cfg) == 0
+    assert capsys.readouterr().out.splitlines()[-1] == '1 red in the last run of web/: python -m flowguard show --last'
+    # a red in the repo slot too: both runs are named, newest first
+    with closing(connect(cfg.cache / 'map.sqlite')) as con, con:
+        cache.save_last(con, _slot('repo', 30.0, [('red', 'pair:A>B', 'm:f', 'together A: m.py:f writes A', 'also write B',
+                                                   ('m.py:f',))], run='check --static'))
+    assert cli.screen(cfg) == 0
+    assert capsys.readouterr().out.splitlines()[-1] == ('2 red in the last runs of check --static and web/: '
+                                                        'python -m flowguard show --last')
+    # a package whose config is gone is no longer read: its slot is dropped
+    (tmp_path / 'web/vitest.config.mjs').unlink()
+    assert [run['scope'] for run in cache.read_runs(cfg)] == ['repo', 'vitest:api']
+    assert cli.screen(cfg) == 0
+    assert capsys.readouterr().out.splitlines()[-1] == '1 red in the last run: python -m flowguard show --last'
+
+
+def test_a_vitest_run_that_never_reported_says_so_above_its_packages_earlier_lines(tmp_path, capsys):
+    """PTW-V2-2: the preparation notes the run's start in its package's slot and the report replaces the note, so a run
+    killed before it reports (an outer `timeout`) says it did not report, above the lines of the package's run before;
+    5.0 showed the static test's lines from inside the killed run as a finished `check --static` with 0 red."""
+    _package(tmp_path, 'web')
+    _package(tmp_path, 'api')
+    cfg = load_config(tmp_path)
+    cache.keep_last(cfg, _slot('vitest:web', 10.0, [RED]))
+    cache.keep_last(cfg, started=('vitest:web', 15.0, 'vitest'))
+    cache.keep_last(cfg, started=('vitest:api', 12.0, 'vitest'))         # api has no earlier run
+    assert cli.main(['--root', str(tmp_path), 'show', '--last']) == 0
+    at = lambda stamp: time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(stamp))
+    assert capsys.readouterr().out.splitlines() == [
+        f'FlowGuard 5.1.0 last run: vitest web/ at {at(10.0)}',
+        f'a vitest run of web/ started at {at(15.0)} did not report; the lines below are from the run at {at(10.0)}',
+        'FlowGuard 5.1 (since aaaaaaa): 1 red; 0.5 s', 'red: ' + RED[3] + ' -> ' + RED[4], '    finding same:WEB_LIMIT',
+        f'FlowGuard {__version__}: a vitest run of api/ started at {at(12.0)} did not report; no earlier run of api/ is recorded']
+    assert cli.screen(cfg) == 0      # the package's last reported reds still stand
+    assert capsys.readouterr().out.splitlines()[-1] == '1 red in the last run of web/: python -m flowguard show --last'
+    cache.keep_last(cfg, _slot('vitest:web', 20.0))           # the next run of web/ reports: the note is gone
+    assert 'started' not in cache.read_last(cfg, 'vitest:web')
+    assert cli.screen(cfg) == 0 and len(capsys.readouterr().out.splitlines()) == 1
+
+
+def test_the_one_last_run_of_5_0_is_read_as_its_slot(tmp_path, capsys):
+    """A 5.0.1 cache keeps one record under `last_lines`, without scope or version: a pytest, check or check --static
+    run is the `repo` slot, printed as 5.0 printed it; a vitest run named no package, so it is read as `vitest` until the
+    next vitest run of any package replaces it, as the next vitest run replaced it in 5.0."""
+    _package(tmp_path, 'web')
+    cfg = load_config(tmp_path)
+    cfg.cache.mkdir(parents=True)
+    old = json.loads(json.dumps({key: value for key, value in _slot('repo', 1.0, [RED], run='pytest').items()
+                                 if key not in ('scope', 'version', 'pytest')}))
+    with closing(connect(cfg.cache / 'map.sqlite')) as con, con:
+        cache.put_meta(con, 'last_lines', json.dumps(old))
+    assert cache.read_runs(cfg) == [dict(old, scope='repo')]
+    assert cli.main(['--root', str(tmp_path), 'show', '--last']) == 0
+    assert capsys.readouterr().out.splitlines()[0] == f'FlowGuard last run: pytest at {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(1.0))}'
+    with closing(connect(cfg.cache / 'map.sqlite')) as con, con:
+        cache.put_meta(con, 'last_lines', json.dumps(dict(old, run='vitest')))
+    assert [run['scope'] for run in cache.read_runs(cfg)] == ['vitest']
+    assert cli.screen(cfg) == 0
+    assert capsys.readouterr().out.splitlines()[-1] == '1 red in the last run of vitest: python -m flowguard show --last'
+    cache.keep_last(cfg, _slot('vitest:web', 2.0))
+    assert [run['scope'] for run in cache.read_runs(cfg)] == ['vitest:web']
+    assert cli.screen(cfg) == 0 and len(capsys.readouterr().out.splitlines()) == 1
+
+
+def _hand(root):
+    """PEMEL Studio's hand shape: tests/test_a.py fails, tests/test_b.py passes."""
+    _commit(root, {'app/__init__.py': '', 'app/core.py': 'def f(x):\n    return x + 1\n',
+                   'tests/test_a.py': 'from app.core import f\n\ndef test_x():\n    assert f(1) == 3\n',
+                   'tests/test_b.py': 'from app.core import f\n\ndef test_b():\n    assert f(1) == 2\n',
+                   'pyproject.toml': '[tool.pytest.ini_options]\npythonpath = ["."]\n'})
+
+
+def test_a_failed_test_the_last_run_did_not_select_is_counted_as_such_and_show_last_lists_it(tmp_path, capsys):
+    """PEMEL17-14: after `pytest` (test_a failed), `pytest tests/test_b.py`, a commit and new-task, 5.0's brief said
+    `1 still red: python -m flowguard show --last`, and show --last printed only the last run, `0 red`: no route
+    listed the failure, and an ordinary failed test was called red. The brief now counts it as a failed test with its
+    id, from the readings it keeps (`cli._brief_reds`), and show --last lists each with its outcome, when it ran and
+    whether the last pytest run selected it; a run of the test that passes clears it."""
+    _hand(tmp_path)
+    assert run(tmp_path).returncode == 1
+    assert run(tmp_path, 'tests/test_b.py').returncode == 0
+    _commit(tmp_path, {'notes.txt': 'x\n'})
+    assert cli.main(['--root', str(tmp_path), 'new-task']) == 0
+    brief = capsys.readouterr().out.splitlines()
+    assert brief[-1] == '1 test failed when last run and has not run since: tests/test_a.py::test_x', brief
+    assert not any('red' in line for line in brief[1:]), brief
+    shown = _cli_fixture.last(tmp_path).splitlines()
+    readings = cache.read(load_config(tmp_path))
+    when = lambda stamp: time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(stamp))
+    assert shown[:2] == [f'FlowGuard {__version__} last run: pytest at {when(readings["attempt"]["stamp"])}',
+                         'pytest: exit 0, 0 failed'], shown
+    assert shown[-2:] == ['tests that failed when last run and have not run since (the brief counts these):',
+                          f'    tests/test_a.py::test_x: failed (call) at {when(readings["tests"]["tests/test_a.py::test_x"]["stamp"])}; '
+                          f'not selected by the last pytest run, at {when(readings["attempt"]["stamp"])}'], shown
+    assert run(tmp_path, 'tests/test_a.py').returncode == 1            # selected, failed again
+    assert _cli_fixture.last(tmp_path).splitlines()[-1].endswith('; the last pytest run selected it')
+    (tmp_path / 'tests/test_a.py').write_text('from app.core import f\n\ndef test_x():\n    assert f(1) == 2\n', encoding='utf-8')
+    assert run(tmp_path, 'tests/test_a.py').returncode == 0
+    assert cli.screen(load_config(tmp_path)) == 0 and len(capsys.readouterr().out.splitlines()) == 1
+    assert 'tests that failed' not in _cli_fixture.last(tmp_path)
+
+
+def test_show_last_carries_pytests_own_outcome_beside_the_agreement_counts(tmp_path):
+    """PEMEL17-12: after `pytest -x` show --last said `0 red` with no exit status, failed count or early stop."""
+    _hand(tmp_path)
+    (tmp_path / 'tests/test_c.py').write_text('import pytest\n\n@pytest.fixture\ndef broken():\n    raise OSError("no display")\n\n'
+                                              'def test_c(broken):\n    pass\n', encoding='utf-8')
+    assert run(tmp_path, '-x', '-p', 'no:randomly').returncode == 1
+    assert _cli_fixture.last(tmp_path).splitlines()[1] == 'pytest: exit 1, 1 failed, stopped early (-x)'
+    assert run(tmp_path).returncode == 1
+    assert _cli_fixture.last(tmp_path).splitlines()[1] == 'pytest: exit 1, 1 failed, 1 error'
+    assert run(tmp_path, '--maxfail=2').returncode == 1
+    assert _cli_fixture.last(tmp_path).splitlines()[1] == 'pytest: exit 1, 1 failed, 1 error, stopped early (--maxfail=2)'

@@ -716,7 +716,8 @@ def prepare(root, package=None):
     given). The first line is always printed (D12): a run whose package has the static test wired prints that test's
     map checks in its block (design 4.7), and a run without a baseline commit (outside Git, before the first commit, a
     recorded task start this repository lacks) compares its same-name copies as pytest does and says in its title
-    that nothing was compared with a baseline (D13)."""
+    that nothing was compared with a baseline (D13). A run that is on notes its start in its package's slot of the last
+    runs (`cache.stamp_start`), which its report replaces."""
     from . import cache
     from .config import load_config
     from ..map.common import atomic_write_text, git_common_directory, git_run
@@ -748,6 +749,9 @@ def prepare(root, package=None):
     if not data['files'] and not data['unplanned'] and commit is not None and not _wired(cfg, package):
         return dict(status='off', reason='no functions to observe in this change (anchors or changed module-level functions)',
                     seconds=data['prepare_seconds'])
+    # The run's report replaces this note; one that never reports (killed, timed out) leaves it, and show --last says so
+    # above the package's earlier lines, never the static test's lines as a finished check.
+    cache.keep_last(cfg, started=(cache.vitest_scope(cfg, package), time.time(), 'vitest'))
     return dict(status='on', plan=path.as_posix(), adapter=(ADAPTER / 'index.mjs').as_posix(), seconds=data['prepare_seconds'])
 
 
@@ -1514,29 +1518,16 @@ def _wired(cfg, package):
     return path.is_file() and path.read_text(encoding='utf-8-sig').startswith(INIT_MARK)
 
 
-def _save_last(cfg, payload):
-    """Keep this run's lines for `show --last` (`cache.save_last`)."""
-    import sqlite3
-    from contextlib import closing
-    from .cache import save_last
-    from ..map.common import CACHE_TIMEOUT, cache_dir
-    cache_dir(cfg.root)
-    with closing(sqlite3.connect(cfg.cache / 'map.sqlite', timeout=CACHE_TIMEOUT)) as con:
-        con.execute('CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT)')
-        with con:
-            save_last(con, payload)
-
-
 def report(root, plan_path, observations, package=None, *, in_test=False):
     """Judge this run's observations, merge the map checks the static test saved in this run, print the 4.3 block
     (`signals.render_block`, a place named by the shortest end of its path no other file of the repository has) and
-    keep its lines for `show --last`; 1 when a line is red. The first line's time is FlowGuard's own: the preparation,
-    the recording, this report and the static test's map checks. `in_test` is the session test (session.test.mjs,
-    run after the project's tests): it keeps the observations and saves the block, its status and the number of its
-    reds the static test did not already fail on, for the session test and the teardown, which prints the block after
-    vitest's summary instead of judging again."""
+    keep its lines for `show --last` in its package's slot; 1 when a line is red. The first line's time is FlowGuard's
+    own: the preparation, the recording, this report and the static test's map checks. `in_test` is the session test
+    (session.test.mjs, run after the project's tests): it keeps the observations and saves the block, its status and the
+    number of its reds the static test did not already fail on, for the session test and the teardown, which prints the
+    block after vitest's summary instead of judging again."""
     import os
-    from . import signals
+    from . import cache, signals
     from .config import load_config
     from .differences import display
     from ..map.common import git_files
@@ -1562,8 +1553,12 @@ def report(root, plan_path, observations, package=None, *, in_test=False):
     heading = signals.title(lines, baseline=result['baseline'], kind=result['baseline_kind'], ahead=result['baseline_ahead'],
                             seconds=seconds)
     text = signals.render_block(lines, title=heading, files=files)
-    _save_last(cfg, signals.last_run(lines, ignored + (static['ignored'] if static else 0), run='vitest', stamp=time.time(),
-                                     baseline=result['baseline'], kind=result['baseline_kind'], title=heading, seconds=seconds))
+    # this package's slot (`cache.vitest_scope`): another package's run keeps its own, and this one replaces the start
+    # its preparation noted
+    cache.keep_last(cfg, signals.last_run(lines, ignored + (static['ignored'] if static else 0),
+                                          scope=cache.vitest_scope(cfg, package), run='vitest', stamp=time.time(),
+                                          baseline=result['baseline'], kind=result['baseline_kind'], title=heading,
+                                          seconds=seconds))
     status = 1 if red else 0
     if in_test:
         (Path(observations) / SESSION).write_text(json.dumps(dict(text=text, status=status, red=mine), ensure_ascii=False),

@@ -178,8 +178,10 @@ def _known_brief(entry):
 
 
 def _brief_reds(cfg, data):
-    """The reds the last check left that no baseline moves: intent load errors (the static scan), a failed
-    verification or collection, red intent results and failed tests of pytest's scope, one per message."""
+    """(reds, failed) the last checks left that no baseline moves, the one source of the brief's counts of them and of
+    the list `show --last` gives: `reds` are intent load errors (the static scan), a failed verification or collection
+    and red intent results, one per message; `failed` the failed tests of pytest's scope as (test id, reading), each
+    reading the outcome of the last run that ran its test, the most recent first (an ordinary failed test is no red)."""
     from .deps import test_scope
     summary, attempt = data['summary'], data['attempt'] or {}
     reds = [f'load {error["file"]}:{error["line"]}: {error["msg"]}' for error in summary['errors']]
@@ -193,12 +195,13 @@ def _brief_reds(cfg, data):
         if _rule_colour(item, result) == 'red':        # a red colour has items
             messages = [message for value in result['items'].values() for message in value.get('red', [])]
             reds.extend(f'{rid}: {message}' for message in messages or ['reported red'])
-    in_scope = test_scope(cfg)
-    reds += ['test ' + test for test, reading in data['tests'].items()
-             if reading['outcome'] == 'failed' and in_scope(test.partition('::')[0])]
     if attempt.get('missing') or (attempt.get('collected') and attempt.get('sentinel') != 'ok'):
         reds.append('collection incomplete')
-    return list(dict.fromkeys(reds))
+    in_scope = test_scope(cfg)
+    failed = sorted(((test, reading) for test, reading in data['tests'].items()
+                     if reading['outcome'] == 'failed' and in_scope(test.partition('::')[0])),
+                    key=lambda item: (-item[1]['stamp'], item[0]))
+    return list(dict.fromkeys(reds)), failed
 
 
 def _dirty(cfg):
@@ -211,12 +214,13 @@ def _dirty(cfg):
 
 def _recounted(cfg, line):
     """Is this red of the last run one the brief counts from where it is read now: an intent rule's or a test's
-    (the intent cache, `_brief_reds`), or an input problem of an intent file or a catalog file (the static scan and
-    `sources.catalog`)?"""
+    (the intent cache and the test readings, `_brief_reds`), or an input problem of an intent file or a catalog file
+    (the static scan and `sources.catalog`)? `check`'s own red that pytest failed with no finding to say why
+    (`test:pytest`) is no test's reading: it counts as a red of that run."""
     from .signals import family_of
     from .sources import CATALOG_FILES
     family = family_of(line['name'])
-    if family in ('rule', 'test'):
+    if family == 'rule' or family == 'test' and line['name'] != 'test:pytest':
         return True
     intent = cfg.rel(cfg.intent)
     files = [place.rpartition(':')[0] for place in line['places']]
@@ -224,23 +228,64 @@ def _recounted(cfg, line):
         file in CATALOG_FILES or file == intent or file.startswith(intent + '/') for file in files)
 
 
-def _last_reds(cfg, baseline):
-    """(now before, still red) of the last run's reds (`cache.read_last`), but those the brief counts where they are
-    read now (`_recounted`). When that run compared with another commit than `baseline` (new-task has moved it
-    since), a red of a baseline-judged family whose places' files are all clean against HEAD is before now (D26);
-    one that names no place, one with a dirty file and every red of another family still count."""
+def _package(run):
+    """The folder of a vitest slot's package as the lines name it (`web/`), '' for the repository's top folder, for the
+    `repo` slot and for a vitest run 5.0 recorded without its package."""
+    folder = run['scope'].partition('vitest:')[2]
+    return '' if folder in ('', '.') else folder + '/'
+
+
+def _slot_label(run):
+    """What the brief calls a slot's last run: a vitest package's by its folder (`web/`, `vitest` for the top folder), the
+    `repo` slot's by its run (`pytest`, `check`, `check --static`)."""
+    return _package(run) or run['run']
+
+
+def _last_reds(cfg, baseline, runs):
+    """(now before, {slot label: still red}) of the reds of each slot's last run (`cache.read_runs`), newest first, but
+    those the brief counts where they are read now (`_recounted`). When a slot's run compared with another commit than
+    `baseline` (new-task has moved it since), a red of a baseline-judged family whose places' files are all clean
+    against HEAD is before now (D26); one that names no place, one with a dirty file and every red of another family
+    still count."""
     from .signals import family_of
-    last = cache.read_last(cfg)
-    if last is None:
-        return 0, 0
-    reds = [line for line in last['lines'] if line['kind'] == 'red' and not _recounted(cfg, line)]
-    judged = [line for line in reds if family_of(line['name']) in BASELINE_FAMILIES]
-    if not judged or baseline is None or last['baseline'] in (None, baseline):
-        return 0, len(reds)
-    dirty = _dirty(cfg)
-    moved = sum(bool(line['places']) and not any(place.rpartition(':')[0] in dirty for place in line['places'])
-                for line in judged)
-    return moved, len(reds) - moved
+    before, still, dirty = 0, {}, None
+    for run in runs:
+        reds = [line for line in run['lines'] if line['kind'] == 'red' and not _recounted(cfg, line)]
+        judged = [line for line in reds if family_of(line['name']) in BASELINE_FAMILIES]
+        moved = 0
+        if judged and baseline is not None and run['baseline'] not in (None, baseline):
+            dirty = _dirty(cfg) if dirty is None else dirty
+            moved = sum(bool(line['places']) and not any(place.rpartition(':')[0] in dirty for place in line['places'])
+                        for line in judged)
+        before += moved
+        if len(reds) > moved:
+            still[_slot_label(run)] = still.get(_slot_label(run), 0) + len(reds) - moved
+    return before, still
+
+
+def _red_tail(still, runs, reds):
+    """The brief's count of the reds that still stand (`_last_reds`, and the intent results' `reds` of `_brief_reds`,
+    which are pytest's and count with the `repo` slot): `2 red in the last run: python -m flowguard show --last`, naming
+    the runs once a vitest package's holds some (`1 red in the last run of web/`, `3 red in the last runs of
+    check --static and web/`); '' for none."""
+    repo = next((_slot_label(run) for run in runs if run['scope'] == cache.REPO), 'pytest')
+    if reds:
+        still = dict(still, **{repo: still.get(repo, 0) + len(reds)})
+    if not still:
+        return ''
+    where = '' if list(still) == [repo] else f'{"s" * (len(still) > 1)} of {" and ".join(still)}'
+    return f'{sum(still.values())} red in the last run{where}: python -m flowguard show --last'
+
+
+def _failed_tail(failed):
+    """The brief's count of the failed tests it keeps from their last runs (`_brief_reds`), never called red, with the
+    most recent: `1 test failed when last run and has not run since: tests/test_a.py::test_x`; '' for none."""
+    if not failed:
+        return ''
+    count = len(failed)
+    more = f' and {count - 1} more: python -m flowguard show --last' if count > 1 else ''
+    return (f'{count} test{"s" * (count != 1)} failed when last run and {"have" if count != 1 else "has"} not run since: '
+            f'{failed[0][0]}{more}')
 
 
 def _brief(cfg, data, baseline, note='', *, structure=()):
@@ -248,7 +293,8 @@ def _brief(cfg, data, baseline, note='', *, structure=()):
     first rules of .flowguard/rules.toml in file order; the open matters of .flowguard/known.toml (ask, not asked yet;
     ask, asked; fix; leave; never ignore); the last check's lines (`health.brief_lines`: one count of the open
     structure problems, one of the generated regions out of date); and what
-    the last run left: the reds new-task's moved baseline turned into before, the reds that still stand, and invalid
+    the last runs left (`cache.read_runs`, one per slot): the reds new-task's moved baseline turned into before, the
+    reds that still stand (`_red_tail`), the failed tests kept from their last runs (`_failed_tail`), and invalid
     entries of the two files; then one line when AGENTS.md or CLAUDE.md holds a FlowGuard rules block other than
     the one `init` writes now (`_stale_rules`), never a line of the block, and one line naming each of those files
     that is no UTF-8 or UTF-16 text, with the decoder's error."""
@@ -258,11 +304,11 @@ def _brief(cfg, data, baseline, note='', *, structure=()):
     head = [first + ('; ' + note.removeprefix('baseline: ') if note else '')]
     found = catalog(cfg)
     waiting = _known_order(entry for entry in found.known.values() if entry.act != 'ignore')
-    before, still = _last_reds(cfg, baseline)
-    still += len(_brief_reds(cfg, data))
+    runs = cache.read_runs(cfg)
+    before, still = _last_reds(cfg, baseline, runs)
+    reds, failed = _brief_reds(cfg, data)
     tail = [f'{before} red from the previous task are now before'] if before else []
-    if still:
-        tail.append(f'{still} still red: python -m flowguard show --last')
+    tail += [text for text in (_red_tail(still, runs, reds), _failed_tail(failed)) if text]
     if found.issues:
         tail.append(f'{len(found.issues)} invalid entries in .flowguard/rules.toml or known.toml: python -m flowguard show rules')
     # The project's copy of the rules may still say what this FlowGuard no longer does.
@@ -424,31 +470,84 @@ def _silent_lines(cfg, index, rid, full, limit=10):
     return lines
 
 
-def show_last(cfg, full=False):
-    """`show --last`: which run it was and when (`FlowGuard last run: pytest at 2026-11-12 14:03:51`, local time), the
-    run's first line, then every one of its lines (no budget, no cut, full paths) with its detail indented under
-    it; how many members an `act = "ignore"` entry of known.toml covered, when any
-    did; and the unchanged points an explicit comparison compared. Read from
-    the cache (`cache.read_last`), without building the map."""
-    from .differences import display
+def _when(stamp):
+    return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(stamp))
+
+
+def _pytest_line(outcome):
+    """pytest's own outcome of a session (`plugin.session_outcome`) as `show --last` prints it beside FlowGuard's lines:
+    `pytest: exit 1, 1 failed, stopped early (-x)`."""
+    errors = outcome['errors']
+    return (f'pytest: exit {outcome["exit"]}, {outcome["failed"]} failed' + (f', {errors} error{"s" * (errors != 1)}' if errors else '')
+            + (f', {outcome["stopped"]}' if outcome['stopped'] else ''))
+
+
+def _run_lines(run):
+    """One slot's last run as `show --last` prints it: which run it was, with the full version of the FlowGuard that
+    ran it and when (`FlowGuard 5.1.0 last run: vitest web/ at 2026-11-23 08:21:55`, local time; a record of 5.0 names
+    no version), a later start of the slot that did not report, pytest's own outcome, the run's first line, then every
+    one of its lines (no budget, no cut, full paths) with its detail indented under it; how many members an
+    `act = "ignore"` entry of known.toml covered, when any did; and the unchanged points an explicit comparison
+    compared."""
     from .signals import family_of
-    last = cache.read_last(cfg)
-    if last is None:
-        print('FlowGuard: no last run recorded')
-        return 0
-    lines = [f'FlowGuard last run: {last["run"]} at {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(last["stamp"]))}',
-             last['title']]
-    for line in last['lines']:
+    who = f'FlowGuard {run["version"]}' if run.get('version') else 'FlowGuard'
+    package = _package(run)
+    name = f'{run["run"]} {package}' if package else run['run']
+    started = run.get('started') and (f'a {run["run"]} run' + (f' of {package}' if package else '')
+                                      + f' started at {_when(run["started"])} did not report')
+    if run['stamp'] is None:        # a start note alone (`cache.stamp_start`)
+        return [f'{who}: {started}; no earlier run' + (f' of {package}' if package else '') + ' is recorded']
+    lines = [f'{who} last run: {name} at {_when(run["stamp"])}']
+    if started:
+        lines.append(f'{started}; the lines below are from the run at {_when(run["stamp"])}')
+    if run.get('pytest'):
+        lines.append(_pytest_line(run['pytest']))
+    lines.append(run['title'])
+    for line in run['lines']:
         lines.append(f'{line["kind"]}: {line["text"]}' + (f' -> {line["step"]}' if line['step'] else ''))
         lines.extend('    ' + detail for detail in line['detail'])
         if family_of(line['name']) not in ('', 'input'):          # the name known add takes
             lines.append(f'    finding {line["name"]}')
-    if last['ignored']:
-        lines.append(f'ignored: {last["ignored"]} (act = "ignore")')
-    if last.get('compared'):
+    if run['ignored']:
+        lines.append(f'ignored: {run["ignored"]} (act = "ignore")')
+    if run.get('compared'):
         lines.append('compared, unchanged:')
-        lines.extend('    ' + text for text in last['compared'])
-    display('\n'.join(lines))
+        lines.extend('    ' + text for text in run['compared'])
+    return lines
+
+
+def _kept_lines(cfg, data):
+    """What the brief counts besides the runs' own lines (`_brief_reds`), as `show --last` lists it after them: the
+    intent results' reds, and each failed test kept from its last run with its outcome, phase and reason, when it ran
+    and whether the last pytest run selected it (a test that run did not select is not known to pass now)."""
+    reds, failed = _brief_reds(cfg, data)
+    lines = []
+    if reds:
+        lines.append('red in the intent results and the last pytest attempt (the brief counts these):')
+        lines.extend('    ' + red for red in reds)
+    if failed:
+        last = (data['attempt'] or {}).get('stamp')
+        lines.append('tests that failed when last run and have not run since (the brief counts these):')
+        for test, reading in failed:
+            why = ', '.join(part for part in (reading['phase'], reading['reason']) if part)
+            selected = '' if last is None else '; the last pytest run selected it' if reading['stamp'] == last else \
+                f'; not selected by the last pytest run, at {_when(last)}'
+            lines.append(f'    {test}: {reading["outcome"]}' + (f' ({why})' if why else '') + f' at {_when(reading["stamp"])}{selected}')
+    return lines
+
+
+def show_last(cfg, full=False):
+    """`show --last`: the last run of each slot (`cache.read_runs`: pytest, check and check --static share the `repo`
+    slot, each vitest package has its own), newest first, each as `_run_lines` prints it, then what the brief counts
+    besides their lines (`_kept_lines`). Read from the cache (`cache.read_runs`, `cache.read`), without building the
+    map."""
+    from .differences import display
+    runs, kept = cache.read_runs(cfg), _kept_lines(cfg, cache.read(cfg))
+    if not runs and not kept:
+        print('FlowGuard: no last run recorded')
+        return 0
+    display('\n'.join([*(['FlowGuard: no last run recorded'] if not runs else []),
+                       *(line for run in runs for line in _run_lines(run)), *kept]))
     return 0
 
 
@@ -458,11 +557,11 @@ def _holds(text):
     return f'(holds: {CHOICE_NOTE})' if parse(text, strict=True).kind == 'picked' else '(holds)'
 
 
-def _finding_state(last, entry):
-    """What the last run (`cache.read_last`) said of a known entry's finding."""
-    if last is None:
+def _finding_state(runs, entry):
+    """What the last runs (`cache.read_runs`, one per slot) said of a known entry's finding."""
+    if not runs:
         return 'no run recorded'
-    names = {(line['kind'], line['name']) for line in last['lines']}
+    names = {(line['kind'], line['name']) for run in runs for line in run['lines']}
     if ('known fixed?', f'known.{entry.id}') in names:
         return 'not found in the last run (known fixed?)'
     return 'found in the last run' if any(name == entry.finding for _, name in names) else 'not reported in the last run'
@@ -482,7 +581,7 @@ def show_catalog(cfg, query, full=False):
             resolved, unresolved = known_sites(graph, found.known.values())
     sites = {entry.id: entry for entry in resolved}
     problems = [*found.issues, *unresolved]
-    archive, cited, last = shared_archive(cfg.root), citing(cfg), cache.read_last(cfg)
+    archive, cited, runs = shared_archive(cfg.root), citing(cfg), cache.read_runs(cfg)
     table, _, wanted = query.partition('.')
     rules = [rule for rule in found.rules.values() if query == 'rules' or table == 'rule' and rule.id == wanted]
     entries = [entry for entry in found.known.values() if query == 'rules' or table == 'known' and entry.id == wanted]
@@ -504,7 +603,7 @@ def show_catalog(cfg, query, full=False):
         for site in entry.sites:
             lines.append(f'    site {site}' + ('' if entry.id in sites else ' (see the input problem below)'))
         if entry.finding:
-            lines.append(f'    finding {entry.finding}: {_finding_state(last, entry)}')
+            lines.append(f'    finding {entry.finding}: {_finding_state(runs, entry)}')
         if entry.source:
             valid, reason = catalog_authority(parse(entry.source, strict=True), cfg, archive)
             lines.append(f'    source: {entry.source} ' + (_holds(entry.source) if valid else f'(does not hold: {reason})'))
@@ -752,13 +851,15 @@ def _last_run_lines(cfg, graph, query, name, site_names, *, held, full, hidden=N
     service.ts:create was broken at task start -> leave it unless your task is about it`. A line is placed there when
     one of its places names the query (`site_names`: the node's file and symbol, the file, a symbol the name names)
     or, with `held`, its member is a function that the query `object.method` names (`_held_methods`). None without
-    a recorded run. The number of lines left out without `full` is appended to `hidden` when it is a list."""
-    last = cache.read_last(cfg)
-    if last is None:
+    a recorded run. The number of lines left out without `full` is appended to `hidden` when it is a list. The lines
+    come from every slot's last run (`cache.read_runs`), a line two slots gave once."""
+    runs = cache.read_runs(cfg)
+    if not runs:
         return []
     methods = _held_methods(graph, name) if held else set()
-    found = [line for line in last['lines'] if not line['name'].startswith('known.')
-             and (line['function'] in methods or any(site_names(place) for place in line['places']))]
+    found = list({(line['kind'], line['text'], line['step']): line for run in runs for line in run['lines']
+                  if not line['name'].startswith('known.')
+                  and (line['function'] in methods or any(site_names(place) for place in line['places']))}.values())
     shown = found if full else found[:FINDINGS_SHOWN]
     lines = [f'{line["kind"]} (last run): {line["text"]}' + (f' -> {line["step"]}' if line['step'] else '') for line in shown]
     if len(shown) < len(found):
@@ -1606,17 +1707,6 @@ def _uncovered_alone(issues, deliveries, index):
     return kept
 
 
-def _keep_last(cfg, payload):
-    """`cache.save_last` for a check that holds no map connection of its own."""
-    import sqlite3
-    from flowguard.map.common import CACHE_TIMEOUT, cache_dir
-    cache_dir(cfg.root)
-    with closing(sqlite3.connect(cfg.cache / 'map.sqlite', timeout=CACHE_TIMEOUT)) as con:
-        con.execute('CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT)')
-        with con:
-            cache.save_last(con, payload)
-
-
 def check(cfg, *, everything=False, deep=False, base=None):
     """Run the one ordinary pytest route; source validation executes no code. The 4.3 block at the end: the findings
     of its pytest batch (`plugin.collect_signals().deliveries`), its own (the intent results, the comments, the
@@ -1669,8 +1759,8 @@ def check(cfg, *, everything=False, deep=False, base=None):
     # also where the pytest batch resolved it to its commit.
     heading = signals.title(lines, baseline=baseline if base is None else base, kind=kind, ahead=ahead, option='--base',
                             seconds=seconds)
-    _keep_last(cfg, signals.last_run(lines, ignored, run='check', stamp=started, baseline=baseline, kind=kind, title=heading,
-                                     seconds=seconds))
+    cache.keep_last(cfg, signals.last_run(lines, ignored, scope=cache.REPO, run='check', stamp=started, baseline=baseline,
+                                          kind=kind, title=heading, seconds=seconds))
     status = int(any(line.kind == 'red' for line in lines))
     _show_signals(signals.render_block(lines, title=heading, everything=everything, files=files), status)
     return status
@@ -1700,10 +1790,11 @@ def static_check(cfg, *, everything=False, base=None):
     prints, with the whole command's seconds; the lines are kept for `show --last`, and a place is named by the
     shortest end of its path that no other file of the repository has. With FLOWGUARD_LINES set (the static test
     inside a vitest run, `NPM_CHECK`) the payload `show --last` keeps (`signals.last_run`) and the parts of its first
-    line (`title_parts`, the keywords of `signals.title`) go to that JSON file for the vitest report's block, and
-    nothing to stdout. Exit 1 for a red line only. Without `base` the first run of a task records HEAD as its baseline
-    when none is recorded; a recorded one stays, as in pytest (`cache.task_start`); the title names it as pytest
-    does."""
+    line (`title_parts`, the keywords of `signals.title`) go to that JSON file for the vitest report's block, nothing
+    to stdout, and nothing to `show --last`: the vitest report keeps them in its package's slot, and a vitest run killed
+    before it reports leaves the slot's earlier run, never these lines as a finished `check --static` (5.0 did). Exit
+    1 for a red line only. Without `base` the first run of a task records HEAD as its baseline when none is recorded; a
+    recorded one stays, as in pytest (`cache.task_start`); the title names it as pytest does."""
     started, timing = time.time(), time.perf_counter()
     from . import anchors, ledger as fallbacks, owners, signals
     start = cache.task_start(cfg, record=True) if base is None else (base, 'base', None)
@@ -1723,11 +1814,12 @@ def static_check(cfg, *, everything=False, base=None):
         seconds = time.perf_counter() - timing
         parts = dict(baseline=start[0], kind=start[1], ahead=start[2], option='--base')
         heading = signals.title(lines, **parts, seconds=seconds)
-        payload = signals.last_run(lines, ignored, run='check --static', stamp=started, baseline=start[0], kind=start[1],
-                                   title=heading, seconds=seconds)
+        payload = signals.last_run(lines, ignored, scope=cache.REPO, run='check --static', stamp=started, baseline=start[0],
+                                   kind=start[1], title=heading, seconds=seconds)
         with graph.con:
             cache.save_structure(graph.con, found.summary)
-            cache.save_last(graph.con, payload)
+            if not target:          # inside vitest the vitest report keeps the run, these lines among its own
+                cache.save_last(graph.con, payload)
     status = int(any(line.kind == 'red' for line in lines))
     if target:
         # the vitest report reads this file (`vitest.static_lines`): the payload show --last reads, and the parts of

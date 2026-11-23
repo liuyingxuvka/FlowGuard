@@ -10,6 +10,7 @@ import pytest
 
 from tests.intent_engine import _cli_fixture as cli_fixture
 
+from flowguard import __version__
 from flowguard.intent import cache, cli
 from flowguard.intent.config import load_config
 from tests.intent_engine._source_fixture import annotate
@@ -474,7 +475,7 @@ def test_a_violated_rule_has_the_next_step_of_its_kind_in_pytest_and_every_check
         assert detail(root) == full, run
         # check keeps its own lines for show --last, which names the run and prints the first line check printed
         shown = cli_fixture.last(root).splitlines()
-        assert shown[0].startswith('FlowGuard last run: check at ') and shown[1] == cli_fixture.block(text)[0], (run, shown)
+        assert shown[0].startswith(f'FlowGuard {__version__} last run: check at ') and shown[1] == cli_fixture.block(text)[0], (run, shown)
 
 
 def test_check_says_known_fixed_for_a_rule_whose_results_pass_also_when_it_reuses_them(tmp_path, capsys, monkeypatch):
@@ -555,7 +556,7 @@ def test_a_skipped_declaration_is_a_visible_load_failure(tmp_path, capsys):
     assert cli_fixture.check(cfg) == 1
     assert 'Skipped' in capsys.readouterr().out
     assert cli.screen(cfg) == 0  # A screen reports cached facts; check owns execution status.
-    assert capsys.readouterr().out.splitlines()[-1] == '1 still red: python -m flowguard show --last'
+    assert capsys.readouterr().out.splitlines()[-1] == '1 red in the last run: python -m flowguard show --last'
 
 
 def test_show_short_function_name_is_an_exact_owner_candidate(tmp_path, capsys):

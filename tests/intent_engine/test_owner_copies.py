@@ -13,6 +13,7 @@ import textwrap
 from tests.intent_engine import _cli_fixture
 from tests.intent_engine._cli_fixture import display_text as _text
 
+from flowguard import __version__
 from flowguard.intent import anchors
 
 SOURCE = str(Path(__file__).resolve().parents[2])
@@ -835,7 +836,7 @@ def test_a_typescript_data_owner_turns_a_new_prisma_write_outside_its_writers_re
     # show --last names the run first; the agreement is the detail under the red line, found by its text
     shown = _cli_fixture.last(tmp_path).splitlines()
     red = next(index for index, line in enumerate(shown) if line.startswith('red: writers Employee.organizationalUnitId: '))
-    assert shown[0].startswith('FlowGuard last run: check at ') and shown[red + 1] == '    agreement: backend/src/owners.ts:1', shown
+    assert shown[0].startswith(f'FlowGuard {__version__} last run: check at ') and shown[red + 1] == '    agreement: backend/src/owners.ts:1', shown
 
 
 def test_show_lists_an_owners_old_ledger(tmp_path):

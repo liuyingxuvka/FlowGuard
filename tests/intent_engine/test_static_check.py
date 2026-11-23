@@ -19,6 +19,7 @@ import pytest
 from tests.intent_engine import _cli_fixture
 from tests.intent_engine._cli_fixture import display_text as _text, unchecked
 
+from flowguard import __version__
 from flowguard.intent import anchors, cache, signals
 from flowguard.structure import build
 
@@ -2163,7 +2164,7 @@ def test_fixed_16_the_declarations_that_differ_are_the_line_of_check_static_and_
     differ = _block(text)
     assert code == 0 and len(differ) == 1 and differ[0].startswith('impact: declarations OrganizationNavigationLabel: '), text
     shown = _cli_fixture.last(root).splitlines()
-    assert shown[0].startswith('FlowGuard last run: check --static at ') and shown[1] == _cli_fixture.block(text)[0], shown
+    assert shown[0].startswith(f'FlowGuard {__version__} last run: check --static at ') and shown[1] == _cli_fixture.block(text)[0], shown
     assert 'deprecated leads (5.0):' not in shown and not any('label spellings differ' in line for line in shown), shown
     code, text = _flowguard(root, 'init')
     assert code == 0 and 'Generated flowguard.static.test.mjs (vitest)' in text, text
@@ -2196,8 +2197,8 @@ def test_fixed_16_the_declarations_that_differ_are_the_line_of_check_static_and_
     from flowguard.intent import signals
     from flowguard.intent.vitest import static_lines
     saved = json.loads((observations / 'static.json').read_text(encoding='utf-8'))
-    assert sorted(saved) == ['baseline', 'baseline_kind', 'compared', 'ignored', 'lines', 'run', 'seconds', 'stamp', 'title',
-                             'title_parts'], saved
+    assert sorted(saved) == ['baseline', 'baseline_kind', 'compared', 'ignored', 'lines', 'pytest', 'run', 'scope', 'seconds',
+                             'stamp', 'title', 'title_parts', 'version'], saved
     assert [line['text'] for line in saved['lines'] if line['kind'] == 'red'] == [
         "values AuditEvent.severity: backend/src/services/authority/authority-integrity-repair.service.ts:repairOrganizationAuthority writes "
         "'WARN' outside 'INFO'|'WARNING'|'ERROR'|'CRITICAL'",
@@ -2207,10 +2208,14 @@ def test_fixed_16_the_declarations_that_differ_are_the_line_of_check_static_and_
     assert (saved['run'], saved['baseline'], saved['baseline_kind']) == ('check --static', head, 'task'), saved
     assert saved['title'] == signals.title(static_lines(observations)['lines'], **saved['title_parts'], seconds=saved['seconds']), saved
     assert saved['seconds'] > 0 and saved['ignored'] == 0
-    # the vitest report reads it as it is (`vitest.static_lines`), and show --last names the run
+    # the vitest report reads it as it is (`vitest.static_lines`) and keeps it in its package's slot; show --last keeps
+    # the run before (the npm test above), never this one as a finished check --static (5.0.1 did: PTW-V2-2, a vitest
+    # run killed before its report left these lines as its last run)
     assert [line.kind for line in static_lines(observations)['lines']].count('red') == 2
+    kept = cache.read_last(_config(root))
+    assert kept['run'] == 'check --static' and kept['stamp'] < saved['stamp'], (kept, saved)
     shown = _cli_fixture.last(root).splitlines()
-    assert shown[0].startswith('FlowGuard last run: check --static at ') and shown[1] == saved['title'], shown
+    assert shown[0].startswith(f'FlowGuard {__version__} last run: check --static at ') and shown[1] == kept['title'], shown
     run = _run_generated(root, generated, env=dict(FLOWGUARD_PYTHON=str(tmp_path / 'no-such-python')))
     output = _text(run.stdout + run.stderr)
     assert run.returncode == 1 and 'no Python that can import flowguard was found' in output, output
