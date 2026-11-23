@@ -279,6 +279,22 @@ class Change:
                 self._baseline_writes[key] = self.graph.writes(target, by_name=by_name)
         return self._baseline_writes[key]
 
+    def baseline_field_reads(self, target=None):
+        """`graph.field_reads(target)` as the baseline had them: the facts of every file this change leaves alone, and
+        those the same reader finds in the baseline bytes of each path of `baseline_paths`, as `baseline_writes` reads
+        its writes. Read once per target."""
+        key = ('field_reads', target)
+        if key not in self._baseline_writes:
+            paths = self.baseline_paths()
+            kinds = ('field_reads', 'field_types')
+            if paths:
+                facts = [data for path, _, data in self.graph._kinds(*kinds) if path not in paths]
+                facts += [record for path in sorted(paths) if (record := self.old_record(path, kinds))]
+                self._baseline_writes[key] = self.graph.field_reads(target, facts=facts)
+            else:
+                self._baseline_writes[key] = self.graph.field_reads(target)
+        return self._baseline_writes[key]
+
     def facts(self, file, *, old=False):
         """The whole fact record of `file` now (the map's; None when the map does not read it) or (`old`) at the
         baseline: `old_facts` for a path of `baseline_paths`, the map's for any other file, which this change leaves
@@ -1403,7 +1419,10 @@ def field_impact(change, index):
     longer writes, how many other production functions write the first of them (seed, backfill and migration
     scripts aside) and whether several files write it without a writers agreement (an open `writers:` problem), and
     how many functions read its model (`MapHandle.queries`, and `MapHandle.sql_reads` of its table; model-level, tests
-    included). Counts and one name only;
+    included) or, for a field of a Python class, read that field (`MapHandle.field_reads`: through self, an annotated
+    name or a declared field type, tests included; the line says `(untyped reads not counted)`, for a read through a
+    name nothing types is not one; 5.0.1 said `0 readers of Settings` for every Python class). Counts and one name
+    only; the first ten of each in the detail, and a last detail line counts the readers past them;
     `show NAME` lists them. A test's, a seed script's or a module's own code is no function this reports."""
     from .health import _test_files, written_field, writers
     from .signals import Line
@@ -1435,20 +1454,31 @@ def field_impact(change, index):
         row = written[shown] if shown in written else before[shown]      # a field it no longer writes: the baseline's row
         model = shown.rpartition('.')[0]
         others = sorted({other for other, items in now.items() if other != function and shown in items})
-        table = row.get('table') or model         # SQL that reads the table (FROM, JOIN) reads the model too
-        if (model, table) not in readers_of:
-            readers_of[model, table] = sorted({row_function(query) for query in [*graph.queries(model), *graph.sql_reads(table)]})
-        readers = readers_of[model, table]
+        if row.get('language', 'python') == 'python' and row['how'] == 'attribute':
+            # A Python class's field: the functions that read it as `MapHandle.field_reads` types a read (through
+            # self, an annotated name or a declared field type), which a read through an untyped name is not.
+            if shown not in readers_of:
+                readers_of[shown] = sorted({row_function(read) for read in graph.field_reads(shown)})
+            readers, read = readers_of[shown], shown
+            counted = f', {_counted(len(readers), "reader")} (untyped reads not counted)'
+        else:
+            table = row.get('table') or model         # SQL that reads the table (FROM, JOIN) reads the model too
+            if (model, table) not in readers_of:
+                readers_of[model, table] = sorted({row_function(query) for query in [*graph.queries(model), *graph.sql_reads(table)]})
+            readers, read = readers_of[model, table], model
+            counted = f', {_counted(len(readers), "reader")} of {model}'
         if open_writers is None:
             open_writers = {issue.name for issue in writers(change, index).issues}
         qual = function.partition(':')[2] or function
         text = (f'{qual} now writes {", ".join(added)}' if added else f'{qual} no longer writes {", ".join(removed)}') \
             + (f'; no longer writes {", ".join(removed)}' if added and removed else '') \
             + f'; {_counted(len(others), "other writer")}' + (' (no writers agreement)' if f'writers:{shown}' in open_writers else '') \
-            + f', {_counted(len(readers), "reader")} of {model}'
+            + counted
         here = f'{row["file"]}:{qual}'
         detail = tuple(f'other writer of {shown}: {other}' for other in others[:10]) \
-            + tuple(f'reader of {model}: {reader}' for reader in readers[:10])
+            + tuple(f'reader of {read}: {reader}' for reader in readers[:10]) \
+            + ((f'{_counted(len(readers) - 10, "more reader")} of {read}: python -m flowguard show {shown} --full lists '
+                'them',) if len(readers) > 10 else ())
         found.lines.append(Line('impact', f'impact:{function}', function, text,
                                 f'check them for this change only (python -m flowguard show {shown})', (here,), detail))
     return found
@@ -3147,11 +3177,18 @@ def zod_bounds(graph, field=None, *, schema=None, paths=None):
     return found
 
 
+def python_read_line(row, name, when=''):
+    """The `reads` line of one Python read of the field `name` (a `MapHandle.field_reads` row): `reads Pane._hovered
+    app/pane.py:11 Pane.highlighted (attribute)`, a whole-object read by its call (`(asdict)`), `when` after it."""
+    return f'reads {name} {row["file"]}:{row["line"]} {row["function"]} ({row["method"]}){when}'
+
+
 def field_lines(graph, name, written, marks=None):
     """`show Model.field` (4.6): the functions that read its model (`MapHandle.queries`; model-level, as the facts
     keep only a read's filter keys; for `table.column` each Prisma model `mapped_fields` resolves it to) or, in SQL,
-    its table (`MapHandle.sql_reads`), the callers one level up of each function that writes it (an edge guessed by
-    a name alone left out) and the test files whose imports reach a file that writes it (file-level facts), each
+    its table (`MapHandle.sql_reads`), the Python reads of a class's field (`MapHandle.field_reads`, one line per
+    place: `reads Pane._hovered app/pane.py:11 Pane.highlighted (attribute)`), the callers one level up of each
+    function that writes it (an edge guessed by a name alone left out) and the test files whose imports reach a file that writes it (file-level facts), each
     with what `marks(files)`, {file: words}, says of it (`cli._test_marks`: a test the project's test scope leaves
     out, or one in a folder its scripts run as a suite that reaches real databases and services)."""
     model = name.partition('.')[0]
@@ -3161,6 +3198,7 @@ def field_lines(graph, name, written, marks=None):
              for owner in models for row in graph.queries(owner)]
     lines.extend(f'reads {model} {row["file"]}:{row["line"]} {row["function"]} ({row["method"]})'
                  for table in sorted(tables) for row in graph.sql_reads(table))
+    lines.extend(dict.fromkeys(python_read_line(row, name) for row in graph.field_reads(name)))
     for function in dict.fromkeys(row_function(row) for row in written if not row.get('unclear')):
         for caller in graph.callers(function, 1, guessed=False):
             node = graph.node(caller) or {}

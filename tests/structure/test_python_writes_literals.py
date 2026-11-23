@@ -149,3 +149,111 @@ def test_a_nested_element_takes_the_value_at_its_place_and_names_rebind_as_singl
     assert values == {'state': 'stop', 'code': 0, 'note': 'done'}, values
     # The right side is read before either name is bound again: `a, b = b, a` swaps the two bindings.
     assert (resolved['a.dumps'], resolved['b.join']) == ('json.dumps', 'os.path.join'), resolved
+
+
+SETTINGS = '''
+from dataclasses import asdict, astuple, dataclass, replace
+
+
+@dataclass
+class Settings:
+    appearance: str = "light"
+    language: str = "en"
+
+    def __post_init__(self):
+        self.appearance = self.appearance.strip()
+
+
+@dataclass
+class Controller:
+    settings: Settings
+
+
+class SettingsDialog:
+    def __init__(self):
+        self.appearance = "dialog"
+
+    def refresh(self):
+        self.reload()
+        self._on_done()
+
+    def reload(self):
+        return self.appearance
+
+
+def direct(settings: Settings):
+    return settings.appearance
+
+
+def chained(controller: Controller):
+    return controller.settings.appearance
+
+
+def aliased(controller: Controller):
+    settings = controller.settings
+    return settings.appearance
+
+
+def serialized(settings: Settings):
+    return asdict(settings), astuple(settings), vars(settings)
+
+
+def replacement(settings: Settings):
+    return replace(settings, appearance="dark")
+
+
+def named(settings: Settings):
+    return getattr(settings, "language")
+
+
+def dialog_read(dialog: SettingsDialog):
+    return dialog.appearance
+
+
+def untyped(settings, items, other: Settings):
+    other = make()
+    return settings.appearance, other.appearance, [s.appearance for s in items], (lambda other: other.appearance)
+
+
+def closure(settings: Settings):
+    def inner():
+        return settings.appearance
+    return inner
+'''
+
+
+def _reads(rows):
+    return sorted((row['function'], row['line'], row['model'], row['field'], row['method'], tuple(row.get('except', ())))
+                  for row in rows)
+
+
+def test_python_reads_of_a_field_are_typed_as_writes_type_their_receiver(tmp_path):
+    # PYREAD18-2: a read counts through self, an annotated name, a local alias of a typed value and an attribute whose
+    # class declares its type; asdict, astuple and vars read every field, replace every field but those it sets.
+    (tmp_path / 'settings.py').write_text(textwrap.dedent(SETTINGS).lstrip())
+    with closing(build(tmp_path, workers=1)) as graph:
+        assert _reads(graph.field_reads('Settings.appearance')) == [
+            ('Settings.__post_init__', 10, 'Settings', 'appearance', 'attribute', ()),
+            ('aliased', 40, 'Settings', 'appearance', 'attribute', ()),
+            ('chained', 35, 'Settings', 'appearance', 'attribute', ()),
+            ('closure.inner', 66, 'Settings', 'appearance', 'attribute', ()),
+            ('direct', 31, 'Settings', 'appearance', 'attribute', ()),
+            ('serialized', 44, 'Settings', '*', 'asdict', ()),
+            ('serialized', 44, 'Settings', '*', 'astuple', ()),
+            ('serialized', 44, 'Settings', '*', 'vars', ())]
+        # replace(settings, appearance=...) builds a new value from every other field: it reads language, not
+        # appearance, and writes no field of settings.
+        assert ('replacement', 48, 'Settings', '*', 'replace', ('appearance',)) in _reads(graph.field_reads('Settings.language'))
+        assert ('named', 52, 'Settings', 'language', 'getattr', ()) in _reads(graph.field_reads('Settings.language'))
+        assert not [row for row in graph.writes() if row['function'] == 'replacement']
+        # Class identity follows the annotation: the dialog's field is another field of the same name.
+        assert _reads(graph.field_reads('SettingsDialog.appearance')) == [
+            ('SettingsDialog.reload', 27, 'SettingsDialog', 'appearance', 'attribute', ()),
+            ('dialog_read', 56, 'SettingsDialog', 'appearance', 'attribute', ())]
+        # A method the class holds called through self is a call; a callable attribute it does not hold is read to call it.
+        assert _reads(graph.field_reads('SettingsDialog.reload')) == []
+        assert _reads(graph.field_reads('SettingsDialog._on_done')) == [
+            ('SettingsDialog.refresh', 24, 'SettingsDialog', '_on_done', 'call', ())]
+        # No untyped name-only reader: an unannotated parameter, an annotated name bound again to an untyped value, a
+        # comprehension's target and a lambda's parameter.
+        assert not [row for row in graph.field_reads() if row['function'] == 'untyped']

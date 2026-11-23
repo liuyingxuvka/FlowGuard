@@ -2427,9 +2427,11 @@ def test_a_change_that_touches_an_open_structure_problem_gets_one_lead(tmp_path)
             job.status = 'cancelled'
     '''})
     code, text = _static(tmp_path)
+    # Job is a Python class: its readers are the functions that read Job.status through a typed name (none here), and
+    # the line says what it leaves out (5.1, PYREAD18-1; 5.0.1 said `0 readers of Job`, counting only database reads).
     assert code == 0 and _block(text) == [
-        'impact: cancel now writes Job.status; 3 other writers (no writers agreement), 0 readers of Job -> check them for '
-        'this change only (python -m flowguard show Job.status)'], text
+        'impact: cancel now writes Job.status; 3 other writers (no writers agreement), 0 readers (untyped reads not counted) '
+        '-> check them for this change only (python -m flowguard show Job.status)'], text
     # --all names the new writer as a member of the open problem, with who decides (R101) instead of a fix.
     code, text = _static(tmp_path, '--all')
     assert ('impact: no writers agreement for Job.status: cancel.py:cancel writes Job.status, which 4 files write without a '

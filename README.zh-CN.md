@@ -32,7 +32,7 @@ FlowGuard 5.0 (since 99f025e): 0 red; 0.2 s
 
 1. 开工时运行 `python -m flowguard new-task`，读简报。
 2. 跑项目普通测试，读测试汇总后的 FlowGuard 块。首行给出每一类的数目；pytest 运行在选中的测试全部跑完之前就结束时，首行也会写明（`run ended early (exit 3): 2 of 3 selected tests ran, the rest not checked`）。只有 `red` 使测试失败：这次改动破坏了已登记的约定，要改代码。`before` 和 `known` 在任务开始前就有：`->` 后面写明已知的情况和由谁决定，什么时候向主人提出未决的问题由你决定。`changed` 表示某个函数对测试用过的输入返回了别的结果：是有意的改动就在汇报里说明。`impact` 和 `not compared` 不算失败；`not compared` 是没有验证，不算通过；vitest 运行没有收到地图检查的结果时，会单独占一行 `not compared` 说明。`python -m flowguard show --last` 列出上一次运行的每一行和细节：每个 vitest 包各一次，pytest、`check` 和 `check --static` 共一次，附 pytest 自己的退出码和失败数，以及简报计入的失败测试。
-3. 修改另一份实现之前，用 `python -m flowguard show "what it decides"` 查函数、模型、字段和约定；地图不认识的名字会直说。
+3. 修改另一份实现之前，用 `python -m flowguard show "what it decides"` 查函数、模型、字段和约定；地图不认识的名字会直说。对 Python 类的字段，`show Settings.appearance` 列出写它的地方，以及通过 `self`、带类型注解的名字或已声明类型的字段读它的函数（对它调用 asdict 和 vars 也算），`impact` 行数的就是这些（`5 readers (untyped reads not counted)`）：通过没有类型的名字读取不计入。这次改动不再写的字段，会列出任务开始时写它和读它的地方。
 
 ## 登记约定
 

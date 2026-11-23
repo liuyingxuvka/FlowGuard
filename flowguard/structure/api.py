@@ -1040,6 +1040,73 @@ class MapHandle:
                     rows.append(dict(node=ident, file=file, line=line, function=qual, method='select', table=name[4:]))
         return Rows(rows)
 
+    def field_reads(self, target=None, *, facts=None):
+        """Python reads of a class's fields, typed as `writes` types a Python write's receiver: an attribute load through
+        `self` or `cls` in a class, through a name an annotation types (a parameter, `x: Settings = ...`) or a local name
+        holding such a value (`settings = controller.settings`), and through attributes of those, each followed through
+        the declared field types of its class (`field_types`: `controller.settings.appearance` reads
+        Settings.appearance when Controller declares `settings: Settings`); `asdict(x)`, `astuple(x)` and `vars(x)`
+        read every field of x's class, `replace(x, f=...)` every field but those it sets (and writes none of x), and
+        `getattr(x, 'f')` reads f. A method the class holds called through it (`self.save()`) is a call, not a read; any
+        other call through an attribute reads it to call it (method 'call': a callback a field holds); a read through a
+        name nothing types (`p = Pane(); p.title`) or through an attribute of an undeclared type is not one of these
+        rows. Rows {node, function, file, line, model, field, method, owner, language}: `model` the class as `writes`
+        names it (its qual), `owner` its module, `method` 'attribute', 'call' or the reading call (`asdict`, `vars`,
+        `replace`, `getattr`), `field` '*' for every field, with `except` the fields it leaves. `target`
+        (`Class.field`) keeps the rows that read that field, a '*' row that does not leave it too. `facts` reads these file facts (`field_reads` and `field_types` kinds, such as a baseline's)
+        instead of the map's. Never execution evidence."""
+        if facts is None:
+            if 'field_reads' not in self._derived:
+                self._derived['field_reads'] = self._field_reads([data for _, _, data in self._kinds('field_reads', 'field_types')])
+            rows = self._derived['field_reads']
+        else:
+            rows = self._field_reads(list(facts))
+        if target is None:
+            return Rows(rows)
+        model, _, field = str(target).rpartition('.')
+        return Rows(row for row in rows if row['model'] == model
+                    and (row['field'] == field or row['field'] == '*' and field not in row.get('except', ())))
+
+    def _field_reads(self, records):
+        """`field_reads` rows of these file records, each resolved to the class and field it reads."""
+        declared = {row['field']: row['type'] for data in records for row in data.get('field_types', ())}
+        classes = {key.rpartition('.')[0] for key in declared}
+        spelled = {}
+
+        def own(kind):
+            """The class id `module:Class` as the map names it: a module spelled by another importable name of its file
+            (`canonical`) is the map's; a class the map does not hold stays as spelled."""
+            if kind not in spelled:
+                spelled[kind] = kind if kind in classes else self.canonical(kind) or kind
+            return spelled[kind]
+        found = []
+        for data in records:
+            for row in data.get('field_reads', ()):
+                kind = own(row['type'])
+                *through, field = row['path']
+                for attribute in through:       # each attribute before the last is a field of a declared class type
+                    kind = declared.get(kind + '.' + attribute)
+                    if kind is None:
+                        break
+                    kind = own(kind)
+                if kind is None:
+                    continue
+                module, _, cls = kind.partition(':')
+                found.append(dict(node=row['node'], function=row['node'].partition(':')[2] or '<module>', file=row['file'],
+                                  line=row['line'], model=cls, field=field, method=row.get('method', 'attribute'),
+                                  owner=module, language='python', call=bool(row.get('call')),
+                                  **({'except': row['except']} if 'except' in row else {})))
+        called = sorted({f'{row["owner"]}:{row["model"]}.{row["field"]}' for row in found if row['call']})
+        methods = set()
+        for start in range(0, len(called), 500):        # a call of a method, function or class the class holds: no read
+            chunk = called[start:start + 500]
+            methods.update(ident for (ident,) in self.con.execute(
+                f"SELECT id FROM node WHERE kind IN ('function', 'method', 'class') AND id IN ({','.join('?' * len(chunk))})",
+                chunk))
+        # Any other call through an attribute reads it to call it (a callback a field holds, a method of a base class).
+        return [{**{key: value for key, value in row.items() if key != 'call'}, **({'method': 'call'} if row['call'] else {})}
+                for row in found if not (row['call'] and f'{row["owner"]}:{row["model"]}.{row["field"]}' in methods)]
+
     def children(self, model):
         """Relations whose foreign key references `model`: [{child, relation, keys, on_delete, required,
         file, line, nullable}] from the mapped Prisma schemas (`readers.prisma.Models.children`)."""

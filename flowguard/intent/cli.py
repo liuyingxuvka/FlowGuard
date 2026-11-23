@@ -871,6 +871,7 @@ def _last_run_lines(cfg, graph, query, name, site_names, *, held, full, hidden=N
 
 
 FIELD_QUERY = re.compile(r'[A-Za-z_]\w*\.[A-Za-z_]\w*')     # Model.field or table.column
+AT_START = ' at the task start'     # a `show Model.field` line of the task-start code, for a field no code writes now
 
 
 def _write_line(row, mark=''):
@@ -972,10 +973,13 @@ def _node_lines(graph, node, header, *, full, again, writes=None, callers=None):
     `Model (fields not visible)`) and, for a function or method, the functions that call it through a call the map
     resolved (`MapHandle.resolved_calls`: an import or a lexical binding, a member call on an imported object whose
     module defines that member, the store's links; a JS/TS call matched by a name alone is not counted), production
-    code before test files: each a count and the first NODE_NAMES, all of
+    code before test files, and for a method the functions that read it as an attribute of its class
+    (`MapHandle.field_reads`: a property's readers, through self, cls, an annotated name or a declared field; a
+    property no such function reads says so): each a count and the first NODE_NAMES, all of
     them with `full`, and the view that lists more (`show MODEL.FIELD`, `show AGAIN --full` for the query `again`).
     `writes` and `callers` are `MapHandle.writes()` and the callers map of `resolved_calls()` when the caller holds
     them already."""
+    from ..structure import store
     from .owners import _counted
     ident = node['id']
     lines = [f'{header} {node["file"]}:{node["line"]}', node['sig'], *([node['doc']] if node['doc'] else [])]
@@ -1006,6 +1010,24 @@ def _node_lines(graph, node, header, *, full, again, writes=None, callers=None):
             lines.append(f'called by {_counted(len(found), "function")} through '
                          f'{"a resolved call" if len(found) == 1 else "resolved calls"}: {named(spelled)}'
                          + (f' ({rest})' if not full and len(found) > NODE_NAMES else ''))
+    if node['kind'] == 'method' and node['cls']:
+        # A property is read, not called (PEMEL23-5b: `show PaneHandle.highlighted` said only `called by no function`):
+        # the functions that read a method as an attribute of its class, as `MapHandle.field_reads` types a read.
+        first = {}
+        for row in graph.field_reads(node['qual']):
+            if row['field'] != '*' and row['owner'] == node['module']:
+                first.setdefault(row['function'], (row['file'], row['line']))
+        raw = graph.con.execute('SELECT raw FROM node WHERE id = ?', (ident,)).fetchone()
+        getter = bool(raw and raw[0] and store.unpack(raw[0]).get('property'))
+        tests = {path for (path,) in graph.con.execute('SELECT path FROM file WHERE is_test = 1')} if first else set()
+        readers = sorted(first, key=lambda function: (first[function][0] in tests, function))
+        if readers:
+            lines.append(f'read as an attribute by {_counted(len(readers), "function")} (untyped reads not counted): '
+                         + named([f'{function} ({first[function][0]}:{first[function][1]})' for function in readers])
+                         + (f' ({rest})' if not full and len(readers) > NODE_NAMES else ''))
+        elif getter:
+            lines.append('read as an attribute by no function through self, cls, an annotated name or a declared field '
+                         '(untyped reads not counted)')
     return lines
 
 
@@ -1017,9 +1039,10 @@ def _map_knows(graph, name, written=None):
     const capacityService = {`), a JS/TS module-level declaration of that name whatever its value (`const TPL = ...`
     holding a template string, which the reader does not read: no const line, Z-9), a model the map knows
     (`owners.model_known`), a column of a SQL table as the columns check reads them (`sql.describe`), a write of that
-    model, table or field (`MapHandle.writes`; `written` when the caller read them already) or a zod object key of that
-    name (`owners.zod_bounds`)? A dotted name is asked only for its node and its writes: its model and field have their
-    own `not on the map` line (`_unknown_model`), and a Prisma field its own line."""
+    model, table or field (`MapHandle.writes`; `written` when the caller read them already), a Python read of that
+    class field (`MapHandle.field_reads`) or a zod object key of that name (`owners.zod_bounds`)? A dotted name is
+    asked only for its node, its writes and its reads: its model and field have their own `not on the map` line
+    (`_unknown_model`), and a Prisma field its own line."""
     from ..structure.readers.registry import ECMA, language_for
     from ..structure.readers.sql import describe
     from .owners import method_holders, model_known, zod_bounds
@@ -1033,7 +1056,7 @@ def _map_knows(graph, name, written=None):
            for row in facts.get('assignments', ())):
         return True
     if '.' in name or model_known(graph, name):
-        return '.' not in name or bool(graph.writes(name) if written is None else written)
+        return '.' not in name or bool(graph.writes(name) if written is None else written) or bool(graph.field_reads(name))
     for description in describe(graph.schemas()):
         if any(name.casefold() in columns for columns in [*(table['columns'] or {} for table in description['tables'].values()),
                                                          *description['altered'].values()]):
@@ -1271,6 +1294,13 @@ def show(cfg, query=None, *, full=False, last=False):
             ranked.extend((2001, line) for line in health.co_written(change, name, index))
             ranked.extend((1998 - order, line) for order, line in enumerate(
                 checks.field_lines(graph, name, written, lambda files: _test_marks(cfg, files))))
+            if not written:     # no code writes it now: what wrote and read it at the task start (PEMEL23-6c)
+                then = checks.Change(cfg, graph, checks.baseline(cfg))
+                if then.baseline:
+                    old = [*(line + AT_START for line in _write_lines(cfg, then.baseline_writes(name))),
+                           *dict.fromkeys(checks.python_read_line(row, name, AT_START)
+                                          for row in then.baseline_field_reads(name))]
+                    ranked.extend((1500 - order / len(old), line) for order, line in enumerate(old))
         if any(row['name'] == name for row in graph.labels_read(graph.label_rows())):  # the family the block reports
             from . import health, owners as checks
             for issue in health.labels(checks.Change(cfg, graph, None), name).issues:

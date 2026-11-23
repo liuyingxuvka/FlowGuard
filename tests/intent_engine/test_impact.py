@@ -2981,3 +2981,170 @@ def test_the_count_show_gives_without_full_is_what_full_adds(tmp_path):
     lines, full, count = counted('employeeService.update')
     assert lines[7] == ('... 2 more lines of the last run there: python -m flowguard show employeeService.update --full '
                         'lists them all') and count == len(full) - 8 - 2 + 1 == 8, (lines, full)
+
+
+READ_SETTINGS = '''
+from dataclasses import asdict, dataclass, replace
+
+
+@dataclass
+class Settings:
+    appearance: str = "light"
+
+    def __post_init__(self):
+        pass
+
+
+@dataclass
+class Controller:
+    settings: Settings
+
+
+class SettingsDialog:
+    def __init__(self):
+        self.appearance = "dialog"
+
+
+def direct(settings: Settings):
+    return settings.appearance
+
+
+def chained(controller: Controller):
+    return controller.settings.appearance
+
+
+def aliased(controller: Controller):
+    settings = controller.settings
+    return settings.appearance
+
+
+def serialized(settings: Settings):
+    return asdict(settings)
+
+
+def replacement(settings: Settings):
+    return replace(settings, appearance="dark")
+
+
+def dialog_appearance(dialog: SettingsDialog):
+    return dialog.appearance
+
+
+def untyped(settings):
+    return settings.appearance
+'''
+
+
+def test_a_python_field_s_impact_line_counts_the_functions_that_read_it_and_says_what_it_leaves_out(tmp_path):
+    """PYREAD18-1, PYREAD18-2 (PEMEL Studio, 2026-11-18): `Settings.__post_init__ now writes Settings.appearance; 0
+    other writers, 0 readers of Settings`, while the app read it directly, through a chained attribute, a local alias
+    and asdict. 5.0.1 counted only Prisma and SQL readers. A read through an untyped name is not counted, and the line
+    says so; the dialog's field of the same name is another class's."""
+    _commit(tmp_path, {'app/__init__.py': '', 'app/settings.py': READ_SETTINGS})
+    _write(tmp_path, {'app/settings.py': READ_SETTINGS.replace('        pass\n',
+                                                               '        self.appearance = self.appearance.strip()\n')})
+    found, modules = _impact(tmp_path)
+    module = modules['app/settings.py']
+    [line] = found.lines
+    assert line.text == ('Settings.__post_init__ now writes Settings.appearance; 0 other writers, 5 readers (untyped '
+                         'reads not counted)'), line.text
+    assert line.step == 'check them for this change only (python -m flowguard show Settings.appearance)'
+    assert line.detail == tuple(f'reader of Settings.appearance: {module}:{function}' for function in (
+        'Settings.__post_init__', 'aliased', 'chained', 'direct', 'serialized')), line.detail
+    lines = _shown_lines(tmp_path, 'Settings.appearance', '--full')
+    reads = [line for line in lines if line.startswith('reads ')]
+    assert reads == ['reads Settings.appearance app/settings.py:9 Settings.__post_init__ (attribute)',
+                     'reads Settings.appearance app/settings.py:23 direct (attribute)',
+                     'reads Settings.appearance app/settings.py:27 chained (attribute)',
+                     'reads Settings.appearance app/settings.py:32 aliased (attribute)',
+                     'reads Settings.appearance app/settings.py:36 serialized (asdict)'], lines
+    assert 'reads SettingsDialog.appearance app/settings.py:44 dialog_appearance (attribute)' in \
+        _shown_lines(tmp_path, 'SettingsDialog.appearance', '--full')
+    # a database model's readers keep their wording: test_a_changed_function_whose_written_fields_changed_gets_...
+
+
+PANE = '''
+from functools import cached_property
+
+
+class Pane:
+    def __init__(self):
+        self._hovered = False
+
+    def enter(self):
+        self._hovered = True
+
+    @property
+    def highlighted(self):
+        return self._hovered
+
+    @cached_property
+    def label(self):
+        return 'pane'
+
+    def describe(self):
+        self.enter()
+        return 'hovered' if self._hovered else 'idle'
+'''
+
+
+def test_reads_through_self_count_and_a_property_view_lists_who_reads_it(tmp_path):
+    """PEMEL23-5a, PEMEL23-5b (four PEMEL agents): `Pane.__init__ now writes Pane._pressed; 0 other writers, 0 readers
+    of Pane`, while its own pressed() read it; `show Pane._hovered` listed only its writes, and `show Pane.highlighted`
+    only `called by no function`, as reading a property calls nothing."""
+    _commit(tmp_path, {'app/__init__.py': '', 'app/pane.py': PANE,
+                       'app/badge.py': 'from app.pane import Pane\n\n\ndef badge(pane: Pane):\n    return pane.highlighted\n',
+                       'tests/test_pane.py': 'from app.pane import Pane\n\n\ndef test_one():\n    p = Pane()\n    p.enter()\n'
+                                             '    assert p.highlighted\n'})
+    _write(tmp_path, {'app/pane.py': PANE.replace('        self._hovered = False\n',
+                                                  '        self._hovered = False\n        self._pressed = False\n')
+                      + '\n    def pressed(self):\n        return self._pressed\n'})
+    found, modules = _impact(tmp_path)
+    [line] = found.lines
+    assert line.text == 'Pane.__init__ now writes Pane._pressed; 0 other writers, 1 reader (untyped reads not counted)'
+    assert line.detail == (f'reader of Pane._pressed: {modules["app/pane.py"]}:Pane.pressed',)
+    lines = _shown_lines(tmp_path, 'Pane._hovered', '--full')
+    assert [line for line in lines if line.startswith(('writes ', 'reads '))] == [
+        'writes Pane._hovered app/pane.py:6 Pane.__init__ (assign)',
+        'writes Pane._hovered app/pane.py:10 Pane.enter (assign)',
+        'reads Pane._hovered app/pane.py:14 Pane.highlighted (attribute)',
+        'reads Pane._hovered app/pane.py:22 Pane.describe (attribute)'], lines
+    # A property: the functions that read it as an attribute (the test's `p = Pane()` is untyped); one read by none
+    # says so. A method called through self is called, not read.
+    for query in ('Pane.highlighted', 'app/pane.py:Pane.highlighted'):
+        lines = _shown_lines(tmp_path, query)
+        assert 'read as an attribute by 1 function (untyped reads not counted): badge (app/badge.py:5)' in lines, lines
+    assert ('read as an attribute by no function through self, cls, an annotated name or a declared field (untyped reads '
+            'not counted)') in _shown_lines(tmp_path, 'Pane.label'), lines
+    assert not [line for line in _shown_lines(tmp_path, 'Pane.enter') if line.startswith('read as an attribute')]
+
+
+def test_show_of_a_field_this_change_stopped_writing_lists_its_writes_and_reads_at_the_task_start(tmp_path):
+    """PEMEL23-6c: `impact: Pane.__init__ now writes Pane.ui; no longer writes Pane.title; ...` pointed at `show
+    Pane.title`, which printed `not on the map` and words: nothing about the write this change removed or who read
+    the field."""
+    panel = ('from app.text import render_ui_text\n\n\nclass Pane:\n    def __init__(self):\n'
+             '        self.title = render_ui_text("x")\n\n    def label(self):\n        return [self.title]\n')
+    _commit(tmp_path, {'app/__init__.py': '', 'app/panel.py': panel,
+                       'app/text.py': 'def render_ui_text(t):\n    return t.upper()\n'})
+    _write(tmp_path, {'app/panel.py': panel.replace('self.title', 'self.ui')})
+    lines = _shown_lines(tmp_path, 'Pane.title')
+    assert lines[1:4] == [
+        'not on the map: no function, class, type, constant, enum, Prisma model or field, or SQL table or column is named '
+        'Pane.title',
+        'writes Pane.title app/panel.py:6 Pane.__init__ (assign) at the task start',
+        'reads Pane.title app/panel.py:9 Pane.label (attribute) at the task start'], lines
+    # a field the code writes now shows the code now only
+    assert not [line for line in _shown_lines(tmp_path, 'Pane.ui', '--full') if line.endswith('at the task start')]
+
+
+def test_the_impact_detail_names_ten_readers_and_counts_the_rest(tmp_path):
+    readers = ''.join(f'\n\ndef read_{n}(job: Job):\n    return job.state\n' for n in range(12))
+    base = 'class Job:\n    def __init__(self):\n        self.code = 0\n' + readers
+    _commit(tmp_path, {'app/__init__.py': '', 'app/job.py': base})
+    _write(tmp_path, {'app/job.py': base.replace('self.code = 0', 'self.code = 0\n        self.state = "new"')})
+    found, modules = _impact(tmp_path)
+    [line] = found.lines
+    assert line.text == 'Job.__init__ now writes Job.state; 0 other writers, 12 readers (untyped reads not counted)'
+    assert line.detail == (*(f'reader of Job.state: {modules["app/job.py"]}:read_{n}' for n in (0, 1, 10, 11, 2, 3, 4, 5, 6, 7)),
+                           '2 more readers of Job.state: python -m flowguard show Job.state --full lists them'), line.detail

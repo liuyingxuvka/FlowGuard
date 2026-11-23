@@ -588,7 +588,7 @@ def unpacked(target, value):
 def syntax_records(tree, module, rel):
     """Fixed structural facts, retained once with the file parse (never a second scanner)."""
     found = {"handlers": [], "literal_sets": [], "assignments": [], "syntax_calls": [], "symbol_reads": [], "field_types": [],
-             "literals": []}
+             "literals": [], "field_reads": []}
     package = module if rel.endswith('__init__.py') else module.rpartition('.')[0]
     aliases = {}
     classes = {n.name for n in tree.body if isinstance(n, ast.ClassDef)}
@@ -631,6 +631,50 @@ def syntax_records(tree, module, rel):
         quiet = 0                 # inside raise or a logging/print/exception call: strings are messages
         declaring = ""            # Kind = Literal['a', 'b'] at module level: the union's declaration name
         consumed = set()
+        # {name: (class 'module:Class', attribute path) or None} of the names of this scope whose value a read through
+        # them is typed by (`receiver`): an annotated parameter or variable, a local alias of a typed expression; None
+        # for a name bound to anything else, which hides an outer scope's typed name. A class body binds none of them.
+        reading = {}
+        called = set()            # the ids of the attribute nodes a call calls (`self.save()`): a call, not a read
+
+        def receiver(self, expression):
+            """(class, attribute path) of the value `expression` gives, typed as a write's receiver is typed: `self` or
+            `cls` inside a class, a name `reading` holds, and an attribute of either (`controller.settings` is
+            Controller with path ['settings'], which `MapHandle.field_reads` follows through Controller's declared field
+            types); None for any other expression."""
+            if isinstance(expression, ast.Name):
+                if expression.id in self.reading:
+                    return self.reading[expression.id]
+                return (module + ':' + self.cls, ()) if expression.id in ('self', 'cls') and self.cls else None
+            if isinstance(expression, ast.Attribute) and (base := self.receiver(expression.value)) is not None:
+                return base[0], (*base[1], expression.attr)
+            return None
+
+        def read_field(self, node, typed, field, **facts):
+            """One `field_reads` row: `field` of the value `typed` (`receiver`) gives, read at `node`."""
+            self.add('field_reads', node, type=typed[0], path=[*typed[1], field], **facts)
+
+        def in_class_body(self):
+            return bool(self.cls) and self.qual == self.cls
+
+        def bind_reading(self, pairs):
+            """The names a statement binds (`unpacked` pairs; value None: not read) take the type of their value, every
+            right side typed before any name is bound again; a class body binds no reading name."""
+            if self.in_class_body():
+                return
+            typed = {id(target): self.receiver(value) for target, value in pairs
+                     if isinstance(target, ast.Name) and value is not None}
+            for target, _ in pairs:
+                if isinstance(target, ast.Name):
+                    self.reading[target.id] = typed.get(id(target))
+
+        def scoped(self, names, visit):
+            """`visit()` with `names` (a lambda's parameters, a comprehension's targets) bound to untyped values, the
+            enclosing scope's `reading` as before afterwards."""
+            old = self.reading
+            self.reading = {**old, **{name: None for name in names}}
+            visit()
+            self.reading = old
 
         # String literals that decide or name a value, in the TS/JS reader's terms: comparisons (compare),
         # the containers of `in` tests (member), match cases (case), returned values through ?: and
@@ -674,7 +718,23 @@ def syntax_records(tree, module, rel):
 
         def visit_Lambda(self, node):
             self.labels(node.body, 'return')
+            arguments = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs,
+                         *([node.args.vararg] if node.args.vararg else []), *([node.args.kwarg] if node.args.kwarg else [])]
+            self.scoped([arg.arg for arg in arguments], lambda: self.generic_visit(node))
+
+        def comprehension(self, node):
+            # A comprehension's targets are its own names: a read through one is untyped.
+            targets = [name.id for generator in node.generators for name in ast.walk(generator.target)
+                       if isinstance(name, ast.Name)]
+            self.scoped(targets, lambda: self.generic_visit(node))
+
+        visit_ListComp = visit_SetComp = visit_GeneratorExp = visit_DictComp = comprehension
+
+        def visit_NamedExpr(self, node):
+            typed = self.receiver(node.value)
             self.generic_visit(node)
+            if not self.in_class_body():
+                self.reading[node.target.id] = typed
 
         def visit_MatchValue(self, node):
             self.label(node.value, 'case')
@@ -708,17 +768,22 @@ def syntax_records(tree, module, rel):
                 expressions.append(node.returns)
             for expression in expressions:
                 self.visit(expression)
-            old = self.qual, self.typed, self.bindings
+            old = self.qual, self.typed, self.bindings, self.reading
             self.qual = old[0] + ('.' if old[0] else '') + node.name
             args = node.args.posonlyargs + node.args.args + node.args.kwonlyargs
             self.typed = {arg.arg: kind for arg in args if (kind := annotation_class(arg.annotation))}
             self.bindings = {name:value for name,value in self.bindings.items() if name not in {arg.arg for arg in args}}
+            # The enclosing function's or module's reading names, those the parameters hide aside (a class body binds
+            # none), and each parameter its annotation types.
+            hidden = {arg.arg for arg in arguments}
+            self.reading = {name: value for name, value in self.reading.items() if name not in hidden}
+            self.reading.update((name, (kind, ())) for name, kind in self.typed.items())
             if node.name in ('__exit__','__aexit__') and exit_may_suppress(node):
                 self.add('handlers',node,kind='exit_method',type='may return true',name=None,end_line=node.end_lineno,
                          raises=False,reraise=False,non_raising=True,body=ast.unparse(node))
             for child in node.body:
                 self.visit(child)
-            self.qual, self.typed, self.bindings = old
+            self.qual, self.typed, self.bindings, self.reading = old
 
         visit_AsyncFunctionDef = visit_FunctionDef
 
@@ -749,11 +814,24 @@ def syntax_records(tree, module, rel):
         def visit_Attribute(self, node):
             if isinstance(node.ctx, ast.Load):
                 self.add('symbol_reads', node, text=ast.unparse(node), resolved=self.resolve(node), read=True)
+                if (typed := self.receiver(node.value)) is not None:
+                    self.read_field(node, typed, node.attr, **({'call': True} if id(node) in self.called else {}))
             self.generic_visit(node)
 
         def visit_Call(self, node):
             resolved = self.resolve(node.func)
             dotted = fgs.dotted(node.func)
+            if isinstance(node.func, ast.Attribute):
+                self.called.add(id(node.func))
+            whole = WHOLE_READS.get(resolved) if node.args else None
+            if whole and (typed := self.receiver(node.args[0])) is not None:
+                # asdict(x), astuple(x), vars(x) read every field of x's class; replace(x, f=...) every field but those
+                # it sets, and writes none of x (it builds a new value).
+                self.read_field(node, typed, '*', method=whole, **(
+                    {'except': sorted(key.arg for key in node.keywords if key.arg)} if whole == 'replace' else {}))
+            elif resolved == 'getattr' and len(node.args) > 1 and isinstance(node.args[1], ast.Constant) \
+                    and isinstance(node.args[1].value, str) and (typed := self.receiver(node.args[0])) is not None:
+                self.read_field(node, typed, node.args[1].value, method='getattr')
             self.add("syntax_calls", node, text=dotted or ast.unparse(node.func),resolved=resolved,
                      positional_arg_count=len(node.args), keyword_count=len(node.keywords),
                      boolop_or_nonfinal=id(node) in self.or_nonfinal)
@@ -787,10 +865,14 @@ def syntax_records(tree, module, rel):
 
         def visit_Import(self, node):
             self.bindings.update((name.asname or name.name.split('.')[0],name.name if name.asname else name.name.split('.')[0]) for name in node.names)
+            if not self.in_class_body():
+                self.reading.update((name.asname or name.name.split('.')[0], None) for name in node.names)
 
         def visit_ImportFrom(self, node):
             origin = _from_target(node,package)
             self.bindings.update((name.asname or name.name,origin+'.'+name.name) for name in node.names if name.name!='*')
+            if not self.in_class_body():
+                self.reading.update((name.asname or name.name, None) for name in node.names if name.name != '*')
 
         def visit_Try(self, node):
             if handler_outcome(node.finalbody)[1]:
@@ -812,6 +894,7 @@ def syntax_records(tree, module, rel):
             resolved = {id(target): self.resolve(value) for target, value in pairs if isinstance(target, ast.Name) and (
                 isinstance(value, (ast.Name, ast.Attribute, ast.Subscript)) or isinstance(value, ast.Call)
                 and isinstance(value.func, ast.Name) and value.func.id == 'getattr')}
+            self.bind_reading(pairs)
             for target, value in pairs:
                 if isinstance(target,ast.Name):
                     if id(target) in resolved:
@@ -924,6 +1007,8 @@ def syntax_records(tree, module, rel):
             if isinstance(node.target, ast.Name) and (kind := annotation_class(node.annotation)):
                 self.typed[node.target.id] = kind
             self.assignment(node, [node.target], node.value)
+            if isinstance(node.target, ast.Name) and kind and not self.in_class_body():    # `x: Settings = ...` types x
+                self.reading[node.target.id] = (kind, ())
             declaring, self.declaring = self.declaring, node.target.id if not self.qual and isinstance(node.target, ast.Name) else self.declaring
             self.generic_visit(node)
             self.declaring = declaring
@@ -957,6 +1042,10 @@ def sql_writes(nodes: list, module: str, rel: str, qual: str) -> list[dict]:
 
 
 MESSAGE_CALLS = {'debug', 'info', 'warning', 'warn', 'error', 'exception', 'critical', 'log', 'fatal'}
+# Calls that read every field of their first argument (`replace` every field but those its keywords set), by the name
+# `Reader.resolve` gives them: a `field_reads` row of field '*'.
+WHOLE_READS = {'dataclasses.asdict': 'asdict', 'dataclasses.astuple': 'astuple', 'vars': 'vars',
+               'dataclasses.replace': 'replace', 'copy.replace': 'replace'}
 
 
 def _ending(statements, nodes, raises) -> str:
@@ -1076,6 +1165,9 @@ def _extract_python(root: Path, rel: str, data: bytes, module: str, is_test: boo
                        "fp": fingerprint(node, node.name), "shape": shape(own), "size": len(own)}
                 if not is_test and not is_class:
                     raw = fgs.analyze(own, aliases)
+                    # a getter read as an attribute, never called: `show` lists its attribute reads (`field_reads`)
+                    raw["property"] = cls is not None and any(
+                        ast.unparse(item).rpartition('.')[2] in ('property', 'cached_property') for item in node.decorator_list)
                     raw["sites"] = decision_sites(own)
                     raw['results'] = [(n.lineno,'return',n.value.value) for n in own if isinstance(n,ast.Return) and isinstance(n.value,ast.Constant) and isinstance(n.value.value,str)]
                     raw['results'] += [(n.lineno,'raise',a.value) for n in own if isinstance(n,ast.Raise) and isinstance(n.exc,ast.Call)
