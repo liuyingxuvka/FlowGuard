@@ -10,13 +10,23 @@ import sqlite3
 
 from .config import intent_files
 from .loader import api_aliases, api_call_name, literal_problems
-from flowguard.map.common import MapError, content_digest, git_common_directory, git_head, literal_value as _literal
+from flowguard.map.common import CACHE_TIMEOUT, MapError, begin_write, content_digest, git_common_directory, git_head, \
+    literal_value as _literal
+
+
+def _read_only(path):
+    """A read-only connection to the map cache at `path`, closed when its `with` block ends. It waits for another
+    run's commit as long as a writer waits for the lock (`CACHE_TIMEOUT`), not sqlite's 5 s, so reading the cache
+    while another FlowGuard run writes it waits instead of failing (R85)."""
+    return closing(sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True, timeout=CACHE_TIMEOUT))
 
 
 # flowguard: writers meta.k put_meta
 # flowguard: writers meta.v put_meta
 def put_meta(con, name, text):
-    """The one writer of the test cache's keys in the map's SQLite meta table (the map writes its own keys)."""
+    """The one writer of the test cache's keys in the map's SQLite meta table (the map writes its own keys). Outside a
+    transaction it takes the write lock first (`begin_write`), so a run that waits for another run's write says so."""
+    _write_transaction(con)
     con.execute('INSERT OR REPLACE INTO meta(k,v) VALUES(?,?)', (name, text))
 
 
@@ -104,7 +114,7 @@ def _recorded_baseline(cfg):
     if not path.is_file():
         return None
     try:
-        with closing(sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)) as con:
+        with _read_only(path) as con:
             table = con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta'").fetchone()
             row = con.execute("SELECT v FROM meta WHERE k='task_baseline'").fetchone() if table else None
             if not row:
@@ -390,7 +400,7 @@ def observations(cfg):
     path = cfg.cache / 'map.sqlite'
     if not path.is_file():
         return {}
-    with closing(sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)) as con:
+    with _read_only(path) as con:
         if not con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta'").fetchone():
             return {}
         row = con.execute("SELECT v FROM meta WHERE k='runtime_observations'").fetchone()
@@ -413,7 +423,7 @@ def read(cfg: Config):
     path = cfg.cache / 'map.sqlite'
     if not path.is_file():
         return output
-    with closing(sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)) as con, con:
+    with _read_only(path) as con, con:
         con.execute('BEGIN')
         tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         names = ('intent_attempt', 'intent_collection', 'intent_dependencies', 'ordinary_collection')
@@ -444,7 +454,7 @@ def read(cfg: Config):
 
 def _write_transaction(con):
     if not con.in_transaction:
-        con.execute('BEGIN IMMEDIATE')
+        begin_write(con)
 
 
 def save_test_collection(con, files, stamp):
@@ -474,7 +484,7 @@ def structure_summary(cfg):
     path = cfg.cache / 'map.sqlite'
     if not path.is_file():
         return None
-    with closing(sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)) as con:
+    with _read_only(path) as con:
         if not con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta'").fetchone():
             return None
         row = con.execute('SELECT v FROM meta WHERE k = ?', (STRUCTURE,)).fetchone()
@@ -497,7 +507,7 @@ def read_last(cfg):
     path = cfg.cache / 'map.sqlite'
     if not path.is_file():
         return None
-    with closing(sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)) as con:
+    with _read_only(path) as con:
         if not con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta'").fetchone():
             return None
         row = con.execute('SELECT v FROM meta WHERE k = ?', (LAST,)).fetchone()

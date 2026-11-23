@@ -23,6 +23,7 @@ import time
 
 import pytest
 
+from ..map.common import CACHE_TIMEOUT, begin_write
 from .config import load_config, project_code
 from .engine import Engine
 from .loader import load
@@ -1593,7 +1594,7 @@ def _missing(state, declared):
         path = state.cfg.cache / 'map.sqlite'
         cached = set()
         if path.is_file():
-            with closing(sqlite3.connect(path)) as connection, connection:
+            with closing(sqlite3.connect(path, timeout=CACHE_TIMEOUT)) as connection, connection:
                 if connection.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='result'").fetchone():
                     cached = {row[0] for row in connection.execute('SELECT item FROM result')}
         missing |= state.deferred - cached
@@ -1911,7 +1912,7 @@ def _display(session):
         path = state.cfg.cache / 'map.sqlite'
         if path.is_file():
             try:
-                with closing(sqlite3.connect(path, timeout=30)) as con, con:
+                with closing(sqlite3.connect(path, timeout=CACHE_TIMEOUT)) as con, con:
                     _meta(con, 'runtime_observations', state.observations.payload)
             except sqlite3.Error as failure:
                 print(f'FlowGuard: the verdict is committed; recording that its block could not be shown failed: {failure}',
@@ -2000,10 +2001,10 @@ def _verify(session, exitstatus):
         if (path.is_file() or state.events) and (state.readings or printed):
             from flowguard.map.common import cache_dir
             cache_dir(state.cfg.root)
-            with closing(sqlite3.connect(path, timeout=30)) as con:
+            with closing(sqlite3.connect(path, timeout=CACHE_TIMEOUT)) as con:
                 con.executescript(SCHEMA + 'CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);\n')
                 with con:
-                    con.execute('BEGIN IMMEDIATE')
+                    begin_write(con)
                     if state.readings:
                         _meta(con, 'intent_attempt', attempt)
                         if state.observations is not None and state.observations.payload is not None:
@@ -2018,7 +2019,7 @@ def _verify(session, exitstatus):
     with closing(state.get_map()) as mapping:
         con = mapping.con
         con.executescript(SCHEMA)
-        con.execute('BEGIN IMMEDIATE')
+        begin_write(con)
         _meta(con, 'intent_attempt', attempt)
         if state.observations is not None and state.observations.payload is not None:
             _meta(con, 'runtime_observations', state.observations.payload)

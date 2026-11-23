@@ -12,6 +12,7 @@ import json
 import math
 from collections import Counter
 
+from flowguard.map.common import begin_write
 from . import features as ff
 from . import decide
 from .store import unpack
@@ -56,6 +57,8 @@ class Scorer:
             parts.setdefault(nid, set()).update(ff.name_parts(body))
         count = Counter(p for s in parts.values() for p in s)
         out = sorted(p for p, c in count.items() if c > ff.GENERIC_SHARE * self.n) if self.n >= 40 else []
+        if not self.con.in_transaction:
+            begin_write(self.con)
         self.con.execute("INSERT OR REPLACE INTO meta VALUES('common', ?)", (json.dumps([build, out]),))
         self.con.commit()
         return frozenset(out)

@@ -6,12 +6,14 @@ package `__init__`), files whose missing imports a new module may now satisfy, a
 guessed calls name a short name that was added or removed. Edges carry a provenance: `resolved`
 (1.x `discover._resolve` through imports), `guessed` (an attribute call linked only because one
 function in the repository has that name) or `observed` (added by a tracer). A vanished id is kept
-in `gone` with its fingerprint, so `moved()` can propose where it went; nothing is re-pointed.
+in `gone` with its fingerprint, so `moved()` can propose where it went; nothing is re-pointed. The files are
+parsed with no lock held; the write lock is taken only to write (`build`), so parallel runs wait for a write alone.
 """
 from __future__ import annotations
 
 import json
 import posixpath
+import re
 import sqlite3
 import sys
 import time
@@ -19,7 +21,8 @@ import zlib
 from array import array
 from pathlib import Path
 
-from flowguard.map.common import DEFAULT_IGNORE, MapError, content_digest, is_test_file, matches_any, read_source
+from flowguard.map.common import CACHE_TIMEOUT, DEFAULT_IGNORE, MapError, begin_write, content_digest, is_test_file, \
+    matches_any, read_source
 from flowguard.map.discover import _injected_classes, _resolve, _resolve_injected, _scope_imports
 from flowguard.map.inventory import list_files
 from . import analysis as fgs
@@ -137,24 +140,42 @@ def shape_list(blob) -> list[int]:
     return list(a)
 
 
+SCHEMA_NAMES = frozenset(re.findall(r'CREATE (?:TABLE|INDEX) IF NOT EXISTS (\w+)', SCHEMA))
+
+
+def _ready(con, path) -> bool:
+    """Does the cache hold every table and index of SCHEMA, the `physical_lines` column and its format row? Read
+    without a lock; a format row of another format raises."""
+    if not SCHEMA_NAMES <= {name for (name,) in con.execute('SELECT name FROM sqlite_master')} or \
+            'physical_lines' not in {row[1] for row in con.execute('PRAGMA table_info(file)')}:
+        return False
+    row = con.execute("SELECT v FROM meta WHERE k='format'").fetchone()
+    if row and row[0] != FORMAT:
+        raise MapError(f'{path}: cache format {row[0]!r} differs from {FORMAT!r}; '
+                       'preserve or remove the disposable cache before rebuilding')
+    return row is not None
+
+
 def connect(path: Path) -> sqlite3.Connection:
-    """SQLite owns serialization and rollback; a failed cache read is never an empty map."""
+    """SQLite owns serialization and rollback; a failed cache read is never an empty map. A cache that holds the
+    schema and its format row opens without a lock; only a new cache, or one an older FlowGuard made without a table,
+    index or column of SCHEMA, takes the write lock to add them, so opening the cache never waits for another run's
+    build."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    con = sqlite3.connect(path, timeout=30)
+    con = sqlite3.connect(path, timeout=CACHE_TIMEOUT)
     try:
         con.execute('PRAGMA journal_mode=DELETE')
         con.execute('PRAGMA synchronous=FULL')
-        con.executescript('BEGIN IMMEDIATE;\n' + SCHEMA + '\nCOMMIT;')
-        with con:
-            con.execute('BEGIN IMMEDIATE')
-            if 'physical_lines' not in {row[1] for row in con.execute('PRAGMA table_info(file)')}:
-                con.execute('ALTER TABLE file ADD COLUMN physical_lines INT DEFAULT 0')
-            row = con.execute("SELECT v FROM meta WHERE k='format'").fetchone()
-            if row and row[0] != FORMAT:
-                raise MapError(f'{path}: cache format {row[0]!r} differs from {FORMAT!r}; '
-                               'preserve or remove the disposable cache before rebuilding')
-            if row is None:
-                con.execute("INSERT INTO meta VALUES('format', ?)", (FORMAT,))
+        if not _ready(con, path):
+            with con:
+                begin_write(con)
+                for statement in SCHEMA.split(';'):
+                    if statement.strip():
+                        con.execute(statement)
+                if 'physical_lines' not in {row[1] for row in con.execute('PRAGMA table_info(file)')}:
+                    con.execute('ALTER TABLE file ADD COLUMN physical_lines INT DEFAULT 0')
+                if not _ready(con, path):
+                    con.execute("INSERT INTO meta VALUES('format', ?)", (FORMAT,))
     except BaseException as error:
         con.close()
         if isinstance(error, sqlite3.DatabaseError):
@@ -413,16 +434,28 @@ def _is_test(rel: str) -> bool:
 
 
 def build(root, db_path=None, *, roots=None, force=False, workers=None) -> dict:
-    """Commit one complete map build, or leave the last complete build unchanged."""
+    """Commit one complete map build, or leave the last complete build unchanged.
+
+    The write lock is held only while a build writes. The files are read and planned against the map as it is, in
+    one read transaction, and those that changed are parsed into memory with no transaction open; a map that already
+    holds these files takes no write lock at all. Under BEGIN IMMEDIATE the files are read and planned once more
+    against the map as it is then (`_build`): a file another process wrote with these bytes in the meantime is left
+    as it is, a file whose bytes changed since the parse is parsed again there, and the rest is written from memory.
+    So a parallel FlowGuard run waits for this build's write, not for its parse (R85), and the map is what one build
+    at the moment of the write gives."""
     t0 = time.perf_counter()
     root = Path(root).resolve()
     db_path = Path(db_path) if db_path else root / '.flowguard/cache/map.sqlite'
     con = connect(db_path)
     try:
-        with con:
-            con.execute('BEGIN IMMEDIATE')
-            stats = _build(con, root, roots, force, workers, t0)
-            prepared = time.perf_counter()
+        memo, ready, clock = dict(syspath={}, installed={}), {}, dict(start=t0)
+        stats = _prepare(con, root, roots, force, workers, memo, ready, clock)
+        if stats is None:
+            with con:
+                begin_write(con)
+                clock['locked'] = time.perf_counter()
+                stats = _build(con, root, roots, force, workers, memo, ready, clock)
+                prepared = time.perf_counter()
         committed = time.perf_counter()
     except sqlite3.DatabaseError as error:
         raise MapError(f'{db_path}: SQLite cache build failed: {error}; '
@@ -460,31 +493,61 @@ def mapped(root, paths, ignore=None):
     return [path for path in kept if owned.get(path, True)]
 
 
-def _build(con, root, roots, force, workers, t0):
+def _files(root) -> dict:
+    """The files a build of `root` maps, as they are now: their paths (`mapped`), the source files among them and the
+    Python ones, each source file's bytes and digest, and the digest of the readers with the project's reader context
+    (`tool`). It reads no cache, so a build reads the files before it opens a transaction."""
+    from .readers.context import context_digest
     files = mapped(root, list_files(root))
     py = [f for f in files if language_for(f)]
-    python_files = [f for f in py if language_for(f) == 'python']
     blobs = {f: (root / f).read_bytes() for f in py}
-    shas = {f: content_digest(root / f, data=b) for f, b in blobs.items()}
+    return dict(files=files, py=py, python_files=[f for f in py if language_for(f) == 'python'], blobs=blobs,
+                shas={f: content_digest(root / f, data=b) for f, b in blobs.items()},
+                tool=content_digest(Path(__file__), data=(reader_digest() + context_digest(root, files)).encode()))
+
+
+def _prepare(con, root, roots, force, workers, memo, ready, clock):
+    """The part of a build that takes no lock: read the files, plan against the map in one read transaction, and parse
+    the files that changed into `ready`, with no transaction open; the stats of a build that finds the map holding
+    these files already, else None."""
+    disk = _files(root)
+    with con:
+        con.execute('BEGIN')                          # one view of the map to plan against, released before the parse
+        plan = _plan(con, root, disk, roots, force, memo)
+        if not plan['changes']:
+            return _unchanged(con, disk, plan)
+    clock['planned'] = time.perf_counter()
+    clock['workers'] = _parse(root, disk, plan, workers, ready)
+    clock['parsed'] = time.perf_counter()
+    return None
+
+
+def _plan(con, root, disk, roots, force, memo) -> dict:
+    """What a build of the files `disk` holds (`_files`) changes in the map `con` holds now: the files to parse again
+    (`redo`: changed bytes, or the same bytes under another module name), the removed ones, the import roots and the
+    module names, and `changes`, False when the map holds exactly these files already. `memo` keeps the sys.path
+    entries read from a file's bytes and the top-level names installed outside the repository for the second plan of
+    the same build."""
+    py, python_files, blobs, shas = disk['py'], disk['python_files'], disk['blobs'], disk['shas']
     old = {p: (s, n, sp) for p, s, n, sp in con.execute("SELECT path, sha, names, syspath FROM file")}
     changed = {f for f in py if f not in old or old[f][0] != shas[f]}
-    from .readers.context import context_digest
-    tool_digest = content_digest(Path(__file__), data=(reader_digest() + context_digest(root, files)).encode())
     previous_tool = con.execute("SELECT v FROM meta WHERE k='reader_digest'").fetchone()
-    if force or previous_tool is None or previous_tool[0] != tool_digest:
+    if force or previous_tool is None or previous_tool[0] != disk['tool']:
         changed = set(py)
     removed = set(old) - set(blobs)
     syspath = {}
     for f in py:
         if f in changed:
             if f in python_files and (b"sys.path" in blobs[f] or b"addsitedir" in blobs[f]):
-                try:
-                    syspath[f] = syspath_entries(syntax_tree(read_source(root / f, data=blobs[f])), f)
-                except SyntaxError:
-                    syspath[f] = []
+                if (f, shas[f]) not in memo['syspath']:
+                    try:
+                        memo['syspath'][f, shas[f]] = syspath_entries(syntax_tree(read_source(root / f, data=blobs[f])), f)
+                    except SyntaxError:
+                        memo['syspath'][f, shas[f]] = []
+                syspath[f] = memo['syspath'][f, shas[f]]
         elif old[f][2]:
             syspath[f] = json.loads(old[f][2])
-    found_roots = rootmod.detect(root, files, python_files, {f: v for f, v in syspath.items() if v})
+    found_roots = rootmod.detect(root, disk['files'], python_files, {f: v for f, v in syspath.items() if v})
     if roots is not None:
         explicit = []
         for value in roots:
@@ -499,9 +562,10 @@ def _build(con, root, roots, force, workers, t0):
                 raise ValueError(f'import root must be inside the project: {value}')
             explicit.append((normalized, "[tool.flowguard] roots"))
         found_roots = sorted(dict(found_roots + explicit).items(), key=lambda item: (-len(item[0]), item[0]))
-    tops = rootmod.implicit_tops(python_files, found_roots)
-    shadowed = rootmod.installed_tops(tops, root) if tops else set()
-    file_names, every, multi = rootmod.names(python_files, found_roots, shadowed)
+    tops = frozenset(rootmod.implicit_tops(python_files, found_roots))
+    if tops not in memo['installed']:
+        memo['installed'][tops] = rootmod.installed_tops(tops, root) if tops else set()
+    file_names, every, multi = rootmod.names(python_files, found_roots, memo['installed'][tops])
     for f in py:
         if f not in file_names:
             name = module_name(f)
@@ -510,17 +574,52 @@ def _build(con, root, roots, force, workers, t0):
     old_roots = con.execute("SELECT path, how FROM root ORDER BY rank").fetchall()
     roots_changed = [tuple(r) for r in old_roots] != [tuple(r) for r in found_roots]
     renamed = {f for f in py if f not in changed and old[f][1] != json.dumps(file_names[f])}
+    return dict(changed=changed, removed=removed, renamed=renamed, redo=changed | renamed, roots_changed=roots_changed,
+                syspath=syspath, found_roots=found_roots, file_names=file_names, every=every, multi=multi,
+                changes=bool(changed or removed or renamed or roots_changed))
+
+
+def _unchanged(con, disk, plan) -> dict:
+    """The stats of a build that finds the map holding these files already."""
+    lines = 'SELECT COALESCE(SUM(physical_lines),0) FROM file WHERE is_test=?'
+    return {"files": len(disk['py']), "parsed": 0, "linked": 0, "removed": 0, "changed": False,
+            "roots": [{"path": p, "how": h} for p, h in plan['found_roots']],
+            "build": int(con.execute("SELECT v FROM meta WHERE k='build'").fetchone()[0]),
+            "source_lines": con.execute(lines, (0,)).fetchone()[0], "test_lines": con.execute(lines, (1,)).fetchone()[0],
+            "capabilities": _capabilities(con, disk['files'])}
+
+
+def _facts_key(f, disk, plan) -> tuple:
+    """What one file's extracted facts depend on: its path, its bytes, its module name and the readers with their
+    context."""
+    return f, disk['shas'][f], plan['file_names'][f][0][0], disk['tool']
+
+
+def _parse(root, disk, plan, workers, ready) -> int:
+    """Extract the files `plan` parses again that `ready` does not hold yet into `ready` (by `_facts_key`); the number
+    of processes the extraction used."""
+    order = [f for f in sorted(plan['redo']) if _facts_key(f, disk, plan) not in ready]
+    extracted, used = extract_all(root, [(f, disk['blobs'][f], plan['file_names'][f][0][0], _is_test(f)) for f in order],
+                                  workers=workers)
+    ready.update(zip((_facts_key(f, disk, plan) for f in order), extracted))
+    return used
+
+
+def _build(con, root, roots, force, workers, memo, ready, clock):
+    """The write of one build, under the write lock: the files are read and planned again against the map as it now
+    is, so what another process wrote meanwhile counts, and only what still differs is written; a file `ready` holds
+    no facts for (its bytes changed since the parse, or the map now names it differently) is parsed here."""
+    disk = _files(root)
+    plan = _plan(con, root, disk, roots, force, memo)
+    if not plan['changes']:
+        return _unchanged(con, disk, plan)
+    py, blobs, shas, files = disk['py'], disk['blobs'], disk['shas'], disk['files']
+    removed, renamed, redo = plan['removed'], plan['renamed'], plan['redo']
+    file_names, every, multi, found_roots = plan['file_names'], plan['every'], plan['multi'], plan['found_roots']
+    syspath, roots_changed, tool_digest = plan['syspath'], plan['roots_changed'], disk['tool']
     stats = {"files": len(py), "parsed": 0, "linked": 0, "removed": len(removed), "build": None,
              "roots": [{"path": p, "how": h} for p, h in found_roots]}
-    if not (changed or removed or renamed or roots_changed):
-        stats.update(build=int(con.execute("SELECT v FROM meta WHERE k='build'").fetchone()[0]),
-                     seconds=round(time.perf_counter() - t0, 3), changed=False,
-                     source_lines=con.execute('SELECT COALESCE(SUM(physical_lines),0) FROM file WHERE is_test=0').fetchone()[0],
-                     test_lines=con.execute('SELECT COALESCE(SUM(physical_lines),0) FROM file WHERE is_test=1').fetchone()[0])
-        stats.update(capabilities=_capabilities(con, files))
-        return stats
     build_no = int((con.execute("SELECT v FROM meta WHERE k='build'").fetchone() or [0])[0]) + 1
-    redo = changed | renamed
     touched = redo | removed
     snapshot = {r[0]: r for r in con.execute(
         f"SELECT id, fp, kind, shape, file, sig, short FROM node WHERE file IN ({','.join('?' * len(touched))})",
@@ -547,10 +646,9 @@ def _build(con, root, roots, force, workers, t0):
     for f in sorted(touched):
         _delete_file(con, f, keep_file=f in redo)
     t_read = time.perf_counter()
-    order = sorted(redo)
-    extracted, stats["workers"] = extract_all(root, [(f, blobs[f], file_names[f][0][0], _is_test(f)) for f in order], workers=workers)
-    for f, facts in zip(order, extracted):            # stored in path order whatever process read the file
-        _store_file(con, f, facts, shas[f], file_names[f], _is_test(f), build_no)
+    stats["workers"] = max(clock['workers'], _parse(root, disk, plan, workers, ready))
+    for f in sorted(redo):                            # stored in path order whatever process read the file
+        _store_file(con, f, ready.pop(_facts_key(f, disk, plan)), shas[f], file_names[f], _is_test(f), build_no)
         stats["parsed"] += 1
     t_extract = time.perf_counter()
     for f in removed:
@@ -598,9 +696,11 @@ def _build(con, root, roots, force, workers, t0):
     stats['source_lines'] = con.execute('SELECT COALESCE(SUM(physical_lines),0) FROM file WHERE is_test=0').fetchone()[0]
     stats['test_lines'] = con.execute('SELECT COALESCE(SUM(physical_lines),0) FROM file WHERE is_test=1').fetchone()[0]
     t_end = time.perf_counter()
-    stats["phases"] = {"read": round(t_read - t0, 2), "extract": round(t_extract - t_read, 2),
+    stats["phases"] = {"read": round(clock['planned'] - clock['start'] + t_read - clock['locked'], 2),
+                       "extract": round(clock['parsed'] - clock['planned'] + t_extract - t_read, 2),
+                       "wait": round(clock['locked'] - clock['parsed'], 2),
                        "link": round(t_link - t_extract, 2), "store": round(t_end - t_link, 2)}
-    stats.update(build=build_no, seconds=round(time.perf_counter() - t0, 3), changed=True,
+    stats.update(build=build_no, seconds=round(time.perf_counter() - clock['start'], 3), changed=True,
                  resolve_errors=linker.resolve_errors[:20], resolve_error_count=len(linker.resolve_errors),
                  capabilities=_capabilities(con, files))
     return stats

@@ -860,10 +860,10 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
-["flowguard/structure/store.py:_build:SyntaxError"]
+["flowguard/structure/store.py:_plan:SyntaxError"]
 count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
+reason = "A changed Python file that names sys.path but does not parse adds no import root of its own to the build's plan; the build still parses it, stores the parser's own words as that file's parse_error, and the map's coverage and flow paths report it as source parse failed with those words, so the error is never hidden and no root is guessed."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
 ["flowguard/structure/store.py:_resolve_call:RecursionError"]
 count = 1

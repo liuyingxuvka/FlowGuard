@@ -1602,9 +1602,9 @@ def _uncovered_alone(issues, deliveries, index):
 def _keep_last(cfg, payload):
     """`cache.save_last` for a check that holds no map connection of its own."""
     import sqlite3
-    from flowguard.map.common import cache_dir
+    from flowguard.map.common import CACHE_TIMEOUT, cache_dir
     cache_dir(cfg.root)
-    with closing(sqlite3.connect(cfg.cache / 'map.sqlite', timeout=30)) as con:
+    with closing(sqlite3.connect(cfg.cache / 'map.sqlite', timeout=CACHE_TIMEOUT)) as con:
         con.execute('CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT)')
         with con:
             cache.save_last(con, payload)

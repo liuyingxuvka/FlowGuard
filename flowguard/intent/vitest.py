@@ -1480,9 +1480,9 @@ def _save_last(cfg, payload):
     import sqlite3
     from contextlib import closing
     from .cache import save_last
-    from ..map.common import cache_dir
+    from ..map.common import CACHE_TIMEOUT, cache_dir
     cache_dir(cfg.root)
-    with closing(sqlite3.connect(cfg.cache / 'map.sqlite', timeout=30)) as con:
+    with closing(sqlite3.connect(cfg.cache / 'map.sqlite', timeout=CACHE_TIMEOUT)) as con:
         con.execute('CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT)')
         with con:
             save_last(con, payload)

@@ -16,6 +16,9 @@ from functools import lru_cache, wraps
 from pathlib import Path
 
 CACHE_RELDIR = Path('.flowguard') / 'cache'
+CACHE_TIMEOUT = 30      # seconds every connection to the map cache waits for another process's lock: a reader as long
+                        # as a writer, so a run that reads while another commits waits for it instead of failing (R85)
+CACHE_NOTICE = 5        # seconds `begin_write` waits for the cache's write lock before it says what it waits for
 SOURCE_EXTS = {'.py', '.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.go', '.rs',
                '.java', '.kt', '.cs', '.rb', '.php', '.swift', '.c', '.h', '.cpp', '.hpp'}
 DEFAULT_IGNORE = ['.flowguard/**', '.git/**', '**/__pycache__/**', 'node_modules/**',
@@ -361,6 +364,30 @@ def cache_dir(root: Path) -> Path:
     if not ignore.exists():
         ignore.write_text("*\n", encoding="utf-8")
     return directory
+
+
+def begin_write(con) -> None:
+    """BEGIN IMMEDIATE on a connection to the map cache, waiting for another process's write as long as any
+    connection waits (CACHE_TIMEOUT). Once the wait passes CACHE_NOTICE seconds, one stderr line says what it waits
+    for, so a run another FlowGuard run holds up is not silent; a wait that runs out raises sqlite3's error to the
+    caller."""
+    import threading
+    name = Path(con.execute('PRAGMA database_list').fetchone()[2])
+    notice = threading.Timer(CACHE_NOTICE, _waiting, (name,))
+    notice.daemon = True
+    notice.start()
+    try:
+        con.execute('BEGIN IMMEDIATE')
+    finally:
+        notice.cancel()
+        notice.join()
+
+
+def _waiting(path: Path) -> None:
+    here = Path.cwd()
+    shown = path.relative_to(here).as_posix() if path.is_relative_to(here) else str(path)
+    print(f'flowguard: waiting for {shown} (another FlowGuard run is writing it; {CACHE_NOTICE} s so far, '
+          f'at most {CACHE_TIMEOUT} s)', file=sys.stderr, flush=True)
 
 
 

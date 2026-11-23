@@ -18,7 +18,7 @@ import re
 import sqlite3
 from pathlib import Path
 
-from flowguard.map.common import MapError, cache_dir, git_blob, git_common_directory, git_path_object, git_run, glob_match, is_test_file, sha256_bytes
+from flowguard.map.common import CACHE_TIMEOUT, MapError, cache_dir, git_blob, git_common_directory, git_path_object, git_run, glob_match, is_test_file, sha256_bytes
 from . import homes, store
 from .extract import extract
 from .store import shape_list
@@ -45,7 +45,7 @@ class MapHandle:
     def __init__(self, root: Path, path: Path, stats: dict, options=None):
         self.root, self.path, self.stats = root, path, stats
         self.options = dict(options or {}, force=False)
-        self.con = sqlite3.connect(path, timeout=30)
+        self.con = sqlite3.connect(path, timeout=CACHE_TIMEOUT)
         self._syntax_cache = None
         self._file_cache = {}
         self._derived = {}
@@ -54,7 +54,7 @@ class MapHandle:
     def refresh(self) -> dict:
         self.con.close()
         self.stats = store.build(self.root, self.path, **self.options)
-        self.con = sqlite3.connect(self.path, timeout=30)
+        self.con = sqlite3.connect(self.path, timeout=CACHE_TIMEOUT)
         self._syntax_cache = None
         self._file_cache = {}
         self._derived = {}
