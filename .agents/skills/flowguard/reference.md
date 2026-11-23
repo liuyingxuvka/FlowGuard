@@ -70,7 +70,7 @@ Bare writer names identify functions in the comment's file. A function in anothe
 
 A Python reference can retain its parameter declaration, as in `same ACCEPT ref(days: day)`. TS/JS uses `same ACCEPT ref` above the actual function. Missing targets, mismatched signatures or units, and multiple references remain errors. Different policies should use different agreement names; do not force them to agree.
 
-Python copies with different parameter names make the correspondence explicit: `same ACCEPT(days=overdue_days)`. Nothing is matched by position or type. A return projection is written without a colon, such as `-> result[0]` or `-> result.ok`; `-> allowed: bool` remains an output declaration.
+Python copies with different parameter names make the correspondence explicit: `same ACCEPT(days=overdue_days)`. Nothing is matched by position or type. Copies one of which cannot be given an input another takes (a parameter it lacks; in TS/JS another name at a position the input fills) are red as copies that take different parameters, `same PROJECT_SCOPE: scope.py:can_view(user, project) and scope.py:visible_projects(user, projects) take different parameters -> check whether these are copies of one decision, then correct the code or the marks`: a boolean check and a list projection are not copies of one decision. A return projection is written without a colon, such as `-> result[0]` or `-> result.ok`; `-> allowed: bool` remains an output declaration.
 
 FlowGuard 5.0 removed the 4.2 spellings (`sensor`, `owner`): each is red at its line, and its step is the 4.3 comment to write. Written as that step says, it loosens nothing; deleting the line or writing a looser agreement than its step is `loosened`.
 
@@ -131,7 +131,7 @@ Read the FlowGuard block after the tests. Its first line counts each kind and Fl
 | `before` | Something this change touches was already broken at the task start. |
 | `known` | This change edits the text of a `known.toml` entry's site, comments and spacing included; the line names the sites it touches (`(1 of 12 sites)`) and an `ask` entry's question; when the change also touches the entry's `finding`, it names that finding's places it touches (`(1 of 2 places)`), every place when it touches none. |
 | `known fixed?` | A `known.toml` finding is gone. |
-| `changed` | A function this change edited, or one importing a constant it altered, returns something else for an input a test used; plain `check` runs no ordinary tests, so this comes from a test run or `check --all`. |
+| `changed` | A function this change edited, or one importing a constant it altered, returns something else for an input a test used; plain `check` runs no ordinary tests, so this comes from a test run or `check --all`. A call its task-start version takes as other parameters (`(record)` that became `(kind, record)`) is `not compared` (`parameters differ from the baseline`), not changed. |
 | `impact` | A changed function writes another set of fields, or an automatic structure check found something new. |
 | `loosened` | An `except=`, a removed or narrowed agreement, a changed or removed `known.toml` entry or a removed rule. |
 | `not compared` | A comparison was due but could not run in the closed environment, or the function's file was saved during the run (`source of PATH changed on disk after import`); unverified, not success. |

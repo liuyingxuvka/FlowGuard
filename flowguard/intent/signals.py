@@ -213,8 +213,10 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
                                       f'{issue.held}, {place} among them; so at task start' if place else
                                       f'{issue.held}; so at task start', BEFORE_STEP, places, issue.detail))
                 elif not speaking:
+                    # `same N disagreed at task start on x=3: ...`; a copies line of no input reads on after a colon
+                    joint = ': ' if issue.family in BROKEN and not what.startswith('on ') else ' '
                     lines.append(Line('before', issue.name, function,
-                                      f'{issue.subject} {verb} {what}' if many else
+                                      f'{issue.subject} {verb}{joint}{what}' if many else
                                       f'{issue.subject} at {place} {verb}' if place else f'{issue.subject} {verb}',
                                       BEFORE_STEP, places, issue.detail))
     for entry in entries:
@@ -333,12 +335,12 @@ REASONS_KEPT = 40           # characters the reasons of the not compared line ke
 
 
 def _summary(lines, names):
-    """The one `not compared` line: what was not compared (one by name; up to three named after their count, more
-    counted as functions, or items when not every one is a function) and why, the most common reason first (each
-    line's reasons are its detail). It keeps WIDTH characters besides its paths and places (`_width`), and an item is
-    never cut: the reasons give way in their middle, down to REASONS_KEPT characters, and when the named items leave
-    less room than that they are counted (`3 items`). A single item keeps its name and place: its reasons give way
-    first, then its own text before its place, in its middle (`_fit`)."""
+    """The one `not compared` line: what was not compared (one by name, a function by its own (`_function_named`); up
+    to three named after their count, more counted as functions, or items when not every one is a function) and why,
+    the most common reason first (each line's reasons are its detail). It keeps WIDTH characters besides its paths and
+    places (`_width`), and an item is never cut: the reasons give way in their middle, down to REASONS_KEPT characters,
+    and when the named items leave less room than that they are counted (`3 items`). A single item keeps its name and
+    place: its reasons give way first, then its own text before its place, in its middle (`_fit`)."""
     reasons = Counter()
     for line in lines:
         for reason in dict.fromkeys(_reason(reason) for reason in line.detail or ('no reason recorded',)):
@@ -351,7 +353,7 @@ def _summary(lines, names):
         said = f'{ranked[0]}, or {ranked[1]}'
     else:
         said = f'{ranked[0]}, {ranked[1]}, or {len(ranked) - 2} other reason{"s" * (len(ranked) > 3)}'
-    subjects = [_shorten(_unarrowed(line.text), line.places, names) for line in lines]
+    subjects = [_shorten(_unarrowed(_function_named(line)), line.places, names) for line in lines]
     counted = f'{len(lines)} {noun}{"s" * (len(lines) != 1)}'
     named = [subjects[0]] if len(lines) == 1 else \
         [f'{counted}: ' + ', '.join(subjects[:-1]) + ' and ' + subjects[-1]] if len(lines) <= PLACES else []
@@ -365,6 +367,16 @@ def _summary(lines, names):
         room = WIDTH - _width(f'not compared: {what} () -> {NOT_COMPARED_STEP}', kept)
         if room >= min(len(said), REASONS_KEPT) or what == counted:
             return f'not compared: {what} ({_middle(said, max(room, REASONS_KEPT))}) -> {NOT_COMPARED_STEP}'
+
+
+def _function_named(line):
+    """The subject of a not compared line as the block's summary names it: a function's line (`{name} ({place})`) by
+    the function's own name, which an agreement's copies share no name of (`can_view (scope.py:2)`, not `PROJECT_SCOPE
+    (scope.py:2)`); any other line by its text."""
+    place = line.places[0] if line.function and line.places else ''
+    if place and line.text.endswith(f' ({place})'):
+        return f'{line.function.rpartition(":")[2] or line.function} ({place})'
+    return line.text
 
 
 def _reason(text):
@@ -761,18 +773,44 @@ def copy_says(answers, same, show, owner=None, total=None, apart=(), limit=PLACE
     return text, 'decide which copy is right, then make the ' + ('other agree' if len(answers) == 2 else 'others agree')
 
 
+def parameters_differ(was, now):
+    """The not compared reason of a function whose recorded inputs its baseline version takes as other parameters
+    (`plugin.baseline_call`, `vitest.shifted`): one head for every function, which the block's summary counts as one
+    reason, both versions after it (`was f(record), now f(kind, record)`, in `show --last`)."""
+    return f'parameters differ from the baseline (was {was}, now {now})'
+
+
+PARAMETERS_STEP = 'check whether these are copies of one decision, then correct the code or the marks'
+
+
+def copies_parameters(signatures, limit=PLACES):
+    """(what, step) of same-name copies that take different parameters, so that one input cannot be given to every one
+    of them (`plugin.compare_copies`, the vitest report): `signatures` [(place, parameters)] in plan order, each
+    `place(parameters)` (`scope.py:can_view(user, project) and scope.py:visible_projects(user, projects) take different
+    parameters`). At most `limit` copies are named, the others counted. Copies of one decision take the same inputs;
+    the step leaves open whether these are copies at all, as a boolean check and a list projection marked with one name
+    are not."""
+    shown = [f'{place}{parameters}' for place, parameters in signatures[:limit]]
+    hidden = len(signatures) - len(shown)
+    if hidden:
+        shown.append(f'{hidden} other cop{"y" if hidden == 1 else "ies"}')
+    named = shown[0] if len(shown) == 1 else ', '.join(shown[:-1]) + ' and ' + shown[-1]
+    return f'{named} take different parameters', PARAMETERS_STEP
+
+
 def copies_issue(name, fresh, old, *, places, files=()):
     """The `same:NAME` finding (`deliver`) of same-name copies from the `copy_partition` lines worded by `copy_says`:
     one member per line, the pairs of copies it shows to differ (`a|b`, sorted), new where this change broke them
     (`fresh`), else old. Its places are the copies the line names; it is touched where a copy's file is. Of more than
-    three copies, which a line names three of (`copy_says`), every copy is named in the detail."""
+    three copies, which a line names three of (`copy_says`), every copy is named in the detail. A line of no input
+    (`where` '': copies that take different parameters, `copies_parameters`) says its text alone."""
     from .health import Issue, LINES_ONLY
     parts, new = [], set()
     for lines, added in ((fresh, True), (old, False)):
         for where, text, step, pairs in lines:
             function = ';'.join(sorted('|'.join(sorted(pair)) for pair in pairs))
             named = tuple(sorted((place for place in set(places) if place in text), key=text.find))
-            parts.append((function, named, f'on {_one_line(where)}: {_one_line(text)}', step))
+            parts.append((function, named, f'on {_one_line(where)}: {_one_line(text)}' if where else _one_line(text), step))
             if added:
                 new.add(function)
     every = list(dict.fromkeys(places))

@@ -610,3 +610,110 @@ def test_same_name_copies_whose_baseline_does_not_parse_are_not_compared_in_pyte
     assert main(['--root', str(tmp_path), 'check'], cwd=tmp_path) == 0
     assert _unparsed(tmp_path, 'not compared: STANDING -> not a failure').startswith(
         'baseline comparison unavailable (other.py:2 preview: other.py does not parse at the baseline: '), last(tmp_path)
+
+
+# ---- 5.1: a recorded call is replayed at the baseline only where it is a call of the same input --------------------
+# Planning Tool G80 (PTWF-4c): `person_label(record)` became `person_label(kind, record)`. The baseline replay passed
+# the new call's arguments by position to the old function and printed `changed: ... was raises {'type': 'TypeError',
+# 'message': 'person_label() takes 1 positional argument but 2 were given'}`: a false changed, not a change.
+
+LABELS = '''
+def person_label(record):
+    return f"{record.get('name')} [{record.get('dept') or 'directory unavailable'}]"
+
+def over(x):
+    return x > 3
+
+def ratio(x):
+    return x * 2
+'''
+
+
+def test_a_call_its_baseline_takes_as_other_parameters_is_not_compared_and_a_trailing_default_keeps_it(tmp_path):
+    path = _project(tmp_path, LABELS, '''
+        from policy import person_label, over, ratio
+        def test_label():
+            assert person_label('person', {'name': 'Ann', 'dept': 'HR'}) == 'Ann [HR]'
+            assert over(3) and ratio(2) == 6
+    ''')
+    path.write_text(textwrap.dedent('''
+        def person_label(kind, record):
+            return f"{record.get('name')} [{record.get('dept') or 'directory unavailable'}]"
+
+        def over(x, strict=False):
+            return x > 3 if strict else x >= 3
+
+        def ratio(x):
+            return x * 3
+    ''').lstrip(), encoding='utf-8')
+    result = _run(tmp_path)
+    text = _text(result)
+    assert result.returncode == 0 and 'TypeError' not in text, text
+    # a required parameter inserted first: not compared, never `was raises TypeError`; a trailing parameter added
+    # with its default left as it is keeps over(3) compared (was False, now True); a signature kept, a changed line
+    assert block(result)[1:] == [
+        'changed: over (policy.py:4): (x=3, strict=False) was False, now True; 1/1 inputs differ -> if you meant it, say so',
+        'changed: ratio (policy.py:7): (x=2) was 4, now 6; 1/1 inputs differ -> if you meant it, say so',
+        'not compared: person_label (policy.py:1) (parameters differ from the baseline) -> not a failure'], text
+    assert ('not compared: person_label (policy.py:1) -> not a failure\n    parameters differ from the baseline (was '
+            'person_label(record), now person_label(kind, record))') in last(tmp_path), last(tmp_path)
+
+
+def test_a_call_that_gives_a_new_parameter_a_value_of_its_own_is_not_compared(tmp_path):
+    # over(3, True) is no call the baseline over(x) could take; its replay without the True would be another input
+    path = _project(tmp_path, 'def over(x):\n    return x > 3\n', '''
+        from policy import over
+        def test_over():
+            assert over(3, True)
+    ''')
+    path.write_text('def over(x, strict=False):\n    return x >= 3 if strict else x > 3\n', encoding='utf-8')
+    result = _run(tmp_path)
+    assert result.returncode == 0 and block(result)[1:] == [
+        'not compared: over (policy.py:1) (parameters differ from the baseline) -> not a failure'], _text(result)
+    assert '(was over(x), now over(x, strict=False))' in last(tmp_path), last(tmp_path)
+
+
+SCOPE = '''
+# flowguard: same PROJECT_SCOPE
+def can_view(user, project):
+    return project['org'] == user['org']
+
+# flowguard: same PROJECT_SCOPE
+def visible_projects(user, projects):
+    return [p for p in projects if p['org'] == user['org']]
+'''
+SCOPE_TEST = '''
+from scope import can_view, visible_projects
+def test_scope():
+    u = {'org': 1}
+    assert can_view(u, {'org': 1})
+    assert visible_projects(u, [{'org': 1}, {'org': 2}]) == [{'org': 1}]
+'''
+SCOPE_RED = ('red: same PROJECT_SCOPE: scope.py:can_view(user, project) and scope.py:visible_projects(user, projects) take '
+             'different parameters -> check whether these are copies of one decision, then correct the code or the marks')
+
+
+def test_same_name_copies_that_take_different_parameters_are_named_as_such(tmp_path):
+    # Planning Tool (PTWF-4a): `same` on a boolean check of a project and a list projection of projects. The red was
+    # right, but read `visible_projects returns raises {'type': 'TypeError', ... unexpected keyword argument 'project'}
+    # -> decide which copy is right, then make the other agree`, and the not compared line named the agreement twice.
+    _project(tmp_path, 'def other():\n    return 1\n', 'def test_nothing():\n    assert True\n')
+    (tmp_path / 'scope.py').write_text(SCOPE.lstrip(), encoding='utf-8')
+    (tmp_path / 'tests/test_scope.py').write_text(SCOPE_TEST.lstrip(), encoding='utf-8')
+    result = _run(tmp_path)
+    text = _text(result)
+    assert result.returncode == 1 and 'TypeError' not in text, text
+    assert block(result)[1:] == [SCOPE_RED, 'not compared: 2 functions: can_view (scope.py:2) and visible_projects '
+                                 '(scope.py:6) (no baseline source) -> not a failure'], text
+    # check without a pytest batch says it in the same words
+    from tests.intent_engine._cli_fixture import main
+    assert main(['--root', str(tmp_path), 'check'], cwd=tmp_path) == 1
+    assert [line for line in last(tmp_path).splitlines() if line.startswith('red: ')] == [SCOPE_RED], last(tmp_path)
+    # copies that took these parameters at the baseline already: an old matter, read on after a colon
+    root = tmp_path / 'committed'
+    _project(root, SCOPE, SCOPE_TEST.replace('from scope', 'from policy'))
+    (root / 'policy.py').write_text(SCOPE.lstrip().replace("user['org']\n\n", "user['org']  # one org\n\n"), encoding='utf-8')
+    result = _run(root)
+    assert result.returncode == 0 and block(result)[1:] == [
+        'before: same PROJECT_SCOPE disagreed at task start: policy.py:can_view(user, project) and '
+        'policy.py:visible_projects(user, projects) take different parameters -> leave it unless your task is about it'], _text(result)

@@ -345,7 +345,8 @@ def test_the_report_title_says_how_far_head_lies_after_the_task_start_as_pytest_
     version = re.escape(signals.version())
     assert code == 0 and re.fullmatch(rf'FlowGuard {version} \(since {start[:7]}, 2 commits before HEAD\): 0 red, 1 not compared; '
                                       r'[0-9]+\.[0-9] s', block[0]), text
-    assert block[1:] == ['not compared: LIMIT (limits.ts:2) (not reached by any test) -> not a failure'], text
+    # the block names the function, not its agreement (5.1)
+    assert block[1:] == ['not compared: limit (limits.ts:2) (not reached by any test) -> not a failure'], text
     shown = _cli_fixture.last(tmp_path).splitlines()      # show --last reads this run
     assert shown[0].startswith('FlowGuard last run: vitest at ') and shown[1] == block[0], shown
     assert _flowguard(tmp_path, 'new-task')[0] == 0
@@ -364,7 +365,7 @@ def test_the_report_names_a_file_by_an_end_no_other_file_of_the_repository_has(t
     (tmp_path / 'src/limits.ts').write_text(limit.format(4), encoding='utf-8')
     code, text = _report(tmp_path, _prepare(tmp_path)['plan'])
     assert code == 0 and _cli_fixture.block(text)[1:] == [
-        'not compared: LIMIT (src/limits.ts:2) (not reached by any test) -> not a failure'], text
+        'not compared: limit (src/limits.ts:2) (not reached by any test) -> not a failure'], text
 
 
 # Planning Tool's ISO weeks (T5, R99): two non-exported copies in frontend components and one in the backend package.
@@ -436,10 +437,10 @@ def test_an_unchanged_copy_no_test_reached_says_nothing_and_a_changed_or_newly_m
     assert said() == []                                   # an edit beside a copy is no edit of it
     (tmp_path / chart).write_text(PT_CHART, encoding='utf-8')
     (tmp_path / controls).write_text(PT_CONTROLS.replace('year, 11, 28', 'year, 11, 27 + 1'), encoding='utf-8')
-    assert said() == [f'not compared: ISO_WEEKS_IN_YEAR (PlanningTimeControls.tsx:{line}) (not reached by any test) -> not a failure']
+    assert said() == [f'not compared: getIsoWeeksInYear (PlanningTimeControls.tsx:{line}) (not reached by any test) -> not a failure']
     (tmp_path / controls).write_text(PT_CONTROLS, encoding='utf-8')
     (tmp_path / 'frontend/src/utils/weeks.ts').write_text('// flowguard: same ISO_WEEKS_IN_YEAR\n' + PT_WEEKS, encoding='utf-8')
-    assert said() == ['not compared: ISO_WEEKS_IN_YEAR (weeks.ts:2) (not reached by any test) -> not a failure']
+    assert said() == ['not compared: isoWeeksOf (weeks.ts:2) (not reached by any test) -> not a failure']
 
 
 PT_LOCALE_CONTROLS = PT_WEEK_NUMBER + """
@@ -481,7 +482,7 @@ def test_an_unchanged_copy_no_test_reached_says_nothing_even_when_its_source_can
                                      "weekLabel(week: number): string {\n  return 'W' + week;\n}\n", encoding='utf-8')
     assert said() == []                                   # edits beside the copy: its comment, a new function
     (tmp_path / controls).write_text(PT_LOCALE_CONTROLS.replace('24 + firstWeekDay', '23 + firstWeekDay + 1'), encoding='utf-8')
-    assert said() == [f'not compared: ISO_WEEKS_IN_YEAR (PlanningTimeControls.tsx:{line}) '
+    assert said() == [f'not compared: getIsoWeeksInYear (PlanningTimeControls.tsx:{line}) '
                       '(uses imported or mutable binding firstWeekDay) -> not a failure']
 
 
@@ -502,7 +503,7 @@ def test_an_unreached_copy_is_this_changes_when_it_edits_the_binding_its_reason_
     _commit(tmp_path, {'frontend/package.json': '{"name": "frontend", "private": true, "type": "module"}\n', chart: PT_CHART,
                        controls: PT_LOCALE_CONTROLS, other: imported, locale: PT_LOCALE})
     line = PT_LOCALE_CONTROLS.splitlines().index('function getIsoWeeksInYear(year: number): number {') + 1
-    said_line = (f'not compared: ISO_WEEKS_IN_YEAR (PlanningTimeControls.tsx:{line}) '
+    said_line = (f'not compared: getIsoWeeksInYear (PlanningTimeControls.tsx:{line}) '
                  '(uses imported or mutable binding firstWeekDay) -> not a failure')
     other_line = said_line.replace(f'PlanningTimeControls.tsx:{line}', f'WeekPicker.tsx:{imported.splitlines().index("function getIsoWeeksInYear(year: number): number {") + 1}')
     def said(path, text):
@@ -515,7 +516,7 @@ def test_an_unreached_copy_is_this_changes_when_it_edits_the_binding_its_reason_
     assert said(controls, PT_LOCALE_CONTROLS.replace('let firstWeekDay = 4;', 'let firstWeekDay = 5;')) == [said_line]
     setter = PT_LOCALE_CONTROLS.splitlines().index('export function setFirstWeekDay(day: number): void {') + 1
     assert said(controls, PT_LOCALE_CONTROLS.replace('  firstWeekDay = day;', '  firstWeekDay = day % 7;')) == [
-        said_line.replace('ISO_WEEKS_IN_YEAR', '2 functions: ISO_WEEKS_IN_YEAR').replace(
+        said_line.replace('getIsoWeeksInYear', '2 functions: getIsoWeeksInYear').replace(
             ') (uses', f') and setFirstWeekDay (PlanningTimeControls.tsx:{setter}) (uses')]   # the setter changed too
     # The binding a copy imports from a project file is that file's.
     assert said(locale, PT_LOCALE.replace('= 4;', '= 4; // Thursday')) == []
@@ -1446,6 +1447,109 @@ def test_type_guard_copies_are_compared_and_a_pair_this_change_broke_is_red(vite
     assert _sealed('function f() { for (;;) {} }', 'f', []) == {'reason': 'sealed execution failed or timed out'}
 
 
+PT_LABELS = """export function businessPersonLabel(record: { name: string; dept?: string }): string {
+  return `${record.name} [${record.dept ?? 'directory unavailable'}]`;
+}
+
+export function createBusinessDraft(record?: { name: string }): { title: string } {
+  return { title: record?.name ?? '' };
+}
+
+export function over(x: number): boolean { return x > 3; }
+
+export function ratio(x: number): number { return x * 2; }
+"""
+
+
+def test_a_call_its_baseline_takes_as_other_parameters_is_not_compared_and_a_trailing_one_keeps_it(vitest_home):
+    # Planning Tool G80 (PTWF-4c): a required parameter inserted first. The replay gave the old function the new
+    # call's arguments by position: `changed: businessPersonLabel (labels.ts:1): (kind='person', record={...}) was
+    # 'undefined [directory unavailable]', now 'Ann [HR]'` and `createBusinessDraft ... was {"title": ""}`. A call
+    # fills the same parameters at the baseline, or its old version is not run.
+    root = vitest_home / 'shifted'
+    _commit(root, {'package.json': '{"name":"shifted","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+                   'src/labels.ts': PT_LABELS,
+                   'tests/labels.test.ts': ("import { it, expect } from 'vitest';\n"
+                                            "import { businessPersonLabel, createBusinessDraft, over, ratio } from '../src/labels';\n"
+                                            "it('label', () => { expect(businessPersonLabel({ name: 'Ann', dept: 'HR' })).toBe('Ann [HR]'); });\n")})
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired')
+    (root / 'src/labels.ts').write_text(PT_LABELS.replace('(record: {', '(kind: string, record: {').replace('(record?: {', '(kind: string, record?: {')
+                                        .replace('over(x: number): boolean { return x > 3; }',
+                                                 'over(x: number, strict?: boolean): boolean { return strict ? x > 3 : x >= 3; }')
+                                        .replace('x * 2', 'x * 3'), encoding='utf-8', newline='\n')
+    (root / 'tests/labels.test.ts').write_text(
+        "import { it, expect } from 'vitest';\nimport { businessPersonLabel, createBusinessDraft, over, ratio } from '../src/labels';\n"
+        "it('label', () => { expect(businessPersonLabel('person', { name: 'Ann', dept: 'HR' })).toBe('Ann [HR]'); });\n"
+        "it('draft', () => { expect(createBusinessDraft('person', { name: 'X' }).title).toBe('X'); });\n"
+        "it('over', () => { expect(over(3)).toBe(true); expect(ratio(2)).toBe(6); });\n", encoding='utf-8', newline='\n')
+    code, text = _vitest(root, vitest_home)
+    assert code == 0 and 'directory unavailable' not in text.split('Test Files')[-1], text
+    # the trailing optional parameter keeps over(3) compared, and a kept signature with new output stays changed
+    assert _block(text)[1:] == [
+        'changed: over (labels.ts:9): (x=3) was False, now True; 1/1 inputs differ -> if you meant it, say so',
+        'changed: ratio (labels.ts:11): (x=2) was 4, now 6; 1/1 inputs differ -> if you meant it, say so',
+        'not compared: 2 functions: businessPersonLabel (labels.ts:1) and createBusinessDraft (labels.ts:5) (parameters '
+        'differ from the baseline) -> not a failure'], text
+    assert _cli_fixture.unchecked(root) == {
+        'businessPersonLabel (src/labels.ts:1)': ['parameters differ from the baseline (was businessPersonLabel(record), '
+                                                  'now businessPersonLabel(kind, record))'],
+        'createBusinessDraft (src/labels.ts:5)': ['parameters differ from the baseline (was createBusinessDraft(record), '
+                                                  'now createBusinessDraft(kind, record))']}, _cli_fixture.last(root)
+
+
+def test_same_name_copies_whose_parameters_differ_where_an_input_fills_them_are_named_as_such(vitest_home):
+    # Planning Tool (PTWF-4a): `same` on a check of one project and a projection of a list of projects. Positionally
+    # the list function got the project: `visibleProjects returns raises TypeError: projects.filter is not a function
+    # -> decide which copy is right`, and the not compared line named PROJECT_SCOPE twice instead of the functions.
+    root = vitest_home / 'scoped'
+    _commit(root, {'package.json': '{"name":"scoped","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+                   'src/other.ts': 'export function one(x: number): number { return x + 1; }\n'})
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired')
+    _write(root, {'src/scope.ts': """
+        // flowguard: same PROJECT_SCOPE
+        export function canView(user: { org: number }, project: { org: number }): boolean {
+          return project.org === user.org;
+        }
+
+        // flowguard: same PROJECT_SCOPE
+        export function visibleProjects(user: { org: number }, projects: { org: number }[]): { org: number }[] {
+          return projects.filter((p) => p.org === user.org);
+        }
+    """, 'src/late.ts': """
+        // flowguard: same LATE
+        export function late(days: number): boolean { return days > 3; }
+
+        // flowguard: same LATE
+        export function overdueLate(days: number): boolean { return days >= 3; }
+    """, 'tests/scope.test.ts': """
+        import { it, expect } from 'vitest';
+        import { canView, visibleProjects } from '../src/scope';
+        import { late } from '../src/late';
+        it('scope', () => {
+          expect(canView({ org: 1 }, { org: 1 })).toBe(true);
+          expect(visibleProjects({ org: 1 }, [{ org: 1 }, { org: 2 }])).toEqual([{ org: 1 }]);
+          expect(late(5)).toBe(true);
+        });
+    """})
+    code, text = _vitest(root, vitest_home)
+    block = _block(text)
+    assert code == 1 and 'TypeError' not in '\n'.join(block), text
+    assert [line for line in block if 'same PROJECT_SCOPE:' in line] == [
+        'red: same PROJECT_SCOPE: scope.ts:canView(user, project) and scope.ts:visibleProjects(user, projects) take different '
+        'parameters -> check whether these are copies of one decision, then correct the code or the marks'], block
+    # copies of the same parameter names that disagree keep the words of what each returned
+    assert [line for line in block if 'same LATE:' in line] == [
+        'red: same LATE: on days=3: late.ts:late returns False, late.ts:overdueLate returns True -> decide which copy is right, '
+        'then make the other agree'], block
+    assert [line for line in block if line.startswith('not compared: ')] == [
+        'not compared: 4 functions (baseline: function absent at baseline) -> not a failure'], block
+    assert {key: value for key, value in _cli_fixture.unchecked(root).items() if 'scope.ts' in key} == {
+        'PROJECT_SCOPE (src/scope.ts:2)': ['baseline: function absent at baseline'],
+        'PROJECT_SCOPE (src/scope.ts:7)': ['baseline: function absent at baseline']}, _cli_fixture.last(root)
+
+
 def test_a_known_fixed_of_the_map_checks_is_listed_in_a_vitest_run_that_touches_the_entrys_sites(vitest_home):
     # Review of 4.3: check --static says `known fixed?` for an entry whose finding is gone, but the vitest run of the
     # same tree said `known ... -> leave it`, the opposite step, because this run's own line for the touched sites
@@ -2069,8 +2173,9 @@ def test_a_run_lists_only_its_own_packages_unreached_points_one_per_place(vitest
                                  encoding='utf-8')
     code, text = _vitest(root / 'web', vitest_home)
     assert code == 0, text
-    assert _block(text)[1:] == ['not compared: 2 functions: B_LIMIT (b.ts:2) and B_LIMIT (c.ts:2) (not reached by any test) '
-                                '-> not a failure'], text           # two places, two items
+    # two places, two items, each by its function's name (5.1: `B_LIMIT (b.ts:2) and B_LIMIT (c.ts:2)`)
+    assert _block(text)[1:] == ['not compared: 2 functions: under (b.ts:2) and below (c.ts:2) (not reached by any test) '
+                                '-> not a failure'], text
     assert _cli_fixture.unchecked(root) == {'B_LIMIT (web/src/b.ts:2)': ['not reached by any test'],
                                             'B_LIMIT (web/src/c.ts:2)': ['not reached by any test']}, text
     assert 'API_LIMIT' not in text and 'api/src' not in text, text      # no web test can reach the api package

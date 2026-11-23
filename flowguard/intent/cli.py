@@ -1503,7 +1503,8 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
     that differs where it agreed at the baseline (or a copy the baseline lacks; without a baseline every copy) is red,
     one that already differed there is old: `before` or `known` where this change touches a copy's file (the member
     is touched then, as in a pytest session), else no line. Copies of another signature are red where they are this
-    change's, and what could not be compared is not compared. (issues, lines, ran, touched functions): `ran` names
+    change's (copies that take different parameters in the words `signals.copies_parameters` gives them in a pytest
+    session), and what could not be compared is not compared. (issues, lines, ran, touched functions): `ran` names
     the groups whose every pair was compared on every input made for it and agreed (`same:NAME`), whose known entry
     is then `known fixed?`, as in pytest."""
     import math
@@ -1511,7 +1512,7 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
     from .differences import _compare_pairs
     from .plugin import _parse_baseline, compare_copies
     from .runtime import Runtime, _module_at, sealed
-    from .signals import finding, not_compared
+    from .signals import copies_parameters, finding, not_compared
     issues, lines, ran, members = [], [], set(), set()
     # without a baseline the copies still run sealed now; nothing is read at a baseline
     runtime = Runtime(cfg.root, baseline) if baseline else Runtime(cfg.root, previous={})
@@ -1564,7 +1565,13 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
         differing = {reason for item in result['items'] if item['changes'] for reason in item['reasons']}
         reasons = [reason.removeprefix(name + ': ') for reason in result['reasons'] if reason not in differing]
         if result['status'] == 'red' and not result['changes']:
-            if new:     # copies whose declared inputs or outputs no longer match: nothing compares them
+            if new and len({tuple(p.name for p in anchor.parameters) for anchor in copies}) > 1:
+                # copies that take different parameters, in the words of a pytest session (`compare_copies`)
+                text, step = copies_parameters([(f'{anchor.file}:{anchor.qual}', '(' + ', '.join(p.source for p in anchor.parameters) + ')')
+                                                for anchor in copies])
+                issues.append(finding('same', f'same:{name}', f'same {name}', [text], step, function='signature',
+                                      places=tuple(f'{anchor.file}:{anchor.qual}' for anchor in copies), files=files))
+            elif new:   # copies whose declared inputs or outputs no longer match: nothing compares them
                 issues.append(finding('same', f'same:{name}', f'same {name}', reasons, 'declare the same inputs and outputs on every copy',
                                       function='signature', places=tuple(f'{anchor.file}:{anchor.qual}' for anchor in copies),
                                       files=files))

@@ -236,7 +236,8 @@ def pytest_cmdline_main(config):
 REFUSED = 'FlowGuard judges a test session in one pytest process: pytest-xdist workers'
 COPIES_RED = ('red: same STANDING: on days=4: policy.py:standing returns True, policy.py:preview returns False '
               '-> decide which copy is right, then make the other agree')
-STANDING_UNCHECKED = 'not compared: STANDING (policy.py:2) (uses attribute close) -> not a failure'
+# the block names the function, not its agreement (5.1)
+STANDING_UNCHECKED = 'not compared: standing (policy.py:2) (uses attribute close) -> not a failure'
 
 
 def _summary(text):

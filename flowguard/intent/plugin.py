@@ -398,9 +398,19 @@ def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no 
     rows = []       # (input, current answers, baseline answers, places whose baseline could not run)
     unavailable = False     # a copy that could not run sealed on an input: the copies were not all compared
     unrun = {}      # {place: why its baseline could not run}, said where a pair it is in is not compared
+    # Copies that take different parameters: an input one of them takes and another cannot be given (a boolean check
+    # of a project beside a list projection of projects) is not run on that one; its raised TypeError was no answer.
+    signatures = {point['target']: _signature(source(point), point['qual']) for point in points}
+    unfit = set()       # pairs of copies an input fits one of and not the other
     for row in inputs:
+        fitting = {point['target'] for point in points if signatures[point['target']] is None
+                   or _fits(signatures[point['target']][0], {_spelled(point, key) for key in row})}
+        if fitting:     # an input no copy takes by name is run as it is: the copies say why
+            unfit |= {frozenset((one, other)) for one in fitting for other in signatures if other not in fitting}
         answered = []       # (point, current outcome, baseline outcome or None) of each copy that ran sealed
         for point in points:
+            if fitting and point['target'] not in fitting:
+                continue
             spelled = {_spelled(point, key): v for key, v in row.items()}
             node = dict(R._functions(ast.parse(source(point)))).get(point['qual'])
             positional = [spelled.pop(p.arg) for p in node.args.posonlyargs if p.arg in spelled] if node else []
@@ -443,9 +453,18 @@ def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no 
     reference = next((named[point['target']] for point in points if point['anchor'].owner), None)
     fresh, old, _ = signals.copy_partition(spelled(named, signals.value_text), equal, signals.value_text, reference, len(points),
                                           words=signals.copy_says)
+    if unfit:
+        # an old matter where every copy took these parameters at the baseline as well (R99), else this change's
+        past = [_signature(source(point, True), point['qual']) if source(point, True) is not None else None for point in points]
+        text, step = signals.copies_parameters([(named[point['target']], signatures[point['target']][1]) for point in points])
+        line = ('', text, step, {frozenset((named[one], named[other])) for one, other in unfit})
+        if all(before is not None and before[1] == signatures[point['target']][1] for before, point in zip(past, points)):
+            old = [line, *old]
+        else:
+            fresh = [line, *fresh]
     if fresh or old:
         out.issue = signals.copies_issue(name, fresh, old, places=list(named.values()), files={point['file'] for point in points})
-    out.ran = bool(rows) and not unavailable and not open_lines
+    out.ran = bool(rows) and not unavailable and not open_lines and not unfit
     return out
 
 
@@ -459,6 +478,100 @@ def _parse_baseline(text):
     except (SyntaxError, ValueError) as error:      # ValueError: a null byte on Python 3.11
         words = f'{error.msg} (line {error.lineno})' if isinstance(error, SyntaxError) else str(error)
         return None, 'does not parse at the baseline: ' + words
+
+
+_UNREAD = object()      # a default `_signature` does not read: not a constant
+
+
+def _signature(text, qual):
+    """(inspect.Signature, its spelling) of the module-level function or method `qual` of the Python source `text`, read
+    from its parameters without running them: a default is its value where it is a constant (`None`, `False`, `3`,
+    `'a'`), else `_UNREAD`; the spelling is the parameters as written, annotations left out (`(x, strict=False)`). None
+    when the source does not define `qual` or does not parse."""
+    import ast
+    import inspect
+    from .runtime import _functions
+    tree, _ = _parse_baseline(text)
+    node = dict(_functions(tree)).get(qual) if tree is not None else None
+    if node is None:
+        return None
+    P, given = inspect.Parameter, node.args
+    positional = [*given.posonlyargs, *given.args]
+    defaults = [None] * (len(positional) - len(given.defaults)) + list(given.defaults)
+    def value(default):
+        return P.empty if default is None else default.value if isinstance(default, ast.Constant) else _UNREAD
+    parameters = [P(arg.arg, P.POSITIONAL_ONLY if number < len(given.posonlyargs) else P.POSITIONAL_OR_KEYWORD,
+                    default=value(default))
+                  for number, (arg, default) in enumerate(zip(positional, defaults))]
+    if given.vararg is not None:
+        parameters.append(P(given.vararg.arg, P.VAR_POSITIONAL))
+    parameters += [P(arg.arg, P.KEYWORD_ONLY, default=value(default))
+                   for arg, default in zip(given.kwonlyargs, given.kw_defaults)]
+    if given.kwarg is not None:
+        parameters.append(P(given.kwarg.arg, P.VAR_KEYWORD))
+    def bare(arg):
+        return ast.arg(arg.arg) if arg is not None else None
+    unannotated = ast.arguments(posonlyargs=list(map(bare, given.posonlyargs)), args=list(map(bare, given.args)),
+                                vararg=bare(given.vararg), kwonlyargs=list(map(bare, given.kwonlyargs)),
+                                kw_defaults=given.kw_defaults, kwarg=bare(given.kwarg), defaults=given.defaults)
+    return inspect.Signature(parameters), f'({ast.unparse(unannotated)})'
+
+
+def baseline_call(sample, now, old, name):
+    """(call, '') of a recorded call (`sample`: its `inputs`, every parameter's value as the call ran, defaults
+    included) for the baseline version of its function, or (None, why) when the call does not fit it. `now` and `old`
+    are the two versions' `_signature`s of the function `name`. Each value goes to the parameter of its name, and every
+    required parameter of the baseline needs one; a parameter the baseline lacks is left out where the call left it
+    to its constant default (a trailing `strict=False` added keeps `over(4)` compared; the hook sees every call with
+    its defaults applied, so `over(4, False)` is the same call). A call that would fit only by position (`(record)`
+    given `(kind, record)`'s arguments) is no call of the same input: its replay would compare another input, not a
+    change (Planning Tool G80: `undefined [directory unavailable]`, `raises TypeError ... positional argument`). Its
+    reason is `signals.parameters_differ`."""
+    import inspect
+    from .signals import parameters_differ
+    P = inspect.Parameter
+    (current, spelled), (past, was) = now, old
+    why = parameters_differ(name + was, name + spelled)
+    inputs, variadic = sample['inputs'], (P.VAR_POSITIONAL, P.VAR_KEYWORD)
+    for key, item in inputs.items():
+        default = current.parameters[key].default if key in current.parameters else _UNREAD
+        if key not in past.parameters and not (default is not _UNREAD and type(default) is type(item) and default == item):
+            return None, why
+    arguments, gap = {}, False      # gap: a positional parameter of the baseline left to its default
+    for key, parameter in past.parameters.items():
+        mine = current.parameters.get(key)
+        if key not in inputs or mine is None:
+            if parameter.kind not in variadic and parameter.default is P.empty:
+                return None, why
+            gap = gap or parameter.kind in (P.POSITIONAL_ONLY, P.POSITIONAL_OR_KEYWORD)
+            continue
+        if (parameter.kind in variadic or mine.kind in variadic) and parameter.kind is not mine.kind:
+            return None, why
+        if gap and parameter.kind in (P.POSITIONAL_ONLY, P.VAR_POSITIONAL):
+            if parameter.kind is P.POSITIONAL_ONLY or inputs[key]:
+                return None, why    # it could only be passed after the one left out
+            continue                # no extra positional argument
+        arguments[key] = inputs[key]
+    call = inspect.BoundArguments(past, arguments)
+    return dict(args=list(call.args), kwargs=dict(call.kwargs)), ''
+
+
+def _fits(signature, names):
+    """Whether an input of these parameter `names` can be given to a function of `signature` as `compare_copies` gives
+    it: its positional-only parameters by position (none left out before one given), the others by keyword, and
+    every required parameter given."""
+    import inspect
+    P = inspect.Parameter
+    parameters, variadic = signature.parameters, (P.VAR_POSITIONAL, P.VAR_KEYWORD)
+    keywords = any(parameter.kind is P.VAR_KEYWORD for parameter in parameters.values())
+    positional = [name for name, parameter in parameters.items() if parameter.kind is P.POSITIONAL_ONLY]
+    given = [name for name in positional if name in names]
+    if given != positional[:len(given)]:
+        return False
+    if any((name not in parameters or parameters[name].kind in variadic) and not keywords for name in names):
+        return False
+    return all(name in names for name, parameter in parameters.items()
+               if parameter.kind not in variadic and parameter.default is P.empty)
 
 
 def _baseline_defines(text, qual):
@@ -825,8 +938,18 @@ class Observations:
             if not point['changed']:
                 continue
             rows, changes, reasons = [], [], []
+            # the recorded calls are replayed at the baseline as calls of the same inputs (`baseline_call`)
+            past = _signature(source(point, True), point['qual']) \
+                if source(point, True) is not None and point['file'] not in self.unparsed else None
+            signature = _signature(source(point), point['qual']) if past is not None else None
             for sample in calls:
-                old, now = run(point, sample, True), run(point, sample)
+                call, why = baseline_call(sample, signature, past, point['qual'].rpartition('.')[2]) \
+                    if past is not None and signature is not None \
+                    else (sample, '')
+                if why:
+                    reasons.append(why)
+                    continue
+                old, now = run(point, call, True), run(point, sample)
                 if not comparable(old, now):
                     reasons.append(old.get('reason') or now.get('reason') or 'both versions raise the same exception')
                     continue

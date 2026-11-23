@@ -624,15 +624,16 @@ def plan(cfg, commit, changed, key):
                     extra_numbers.append(number)
             old_rel = renamed.get(rel, rel)     # a moved file's baseline imports name files next to its old path
             old = old_sources.get(rel) if rel in old_sources else git_blob(cfg.root, commit, old_rel) if commit else None
+            was = declarations(old, old_rel).get(qual) if old is not None else None
             prior, old_skip = (sealed_source(old, old_rel, qual, lambda path: baseline_files.get(path) if path in baseline_files
-                                             else git_blob(cfg.root, commit, path), old_tables) if old is not None and qual in declarations(old, old_rel)
+                                             else git_blob(cfg.root, commit, path), old_tables) if was is not None
                                else ('', ABSENT if commit else NO_BASELINE))
             points.append(dict(id=ident, name=name, anchored=anchored, why=why, owner=ident in owners, rel=rel, file=(cfg.root / rel).as_posix(), fn=qual,
                                line=found['line'], target_line=line, form=found['form'], params=found['params'], skip=skip,
                                recordable=(not found['is_async'] and 'generator' not in found['node'].type
                                            and skip != BINDING + qual),
                                binding_edited=_binding_edited(cfg, graph, rel, skip, old_sources, modules),
-                               source=closed, old_source=prior, old_skip=old_skip,
+                               source=closed, old_source=prior, old_skip=old_skip, old_params=was['params'] if was else [],
                                changed=((rel in changed or rel in readers) and (old is None or closed != prior)),
                                # this change writes its `same NAME` mark: its file is changed and lacked the mark
                                marked=anchored and rel in marked and (name, qual) not in marked[rel],
@@ -1085,6 +1086,20 @@ def _inside(cfg, rel, package):
     return package is None or (cfg.root / rel).resolve().is_relative_to(Path(package).resolve())
 
 
+def shifted(point, args):
+    """Why the baseline version of a point takes the arguments `args` as other parameters ('' when it takes them as the
+    same): JS/TS passes arguments by position, so a call fits both versions when every position it fills has the same
+    parameter name in both (a trailing parameter added or left out keeps it; a required one inserted first does not:
+    Planning Tool G80, `businessPersonLabel(record)` became `(kind, record)`). A parameter only renamed counts as
+    another one. The reason's head is the same for every function, which the block's summary counts as one
+    (`signals._reason`); both versions follow in parentheses (`show --last`)."""
+    from .signals import parameters_differ
+    now, was = point['params'], point['old_params']
+    if all(now[index] == was[index] for index in range(min(len(args), len(now), len(was)))):
+        return ''
+    return parameters_differ(f'{point["fn"]}({", ".join(was)})', f'{point["fn"]}({", ".join(now)})')
+
+
 def closed_rows(data, records):
     """Compare source-only functions after the session, using real JSON inputs and copy neighbours. Returns the
     rows, the reasons by point, the reasons of real calls by point (a call the test made that was not recorded or
@@ -1124,6 +1139,7 @@ def closed_rows(data, records):
     wanted, jobs, keys = {}, [], {}
     for ident, point in points.items():
         wanted[ident] = unique([*actual.get(ident, ()), *shared.get(point['name'], ())], None)
+        called = {json.dumps(args, sort_keys=True) for args in actual.get(ident, ())}
         for prior in (False, True):
             source, why = (point['old_source'], point['old_skip']) if prior else (point['source'], point['skip'])
             if why:
@@ -1132,6 +1148,12 @@ def closed_rows(data, records):
                     reasons.setdefault(ident, []).append(('baseline: ' if prior else '') + why)
                 continue
             for args in wanted[ident]:
+                if prior and (why := shifted(point, args)):
+                    # its baseline takes these arguments as other parameters: never run, so never a changed line
+                    reasons.setdefault(ident, []).append(why)
+                    if json.dumps(args, sort_keys=True) in called:
+                        real.setdefault(ident, set()).add(why)
+                    continue
                 key = (ident, prior, json.dumps(args, sort_keys=True))
                 keys[key] = len(jobs)
                 jobs.append(dict(source=source, fn=point['fn'], args=args))
@@ -1304,7 +1326,15 @@ def judge(cfg, data, records, package=None):
         reference = next((places[target] for target in group if points[target].get('owner')), None)
         samples = [row for row in rows.get(ident, ()) if row['same']]
         current_rows, whole = [], False
+        # JS/TS passes arguments by position: copies whose parameter names differ at a position an input fills
+        # (a check of one project beside a projection of projects) are given it as different inputs; a TS/JS comment
+        # declares no other names (`same NAME` alone)
+        params = {target: points[target]['params'] for target in group}
+        apart = set()
         for row in sorted(samples, key=_counterexample(point, [record for record in calls.get(ident, ()) if 'args' in record])):
+            apart |= {frozenset((places[one], places[other])) for one in group for other in group
+                      if any(params[one][index] != params[other][index]
+                             for index in range(min(len(row['in']), len(params[one]), len(params[other]))))}
             inputs = ', '.join(f'{key}={_shown(item)}' for key, item in row['in'])
             old = [(target, answer) for target, answer in [(ident, row['old']), *row['old_copies'].items()]
                    if points[target]['old_skip'] not in (ABSENT, NO_BASELINE)]
@@ -1323,6 +1353,15 @@ def judge(cfg, data, records, package=None):
                                  {places[target] for target, answer in old if missing(answer)}))
         fresh, old, unknown = signals.copy_partition(current_rows, _same, _shown, owner=reference, total=len(group),
                                                      words=signals.copy_says)
+        if any(kept[3] & apart for kept in (*fresh, *old)):
+            # where such copies disagree, one line says they take different parameters: red where a line of theirs is,
+            # and a line that also shows copies of the same parameters apart keeps those
+            text, step = signals.copies_parameters([(places[target], f'({", ".join(params[target])})') for target in group])
+            line = ('', text, step, {pair for kept in (*fresh, *old) for pair in kept[3] & apart})
+            red = any(kept[3] & apart for kept in fresh)
+            fresh, old = ([(where, said, then, pairs - apart) for where, said, then, pairs in lines if pairs - apart]
+                          for lines in (fresh, old))
+            fresh, old = ([line, *fresh], old) if red else (fresh, [line, *old])
         if fresh or old:
             issues.append(signals.copies_issue(point['name'], fresh, old, places=list(places.values()),
                                                files={points[target]['rel'] for target in group}))

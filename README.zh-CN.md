@@ -79,7 +79,7 @@ FlowGuard 5.0 删除了 4.2 的注释写法（`sensor NAME`、`owner NAME`、`ow
 
 `python -m flowguard check --static` 不跑测试；加 `--all` 查看完整结构清单。`python -m flowguard check` 跑受影响的规则和测试。已有深查和有限 flow 保持冻结，不属于上面的日常接入步骤。
 
-基础安装读取 Python。TS/JS、Prisma、SQL 及冻结的 C/C++/C# 读取器使用 `flowguard[languages]`。Vitest 的 ESM 项目支持执行观察；Jest 只做静态检查。测试结束后的封闭比较跑不了的函数记为 `not compared`，并写明原因。测试输入上的一致不能证明业务答案正确。
+基础安装读取 Python。TS/JS、Prisma、SQL 及冻结的 C/C++/C# 读取器使用 `flowguard[languages]`。Vitest 的 ESM 项目支持执行观察；Jest 只做静态检查。测试结束后的封闭比较跑不了的函数记为 `not compared`，并写明原因；任务起点的版本会把某次调用的参数当成别的参数时（比如在最前面插入了必填参数），这次调用也记为 `not compared`，在末尾加一个带默认值的参数则照常比较。参数不同的同名副本单独报红：先确认它们是不是同一个决定的副本。测试输入上的一致不能证明业务答案正确。
 
 列在 `[tool.flowguard] exclude = ["translations/*.ts"]` 里的文件（路径从项目根目录算，`**` 跨文件夹）从不被读取，任务起点的版本也不读，也不需要装它的读取器；一个改动把某个文件加进这个列表时，它原有的每条约定都是一行 `loosened`。没被排除、读取器又没装的文件会让 `check --static` 带着错误原文退出（退出码 2），在 pytest 里则是 pytest 自己的汇总之后的一行红色 `map checks`。
 

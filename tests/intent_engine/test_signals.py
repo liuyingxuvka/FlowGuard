@@ -288,8 +288,10 @@ def test_a_pytest_block_names_a_file_by_an_end_no_other_file_of_the_repository_h
 
 
 def test_the_not_compared_line_names_up_to_three_items_and_the_most_common_reasons():
+    # A function's line names the function, not the agreement it is marked with (5.1, Planning Tool: `2 functions:
+    # PROJECT_SCOPE (scope.py:2) and PROJECT_SCOPE (scope.py:6)`); `show --last` keeps the line's own text.
     one = [signals.not_compared('STANDING (src/policy.py:2)', ['uses attribute close'], function='m:standing', places=('src/policy.py:2',))]
-    assert _block(one)[1] == 'not compared: STANDING (policy.py:2) (uses attribute close) -> not a failure'
+    assert _block(one)[1] == 'not compared: standing (policy.py:2) (uses attribute close) -> not a failure'
     three = [signals.not_compared(name, [reason]) for name, reason in (('A', 'async'), ('B', 'async'), ('C[rules]', 'not compared: uses getConfig'))]
     assert _block(three)[1] == 'not compared: 3 items: A, B and C[rules] (async, or uses getConfig) -> not a failure'
     many = [signals.not_compared(f'N{number}', [f'reason {number % 4}'], function=f'm:n{number}') for number in range(6)]
@@ -341,15 +343,16 @@ def test_the_not_compared_line_never_cuts_through_an_item():
              signals.not_compared(f'ISO_WEEK_NUMBER ({toolbar})', ['not reached by any test'],
                                   function='tsx/UtilizationToolbar:getIsoWeekNumber', places=(toolbar,)),
              signals.not_compared(static, ['map checks did not report to this vitest run'], places=(static,))]
+    # the two copies of ISO_WEEK_NUMBER by their own names (5.1), the static test by its path
     assert _block(lines)[1] == (
-        'not compared: 3 items: ISO_WEEK_NUMBER (AbsenceCalendarCard.tsx:134), ISO_WEEK_NUMBER (UtilizationToolbar.tsx:84) '
+        'not compared: 3 items: getIsoWeek (AbsenceCalendarCard.tsx:134), getIsoWeekNumber (UtilizationToolbar.tsx:84) '
         'and flowguard.static.test.mjs (not reached by any test, or map checks did not report to this vitest run) -> not a failure')
     # Longer reasons give way in their middle; the items stay whole.
     long = [signals.not_compared(line.text, [reason * 3], function=line.function, places=line.places)
             for line, reason in zip(lines, ('uses imported or mutable binding getIsoWeek ', 'unsupported generator ',
                                             'map checks did not report to this vitest run '))]
     said = _block(long)[1]
-    assert said.startswith('not compared: 3 items: ISO_WEEK_NUMBER (AbsenceCalendarCard.tsx:134), ISO_WEEK_NUMBER '
+    assert said.startswith('not compared: 3 items: getIsoWeek (AbsenceCalendarCard.tsx:134), getIsoWeekNumber '
                            '(UtilizationToolbar.tsx:84) and flowguard.static.test.mjs (') and '...' in said, said
     assert len(said.replace('AbsenceCalendarCard.tsx:134', '').replace('UtilizationToolbar.tsx:84', '')    # as `_cap` counts
                .replace('flowguard.static.test.mjs', '')) == signals.WIDTH, said
@@ -364,8 +367,8 @@ def test_a_single_not_compared_item_keeps_its_name_and_place_and_its_reasons_giv
     lost its name and place (`not compared: 1 function (not reached by any test) -> not a failure`). Its reasons give
     way first, then its text before its place, in the middle; the place stays whole and the line keeps WIDTH."""
     calendar = 'frontend/src/components/calendars/AbsenceCalendarCard.tsx:134'
-    def line(subject, reason):
-        said = _block([signals.not_compared(f'{subject} ({calendar})', [reason], function='tsx/AbsenceCalendarCard:f',
+    def line(subject, reason):      # the function is named `subject` (the block names a function by its own name)
+        said = _block([signals.not_compared(f'{subject} ({calendar})', [reason], function=f'tsx/AbsenceCalendarCard:{subject}',
                                             places=(calendar,))])[1]
         assert len(said.replace('AbsenceCalendarCard.tsx:134', '')) <= signals.WIDTH, said
         return said
