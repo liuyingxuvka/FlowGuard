@@ -1619,11 +1619,12 @@ def test_same_name_copies_whose_parameters_differ_where_an_input_fills_them_are_
     block = _block(text)
     assert code == 1 and 'TypeError' not in '\n'.join(block), text
     # the map checks of this run name the copies with their declared return types, and their line is the group's one
-    # red; the block keeps 200 characters besides the places, show --last the whole line
+    # red; the block keeps 200 characters besides the places by leaving out the longest return type whole, never cut
+    # inside it (5.1 review: `{ org: numb...[]`), show --last keeps the whole line
     assert [line for line in block if 'same PROJECT_SCOPE:' in line] == [
-        'red: same PROJECT_SCOPE: scope.ts:canView(user, project): boolean and scope.ts:visibleProjects(user, projects): '
-        '{ org: numb...[] take different parameters -> check whether these are copies of one decision, then correct the '
-        'code or the marks'], block
+        'red: same PROJECT_SCOPE: scope.ts:canView(user, project): boolean and scope.ts:visibleProjects(user, projects) '
+        'take different parameters -> check whether these are copies of one decision, then correct the code or the '
+        'marks'], block
     assert 'red: same PROJECT_SCOPE: src/scope.ts:canView(user, project): boolean and src/scope.ts:visibleProjects(user, ' \
            'projects): { org: number }[] take different parameters -> check whether these are copies of one decision, ' \
            'then correct the code or the marks' in _cli_fixture.last(root).splitlines(), _cli_fixture.last(root)
@@ -1709,6 +1710,52 @@ def test_typescript_copies_that_take_different_parameters_are_one_red_in_check_s
         f'red: comment scope.ts:{line}: PROJECT_SCOPE has 2 references (scope.ts:4, scope.ts:9): '
         'keep one reference; mark the copies // flowguard: same PROJECT_SCOPE -> correct this flowguard comment'
         for line in (4, 9)], text
+
+
+def test_typescript_copies_that_take_different_parameters_are_judged_against_the_task_start(vitest_home):
+    # Review of 5.1 (FT open 0): after the comments' red and a commit, new-task said `1 red from the previous task are
+    # now before`, while check --static and every vitest run after an unrelated edit still printed the red, and the
+    # next brief said `1 red in the last run of api/`. Its red is this change's where the change touches a copy's file.
+    root = vitest_home / 'pt-scope-start'
+    files = {}
+    for package in ('web', 'api'):
+        files.update({
+            f'{package}/package.json': '{"name": "' + package + '", "private": true, "type": "module", "scripts": {"test": "vitest run"}, '
+                                       '"devDependencies": {"vitest": "' + VITEST + '"}}\n',
+            f'{package}/src/limit.ts': 'export function over(x: number): boolean {\n  return x > 3;\n}\n',
+            f'{package}/tests/limit.test.ts': "import { expect, it } from 'vitest';\nimport { over } from '../src/limit';\n"
+                                             "it('over', () => { expect(over(4)).toBe(true); });\n"})
+    _commit(root, files)
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='flowguard init')
+    assert _flowguard(root, 'new-task')[0] == 0
+    _write(root, {'api/src/scope.ts': PT_SCOPE, 'api/tests/scope.test.ts': """
+        import { it, expect } from 'vitest';
+        import { canView, visibleProjects } from '../src/scope';
+        it('scope', () => {
+          const u = { org: 1 };
+          expect(canView(u, { org: 1, id: 1 })).toBe(true);
+          expect(visibleProjects(u, [{ org: 1, id: 1 }, { org: 2, id: 2 }])).toEqual([{ org: 1, id: 1 }]);
+        });
+    """})
+    code, text = _vitest(root / 'api', vitest_home)
+    assert code == 1 and [line for line in _block(text) if line.startswith('red: ')] == [PT_SCOPE_RED], text
+    _commit(root, message='the copies')
+    _commit(root, {'web/src/limit.ts': 'export function over(x: number): boolean {\n  return x > 4;\n}\n'}, message='unrelated')
+    code, brief = _flowguard(root, 'new-task')
+    assert code == 0 and '1 red from the previous task are now before' in brief and 'red in the last run' not in brief, brief
+    (root / 'api/src/limit.ts').write_text('export function over(x: number): boolean {\n  return x >= 4;\n}\n',
+                                           encoding='utf-8')
+    code, text = _vitest(root / 'api', vitest_home)
+    assert code == 0 and not [line for line in _block(text) if 'PROJECT_SCOPE' in line], text
+    code, text = _flowguard(root, 'check', '--static')
+    assert code == 0 and 'PROJECT_SCOPE' not in text, text
+    code, brief = _flowguard(root, 'new-task')
+    assert code == 0 and ' red ' not in brief, brief
+    # an edit of a copy's file makes it this change's again
+    (root / 'api/src/scope.ts').write_text(textwrap.dedent(PT_SCOPE).lstrip() + '\n', encoding='utf-8')
+    code, text = _vitest(root / 'api', vitest_home)
+    assert code == 1 and [line for line in _block(text) if line.startswith('red: ')] == [PT_SCOPE_RED], text
 
 
 def test_a_known_fixed_of_the_map_checks_is_listed_in_a_vitest_run_that_touches_the_entrys_sites(vitest_home):

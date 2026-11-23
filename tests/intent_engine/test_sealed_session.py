@@ -748,6 +748,97 @@ def test_copies_whose_comments_show_other_parameters_are_one_red_in_check_static
     assert '//' not in last(tmp_path)
 
 
+def test_the_comments_red_of_copies_that_take_different_parameters_is_judged_against_the_task_start(tmp_path, capsys):
+    # Review of 5.1 (FT open 0): the comments' finding of copies that take different parameters is a `same:` finding,
+    # which new-task's brief counted as before once its files were clean, while check --static, pytest and check
+    # printed it red in every run and the next brief said `1 red in the last run`; a known entry naming it was
+    # accepted and covered nothing. It is judged against the task start as every same-name finding is: red where this
+    # change touches a copy's file, before (no line in a run that touches none) where the copies already took these
+    # parameters at the task start, and red without a baseline.
+    from tests.intent_engine._cli_fixture import main
+
+    def flowguard(root, *arguments):
+        code = main(['--root', str(root), *arguments], cwd=root)
+        return code, capsys.readouterr().out.splitlines()
+
+    def said(lines):
+        return [line for line in lines if line.startswith(('red: ', 'before: ', 'known: '))]
+
+    def runs(root):
+        """(exit, red, before and known lines) of check --static, pytest and check, in that order."""
+        result = _run(root)
+        return [(code, said(lines)) for code, lines in (flowguard(root, 'check', '--static'),
+                                                        (result.returncode, block(result)), flowguard(root, 'check'))]
+    _project(tmp_path, 'def other():\n    return 1\n', 'def test_nothing():\n    assert True\n')
+    (tmp_path / 'scope.py').write_text(TYPED_SCOPE.lstrip(), encoding='utf-8')
+    (tmp_path / 'tests/test_scope.py').write_text(SCOPE_TEST.lstrip(), encoding='utf-8')
+    # this change writes the copies: one red in every run
+    assert runs(tmp_path) == [(1, [TYPED_RED])] * 3
+    # the next task starts after them and an unrelated commit: the brief's count and the next runs agree
+    _git(tmp_path, 'add', '.')
+    _git(tmp_path, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'the copies')
+    (tmp_path / 'policy.py').write_text('def other():\n    return 2\n', encoding='utf-8')
+    _git(tmp_path, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qam', 'unrelated')
+    code, brief = flowguard(tmp_path, 'new-task')
+    assert code == 0 and '1 red from the previous task are now before' in brief, brief
+    (tmp_path / 'policy.py').write_text('def other():\n    return 3\n', encoding='utf-8')
+    assert runs(tmp_path) == [(0, [])] * 3
+    code, brief = flowguard(tmp_path, 'new-task')
+    assert code == 0 and not [line for line in brief if ' red ' in f' {line} '], brief
+    # every old finding is listed with --all, as the copies' other findings are
+    before = ('before: same PROJECT_SCOPE disagreed at task start: scope.py:can_view(user, project): bool and '
+              'scope.py:visible_projects(user, projects): list take different parameters -> leave it unless your task is '
+              'about it')
+    assert said(flowguard(tmp_path, 'check', '--static', '--all')[1]) == [before]
+    # a known entry naming it is honoured: --all lists the entry, a run that touches none of the copies says nothing
+    assert flowguard(tmp_path, 'known', 'add', 'same:PROJECT_SCOPE', '--act', 'leave', '--why', 'two decisions')[0] == 0
+    assert said(flowguard(tmp_path, 'check', '--static', '--all')[1]) == [
+        'known: known.same-project_scope at scope.py:can_view, scope.py:visible_projects -> left as it is on purpose; '
+        'yours to change only if your task is about it']
+    assert runs(tmp_path) == [(0, [])] * 3
+    code, brief = flowguard(tmp_path, 'new-task')
+    assert 'known.same-project_scope: left as it is: two decisions' in brief and not [
+        line for line in brief if ' red ' in f' {line} '], brief
+    # a change that touches a copy's file makes it this change's again
+    (tmp_path / 'scope.py').write_text(TYPED_SCOPE.lstrip() + '\n', encoding='utf-8')
+    assert runs(tmp_path) == [(1, [TYPED_RED])] * 3
+    # without a baseline (no commit yet) it is red
+    root = tmp_path / 'uncommitted'
+    root.mkdir()
+    _git(root, 'init', '-q', '-b', 'main')
+    (root / 'scope.py').write_text(TYPED_SCOPE.lstrip(), encoding='utf-8')
+    assert said(flowguard(root, 'check', '--static')[1]) == [TYPED_RED]
+
+
+def test_a_rule_bound_to_copies_that_take_different_parameters_states_the_anchor_with_its_own_step(tmp_path):
+    # Review of 5.1 (FT open 1): the comments' issue carried its step in its message, which the rule bound to the
+    # anchor used as its red: `red: rule SCOPE: scope.py:can_view(...) ... take different parameters -> check whether
+    # these are copies of one decision, then correct the code or the marks`, the `same` line's words with neither the
+    # anchor nor the rule's own step and detail. 5.0.1 said `same anchor PROJECT_SCOPE has conflicting roles, units or
+    # signature -> inspect rule ...`.
+    from tests.intent_engine._cli_fixture import main
+    _project(tmp_path, TYPED_SCOPE, SCOPE_TEST.replace('from scope', 'from policy'), rule='''
+        from flowguard.intent import rule
+        @rule('SCOPE', decides='who sees a project', fields={'user': int, 'project': int}, anchor='PROJECT_SCOPE',
+              source='doc policy.txt "At most three days."')
+        def SCOPE(user, project):
+            return project == user
+    ''')
+    red = ('red: rule SCOPE: same anchor PROJECT_SCOPE: policy.py:can_view(user, project): bool and '
+           'policy.py:visible_projects(user, projects): list take different parameters -> inspect rule decisions.py:2 and '
+           'correct its source, binding or regression rows')
+    detail = ('    if requirements changed, first store the new owner words with python -m flowguard req add, then update '
+              'rule tests/intent/decisions.py:2')
+    result = _run(tmp_path)
+    assert result.returncode == 1 and [line for line in block(result) if line.startswith('red: ')] == [red], _text(result)
+    assert detail in last(tmp_path).splitlines(), last(tmp_path)
+    assert main(['--root', str(tmp_path), 'check'], cwd=tmp_path) == 1
+    # show --last names the rule's file by its whole path
+    assert [line for line in last(tmp_path).splitlines() if line.startswith('red: ')] == [
+        red.replace('rule decisions.py:2', 'rule tests/intent/decisions.py:2')], last(tmp_path)
+    assert detail in last(tmp_path).splitlines(), last(tmp_path)
+
+
 def test_copies_that_declare_other_types_keep_a_line_at_each_comment_that_names_the_difference(tmp_path):
     # the same parameters, other return types: no copies that take different parameters, a conflict of the comments
     from tests.intent_engine._cli_fixture import main

@@ -1041,7 +1041,8 @@ class Engine:
         if hasattr(home, 'scenario'):
             issues += list(home.scenario.issues)
         names = {home.name, home.scenario.name} if hasattr(home, 'scenario') else {home.name}
-        return list(dict.fromkeys(issue.message for issue in issues
+        # the anchor's problem as the rule states it, the rule's own step after it (`signals.rule_steps`)
+        return list(dict.fromkeys(issue.stated for issue in issues
                                   if issue.level == 'red' and issue.name in names))
 
     def run_home(self, rule, home, part: str) -> dict:

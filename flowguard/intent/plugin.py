@@ -1200,8 +1200,10 @@ class Observations:
         syntax = []             # files that cannot be parsed: only they are unverified
         for issue in self.index.issues:
             if issue.level == 'red' and issue.code == 'parameters':     # copies that take different parameters: one line
-                what, step = signals.split_step(signals.ascii_text(issue.message))
-                self.issues.append(signals.parameters_finding(issue.name, what, step, issue.places, detail=issue.detail))
+                # judged against this session's baseline by the files the change touches, as check --static judges it
+                self.issues.append(signals.parameters_finding(issue.name, signals.ascii_text(issue.message), issue.step,
+                                                              issue.places, baseline=self.runtime.baseline,
+                                                              touched=self.touched, detail=issue.detail))
             elif issue.level == 'red':
                 place = f'{issue.file}:{issue.line}' if issue.line else issue.file
                 what, step = signals.split_step(signals.ascii_text(issue.message))

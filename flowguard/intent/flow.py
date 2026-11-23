@@ -171,7 +171,7 @@ def validate(model, index, *, contracts=None):
     referenced = {n.reference for n in model.nodes}
     for issue in index.issues:
         if issue.level == 'red' and issue.name in referenced:
-            red.append(issue.message)
+            red.append(issue.stated)
     for edge in model.edges:
         if len(edge) != 2 or any(n not in names for n in edge):
             red.append(f'edge references unknown nodes: {edge!r}')

@@ -1476,16 +1476,18 @@ def _step_of(message, step):
     return what, own or step
 
 
-def _index_findings(index):
+def _index_findings(index, *, baseline, touched):
     """The findings of the flowguard comments, in the words of a pytest session: a malformed comment is red (it
-    disables checks, D4), and a source file that does not parse is not compared, only that file."""
+    disables checks, D4), and a source file that does not parse is not compared, only that file. Copies the comments
+    show to take different parameters are one `same:NAME` finding, judged against `baseline` by the files the change
+    touches (`touched`) as in a pytest session (`signals.parameters_finding`)."""
     from .signals import ascii_text, finding, not_compared, parameters_finding, split_step
     reds, unparsed, copies = {}, {}, []
     for issue in index.issues:
         place = f'{issue.file}:{issue.line}' if issue.line else issue.file
         if issue.level == 'red' and issue.code == 'parameters':     # copies that take different parameters: one line
-            what, step = split_step(ascii_text(issue.message))
-            copies.append(parameters_finding(issue.name, what, step, issue.places, detail=issue.detail))
+            copies.append(parameters_finding(issue.name, ascii_text(issue.message), issue.step, issue.places,
+                                             baseline=baseline, touched=touched, detail=issue.detail))
         elif issue.level == 'red':
             what, step = split_step(ascii_text(issue.message))
             entry = reds.setdefault(f'comment:{place}:{issue.code}', dict(place=place, file=issue.file, whats=[],
@@ -1669,8 +1671,9 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
     one that already differed there is old: `before` or `known` where this change touches a copy's file (the member
     is touched then, as in a pytest session), else no line. Copies of another signature are red where they are this
     change's (copies that take different parameters in the words `signals.copies_parameters` gives them in a pytest
-    session; a group whose flowguard comments already show what they declare differently, `anchors._index`, has the
-    comments' red alone), and what could not be compared is not compared. (issues, lines, ran, touched functions):
+    session, old where the change touches none of them, `signals.parameters_finding`; a group whose flowguard comments
+    already show what they declare differently, `anchors._index`, has the comments' finding alone), and what could not
+    be compared is not compared. (issues, lines, ran, touched functions):
     `ran` names the groups whose every pair was compared on every input made for it and agreed (`same:NAME`), whose
     known entry is then `known fixed?`, as in pytest."""
     import math
@@ -1737,11 +1740,13 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
         if result['status'] == 'red' and not result['changes']:
             if name in declared:
                 pass        # the comments' red names what the copies declare differently (`_index_findings`)
-            elif new and len({tuple(p.name for p in anchor.parameters) for anchor in copies}) > 1:
-                # copies that take different parameters, in the words of a pytest session (`compare_copies`)
+            elif len({tuple(p.name for p in anchor.parameters) for anchor in copies}) > 1:
+                # copies that take different parameters, in the words of a pytest session (`compare_copies`): this
+                # change's where it touches a copy's file, else old, as the comments' finding of them is
                 text, step = copies_parameters([(f'{anchor.file}:{anchor.qual}', '(' + ', '.join(p.source for p in anchor.parameters) + ')')
                                                 for anchor in copies])
-                issues.append(parameters_finding(name, text, step, tuple(f'{anchor.file}:{anchor.qual}' for anchor in copies)))
+                issues.append(parameters_finding(name, text, step, tuple(f'{anchor.file}:{anchor.qual}' for anchor in copies),
+                                                 baseline=baseline, touched=touched))
             elif new:   # copies whose declared inputs or outputs no longer match: nothing compares them
                 issues.append(finding('same', f'same:{name}', f'same {name}', reasons, 'declare the same inputs and outputs on every copy',
                                       function='signature', places=tuple(f'{anchor.file}:{anchor.qual}' for anchor in copies),
@@ -1797,18 +1802,18 @@ def check(cfg, *, everything=False, deep=False, base=None):
         _check(cfg, everything=everything, deep=deep, base=base, reports=reports, own=own)
     with ExitStack() as maps:       # the map is read only for a removed 4.2 spelling (`_source_index`)
         index = _source_index(cfg.root, lambda: maps.enter_context(closing(build(cfg.root, roots=cfg.roots))))
-    issues, lines = _index_findings(index)
-    own.issues += issues
-    own.lines += lines
     found = _owner_findings(cfg, everything=everything, base=base,
                             static=reports.static.get((cfg.root, base, everything)))
     deliveries = list(reports.deliveries)
     touched = set(found.touched_files).union(*(part['touched_files'] for part in deliveries))
+    from .owners import baseline as owner_baseline
+    issues, lines = _index_findings(index, baseline=owner_baseline(cfg, base), touched=touched)
+    own.issues += issues
+    own.lines += lines
     # A same-name group the batch compared (a changed copy it observed, or copies it found differing) is its own.
     compared = {item['name'] for part in reports for item in part['items'] if item.get('file')}
     compared |= {issue.name.partition(':')[2] for part in deliveries for issue in part['issues'] if issue.family == 'same'}
     compared |= {name.partition(':')[2] for part in deliveries for name in part['ran'] if name.startswith('same:')}
-    from .owners import baseline as owner_baseline
     issues, lines, ran, members = _same_name_findings(cfg, index, compared, touched, owner_baseline(cfg, base))
     own.issues += issues
     own.lines += lines
@@ -1874,7 +1879,7 @@ def static_check(cfg, *, everything=False, base=None):
         baseline = owners.baseline(cfg, base)
         result = fallbacks.evaluate(cfg, graph, baseline=baseline) if fallbacks.path(cfg).is_file() \
             else fallbacks.absent(cfg, baseline)
-        comments, unparsed = _index_findings(index)
+        comments, unparsed = _index_findings(index, baseline=baseline, touched=found.touched_files)
         ledger_reds, ran = _ledger_findings(result)
         legacy = _legacy_lines(fallbacks.open_legacy(cfg, graph)) if everything else []
         lines, ignored = signals.collect([signals.delivery([*comments, *ledger_reds], [*unparsed, *legacy], ran=ran)],

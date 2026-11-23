@@ -336,7 +336,8 @@ def render_block(lines, *, title, everything=False, files=()):
     compared the item whose map checks did not report to a vitest run (MAP_CHECKS_NOT_RUN) on a line of its own and one
     line summing every other such line up, and one `+N more` for the changed and impact lines left out. One
     line keeps at most 200 characters besides its paths (the middle of its text gives way, never its subject, places
-    or step) and names at most three places; a place's path is its file name (the shortest unique end of the path
+    or step; a line of copies that take different parameters gives way by whole return types, then parameter lists,
+    `_cap_parameters`) and names at most three places; a place's path is its file name (the shortest unique end of the path
     where another path has that name, of the block or of the repository's file list `files`, read once per run).
     `everything` (`--all`): every line, uncut."""
     lines = sorted(lines, key=lambda line: KINDS.index(line.kind))
@@ -534,13 +535,16 @@ def _cap(said, paths=(), places=()):
     inputs and the keys that changed: `(inputs) now adds K=V (3 other keys equal); k/n inputs differ`. An impact line of
     writes moved to a helper keeps what moved where (`_cap_moved`). A line that would still be longer than WIDTH with
     every stretch cut as far as it goes keeps its words (a copies line, whose step names who decides and the route that
-    records it): cutting would leave it neither within WIDTH nor readable."""
+    records it): cutting would leave it neither within WIDTH nor readable. A line of copies that take different
+    parameters is never cut inside a signature (`_cap_parameters`)."""
     def width(text):
         return _width(text, (*places, *paths))
     if width(said) <= WIDTH:
         return said
     if said.startswith('impact: ') and _MOVED.search(said):
         return _cap_moved(said, width, {piece for piece in (*places, *paths) if piece})
+    if (signatures := _signatures(said, places)) is not None:
+        return _cap_parameters(signatures, width)
     head, _, body = said.partition(': ')
     subject, colon, body = body.partition(': ') if ': ' in body[:80] else ('', '', body)
     body, arrow, step = body.rpartition(' -> ') if ' -> ' in body else (body, '', '')
@@ -641,6 +645,70 @@ def _cap_moved(said, width, kept):
             gone = '; ' * whole[index].startswith('; ') + '...' + '; ' * whole[index].endswith('; ')
             if own == 1 and len(gone) < len(piece):
                 pieces[index][0] = gone
+    return line()
+
+
+# the end of `copies_parameters`' words, after the last copy it names
+_APART = re.compile(r'(?:(?:, | and )\d+ other cop(?:y|ies))? take different parameters\Z')
+# a copy (`path:function(`) after the words that join two, inside what would read as a return type
+_COPY = re.compile(r'(?:, | and )[^\s(),:]+:[^\s(),:]+\(')
+
+
+def _signatures(said, places):
+    """[head, [place, (parameters), ': return type' or '', joint]..., tail] of a line of copies that take different
+    parameters (`copies_parameters`: `red: same NAME: a.ts:f(x): boolean and b.ts:g(xs): X[] take different parameters
+    -> step`), each copy at a place of `places` followed by its parameter list (`joint`: the ', ' or ' and ' before the
+    next copy); the tail from the words after the last copy on, its step too. None for any other line, and where
+    `places` leave a copy the words name unknown (it would read as part of a return type)."""
+    body, arrow, step = said.rpartition(' -> ')
+    end = _APART.search(body) if arrow else None
+    if end is None:
+        return None
+    at = []
+    for place in {place for place in places if place}:
+        start = body.find(place + '(')
+        while start >= 0:
+            if start == 0 or body[start - 1] == ' ':
+                at.append((start, place))
+            start = body.find(place + '(', start + 1)
+    at.sort()
+    if len(at) < 2 or at[0][0] > end.start():        # the words name two copies at least
+        return None
+    parts = [body[:at[0][0]]]
+    for number, (start, place) in enumerate(at):
+        opened, depth = start + len(place), 0
+        for index in range(opened, end.start()):
+            depth += {'(': 1, ')': -1}.get(body[index], 0)
+            if not depth:
+                break
+        else:
+            return None         # no parameter list closes before the next copy
+        close = index + 1
+        stop = at[number + 1][0] if number + 1 < len(at) else end.start()
+        rest = body[close:stop]
+        joint = next((joint for joint in (' and ', ', ') if rest.endswith(joint)), '') if number + 1 < len(at) else ''
+        returned = rest[:len(rest) - len(joint)]
+        if (number + 1 < len(at) and not joint) or (returned and not returned.startswith(': ')) or _COPY.search(returned):
+            return None
+        parts.append([place, body[opened:close], returned, joint])
+    return [*parts, body[end.start():] + arrow + step]
+
+
+def _cap_parameters(signatures, width):
+    """A line of copies that take different parameters (`_signatures`) within WIDTH, never cut inside a signature or
+    a return type: the return types give way first, each whole, the longest first, then the parameter lists, all of
+    them; each copy's `path:function` and the words around them stay. Where even that leaves the line longer than WIDTH
+    it is longer. `show --last` keeps the whole line."""
+    head, *copies, tail = signatures
+    def line():
+        return head + ''.join(place + parameters + returned + joint for place, parameters, returned, joint in copies) + tail
+    for index in sorted(range(len(copies)), key=lambda index: (-len(copies[index][2]), -index)):
+        if width(line()) <= WIDTH or not copies[index][2]:
+            break
+        copies[index][2] = ''
+    if width(line()) > WIDTH:
+        for copy in copies:
+            copy[1] = ''
     return line()
 
 
@@ -1005,13 +1073,19 @@ def copies_parameters(signatures, limit=PLACES):
 PARAMETERS = 'parameters'       # the member of a `same:NAME` finding whose copies take different parameters
 
 
-def parameters_finding(name, what, step, places, *, detail=()):
+def parameters_finding(name, what, step, places, *, baseline, touched, detail=()):
     """The `same:NAME` finding of copies that take different parameters (`copies_parameters`) that the flowguard
-    comments show (`anchors._index`, an issue of code 'parameters') or `check` finds where no comment does: one red
-    member (PARAMETERS) naming each copy (`places`, `path:function`), so check --static, pytest, check and vitest
-    give it as one line. A comparison that runs the copies says nothing more of a group the comments name so."""
+    comments show (`anchors._index`, an issue of code 'parameters') or `check` finds where no comment does: one member
+    (PARAMETERS) naming each copy (`places`, `path:function`), so check --static, pytest, check and vitest give it as
+    one line. It is judged against the task's `baseline` as every same-name finding is (`deliver`): this change's, red,
+    where it touches (`touched`, the files it edits, adds or deletes) a copy's file, which holds the copy's comment,
+    and without a baseline; else the copies took these parameters at the task start and it is old: no line in a run
+    that touches none of them, `before` with --all, and a known entry naming `same:NAME` speaks for it. The brief counts
+    a red of it as before once new-task has moved the baseline past it (`cli._last_reds`). A comparison that runs the
+    copies says nothing more of a group the comments name so."""
+    files = frozenset(place.rpartition(':')[0] for place in places)
     return finding('same', f'same:{name}', f'same {name}', [what], step, function=PARAMETERS, places=places,
-                   files={place.rpartition(':')[0] for place in places}, detail=detail)
+                   files=files, detail=detail, fresh=not baseline or bool(files & frozenset(touched)))
 
 
 def copies_issue(name, fresh, old, *, places, files=()):

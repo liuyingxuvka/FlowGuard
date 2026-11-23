@@ -456,6 +456,67 @@ def test_an_impact_line_of_moved_writes_keeps_what_moved_where_and_its_other_wor
     assert width == signals.WIDTH and shown.startswith('impact: set_default now writes Prefs.') and '...' in shown, shown
 
 
+def test_a_line_of_copies_that_take_different_parameters_never_cuts_inside_a_signature_or_a_return_type():
+    """Review of 5.1 (FT open 3): the block cut such a line in the middle of a declared return type, `scope.ts:
+    visibleProjects(user, projects): { org: numb...[] take different parameters`; with Planning Tool's paths and names
+    the signatures and output types it asked for were what the block dropped. The return types give way first, each
+    whole and the longest first, then the parameter lists, all of them; each copy's `path:function` stays, and show
+    --last (`everything`) keeps every word."""
+    service = 'backend/src/services/org-unit.service.ts:orgUnitService.canViewOrgUnit'
+    registry = 'backend/src/services/org-unit-reference-registry.ts:listVisibleOrgUnitReferences'
+    planning = 'frontend/src/components/planning/ProjectPlanningContent.tsx:visibleOrgUnits'
+    shown = {service: 'org-unit.service.ts:orgUnitService.canViewOrgUnit',
+             registry: 'org-unit-reference-registry.ts:listVisibleOrgUnitReferences',
+             planning: 'ProjectPlanningContent.tsx:visibleOrgUnits'}
+
+    def said(signatures, kind='red'):
+        text, step = signals.copies_parameters(signatures)
+        subject = 'same ORG_UNIT_SCOPE disagreed at task start: ' if kind == 'before' else 'same ORG_UNIT_SCOPE: '
+        line = Line(kind, 'same:ORG_UNIT_SCOPE', signals.PARAMETERS, subject + text,
+                    signals.BEFORE_STEP if kind == 'before' else step, tuple(place for place, _ in signatures))
+        whole = _block([line], everything=True)[1]
+        assert whole == f'{kind}: {line.text} -> {line.step}'.replace(service, shown[service]).replace(
+            registry, shown[registry]).replace(planning, shown[planning])
+        return _block([line])[1]
+    tail = 'take different parameters -> ' + signals.PARAMETERS_STEP
+    # the longest return type gives way whole; the other stays
+    assert said([(service, '(user, orgUnit): boolean'), (registry, '(user, orgUnits): OrgUnitReference[]')]) == (
+        'red: same ORG_UNIT_SCOPE: org-unit.service.ts:orgUnitService.canViewOrgUnit(user, orgUnit): boolean and '
+        f'org-unit-reference-registry.ts:listVisibleOrgUnitReferences(user, orgUnits) {tail}')
+    # a shorter step leaves room for both
+    assert said([(service, '(user, orgUnit): boolean'), (registry, '(user, orgUnits): OrgUnitReference[]')], 'before') == (
+        'before: same ORG_UNIT_SCOPE disagreed at task start: org-unit.service.ts:orgUnitService.canViewOrgUnit(user, '
+        'orgUnit): boolean and org-unit-reference-registry.ts:listVisibleOrgUnitReferences(user, orgUnits): '
+        'OrgUnitReference[] take different parameters -> leave it unless your task is about it')
+    # a return type that holds the words between the copies (`, `, ` and `) gives way whole too, and the next one
+    # where the line is still too long
+    assert said([(service, '(user, orgUnit): Promise<boolean>'),
+                 (registry, "(user, orgUnits, options): Promise<Map<'view and edit', OrgUnitReference[]>>")]) == (
+        'red: same ORG_UNIT_SCOPE: org-unit.service.ts:orgUnitService.canViewOrgUnit(user, orgUnit) and '
+        f'org-unit-reference-registry.ts:listVisibleOrgUnitReferences(user, orgUnits, options) {tail}')
+    # then the parameter lists, all of them; the copies' names stay
+    long = [(service, '(authenticatedUser, orgUnitWithMembers): Promise<boolean>'),
+            (registry, '(authenticatedUser, orgUnitsWithMembers, includeArchived): Promise<OrgUnitReference[]>')]
+    assert said(long) == ('red: same ORG_UNIT_SCOPE: org-unit.service.ts:orgUnitService.canViewOrgUnit and '
+                          f'org-unit-reference-registry.ts:listVisibleOrgUnitReferences {tail}')
+    # a rule bound to their anchor states them in its red, cut the same way
+    text, _ = signals.copies_parameters(long)
+    rule = Line('red', 'rule:SCOPE', 'SCOPE', 'rule SCOPE: same anchor ORG_UNIT_SCOPE: ' + text,
+                'inspect rule tests/intent/scope_rule.py:3 and correct its source, binding or regression rows',
+                ('tests/intent/scope_rule.py:3', service, registry))
+    assert _block([rule])[1] == (
+        'red: rule SCOPE: same anchor ORG_UNIT_SCOPE: org-unit.service.ts:orgUnitService.canViewOrgUnit and '
+        'org-unit-reference-registry.ts:listVisibleOrgUnitReferences take different parameters -> inspect rule '
+        'scope_rule.py:3 and correct its source, binding or regression rows')
+    # of more than three copies three are named, the others counted, as before
+    assert said([(service, '(user, orgUnit): boolean'), (registry, '(user, orgUnits): OrgUnitReference[]'),
+                 (planning, '(orgUnits, user): OrgUnit[]'), ('x/a.ts:f', '(a)'), ('x/b.ts:g', '(b)')], 'before') == (
+        'before: same ORG_UNIT_SCOPE disagreed at task start: org-unit.service.ts:orgUnitService.canViewOrgUnit(user, '
+        'orgUnit): boolean, org-unit-reference-registry.ts:listVisibleOrgUnitReferences(user, orgUnits), '
+        'ProjectPlanningContent.tsx:visibleOrgUnits(orgUnits, user) and 2 other copies take different parameters -> '
+        'leave it unless your task is about it')
+
+
 def test_a_single_not_compared_item_keeps_its_name_and_place_and_its_reasons_give_way_first():
     """H4-3: one not compared item whose own text besides its paths and places was longer than about 125 characters
     lost its name and place (`not compared: 1 function (not reached by any test) -> not a failure`). Its reasons give

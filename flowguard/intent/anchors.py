@@ -40,11 +40,20 @@ class Issue:
     name: str = ''
     places: tuple = ()      # a finding of several comments (code 'parameters'): each copy's `path:function`
     detail: tuple = ()      # further lines only `show --last` prints
+    step: str = ''          # the next step of a finding of several comments, apart from its fact (`message`)
 
     def __post_init__(self):
         # a cached issue comes back from JSON with lists
         object.__setattr__(self, 'places', tuple(self.places))
         object.__setattr__(self, 'detail', tuple(self.detail))
+
+    @property
+    def stated(self):
+        """The issue as a rule or a flow bound to its anchor states it (`Engine.anchor_errors`, `flow`): a finding of
+        several comments (code 'parameters'), whose fact names the copies, after the anchor it is about (`same anchor
+        PROJECT_SCOPE: scope.py:can_view(user, project): bool and ... take different parameters`), so that the rule's
+        own step follows it; any other issue's message, which names its anchor itself."""
+        return f'same anchor {self.name}: {self.message}' if self.places else self.message
 
 
 def _status(issues):
@@ -1087,8 +1096,9 @@ def _called(anchor):
 def _parameters_issue(name, group):
     """The one red of a same-name group whose copies take different parameters (`_index`), in the words of a
     comparison that runs them (`signals.copies_parameters`): each copy `path:function(parameters)`, with the return
-    type its source declares. Its detail says what a comment can say there: a Python copy maps its parameters to the
-    reference's names (`# flowguard: same NAME(days=<its parameter>)`); a JS/TS comment names none."""
+    type its source declares, and its step apart (`Issue.step`), so that a rule or flow bound to the anchor states the
+    fact with its own step (`Issue.stated`). Its detail says what a comment can say there: a Python copy maps its
+    parameters to the reference's names (`# flowguard: same NAME(days=<its parameter>)`); a JS/TS comment names none."""
     from .signals import FOREIGN_PARAMETERS, copies_parameters
     text, step = copies_parameters([(_place(anchor), _called(anchor)) for anchor in group])
     reference = next((anchor for anchor in group if anchor.owner), group[0])
@@ -1103,8 +1113,8 @@ def _parameters_issue(name, group):
                           + f') above {_place(anchor)} if it is a copy of {_place(reference)}')
     if any(_comment_mark(anchor.file) == '//' for anchor in group):
         detail.append(FOREIGN_PARAMETERS)
-    return Issue('red', 'parameters', f'{text} -> {step}', group[0].file, group[0].line, name,
-                 places=tuple(_place(anchor) for anchor in group), detail=tuple(detail))
+    return Issue('red', 'parameters', text, group[0].file, group[0].line, name,
+                 places=tuple(_place(anchor) for anchor in group), detail=tuple(detail), step=step)
 
 
 def _conflicts(group):
