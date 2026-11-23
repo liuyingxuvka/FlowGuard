@@ -62,7 +62,7 @@ Use `#` in Python and `//` in TS/JS. These comments normalize to the existing re
 | `flowguard: same NAME ref` | The chosen reference copy; only one per name. |
 | `flowguard: together A B,C` | An operation writing A must also write B and C. |
 | `flowguard: together A B on=update` | Limit the agreement to update; create is the other supported value. |
-| `flowguard: together A B=value` | The partner must be written with that value. |
+| `flowguard: together A B=value` | The partner must be written with that value; `=true` and `=True`, `=false` and `=False`, `=null` and `=None` are the same value, whichever language writes it. |
 | `flowguard: together A B except=path:function(reason)` | A documented exception; adding one loosens the agreement, which is the owner's decision. |
 | `flowguard: writers A f,g` | Only these functions may write A. |
 

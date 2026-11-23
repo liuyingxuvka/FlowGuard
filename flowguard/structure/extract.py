@@ -568,6 +568,23 @@ def dir_relative_imports(tree, package: str) -> list[list]:
     return out
 
 
+def unpacked(target, value):
+    """(element, its value) of each name, attribute or subscript one assignment target writes (PEMEL17-4): a tuple or
+    list target gives its elements, nested ones too, and a starred element is its value (`*self.rest`). An element's
+    value is the right side's element at its place when that side is a tuple or list of the same length with no
+    starred item (a starred target then takes one item, so the others keep their places); otherwise, and for a
+    starred element, it is None: no value is read. A `for` or `with` target passes value None."""
+    if isinstance(target, ast.Starred):
+        yield from unpacked(target.value, None)
+    elif isinstance(target, (ast.Tuple, ast.List)):
+        items = value.elts if isinstance(value, (ast.Tuple, ast.List)) and len(value.elts) == len(target.elts) \
+            and not any(isinstance(item, ast.Starred) for item in value.elts) else [None] * len(target.elts)
+        for element, item in zip(target.elts, items):
+            yield from unpacked(element, item)
+    else:
+        yield target, value
+
+
 def syntax_records(tree, module, rel):
     """Fixed structural facts, retained once with the file parse (never a second scanner)."""
     found = {"handlers": [], "literal_sets": [], "assignments": [], "syntax_calls": [], "symbol_reads": [], "field_types": [],
@@ -784,22 +801,31 @@ def syntax_records(tree, module, rel):
         visit_TryStar = visit_Try
 
         def assignment(self, node, targets, value):
-            if value is None:
+            if value is None:           # `x: int` declares a name and writes nothing
                 return
-            for target in targets:
+            self.written(node, [pair for target in targets for pair in unpacked(target, value)])
+
+        def written(self, node, pairs):
+            """Record the (target, value) pairs one statement writes (`unpacked`; value None: not read), as a
+            single assignment records its target: a name's binding, an `__exit__` lambda and an `assignments` row
+            each. Every right side is resolved before any name is bound again (`a, b = b, a`)."""
+            resolved = {id(target): self.resolve(value) for target, value in pairs if isinstance(target, ast.Name) and (
+                isinstance(value, (ast.Name, ast.Attribute, ast.Subscript)) or isinstance(value, ast.Call)
+                and isinstance(value.func, ast.Name) and value.func.id == 'getattr')}
+            for target, value in pairs:
                 if isinstance(target,ast.Name):
-                    if isinstance(value,(ast.Name,ast.Attribute,ast.Subscript)) or isinstance(value,ast.Call) and isinstance(value.func,ast.Name) and value.func.id=='getattr':
-                        self.bindings[target.id] = self.resolve(value)
+                    if id(target) in resolved:
+                        self.bindings[target.id] = resolved[id(target)]
                     else:
                         self.bindings.pop(target.id,None)
                 if isinstance(target,ast.Name) and target.id in ('__exit__','__aexit__') and isinstance(value,ast.Lambda) and exit_may_suppress(value):
                     self.add('handlers',node,kind='exit_method',type=target.id+' may return true',name=None,end_line=node.end_lineno,
                              raises=False,reraise=False,non_raising=True,body=ast.unparse(value))
-            literal = isinstance(value, ast.Constant) and isinstance(value.value, (str, int, float, bool, type(None)))
-            # A computed right side keeps its text; the map folds enum members and named constants at query time.
-            computed = {'expr': ast.unparse(value)[:300]} if not literal and isinstance(
-                value, (ast.Name, ast.Attribute, ast.IfExp, ast.Subscript, ast.UnaryOp, ast.BinOp)) else {}
-            for target in targets:
+            for target, value in pairs:
+                literal = isinstance(value, ast.Constant) and isinstance(value.value, (str, int, float, bool, type(None)))
+                # A computed right side keeps its text; the map folds enum members and named constants at query time.
+                computed = {'expr': ast.unparse(value)[:300]} if not literal and isinstance(
+                    value, (ast.Name, ast.Attribute, ast.IfExp, ast.Subscript, ast.UnaryOp, ast.BinOp)) else {}
                 field = ast.unparse(target)
                 owner, unresolved, form = module, False, {}
                 key = target.slice.value if isinstance(target, ast.Subscript) and isinstance(target.slice, ast.Constant) \
@@ -859,6 +885,28 @@ def syntax_records(tree, module, rel):
         visit_Tuple = literal
         visit_Set = literal
         visit_Dict = literal
+
+        def visit_For(self, node):
+            # The loop target is written with each item, after its iterable is read: no value is read.
+            self.visit(node.target)
+            self.visit(node.iter)
+            self.written(node, list(unpacked(node.target, None)))
+            for child in [*node.body, *node.orelse]:
+                self.visit(child)
+
+        visit_AsyncFor = visit_For
+
+        def visit_With(self, node):
+            # Each `as` target is written with what its context manager's __enter__ returns: no value is read.
+            for item in node.items:
+                self.visit(item.context_expr)
+                if item.optional_vars is not None:
+                    self.visit(item.optional_vars)
+                    self.written(node, list(unpacked(item.optional_vars, None)))
+            for child in node.body:
+                self.visit(child)
+
+        visit_AsyncWith = visit_With
 
         def visit_Assign(self, node):
             self.assignment(node, node.targets, node.value)

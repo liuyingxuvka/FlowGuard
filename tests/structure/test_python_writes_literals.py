@@ -91,3 +91,61 @@ def test_python_literals_follow_the_ts_contexts(tmp_path):
         # Dict keys, `'id' in row`, logging, print, exception messages and subscripts are not decisions.
         assert not values & {'id', 'ID', 'Key', 'ignored %s', 'Logged', 'bad id', 'printed'}, found
         assert {('My organization', 'return'), ('mine', 'return')} <= found, found      # other.py
+
+
+# ---- PEMEL17-4: tuple, list, starred, for and with targets are writes of each element ----------------------
+
+UNPACK = '''
+import threading
+
+
+class Pair:
+    def __init__(self, other):
+        self.left, self.right = 'l', 1
+        [self.top, (self.inner, rest)] = ['t', (None, 2)]
+        self.head, *self.tail = 'h', 'x'
+        self.first, self.second = other.pair()
+        self.alpha, self.beta = 'a', 'b', 'c'
+        self.flag, self.none = True, None
+        for self.item in other.items:
+            pass
+        for index, self.slot in enumerate(other.items):
+            pass
+        with threading.Lock() as self.held, open('f') as (self.stream, self.mode):
+            pass
+'''
+
+
+def test_each_element_of_a_tuple_list_starred_for_or_with_target_is_its_own_write(tmp_path):
+    (tmp_path / 'pair.py').write_text(textwrap.dedent(UNPACK).lstrip())
+    with closing(build(tmp_path)) as graph:
+        found = {row['field']: row.get('value', '<none>') for row in graph.writes(by_name=True) if row['file'] == 'pair.py'}
+        lines = {row['field']: row['line'] for row in graph.writes(by_name=True)}
+    # An element takes its value only from a right side of the same length (none is guessed from `other.pair()`, from
+    # three values for two names, or for a starred element); a loop or `as` target has none.
+    assert found == {'left': 'l', 'right': 1, 'top': 't', 'inner': None, 'head': 'h', 'tail': '<none>',
+                     'first': '<none>', 'second': '<none>', 'alpha': '<none>', 'beta': '<none>', 'flag': True, 'none': None,
+                     'item': '<none>', 'slot': '<none>', 'held': '<none>', 'stream': '<none>', 'mode': '<none>'}, found
+    assert (lines['left'], lines['item'], lines['slot'], lines['held'], lines['mode']) == (6, 12, 14, 16, 16), lines
+
+
+def test_a_nested_element_takes_the_value_at_its_place_and_names_rebind_as_single_assignments_do(tmp_path):
+    (tmp_path / 'swap.py').write_text(textwrap.dedent('''
+        import os
+        import json
+
+
+        class Job:
+            def run(self):
+                self.state, (self.code, self.note) = 'stop', (0, 'done')
+                a, b = os.path, json
+                a, b = b, a
+                return a.dumps, b.join
+    ''').lstrip())
+    with closing(build(tmp_path)) as graph:
+        values = {row['field']: row.get('value', '<none>') for row in graph.writes('Job.state')
+                  + graph.writes('Job.code') + graph.writes('Job.note')}
+        resolved = {row['text']: row['resolved'] for row in graph.calls(include_reads=True) if row.get('read')}
+    assert values == {'state': 'stop', 'code': 0, 'note': 'done'}, values
+    # The right side is read before either name is bound again: `a, b = b, a` swaps the two bindings.
+    assert (resolved['a.dumps'], resolved['b.join']) == ('json.dumps', 'os.path.join'), resolved

@@ -55,7 +55,7 @@ def preview_amount(value: float) -> int:
 # flowguard: writers Booking.employee_id reserve,release
 ```
 
-`together A B,C` 是单向约定：写 A 的操作也必须写 B、C。`on=` 只取 `create` 或 `update`；`B=值` 要求写成该值。裸函数名只指注释所在文件；别的文件写仓库相对位置，例如 `src/store.py:reserve`。例外写成 `except=路径:函数(理由)`；加上例外就放宽了约定，这由主人决定。不要为了消掉发现而放宽约定。
+`together A B,C` 是单向约定：写 A 的操作也必须写 B、C。`on=` 只取 `create` 或 `update`；`B=值` 要求写成该值，布尔值和空值两种语言的写法是同一个值（`=true` 与 `=True`、`=false` 与 `=False`、`=null` 与 `=None`）。Python 元组或列表赋值（`self.a, self.b = ...`，嵌套的和带星号的也算）以及 `for`、`with ... as` 目标里的每个名字各算一次写入。裸函数名只指注释所在文件；别的文件写仓库相对位置，例如 `src/store.py:reserve`。例外写成 `except=路径:函数(理由)`；加上例外就放宽了约定，这由主人决定。不要为了消掉发现而放宽约定。
 
 FlowGuard 5.0 删除了 4.2 的注释写法（`sensor NAME`、`owner NAME`、`owner A with=...`、`alone=`、`owner A writers=...`）：每一处都在所在行报 red，并给出应改写成的 4.3 注释。
 

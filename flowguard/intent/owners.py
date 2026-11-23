@@ -489,10 +489,17 @@ def creates(row):
 
 
 def _holds(row, value):
+    """Does a write hold a partner's `=value` (None: any value)? Its literal is compared as spelled: a bool or null
+    by both languages' spellings, whichever language wrote it (`True`/`true`, `False`/`false`, `None`/`null`; the
+    readers read each to the same Python value), a string or number by its text (`str`)."""
     if value is None:
         return True
     values = row.get('values') or ([row['value']] if 'value' in row else [])
-    return any(str(item) == value for item in values)
+    return any(value in _SPELLINGS.get(repr(item), (str(item),)) for item in values)
+
+
+# The spellings of one written bool or null: a Python `True` and a TS/JS or SQL `true` are one value (PTW-G55-2).
+_SPELLINGS = {'True': ('True', 'true'), 'False': ('False', 'false'), 'None': ('None', 'null')}
 
 
 def _pair_function(row):

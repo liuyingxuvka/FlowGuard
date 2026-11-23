@@ -57,7 +57,7 @@ Data agreements have separate comments:
 # flowguard: writers Booking.employee_id reserve,release
 ```
 
-`together A B,C` is directional: an operation writing A must also write B and C. `on=` limits it to `create` or `update`; `B=value` requires that value. Bare writer names refer only to the comment's file; another file uses a repository-relative position such as `src/store.py:reserve`. An exception is written `except=path:function(reason)`; adding one loosens the agreement, which is the owner's decision. Do not weaken an agreement to clear a finding.
+`together A B,C` is directional: an operation writing A must also write B and C. `on=` limits it to `create` or `update`; `B=value` requires that value, and a bool or null is the same value in either language's spelling (`=true` and `=True`, `=false` and `=False`, `=null` and `=None`). Each name of a Python tuple or list assignment (`self.a, self.b = ...`, nested and starred ones too) and of a `for` or `with ... as` target is a write of its own. Bare writer names refer only to the comment's file; another file uses a repository-relative position such as `src/store.py:reserve`. An exception is written `except=path:function(reason)`; adding one loosens the agreement, which is the owner's decision. Do not weaken an agreement to clear a finding.
 
 FlowGuard 5.0 removed the 4.2 comment spellings (`sensor NAME`, `owner NAME`, `owner A with=...`, `alone=`, `owner A writers=...`): each is red at its line, and the red names the 4.3 comment to write instead.
 
