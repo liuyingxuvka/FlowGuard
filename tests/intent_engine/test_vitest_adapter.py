@@ -1370,6 +1370,85 @@ def test_a_careless_change_of_a_function_reading_a_folded_constant_is_changed(vi
                        '-> if you meant it, say so'], text
 
 
+def test_a_changed_object_result_names_its_keys_and_each_input_is_printed_once(vitest_home):
+    # Planning Tool's G54 and G58 on 5.0.1. parseSnapshotConfig gained demandPeriodConvention, and the block cut both
+    # whole results to one text: `was {"baseline": "b1...2, "version": 3}, now {"baseline": "b1...2, "version": 3}`.
+    # isEmploymentActive(person, day) of a person with a name, a code and six rows printed each differing input's
+    # person twice in `show --last`, on the line and again as the first row of its detail (N + 1 objects for N).
+    root = vitest_home / 'keyed'
+    _commit(root, {
+        'package.json': '{"name":"keyed","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/snapshot.ts': '''
+            export function parseSnapshotConfig(text: string) {
+              const raw = JSON.parse(text);
+              return { baseline: raw.baseline ?? 'none', reportVersion: raw.reportVersion ?? 1, version: raw.version ?? 1 };
+            }
+        ''',
+        'src/active.ts': '''
+            export interface Person { name: string; code: string; entryDate: string | null; exitDate: string | null; rows: { a: number; b: string }[] }
+            export function isEmploymentActive(person: Person, day: string): boolean {
+              return (person.entryDate as string).localeCompare(day) <= 0 && (person.exitDate === null || day <= person.exitDate);
+            }
+        ''',
+        'tests/snapshot.test.ts': '''
+            import { expect, it } from 'vitest';
+            import { parseSnapshotConfig } from '../src/snapshot';
+            it('parses', () => {
+              expect(parseSnapshotConfig('{"baseline":"b1","reportVersion":2,"version":3}').baseline).toBe('b1');
+              expect(parseSnapshotConfig('{"version":4}').version).toBe(4);
+              expect(parseSnapshotConfig('{"version":5,"inclusive":true}').version).toBe(5);
+            });
+        ''',
+        'tests/active.test.ts': '''
+            import { expect, it } from 'vitest';
+            import { isEmploymentActive } from '../src/active';
+            const rows = Array.from({ length: 6 }, (_, i) => ({ a: i, b: 'row-' + i }));
+            const p = (entryDate: string | null, exitDate: string | null) => ({ name: 'Synthetic Person Name', code: 'E-000123', entryDate, exitDate, rows });
+            it('active', () => {
+              expect(isEmploymentActive(p('2026-01-01', null), '2026-02-01')).toBe(true);
+            });
+        ''',
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='wired')
+    # the change: a new key in every snapshot, and an open entry date that no longer throws
+    snapshot = root / 'src/snapshot.ts'
+    snapshot.write_text(snapshot.read_text(encoding='utf-8').replace(
+        'version: raw.version ?? 1 };', "version: raw.version ?? 1,\n  demandPeriodConvention: raw.inclusive ? 'inclusive' : 'legacy-half-open' };"),
+        encoding='utf-8')
+    active = root / 'src/active.ts'
+    active.write_text(active.read_text(encoding='utf-8').replace(
+        '(person.entryDate as string).localeCompare(day) <= 0', '(person.entryDate === null || person.entryDate <= day)'), encoding='utf-8')
+    test = root / 'tests/active.test.ts'
+    test.write_text(test.read_text(encoding='utf-8').replace('toBe(true);\n', "toBe(true);\n  expect(isEmploymentActive(p(null, null), "
+                                                             "'2026-02-01')).toBe(true);\n  expect(isEmploymentActive(p(null, "
+                                                             "'2026-01-31'), '2026-02-01')).toBe(false);\n"), encoding='utf-8')
+    code, text = _vitest(root, vitest_home)
+    assert code == 0, text
+    block = _block(text)
+    snapshot_line = ("changed: parseSnapshotConfig (snapshot.ts:1): (text='{\"baseline\":\"b1\"...rsion\":2,\"version\":3}') now adds "
+                     "demandPeriodConvention='legacy-half-open' (3 other keys equal); 3/3 inputs differ -> if you meant it, say so")
+    assert snapshot_line in block, block
+    shown = _cli_fixture.last(root).splitlines()
+    full = shown.index("changed: parseSnapshotConfig (src/snapshot.ts:1): (text='{\"baseline\":\"b1\",\"reportVersion\":2,\"version\":3}') "
+                       "now adds demandPeriodConvention='legacy-half-open' (3 other keys equal); 3/3 inputs differ -> if you meant it, say so")
+    assert shown[full + 1:full + 4] == [
+        '    in full: was {"baseline": "b1", "reportVersion": 2, "version": 3}, now {"baseline": "b1", "demandPeriodConvention": '
+        '"legacy-half-open", "reportVersion": 2, "version": 3}',
+        "    (text='{\"version\":4}') now adds demandPeriodConvention='legacy-half-open' (3 other keys equal); in full: was "
+        '{"baseline": "none", "reportVersion": 1, "version": 4}, now {"baseline": "none", "demandPeriodConvention": '
+        '"legacy-half-open", "reportVersion": 1, "version": 4}',
+        "    (text='{\"version\":5,\"inclusive\":true}') now adds demandPeriodConvention='inclusive' (3 other keys equal); in full: "
+        'was {"baseline": "none", "reportVersion": 1, "version": 5}, now {"baseline": "none", "demandPeriodConvention": '
+        '"inclusive", "reportVersion": 1, "version": 5}'], shown
+    # two of the three people's inputs differ (an open entry date threw and now answers): two people are printed
+    active = [index for index, line in enumerate(shown) if line.startswith('changed: isEmploymentActive (src/active.ts:2): ')]
+    assert len(active) == 1 and '; 2/3 inputs differ -> ' in shown[active[0]], shown
+    told = shown[active[0]:next(index for index in range(active[0] + 1, len(shown)) if not shown[index].startswith('    '))]
+    assert sum(line.count('Synthetic Person Name') for line in told) == 2, told
+    assert [line.count(' was raises TypeError: ') for line in told][:2] == [1, 1], told
+
+
 def test_a_disagreeing_same_name_pair_is_compared_again_in_a_run_without_a_ts_change(vitest_home):
     root = vitest_home / 'again'
     _commit(root, {
@@ -2574,8 +2653,11 @@ def test_a_function_that_takes_and_returns_json_data_is_compared_sealed(tmp_path
     path.write_text(path.read_text().replace('row.n * 2', 'row.n * 3'))
     records = [dict(id='typescript/src/edit.ts:edit', args=[{'id': 'a', 'n': 2}], result={'id': 'a', 'value': 6})]
     _, lines = _judged(tmp_path, records)
-    changed = [(line.kind, line.text) for line in lines if line.kind == 'changed']
-    assert len(changed) == 1 and 'was {"id": "a", "value": 4}, now {"id": "a", "value": 6}' in changed[0][1], lines
+    changed = [line for line in lines if line.kind == 'changed']
+    # the line names the key that changed, its detail the full values (5.1; 5.0.1 printed them on the line)
+    assert len(changed) == 1 and changed[0].text.endswith("(row={\"id\": \"a\", \"n\": 2}) now changes value from 4 to 6 "
+                                                          "(1 other key equal); 1/1 inputs differ"), lines
+    assert changed[0].detail[0] == 'in full: was {"id": "a", "value": 4}, now {"id": "a", "value": 6}', changed[0].detail
 
 
 def test_an_unchanged_copy_compared_on_some_inputs_is_not_called_not_compared(tmp_path):

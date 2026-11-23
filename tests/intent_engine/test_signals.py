@@ -514,10 +514,11 @@ def test_a_changed_line_shows_the_smallest_changed_input_and_how_many_differ():
     assert (line.kind, line.name, line.function, line.text, line.step, line.places) == (
         'changed', 'changed:policy:standing', 'policy:standing',
         'STANDING (shop/policy.py:3): (days=5) was False, now True; 3/12 inputs differ', 'if you meant it, say so', ('shop/policy.py:3',))
-    assert line.detail == ('(days=9) was False, now True', '(days=5) was False, now True', "(days=7) was 'x', now raises ValueError: no")
-    assert signals.changed_line('late', 'm:late', 'm.py', 0, [({}, 1, 2)], 1, why='its code changed').detail[-1] == \
-        'no flowguard comment: compared because its code changed'
-    assert signals.changed_line('late', 'm:late', 'm.py', 0, [({}, 1, 2)], 1).detail == ('() was 1, now 2',)    # a comment
+    # the detail holds the other inputs: the one the line shows is not printed twice (5.0.1 listed every input there)
+    assert line.detail == ('(days=9) was False, now True', "(days=7) was 'x', now raises ValueError: no")
+    assert signals.changed_line('late', 'm:late', 'm.py', 0, [({}, 1, 2)], 1, why='its code changed').detail == \
+        ('no flowguard comment: compared because its code changed',)
+    assert signals.changed_line('late', 'm:late', 'm.py', 0, [({}, 1, 2)], 1).detail == ()    # a comment
 
 
 def test_a_changed_line_takes_list_and_dict_inputs():
@@ -528,6 +529,64 @@ def test_a_changed_line_takes_list_and_dict_inputs():
     line = signals.changed_line('TOTAL', 'calc:total', 'calc.py', 2, rows, 3)
     assert line.text == 'TOTAL (calc.py:2): (items=[1, 2], order={"a": 1}) was 3, now 5; 3/3 inputs differ', line
     assert line.detail[0] == '(items=[5], order={"a": 2, "b": 1}) was 5, now 6', line
+
+
+SNAPSHOTS = [   # Planning Tool's G54: parseSnapshotConfig gained one key, the others kept their values
+    ({'text': '{"baseline":"b1","reportVersion":2,"version":3}'}, {'baseline': 'b1', 'reportVersion': 2, 'version': 3},
+     {'baseline': 'b1', 'demandPeriodConvention': 'legacy-half-open', 'reportVersion': 2, 'version': 3}),
+    ({'text': '{"version":4}'}, {'baseline': 'none', 'reportVersion': 1, 'version': 4},
+     {'baseline': 'none', 'demandPeriodConvention': 'legacy-half-open', 'reportVersion': 1, 'version': 4}),
+    ({'text': '{"version":5,"inclusive":true}'}, {'baseline': 'none', 'reportVersion': 1, 'version': 5},
+     {'baseline': 'none', 'demandPeriodConvention': 'inclusive', 'reportVersion': 1, 'version': 5})]
+
+
+def test_a_changed_dict_result_names_the_keys_that_changed_and_keeps_its_full_values_in_the_detail():
+    # PTW-G54-2: 5.0.1 printed both results as whole JSON, and the block cut their middles to the same text:
+    # `... was {"baseline": "b1...2, "version": 3}, now {"baseline": "b1...2, "version": 3}; 3/3 inputs differ`.
+    line = signals.changed_line('parseSnapshotConfig', 'src/snapshot:parseSnapshotConfig', 'src/snapshot.ts', 1, SNAPSHOTS, 3,
+                                why='its code changed')
+    assert line.text == ("parseSnapshotConfig (src/snapshot.ts:1): (text='{\"baseline\":\"b1\",\"reportVersion\":2,\"version\":3}') "
+                         "now adds demandPeriodConvention='legacy-half-open' (3 other keys equal); 3/3 inputs differ"), line
+    assert _block([line])[1:] == [
+        "changed: parseSnapshotConfig (snapshot.ts:1): (text='{\"baseline\":\"b1\"...rsion\":2,\"version\":3}') now adds "
+        "demandPeriodConvention='legacy-half-open' (3 other keys equal); 3/3 inputs differ -> if you meant it, say so"]
+    # each input's full values once: the shown input's without its inputs, every other one with its own keys
+    assert line.detail == (
+        'in full: was {"baseline": "b1", "reportVersion": 2, "version": 3}, now {"baseline": "b1", "demandPeriodConvention": '
+        '"legacy-half-open", "reportVersion": 2, "version": 3}',
+        "(text='{\"version\":4}') now adds demandPeriodConvention='legacy-half-open' (3 other keys equal); in full: was "
+        '{"baseline": "none", "reportVersion": 1, "version": 4}, now {"baseline": "none", "demandPeriodConvention": '
+        '"legacy-half-open", "reportVersion": 1, "version": 4}',
+        "(text='{\"version\":5,\"inclusive\":true}') now adds demandPeriodConvention='inclusive' (3 other keys equal); in "
+        'full: was {"baseline": "none", "reportVersion": 1, "version": 5}, now {"baseline": "none", "demandPeriodConvention": '
+        '"inclusive", "reportVersion": 1, "version": 5}',
+        'no flowguard comment: compared because its code changed'), line.detail
+
+
+def test_the_keys_of_a_changed_result_are_named_by_their_path_and_compared_by_their_json():
+    def said(old, new):
+        return signals.changed_line('f', 'm:f', 'm.py', 1, [({'x': 1}, old, new)], 1).text.removeprefix('f (m.py:1): (x=1) ')
+    # a key removed, one changed, nested keys as dotted paths and list items by index; key order is no difference
+    assert said({'legacy': True, 'reportVersion': 1, 'version': 3}, {'version': 3, 'reportVersion': 2}) == \
+        'now removes legacy, changes reportVersion from 1 to 2 (1 other key equal); 1/1 inputs differ'
+    assert said({'summary': {'total': 3, 'days': [1, 2]}, 'rows': [{'b': 'x'}, {'b': 'y'}]},
+                {'rows': [{'b': 'x'}, {'b': 'z'}], 'summary': {'days': [1, 2], 'total': 4}}) == \
+        "now changes rows[1].b from 'y' to 'z' and summary.total from 3 to 4 (2 other keys equal); 1/1 inputs differ"
+    # a list of dicts as long as before, item by item; at most three keys named, the others counted
+    assert said([{'id': 'a', 'value': 4}], [{'id': 'a', 'value': 6}]) == \
+        'now changes [0].value from 4 to 6 (1 other key equal); 1/1 inputs differ'
+    assert said({'a': 1, 'b': 1, 'c': 1, 'd': 1, 'e': 1}, {'a': 2, 'b': 2, 'c': 2, 'd': 2, 'e': 1, 'f': None}) == \
+        'now adds f=None, changes a from 1 to 2 and b from 1 to 2 (2 more keys differ, 1 other key equal); 1/1 inputs differ'
+    # JSON tells 1 from 1.0 and from True, and NaN equals NaN, as the whole values were compared; a key that is no
+    # name is quoted, and a ` -> ` keeps the line's one step
+    assert said({'n': 1, 'm': 1, 'nan': float('nan')}, {'n': 1.0, 'm': True, 'nan': float('nan')}) == \
+        'now changes m from 1 to True and n from 1 to 1.0 (1 other key equal); 1/1 inputs differ'
+    assert said({'a b': 'x -> y'}, {'a b': 'x'}) == "now changes [\"a b\"] from 'x -\\u003e y' to 'x'; 1/1 inputs differ"
+    # any other pair keeps its whole values: a scalar, a raised exception, lists of other lengths or of other values,
+    # and two dicts that differ only where they are spelled alike (vitest's undefined and null are both None)
+    for old, new in ((1, 2), ({'a': 1}, {'raises': 'ValueError: no'}), ([{'a': 1}], [{'a': 1}, {'a': 2}]), ([1, 2], [1, 3]),
+                     ({'a': None}, {'a': None}), ({'a': 1}, [{'a': 1}])):
+        assert said(old, new) == f'was {signals.value_text(old)}, now {signals.value_text(new)}; 1/1 inputs differ', (old, new)
 
 
 def test_a_pytest_run_whose_changed_function_takes_a_list_prints_and_keeps_its_changed_line(tmp_path):
@@ -548,6 +607,34 @@ def test_a_pytest_run_whose_changed_function_takes_a_list_prints_and_keeps_its_c
     changed = 'changed: total (policy.py:2): (items=[1, 2]) was 3, now 4; 2/2 inputs differ -> if you meant it, say so'
     assert block(result)[1:] == [changed], result.stdout
     assert changed in last(tmp_path).splitlines()
+
+
+def test_a_pytest_run_whose_changed_function_returns_a_list_of_dicts_names_the_keys_that_changed(tmp_path):
+    # PTW-G54-2 in Python: the rows a function returns gain a key; the line names it item by item, `show --last` keeps
+    # each input's full values once.
+    from tests.intent_engine.test_default_runtime_signals import _project, _run
+    from tests.intent_engine._cli_fixture import block, last
+    policy = _project(tmp_path, '''
+        def hours(days: list) -> list:
+            return [{'day': day, 'hours': 8} for day in days]
+    ''', '''
+        from policy import hours
+        def test_hours():
+            assert len(hours(['mon', 'tue'])) == 2 and hours(['sun'])[0]['day'] == 'sun'
+    ''')
+    policy.write_text(policy.read_text().replace("'hours': 8}", "'hours': 8, 'unit': 'h'}"))
+    result = _run(tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    changed = ('changed: hours (policy.py:1): (days=["mon", "tue"]) now adds [0].unit=\'h\' and [1].unit=\'h\' '
+               '(4 other keys equal); 2/2 inputs differ -> if you meant it, say so')
+    assert block(result)[1:] == [changed], result.stdout
+    shown = last(tmp_path).splitlines()
+    assert shown[shown.index(changed) + 1:][:3] == [
+        '    in full: was [{"day": "mon", "hours": 8}, {"day": "tue", "hours": 8}], now [{"day": "mon", "hours": 8, "unit": "h"}, '
+        '{"day": "tue", "hours": 8, "unit": "h"}]',
+        '    (days=["sun"]) now adds [0].unit=\'h\' (2 other keys equal); in full: was [{"day": "sun", "hours": 8}], now '
+        '[{"day": "sun", "hours": 8, "unit": "h"}]',
+        '    no flowguard comment: compared because its code changed'], shown
 
 
 def _entry_point(root, *arguments, vitest=None):

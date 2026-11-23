@@ -516,6 +516,7 @@ def _shorten(text, places, names):
 
 
 _CHANGED = re.compile(r'(\(.*?\))( was )(.*)(, now )(.*)(; \d+/\d+ inputs differ)', re.S)    # `changed_line`'s words
+_KEYED = re.compile(r'(\(.*?\))( now )((?:adds|removes|changes) .*)(; \d+/\d+ inputs differ)', re.S)    # `_keys_said`'s
 _GIVE = ((0, 36), (1, 4), (0, 4))      # (rank, characters kept at least) in the order the text gives way
 
 
@@ -524,7 +525,8 @@ def _cap(said, paths=(), places=()):
     ': ' (kind and subject), its places and the step after the last ' -> ' stay whole; the rest gives way in the middle
     of its longest stretches, cut to one length together: first the input the line is about (a changed line's inputs,
     a same-name line's `on ...:`), down to 36 characters, then the other stretches, then that input further. A
-    changed line keeps the words between its values: `(inputs) was X, now Y; k/n inputs differ`. A line that would
+    changed line keeps the words between its values: `(inputs) was X, now Y; k/n inputs differ`, and between its
+    inputs and the keys that changed: `(inputs) now adds K=V (3 other keys equal); k/n inputs differ`. A line that would
     still be longer than WIDTH with every stretch cut as far as it goes keeps its words (a copies line, whose step
     names who decides and the route that records it): cutting would leave it neither within WIDTH nor readable."""
     def width(text):
@@ -547,11 +549,13 @@ def _cap(said, paths=(), places=()):
         end = body.rfind(': ', 0, first) if first > 0 else body.find(': ')
         if end > 3:
             pieces, body = [['on ', None], *stretches(body[3:end], 0), [': ', None]], body[end + 2:]
-    changed = _CHANGED.fullmatch(body) if head.startswith('changed: ') else None
+    changed = (_CHANGED.fullmatch(body) or _KEYED.fullmatch(body)) if head.startswith('changed: ') else None
     if changed:
-        values = [stretches(changed[1], 0), [[changed[2], None]], stretches(changed[3], 1), [[changed[4], None]],
-                  stretches(changed[5], 1), [[changed[6], None]]]
-        pieces += [piece for part in values for piece in part]
+        # its inputs, then its words (never cut) and its values or the keys that changed, in turn
+        parts = changed.groups()
+        pieces += stretches(parts[0], 0)
+        for number, part in enumerate(parts[1:]):
+            pieces += stretches(part, 1) if number % 2 else [[part, None]]
     else:
         pieces += stretches(body, 1)
     def total():
@@ -671,11 +675,19 @@ def last_run(lines, ignored, *, scope, run, stamp, baseline, kind, title, second
                 pytest=pytest)
 
 
+KEYS = 3                    # keys a changed line names of a dict result that changed; more are counted
+
+
 def changed_line(name, target, file, line, changes, compared, *, cause=None, why=''):
     """The `changed` line of a function whose sealed run answers its recorded inputs differently than at the baseline
     (`changed: {function} ({file}:{line}): ...`, `name` the function's own name, also of a `same NAME` copy):
-    `changes` [(inputs, old, new)], the first of the smallest inputs shown (all of them in the detail), `compared` the
-    number of inputs compared. `why` a function without a flowguard comment was compared (`its code changed`, `a
+    `changes` [(inputs, old, new)], the first of the smallest inputs shown, `compared` the number of inputs compared.
+    An input says what it was and is now (`(days=5) was False, now True`); a dict result, or a list of dicts as long as
+    before, says which keys changed (`_keys_said`: `(text='{"version":4}') now adds demandPeriodConvention=
+    'legacy-half-open' (3 other keys equal)`), as its whole JSON would lose the difference where the block cuts its
+    middle. The detail holds every other input, a keyed one with its full values (`; in full: was {...}, now {...}`),
+    and of the input shown only the full values a keyed one leaves out (`in full: was {...}, now {...}`): each input's
+    values are printed once. `why` a function without a flowguard comment was compared (`its code changed`, `a
     constant it reads changed: LIMIT`) is the detail's last line."""
     rows = [dict(inputs=inputs, before=old, after=new) for inputs, old, new in changes]
     first = rows[0]
@@ -684,9 +696,14 @@ def changed_line(name, target, file, line, changes, compared, *, cause=None, why
         least = C.smallest([row['inputs'] for row in rows], points)
         first = next((row for row in rows if row['inputs'] == least), first)
     def said(row):
-        return f'({", ".join(f"{key}={value_text(value)}" for key, value in row["inputs"].items())}) was {value_text(row["before"])}, now {value_text(row["after"])}'
+        inputs = ', '.join(f'{key}={value_text(value)}' for key, value in row['inputs'].items())
+        return f'({inputs}) {row["keys"] or row["whole"]}'
+    for row in rows:
+        row.update(keys=_keys_said(row['before'], row['after']),
+                   whole=f'was {value_text(row["before"])}, now {value_text(row["after"])}')
     place = f'{file}:{line}' if line else file
-    detail = [said(row) for row in rows]
+    detail = [f'in full: {first["whole"]}'] if first['keys'] else []
+    detail += [said(row) + (f'; in full: {row["whole"]}' if row['keys'] else '') for row in rows if row is not first]
     if isinstance(cause, dict):
         detail.append(f'cause: {cause.get("name", "code")} {_shown(cause.get("before"))} -> {_shown(cause.get("after"))}'
                       f' ({cause["file"]}:{cause["line"]})')
@@ -702,13 +719,79 @@ def value_text(value):
     """A recorded JSON value as Python spells it: 'text', True, None, 3; a raised exception as `raises ...`. A ` -> `
     inside it is written ` -\\u003e ` (the same value in Python and JSON), as ` -> ` is where a line puts its step."""
     if type(value) is dict and set(value) == {'raises'}:
-        text = f'raises {value["raises"]}'
-    elif type(value) in (dict, list):
-        import json
-        text = json.dumps(value, ensure_ascii=False, sort_keys=True)
-    else:
-        text = repr(value)
+        return f'raises {value["raises"]}'.replace(' -> ', ' -\\u003e ')
+    return _spelled(value)
+
+
+def _spelled(value):
+    """A JSON value as `value_text` spells it, a dict of the one key `raises` as data too (only a result is raised)."""
+    import json
+    text = json.dumps(value, ensure_ascii=False, sort_keys=True) if type(value) in (dict, list) else repr(value)
     return text.replace(' -> ', ' -\\u003e ')
+
+
+def _keyed(before, after):
+    """Whether two values are read key by key (`_differences`): two dicts, or two lists of dicts of one length."""
+    if type(before) is dict and type(after) is dict:
+        return True
+    return (type(before) is list and type(after) is list and len(before) == len(after) > 0
+            and all(type(item) is dict for item in (*before, *after)))
+
+
+def _differences(before, after, path=''):
+    """(added [(path, value)], removed [path], changed [(path, old, new)], equal) of two values `_keyed` reads, key by
+    key in JSON's key order and item by item: a nested pair it reads too is read the same way (`summary.total`,
+    `rows[1].b`, `[0].value` of a list), any other pair is compared whole by its JSON as `value_text` spells it (one
+    key order, NaN equal to NaN, 1 apart from 1.0 and from True); `equal` counts the keys found equal."""
+    import json
+    def same(left, right):
+        return json.dumps(left, sort_keys=True, ensure_ascii=False) == json.dumps(right, sort_keys=True, ensure_ascii=False)
+    added, removed, changed, equal = [], [], [], 0
+    if type(before) is list:
+        pairs = [(f'{path}[{index}]', True, old, True, new) for index, (old, new) in enumerate(zip(before, after))]
+    else:
+        def named(key):
+            return (f'{path}.{key}' if path else key) if re.fullmatch(r'[\w$-]+', key) else \
+                f'{path}[{json.dumps(key, ensure_ascii=False)}]'
+        pairs = [(named(key), key in before, before.get(key), key in after, after.get(key))
+                 for key in sorted(set(before) | set(after))]
+    for where, was, old, now, new in pairs:
+        if not now:
+            removed.append(where)
+        elif not was:
+            added.append((where, new))
+        elif same(old, new):
+            equal += 1
+        elif _keyed(old, new):
+            more = _differences(old, new, where)
+            added, removed, changed, equal = added + more[0], removed + more[1], changed + more[2], equal + more[3]
+        else:
+            changed.append((where, old, new))
+    return added, removed, changed, equal
+
+
+def _keys_said(before, after):
+    """What changed between a dict result and its baseline (or a list of dicts as long), key by key (`_differences`):
+    `now adds demandPeriodConvention='legacy-half-open', removes legacy, changes reportVersion from 1 to 2 (3 other
+    keys equal)`, at most KEYS keys named and the others counted (`(2 more keys differ, 3 other keys equal)`); '' for
+    any other pair (a raised exception too), and for one whose values differ only where `value_text` spells them
+    alike."""
+    raised = any(type(value) is dict and set(value) == {'raises'} for value in (before, after))
+    if raised or not _keyed(before, after):
+        return ''
+    added, removed, changed, equal = _differences(before, after)
+    named = [*(('adds', f'{where}={_spelled(new)}') for where, new in added), *(('removes', where) for where in removed),
+             *(('changes', f'{where} from {_spelled(old)} to {_spelled(new)}') for where, old, new in changed)]
+    if not named:
+        return ''
+    verbs = {}
+    for verb, said in named[:KEYS]:
+        verbs.setdefault(verb, []).append(said)
+    more = len(named) - KEYS
+    counted = [*([f'{more} more key{"s" * (more != 1)} differ{"s" * (more == 1)}'] if more > 0 else []),
+               *([f'{equal} other key{"s" * (equal != 1)} equal'] if equal else [])]
+    said = 'now ' + ', '.join(f'{verb} {_listed(items)}' for verb, items in verbs.items())
+    return (said + (f' ({", ".join(counted)})' if counted else '')).replace(' -> ', ' -\\u003e ')
 
 
 def split_step(text):
