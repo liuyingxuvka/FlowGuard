@@ -35,6 +35,8 @@ REQUEST_FORM = re.compile(r'([A-Za-z][A-Za-z0-9_-]*) "(.*)"', re.S)
 CHOICE_FORM = re.compile(r'([A-Za-z][A-Za-z0-9_-]*) picked "(.*)"', re.S)
 DOC_FORM = re.compile(r'doc (\S+) "(.*)"', re.S)
 CHOICE_NOTE = "the agent's option, the owner's pick"     # how a line names words of a picked option
+CHOICES_NOTE = "the agent's options, the owner's picks"  # the same of two picks
+PICKED_START = re.compile(r'([A-Za-z][A-Za-z0-9_-]*) picked ')     # a source meant as the picked form
 
 
 def _canonical(text):
@@ -53,12 +55,30 @@ def _canonical(text):
     return None
 
 
-def source_text(source):
-    """The words a line prints for a source: its quote, or its text when it has none; words of an option the owner
-    picked are printed as what they are, the agent's option and the owner's pick, never as his words alone."""
+def _pick(source):
+    """How a line names the words of a picked source: `R106 picked "words"`."""
+    return f'{source.rids[0]} picked "{source.quote}"'
+
+
+def source_text(source, cfg, archive=None):
+    """The words a line prints for a source: its quote, or its text when it has none. Words of an option the owner
+    picked are printed as what they are, the agent's option and the owner's pick, while the source holds
+    (`catalog_authority`); one that does not hold is printed as the rule writes it, never as his pick, and its red
+    says why (R105)."""
     if source.kind == 'picked':
-        return f'owner {source.rids[0]} picked "{source.quote}" ({CHOICE_NOTE})'
+        if catalog_authority(source, cfg, archive)[0]:
+            return f'owner {_pick(source)} ({CHOICE_NOTE})'
+        return source.text
     return source.quote or source.text
+
+
+def _unquoted_pick(text):
+    """What a refusal says of a source written as the picked form without its words between double quotes (after
+    `source` or the source itself), or None for any other text."""
+    start = PICKED_START.match(text)
+    if start is None or start[1] == 'doc':
+        return None
+    return f'names a pick: the option\'s words go between double quotes, {start[1]} picked "exact words"'
 
 
 def parse(text, strict=False):
@@ -69,11 +89,13 @@ def parse(text, strict=False):
     if strict:
         if RULE_FORM.fullmatch(text):
             raise IntentError('a rules.toml or known.toml source quotes the owner\'s words or a document, not another '
-                              'entry: R<id> "exact words" or doc PATH "exact words"')
+                              'entry: R<id> "exact words", R<id> picked "exact words" or doc PATH "exact words"')
         source = _canonical(text)
         if source is None:
-            raise IntentError('source is R<id> "exact words" (a stored request) or doc PATH "exact words" (a document of '
-                              'authority_docs)')
+            unquoted = _unquoted_pick(text)
+            raise IntentError(f'source {unquoted}' if unquoted else 'source is R<id> "exact words" (a stored request), '
+                              'R<id> picked "exact words" (an option the owner picked) or doc PATH "exact words" (a '
+                              'document of authority_docs)')
         return source
     match = re.fullmatch(r'owner\s+([A-Za-z][A-Za-z0-9_-]*)(?::\s*(.*))?', text.strip(), re.S)
     if match:
@@ -100,8 +122,10 @@ def parse(text, strict=False):
     request = REQUEST_FORM.fullmatch(text)
     if request:
         return Source('request', text, (request[1],), quote=request[2], strict=True)
-    raise IntentError('source needs rule.<id> (a rule of .flowguard/rules.toml), R<id> "exact words", owner R-id, '
-                      'doc PATH "quoted words", assumed: or lesson:')
+    unquoted = _unquoted_pick(text)
+    raise IntentError(f'source {unquoted}' if unquoted else 'source needs rule.<id> (a rule of .flowguard/rules.toml), '
+                      'R<id> "exact words", R<id> picked "exact words", owner R-id, doc PATH "quoted words", assumed: or '
+                      'lesson:')
 
 
 class Archive:
@@ -142,6 +166,10 @@ class Archive:
 
 
 SELECTED_STEP = 'quote the option: {rid} picked "words"'     # a selected reply holds the option, not the owner's words
+STORE_STEP = "store the owner's words with python -m flowguard req add - --id {rid}"   # a request not stored
+# A pick not stored: a plain request under its id would close the choice route there (the archive is write-once).
+CHOICE_STEP = ('store his reply with the options you offered: python -m flowguard req add REPLY --id {rid} --offer FILE '
+               '--picked "TEXT"')
 _ARCHIVES = {}      # resolved root -> (what its request files are, the Archive read from them)
 
 
@@ -358,11 +386,14 @@ def _rule_entry(value):
 def _source_problems(source):
     """What is wrong with the syntax of a catalog source (its words are checked against the archive separately)."""
     if not isinstance(source, str):
-        return [f'source is a string R<id> "exact words" or doc PATH "exact words", not {source!r}']
+        return [f'source is a string R<id> "exact words", R<id> picked "exact words" or doc PATH "exact words", not '
+                f'{source!r}']
     if RULE_FORM.fullmatch(source):
         return [f'source {source} cites another catalog entry: quote the owner\'s words or a document instead']
     if _canonical(source) is None:
-        return [f'source {source!r} is neither R<id> "exact words" nor doc PATH "exact words"']
+        unquoted = _unquoted_pick(source)
+        return [f'source {source!r} {unquoted}' if unquoted else
+                f'source {source!r} is neither R<id> "exact words", R<id> picked "exact words" nor doc PATH "exact words"']
     return []
 
 
@@ -482,11 +513,13 @@ def _request_problem(cfg, archive, rid, quote, matches, revision, baseline, pick
     request, its sidecar, a choice's offer and its retire record as that commit holds them, and the requests of today's
     supersession that it holds); None when it holds. `baseline` only words a supersession this task stored. With
     `picked` (`R106 picked "words"`) the words are those of an option the owner picked in a choice (`_picked_problem`);
-    the owner's own words of a choice are its reply, which a reply he selected without typing does not hold."""
+    the owner's own words of a choice are its reply, which a reply he selected without typing does not hold. The step
+    of a record not stored names the route its form needs: `req add --offer --picked` for a pick (CHOICE_STEP)."""
     row = archive.row(rid)
+    store = (CHOICE_STEP if picked else STORE_STEP).format(rid=rid)
     if revision is None:
         if row is None:
-            return f'{rid} is not stored', f"store the owner's words with python -m flowguard req add - --id {rid}"
+            return f'{rid} is not stored', store
         if row['invalid'] or row['edited']:
             return (f'offer of {rid}' if row['offer_edited'] else rid) + ' differs from its stored original', \
                 'restore the stored original'
@@ -497,7 +530,7 @@ def _request_problem(cfg, archive, rid, quote, matches, revision, baseline, pick
         offer = read_offer_bytes(cfg.root, rid) if current and row['kind'] == 'choice' else None
     else:
         if _added(cfg, revision, rid):
-            return f'{rid} was not stored then', f"store the owner's words with python -m flowguard req add - --id {rid}"
+            return f'{rid} was not stored then', store
         retired = _bytes_at(cfg, revision, (RETIRED_DIR / (rid + '.json')).as_posix()) is not None
         later = [other for other in (row['superseded_by'] if row else ()) if not _added(cfg, revision, other)]
         raw = _bytes_at(cfg, revision, (REQUEST_DIR / (rid + '.md')).as_posix())
@@ -515,7 +548,7 @@ def _request_problem(cfg, archive, rid, quote, matches, revision, baseline, pick
         return (f'{rid} is superseded by {", ".join(later)}' + (' (stored in this task)' if stored else ''),
                 f"update it from {later[0]}'s words")
     if raw is None or record is None:
-        return f'{rid} was not stored then', f"store the owner's words with python -m flowguard req add - --id {rid}"
+        return f'{rid} was not stored then', store
     choice = record['kind'] == 'choice'
     if picked:
         if not choice:
@@ -609,6 +642,45 @@ def cited(src, cfg, found=None):
         return src
     entry = (catalog(cfg) if found is None else found).rules.get(src.rule)
     return src if entry is None else parse(entry.source, strict=True)
+
+
+OWNER_KINDS = ('owner', 'request', 'picked')       # the sources that name a record of the owner
+
+
+def conflict_owners(declarations, cfg, archive):
+    """The tail of a conflict between two rules (`declarations`, in the order the line names them) whose sources both
+    name a record of the owner (OWNER_KINDS, `rule.<id>` by its entry's source), or '' when one does not: only the owner
+    can settle which holds. Each side is named by what its source holds (R105): his typed words by the id, `(owner R1,
+    R2) -> the owner's words of the two rules disagree`; a pick by its words, `R1 picked "Three days."`, and a record
+    whose reply he selected without typing as `R5 selected`, with `CHOICE_NOTE` while the source holds, never as his
+    words. A pick whose source does not hold is named as the rule writes it and is not his choice; its red says why."""
+    sides = []
+    for declaration in declarations:
+        src = cited(parse(declaration.source), cfg)
+        if src.kind not in OWNER_KINDS:
+            return ''
+        rid = src.rids[0]
+        row = archive.row(rid) if src.kind != 'picked' else None
+        selected = row is not None and row['kind'] == 'choice' and row['reply'] == 'selected'
+        choice = src.kind == 'picked' or selected
+        holds = choice and authority(src, declaration.confirmed, cfg, archive, declaration.quote)[0]
+        sides.append((declaration.id, _pick(src) if src.kind == 'picked' else f'{rid} selected' if selected else rid,
+                      choice, holds))
+    settle = 'only the owner can settle which holds'
+    listed = ', '.join(name for _, name, _, _ in sides)
+    if not any(choice for _, _, choice, _ in sides):
+        return f"(owner {listed}) -> the owner's words of the two rules disagree; {settle}"
+    if all(holds for _, _, _, holds in sides):
+        return f"(owner {listed}; {CHOICES_NOTE}) -> the owner's choices behind the two rules disagree; {settle}"
+    names, nouns, whose = [], [], "the owner's"
+    for rule_id, name, choice, holds in sides:
+        names.append(f'{name} ({CHOICE_NOTE})' if choice and holds else name)
+        if choice and not holds:
+            nouns.append(f'the pick {rule_id} cites')
+        else:
+            nouns.append(f"{whose} {'choice' if choice else 'words'} behind {rule_id}")
+            whose = 'his'
+    return f"(owner {', '.join(names)}) -> {' and '.join(nouns)} disagree; {settle}"
 
 
 def _declarations_at(cfg, revision):

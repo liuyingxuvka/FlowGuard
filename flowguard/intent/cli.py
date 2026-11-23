@@ -17,7 +17,7 @@ import tomllib
 import typing
 
 from flowguard import __version__
-from flowguard.map.common import MapError, git_files
+from flowguard.map.common import MapError, document_text, git_files
 from flowguard.map.requests import (owner_word, owner_words, read_offer_bytes, read_request_bytes, retire_request,
                                     store_choice, store_request)
 from flowguard.structure import build
@@ -1114,17 +1114,27 @@ def _held_methods(graph, name):
     return held
 
 
+def _stored_text(name, raw):
+    """The text of stored owner-archive bytes (a request, a choice's reply or its offer) as `show` prints it, read as
+    the archive's checks read them (`document_text`: UTF-8, or UTF-16 by its byte order mark); bytes that are no such
+    text raise ValueError with the decoder's own text, nothing is replaced."""
+    decoded, problem = document_text(name, raw)
+    if problem:
+        raise ValueError(problem)
+    return decoded[0]
+
+
 def _choice_view(cfg, identifier, row):
     """`show R106` of a choice: the owner's reply (or that he selected with no words of his own), the options the agent
     offered as the agent's words, and the option text each pick is."""
-    def block(raw):
-        text = raw.decode('utf-8-sig', errors='replace')
+    def block(name, raw):
+        text = _stored_text(name, raw)
         return text if text.endswith(('\n', '\r')) else text + '\n'
     said = ("the owner selected, with no words of his own:" if row['reply'] == 'selected' else "the owner's reply:")
     return (f'OWNER {identifier} chose among options the agent offered\n{said}\n'
-            + block(read_request_bytes(cfg.root, identifier))
+            + block(f'.flowguard/requests/{identifier}.md', read_request_bytes(cfg.root, identifier))
             + f"options the agent offered (the agent's words, not the owner's) {row['offer']}:\n"
-            + block(read_offer_bytes(cfg.root, identifier))
+            + block(row['offer'], read_offer_bytes(cfg.root, identifier))
             + '\n'.join(f'picked: {json.dumps(text, ensure_ascii=False)}' for text in row['picked']))
 
 
@@ -1147,7 +1157,7 @@ def show(cfg, query=None, *, full=False, last=False):
                 if row['kind'] == 'choice':
                     print(_choice_view(cfg, query, row))
                     return 0
-                print(f'OWNER {query}\n' + request.read_bytes().decode('utf-8-sig'))
+                print(f'OWNER {query}\n' + _stored_text(f'.flowguard/requests/{query}.md', request.read_bytes()))
                 return 0
             raise ValueError(f'{query}: stored original is not verified')
     data = cache.read(cfg)
@@ -1549,7 +1559,7 @@ def _rule_finding(model, rid, values):
     source = parse(rule.source)
     return finding('rule', f'rule:{rid}', f'rule {rid}', whats, steps[0] if steps else '', places=tuple(dict.fromkeys(places)),
                    files=[model.file_of[rid]] if rid in model.file_of else [],
-                   detail=[*steps, f'{rid} source: {source_text(source)}'])
+                   detail=[*steps, f'{rid} source: {source_text(source, model.cfg)}'])
 
 
 def _cache_findings(cfg, model, data):
@@ -3077,7 +3087,9 @@ def requests(cfg, options):
                            'as a file')
         item = store_choice(cfg.root, _input_bytes(options.file), _input_bytes(options.offer), options.picked,
                             identifier=options.identifier, selected=options.selected, supersedes=options.supersedes)
-        print(f'stored {item["id"]} (choice: the owner\'s reply {item["bytes"]} bytes, the agent\'s options '
+        # A selected answer is what the interface returned for his pick, no reply of his.
+        reply = 'the answer selected' if item['reply'] == 'selected' else "the owner's reply"
+        print(f'stored {item["id"]} (choice: {reply} {item["bytes"]} bytes, the agent\'s options '
               f'{item["offer"]["bytes"]} bytes, {len(item["picked"])} picked; sha {item["sha256"][:12]})')
         from .differences import display
         display(f'if this choice sets a continuing rule, add it to .flowguard/rules.toml: [rule.<id>] text = "..." '

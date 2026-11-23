@@ -596,14 +596,12 @@ class Engine:
                 out["overrides"].append(dict(winner=win.id, loser=lose.id, n=len(bad)))
                 continue
             i = cells.index(smallest([cells[i] for i in bad], pts))
-            # rule.<id> cites its rules.toml entry's words: two rules backed by the owner's words ask the owner.
-            from .sources import cited
-            sa, sb = (cited(parse_source(side.source), self.m.cfg) for side in (a, b))
+            # Two rules backed by the owner's records (rule.<id> by its rules.toml entry's source): only he settles
+            # which holds, each side named by what its source holds, his words or his pick (`conflict_owners`).
+            from .sources import conflict_owners
             out["conflicts"].append(dict(a=a.id, b=b.id, n=len(bad), of=len(both), cell=show_cell(cells[i]),
                                          va=show(va[i]), vb=show(vb[i]),
-                                         ask_owner=sa.kind in ("owner", "request", "picked")
-                                         and sb.kind in ("owner", "request", "picked"),
-                                         rids=list(sa.rids + sb.rids)))
+                                         owners=conflict_owners((a, b), self.m.cfg, self.archive)))
         if live:
             gap = [i for i in range(len(cells)) if all(vals[r.id][i] is None for r in live)]
             if gap:
@@ -841,8 +839,7 @@ class Engine:
                        f"{s['by']} is {s['eff']}: update the row or retire it with a reason")
         for c in k["conflicts"]:
             if rule.id in (c["a"], c["b"]):
-                tail = (f" (owner {', '.join(c['rids'])}) -> the owner's words of the two rules disagree; only the owner can settle "
-                        "which holds") if c["ask_owner"] else ""
+                tail = f" {c['owners']}" if c["owners"] else ""
                 red.append(f"conflict {c['a']} vs {c['b']} at {c['cell']}: {c['va']} vs {c['vb']} "
                            f"({c['n']} of {c['of']} shared cells){tail}")
         g = k["gaps"]

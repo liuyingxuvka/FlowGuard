@@ -311,3 +311,16 @@ def test_the_documented_choice_command_stores_a_choice(tmp_path, monkeypatch, ca
             item = json.loads((root / '.flowguard/requests/R2.json').read_text(encoding='utf-8'))
             assert (item['kind'], item['picked'], item['reply']) == ('choice', ['A. Keep one version'], 'typed'), item
     capsys.readouterr()
+
+
+def test_the_mirror_calls_the_reply_file_his_answer_not_his_original_words():
+    """R105-6: README.zh-CN.md said the reply file holds his 原话 (original words), a selected reply too, which is what
+    the interface returned for a pick he did not type. Like the English, it holds his answer as it reached the agent;
+    原话 names only his typed words, and both say what a selected reply holds."""
+    english = next(line for line in (ROOT / 'README.md').read_text(encoding='utf-8').splitlines() if ' --offer ' in line)
+    chinese = next(line for line in (ROOT / 'README.zh-CN.md').read_text(encoding='utf-8').splitlines() if ' --offer ' in line)
+    assert 'The reply file holds his answer as it reached you' in english
+    assert 'the reply file then holds what the interface returned for his pick, not words of his' in english
+    reply = next(sentence for sentence in re.split('[。；]', chinese) if sentence.startswith('回答文件'))
+    assert reply == '回答文件存他传到你这里的回答' and '原话' not in reply, reply
+    assert '回答文件存的就是界面为他的点选返回的内容，不是他的话' in chinese

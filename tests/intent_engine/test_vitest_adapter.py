@@ -3338,3 +3338,35 @@ def test_a_red_rule_citing_a_picked_option_names_it_as_the_agents_option_and_the
     assert code == 1 and 'red: rule CALC_RULE: ' in shown, text
     assert ('    CALC_RULE source: owner R106 picked "The input plus one." (the agent\'s option, the owner\'s pick)'
             in shown.splitlines()), shown
+
+
+def test_a_red_rule_citing_an_option_the_owner_did_not_pick_prints_it_as_written(vitest_home):
+    # R105-2: a picked source that does not hold is printed as the rule writes it, never as the owner's pick.
+    from flowguard.map.requests import store_choice
+    root = vitest_home / 'unpicked-rule'
+    root.mkdir()
+    store_choice(root, b'A', b'What is the next value?\nA. The input plus one.\nB. The input plus two.\n',
+                 ['A. The input plus one.'], identifier='R106')
+    _commit(root, {
+        'package.json': '{"name":"unpicked-rule","private":true,"type":"module","devDependencies":{"vitest":"' + VITEST + '"}}',
+        'src/sample.ts': '''
+            // flowguard: same CALC
+            export function calc(x: number) { return x + 1; }
+        ''',
+        'tests/app.test.ts': "import {it,expect} from 'vitest'; import {calc} from '../src/sample'; it('actual result',()=>expect(calc(5)).toBeGreaterThan(5));\n",
+        'tests/intent/calc.py': '''
+            from flowguard.intent import rule
+            @rule('CALC_RULE', decides='next value', fields={'x': int}, anchor='CALC', source='R106 picked "The input plus two."')
+            def expected(x):
+                return x + 1
+        ''',
+    })
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='intent fixture baseline')
+    (root / 'src/sample.ts').write_text('// flowguard: same CALC\nexport function calc(x: number) { return x + 2; }\n',
+                                        encoding='utf-8')
+    code, text = _vitest(root, vitest_home)
+    shown = _cli_fixture.last(root)
+    assert code == 1 and 'red: rule CALC_RULE: ' in shown, text
+    assert '    CALC_RULE source: R106 picked "The input plus two."' in shown.splitlines(), shown
+    assert "the owner's pick" not in shown, shown

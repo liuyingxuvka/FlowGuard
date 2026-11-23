@@ -1057,7 +1057,7 @@ def test_a_rule_whose_source_does_not_parse_is_a_red_input_line_of_the_session_n
     ''')
     policy.write_text(policy.read_text().replace('days <= 3', 'days <= 5'))
     load = ('red: load tests/intent/decisions.py:2: STANDING_RULE: source needs rule.<id> (a rule of .flowguard/rules.toml), '
-            'R<id> "exact words", owner R-id, doc PATH "quoted words", assumed: or lesson: '
+            'R<id> "exact words", R<id> picked "exact words", owner R-id, doc PATH "quoted words", assumed: or lesson: '
             '-> correct this declaration; until then none of its file is checked')
     for options, rule in (((), ['red: rule STANDING_RULE: days=4: rule False, code True at policy.py:standing']),
                           (('tests/test_case.py',), [])):          # with and without the rule's own items

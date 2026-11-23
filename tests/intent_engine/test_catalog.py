@@ -112,10 +112,12 @@ def _problems(found, name):
     ('text = """two\nlines"""\nsource = \'R1 "w"\'\n', 'text is one line of words'),
     ('text = 3\nsource = \'R1 "w"\'\n', 'text is one line of words'),
     ('text = " "\nsource = \'R1 "w"\'\n', 'text is one line of words'),
-    ('text = "x"\nsource = \'owner R1: w\'\n', "source 'owner R1: w' is neither R<id> \"exact words\" nor doc PATH \"exact words\""),
-    ('text = "x"\nsource = \'R1 words\'\n', "source 'R1 words' is neither R<id> \"exact words\" nor doc PATH \"exact words\""),
+    ('text = "x"\nsource = \'owner R1: w\'\n', "source 'owner R1: w' is neither R<id> \"exact words\", R<id> picked \"exact words\" nor doc PATH \"exact words\""),
+    ('text = "x"\nsource = \'R1 words\'\n', "source 'R1 words' is neither R<id> \"exact words\", R<id> picked \"exact words\" nor doc PATH \"exact words\""),
+    # R105-5: a pick without its words between double quotes says where they go.
+    ('text = "x"\nsource = "R1 picked \'Keep one version\'"\n', 'source "R1 picked \'Keep one version\'" names a pick: the option\'s words go between double quotes, R1 picked "exact words"'),
     ('text = "x"\nsource = \'rule.other\'\n', "source rule.other cites another catalog entry: quote the owner's words or a document instead"),
-    ('text = "x"\nsource = 1\n', 'source is a string R<id> "exact words" or doc PATH "exact words", not 1'),
+    ('text = "x"\nsource = 1\n', 'source is a string R<id> "exact words", R<id> picked "exact words" or doc PATH "exact words", not 1'),
 ])
 def test_every_invalid_rule_entry_is_an_input_finding_and_counts_nothing(tmp_path, entry, problem):
     found = sources.catalog(_project(tmp_path, rules='[rule.x]\n' + entry + '\n[rule.ok]\ntext = "y"\nsource = \'R1 "w"\'\n', known=None))
@@ -189,7 +191,8 @@ BASE = 'sites = ["src/fees.py:fee"]\nwhy = "w"\nact = "leave"\n'
     (BASE.replace('"leave"', '"ignore"'), 'act = "ignore" is only for a finding of an automatic structure check'),
     (BASE.replace('"leave"', '"ignore"') + 'finding = "pair:A>B"\n', 'act = "ignore" is only for a finding of an automatic structure check'),
     (BASE.replace('"leave"', '"ignore"') + 'finding = "same:WEEKS"\n', 'act = "ignore" is only for a finding of an automatic structure check'),
-    (BASE + "source = 'assumed: x'\n", "source 'assumed: x' is neither R<id> \"exact words\" nor doc PATH \"exact words\""),
+    (BASE + "source = 'assumed: x'\n", "source 'assumed: x' is neither R<id> \"exact words\", R<id> picked \"exact words\" nor doc PATH \"exact words\""),
+    (BASE + 'source = "R1 picked \'Keep one version\'"\n', 'source "R1 picked \'Keep one version\'" names a pick: the option\'s words go between double quotes, R1 picked "exact words"'),
     # A valid site beside an invalid one does not make the entry count.
     (BASE.replace('["src/fees.py:fee"]', '["src/fees.py:fee", "fee"]'), 'site fee is a bare name: write path:symbol, the path relative to the repository'),
 ])

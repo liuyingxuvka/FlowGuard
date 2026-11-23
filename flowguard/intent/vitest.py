@@ -1436,7 +1436,7 @@ def judge(cfg, data, records, package=None):
             source = cited(parse(rule.source), cfg)
             issues.append(signals.finding('rule', f'rule:{rule.id}', f'rule {rule.id}', whats, steps[0] if steps else '',
                                           places=tuple(dict.fromkeys((declared, *at, *sites))), files=(model.file_of[rule.id],),
-                                          detail=[*steps, f'{rule.id} source: {source_text(source)}']))
+                                          detail=[*steps, f'{rule.id} source: {source_text(source, cfg, engine.archive)}']))
     issues += [_issue(fields) for fields in data['inputs']]
     lines += [signals.not_compared(subject, entry['reasons'], function=function, places=entry['places'])
               for (subject, function), entry in unchecked.items()]

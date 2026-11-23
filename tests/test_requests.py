@@ -385,6 +385,10 @@ def test_a_selected_reply_and_a_multi_select_with_a_crlf_offer(tmp_path, capsys)
     assert (code, errors) == (0, ''), errors
     item = json.loads((root / '.flowguard/requests/R107.json').read_bytes())
     assert (item['reply'], item['picked']) == ('selected', [LABEL])
+    # R105-6: what was stored is the answer the interface returned for his pick, not a reply of his.
+    assert output.splitlines()[0] == (f"stored R107 (choice: the answer selected {len(LABEL)} bytes, the agent's options "
+                                      f"{len(ASKED)} bytes, 1 picked; sha {hashlib.sha256(LABEL.encode()).hexdigest()[:12]})")
+    assert "the owner's reply" not in output, output
     # A selected reply holds the option, not words of his: the hint offers only the picked form.
     assert output.splitlines()[1].endswith('source = \'R107 picked "<words of the picked option>"\''), output
     # Two picked options, a CRLF offer and an option given with LF: compared after normalize_newlines on both.
@@ -454,6 +458,36 @@ def test_show_and_list_keep_the_owners_reply_apart_from_the_agents_options(tmp_p
     assert output.splitlines()[0] == 'requests: 2; show ID for the stored words', output
     assert rows['R106'].split()[1] == 'choice' and rows['R106'].endswith(' stored (1 picked; his reply typed)'), output
     assert rows['R107'].endswith(' stored (1 picked; selected with no words of his own)'), output
+
+
+def test_show_reads_the_stored_bytes_as_the_archive_checks_do_and_names_bytes_it_cannot_read(tmp_path, capsys):
+    """R105-4: req add read a UTF-16 options file (Windows PowerShell 5.1's `>`) as text and `R2 picked "..."` held
+    against it, but `show R2` decoded it as UTF-8 with errors='replace' and printed U+FFFD and a NUL between letters,
+    without a word. `show` reads a request, a reply and an offer by the one route the archive's checks read them
+    (UTF-8, or UTF-16 by its byte order mark), and bytes that are neither stop it with the decoder's text, exit 2."""
+    root = _project(tmp_path / 'project', capsys)
+    offer = 'Which version?\r\nA. Keep one version\r\nB. Delete it\r\n'.encode('utf-16')
+    assert _choice(tmp_path, root, capsys, 'R2', b'A\n', offer, '--picked', 'A. Keep one version')[0] == 0
+    code, output, errors = _call(root, capsys, 'show', 'R2')
+    assert (code, errors) == (0, '')
+    assert output.splitlines()[3:7] == [
+        "options the agent offered (the agent's words, not the owner's) .flowguard/requests/offers/R2.md:",
+        'Which version?', 'A. Keep one version', 'B. Delete it'], output
+    assert '\ufffd' not in output and '\x00' not in output, output
+    # A request stored as UTF-16 (5.0.1: show stopped with `'utf-8' codec can't decode byte 0xff`, while its quote held).
+    (tmp_path / 'r3.md').write_bytes('Keep one version.\r\n'.encode('utf-16'))
+    assert _call(root, capsys, 'req', 'add', str(tmp_path / 'r3.md'), '--id', 'R3')[0] == 0
+    code, output, errors = _call(root, capsys, 'show', 'R3')
+    assert (code, errors) == (0, '') and output.splitlines()[:2] == ['OWNER R3', 'Keep one version.'], output
+    # A reply in Latin-1 is no such text: show names it with the decoder's own words, as for a request, and prints none.
+    assert _choice(tmp_path, root, capsys, 'R4', b'caf\xe9 A\n', OFFER, '--picked', PICKED)[0] == 0
+    (tmp_path / 'r5.md').write_bytes(b'caf\xe9\n')
+    assert _call(root, capsys, 'req', 'add', str(tmp_path / 'r5.md'), '--id', 'R5')[0] == 0
+    for identifier in ('R4', 'R5'):
+        code, output, errors = _call(root, capsys, 'show', identifier)
+        assert (code, output) == (2, ''), output
+        assert errors == (f'flowguard: .flowguard/requests/{identifier}.md is no UTF-8 or UTF-16 text: \'utf-8\' codec '
+                          "can't decode byte 0xe9 in position 3: invalid continuation byte\n"), errors
 
 
 def test_a_request_stored_by_5_0_1_loads_lists_and_shows_unchanged(tmp_path, capsys):

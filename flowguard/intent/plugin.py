@@ -1139,7 +1139,8 @@ class Observations:
                         source = self._parsed(active)
                         valid, reason = authority(source, active.confirmed, self.cfg, state.engine.archive, active.quote)
                         borrowed = state.engine.borrowed(active)
-                        guards[active.id] = (([reason] if not valid else []) + borrowed, source_text(source))
+                        guards[active.id] = (([reason] if not valid else []) + borrowed,
+                                             source_text(source, self.cfg, state.engine.archive))
                     reasons.extend(active.id + ': ' + reason for reason in guards[active.id][0])
                     quotes[active.id] = guards[active.id][1]
                 if reasons:
@@ -1153,7 +1154,7 @@ class Observations:
             observed['grey'].extend([*grey, *([] if valid else [reason])])
             self.grey.extend(identifier + ': ' + reason for reason in observed['grey'])
             if observed['red']:
-                if (quote := source_text(source)) not in quotes.values():
+                if (quote := source_text(source, self.cfg, state.engine.archive)) not in quotes.values():
                     quotes[identifier] = quote
                 where = f'{state.model.file_of[identifier]}:{model.line}'
                 for reason in observed['red']:
@@ -1387,7 +1388,8 @@ class Observations:
         entry['whats'].sort(key=lambda text: not text.startswith(('self: ', 'row ', 'conflict ', 'gap in ')))
         steps = [step.rstrip('; ') for step in signals.rule_steps(rule.id, homes, where, entry['said'])]
         entry['step'] = steps[0] if steps else ''
-        entry['detail'] = [*steps, f'{rule.id} source: ' + (source_text(source) if source is not None else rule.source)]
+        entry['detail'] = [*steps, f'{rule.id} source: ' + (source_text(source, self.cfg, self.state.engine.archive)
+                                                              if source is not None else rule.source)]
         return key
 
     def _item_name(self, identifier, kind):

@@ -71,10 +71,13 @@ def test_a_strict_source_is_the_request_or_document_form_read_as_written():
     assert (document.kind, document.path, document.quote, document.strict) == ('doc', 'docs/spec.md', 'Weekly (KW 1-53).', True)
     escaped = sources.parse('doc docs/spec.md "C:\\path"', strict=True)  # no shell unescaping
     assert escaped.quote == 'C:\\path'
-    for text, message in (('rule.x', 'not another entry'), ('owner R1: words', 'source is R<id> "exact words"'),
-                          ('assumed: x', 'source is R<id>'), ('R1 words', 'source is R<id>'), ('doc "x"', 'source is R<id>')):
-        with pytest.raises(IntentError, match=message):
+    forms = 'R<id> "exact words" (a stored request), R<id> picked "exact words" (an option the owner picked) or doc PATH'
+    for text, message in (('rule.x', 'not another entry: R<id> "exact words", R<id> picked "exact words" or doc PATH'),
+                          ('owner R1: words', 'source is ' + forms), ('assumed: x', 'source is ' + forms),
+                          ('R1 words', 'source is ' + forms), ('doc "x"', 'source is ' + forms)):
+        with pytest.raises(IntentError) as refused:
             sources.parse(text, strict=True)
+        assert message in str(refused.value), refused.value
 
 
 def test_an_intent_rule_may_cite_a_rule_or_the_request_form_and_keeps_its_older_forms():
@@ -526,6 +529,65 @@ def test_two_rules_citing_the_owners_words_through_the_catalog_that_disagree_ask
     assert 'conflict THREE vs FOUR at days=4: F vs T (1 of 6 shared cells) (owner R1, R2) -> the owner\'s words of the two rules disagree; only the owner can settle which holds' in result['red'], result['red']
 
 
+LOAN_OFFER = b'How many loan days?\nA. Three days.\nB. Four days.\n'
+LOAN_RULES = '''
+    from flowguard.intent import rule
+
+
+    @rule('THREE', decides='loan days', fields={{'days': int}}, source={three!r})
+    def THREE(days):
+        return days <= 3
+
+
+    @rule('FOUR', decides='loan days', fields={{'days': int}}, source={four!r})
+    def FOUR(days):
+        return days <= 4
+'''
+
+
+@pytest.mark.parametrize('three, four, owners', [
+    # Two picks, cited through the catalog: the words compared are the agent's option texts, picked by the owner.
+    ('rule.three', 'rule.four', '(owner R1 picked "Three days.", R2 picked "Four days."; the agent\'s options, the '
+                                'owner\'s picks) -> the owner\'s choices behind the two rules disagree; only the owner '
+                                'can settle which holds'),
+    # His typed words against his pick: each side named as what it is.
+    ('R3 "Loans last three days."', 'R2 picked "Four days."',
+     '(owner R3, R2 picked "Four days." (the agent\'s option, the owner\'s pick)) -> the owner\'s words behind THREE '
+     'and his choice behind FOUR disagree; only the owner can settle which holds'),
+    # `owner R5` on a reply he selected without typing: no words of his own.
+    ('owner R5', 'R3 "Loans last three days."',
+     '(owner R5 selected (the agent\'s option, the owner\'s pick), R3) -> the owner\'s choice behind THREE and his '
+     'words behind FOUR disagree; only the owner can settle which holds'),
+    # A pick that does not hold (R2 picked B) is named as the rule writes it, not as his choice.
+    ('R1 picked "Three days."', 'R2 picked "Three days."',
+     '(owner R1 picked "Three days." (the agent\'s option, the owner\'s pick), R2 picked "Three days.") -> the owner\'s '
+     'choice behind THREE and the pick FOUR cites disagree; only the owner can settle which holds'),
+])
+def test_two_rules_citing_the_owners_picks_that_disagree_name_his_picks_never_his_words(tmp_path, three, four, owners):
+    """R105-1: a conflict of two rules whose sources name the owner's picks said `(owner R1, R2) -> the owner's words of
+    the two rules disagree`, while the words compared were the agent's option texts, or a reply he selected with no
+    words of his own. The tail names each side by what its source holds."""
+    from flowguard.map.requests import store_choice
+    _project(tmp_path, rules='''
+        [rule.three]
+        text = "Three days."
+        source = 'R1 picked "Three days."'
+
+        [rule.four]
+        text = "Four days."
+        source = 'R2 picked "Four days."'
+    ''', **{'tests/intent/days.py': LOAN_RULES.format(three=three, four=four)})
+    store_choice(tmp_path, b'A\n', LOAN_OFFER, ['A. Three days.'], identifier='R1')
+    store_choice(tmp_path, b'B\n', LOAN_OFFER, ['B. Four days.'], identifier='R2')
+    store_request(tmp_path, b'Loans last three days.\n', identifier='R3')
+    store_choice(tmp_path, b'A. Three days.', LOAN_OFFER, ['A. Three days.'], identifier='R5', selected=True)
+    engine = Engine(load(load_config(tmp_path)))
+    for rule_id in ('THREE', 'FOUR'):
+        conflicts = [line for line in engine.run_rules(engine.m.rules[rule_id])['red'] if line.startswith('conflict ')]
+        assert conflicts == [f'conflict THREE vs FOUR at days=4: F vs T (1 of 6 shared cells) {owners}'], conflicts
+        assert "the owner's words of the two rules" not in conflicts[0]
+
+
 def test_check_all_fails_a_grey_rule_that_cites_the_owners_words_through_the_catalog(tmp_path):
     from flowguard.intent.cli import _owner_rules_unverified
     cfg = _project(tmp_path, rules='''
@@ -571,9 +633,28 @@ def test_the_picked_form_is_a_strict_source_of_the_catalog_and_of_intent_rules()
     # Words that start with `picked` are still the request form; `doc picked "x"` is a document named picked.
     assert sources.parse('R74 "picked \\"x\\""', strict=True).kind == 'request'
     assert sources.parse('doc picked "x"', strict=True).kind == 'doc'
-    assert sources.source_text(sources.parse('R106 picked "先保留一个版本"')) == (
-        'owner R106 picked "先保留一个版本" (the agent\'s option, the owner\'s pick)')
-    assert sources.source_text(sources.parse('R74 "words"')) == 'words'
+
+
+@pytest.mark.parametrize('text', ["R1 picked 'Keep one version'", 'R1 picked Keep one version', 'R1 picked "Keep one version'])
+def test_a_picked_source_without_its_words_between_double_quotes_says_where_they_go(text):
+    """R105-5: a mistyped picked source was refused with a text that named only the request and document forms, so an
+    agent who meant the pick was led to `R1 "words"`, which a selected reply refuses and a typed one holds only for his
+    bare `A`. Each refusal that lists the forms names the picked one; a pick without double quotes says where its
+    words go, in rules.toml and known.toml as in an intent rule."""
+    step = 'source names a pick: the option\'s words go between double quotes, R1 picked "exact words"'
+    for strict in (True, False):
+        with pytest.raises(IntentError) as refused:
+            sources.parse(text, strict=strict)
+        assert str(refused.value) == step
+    assert sources._source_problems(text) == [f'source {text!r} names a pick: the option\'s words go between double '
+                                              'quotes, R1 picked "exact words"']
+    # A document named `picked` and a text that is no picked form keep the list of every form.
+    assert sources._source_problems("doc picked 'x'") == [
+        'source "doc picked \'x\'" is neither R<id> "exact words", R<id> picked "exact words" nor doc PATH "exact words"']
+    with pytest.raises(IntentError) as refused:
+        sources.parse('nothing of the kind')
+    assert str(refused.value) == ('source needs rule.<id> (a rule of .flowguard/rules.toml), R<id> "exact words", R<id> '
+                                  'picked "exact words", owner R-id, doc PATH "quoted words", assumed: or lesson:')
 
 
 def test_a_picked_source_holds_only_for_words_of_an_option_the_owner_picked(tmp_path):
@@ -600,12 +681,33 @@ def test_a_picked_source_holds_only_for_words_of_an_option_the_owner_picked(tmp_
     assert _authority(cfg, 'R104 "Members pay less."') == (True, 'owner R104')
 
 
+def test_a_picked_source_is_printed_as_his_pick_only_while_it_holds(tmp_path):
+    """R105-2: the detail line of a red rule printed every picked source as `owner R2 picked "..." (the agent's option,
+    the owner's pick)`, also beside a red that said the words are in an option he did not pick. A picked source that
+    does not hold is printed as the rule writes it; the red beside it says why."""
+    cfg = _project(tmp_path)
+    _choices(tmp_path)
+    def text(source):
+        return sources.source_text(sources.parse(source), cfg)
+    assert text('R106 picked "先保留一个版本"') == 'owner R106 picked "先保留一个版本" (the agent\'s option, the owner\'s pick)'
+    assert text(f'R107 picked "{LABEL}"') == f'owner R107 picked "{LABEL}" (the agent\'s option, the owner\'s pick)'
+    for unheld in ('R106 picked "直接删除"',                # an option offered, not picked
+                   'R106 picked "保留两个版本"',             # words in no option
+                   'R104 picked "Members pay less."',      # a plain request holds no options: these are his words
+                   'R9 picked "Delete it"'):               # no such record
+        assert text(unheld) == unheld
+    assert text('R74 "words"') == 'words' and text('rule.psp') == 'rule.psp'
+
+
 def test_a_picked_source_is_judged_at_a_commit_with_that_commits_sidecar_reply_and_offer(tmp_path):
     cfg = _project(tmp_path)
     base = _commit(tmp_path)
     _choices(tmp_path)
     # Stored in this task: at the baseline the choice is not stored, in the existing words.
     assert _authority(cfg, 'R106 picked "先保留一个版本"', revision=base) == (
+        False, 'R106 was not stored then -> store his reply with the options you offered: python -m flowguard req add '
+               'REPLY --id R106 --offer FILE --picked "TEXT"')
+    assert _authority(cfg, 'R106 "选 A"', revision=base) == (
         False, "R106 was not stored then -> store the owner's words with python -m flowguard req add - --id R106")
     base = _commit(tmp_path, message='choices stored')
     import shutil
@@ -615,7 +717,31 @@ def test_a_picked_source_is_judged_at_a_commit_with_that_commits_sidecar_reply_a
     assert _authority(cfg, 'R106 picked "直接删除"', revision=base)[1].startswith('"直接删除" is in the options R106 offered')
     assert _authority(cfg, f'R107 "{LABEL}"', revision=base)[1].startswith("R107's answer was selected")
     assert _authority(cfg, 'R104 picked "Members"', revision=base)[1].startswith('R104 holds no offered options')
-    assert _authority(cfg, 'R106 picked "先保留一个版本"')[1].startswith('R106 is not stored')
+    assert _authority(cfg, 'R106 picked "先保留一个版本"') == (
+        False, 'R106 is not stored -> store his reply with the options you offered: python -m flowguard req add REPLY '
+               '--id R106 --offer FILE --picked "TEXT"')
+
+
+def test_a_pick_not_stored_names_the_choice_route_and_following_it_makes_the_source_hold(tmp_path):
+    """R105-3: a picked source citing an id not stored gave the plain request's step, `req add - --id R9`. Following
+    it stored the owner's bare `B` as a request, the source then said `R9 holds no offered options -> quote its words`,
+    and the archive, written once, refused the choice under R9 for good. The step names the choice route; run as it
+    says, the source holds. A request source keeps its step."""
+    import shlex
+    from flowguard.intent import cli
+    cfg = _project(tmp_path, rules='[rule.nine]\ntext = "Delete the old field."\nsource = \'R9 picked "Delete it"\'\n')
+    valid, reason = _authority(cfg, 'R9 picked "Delete it"')
+    assert (valid, reason) == (False, 'R9 is not stored -> store his reply with the options you offered: python -m '
+                                      'flowguard req add REPLY --id R9 --offer FILE --picked "TEXT"')
+    assert _authority(cfg, 'R9 "Delete it"') == (
+        False, "R9 is not stored -> store the owner's words with python -m flowguard req add - --id R9")
+    (tmp_path / 'reply.md').write_bytes(b'B\n')
+    (tmp_path / 'options.md').write_bytes(b'What happens to the old field?\nA. Keep it\nB. Delete it\n')
+    command = shlex.split(reason.partition('python -m flowguard ')[2])
+    command = [{'REPLY': str(tmp_path / 'reply.md'), 'FILE': str(tmp_path / 'options.md'), 'TEXT': 'B. Delete it'}.get(word, word)
+               for word in command]
+    assert cli.main(['--root', str(tmp_path), *command]) == 0
+    assert _authority(cfg, 'R9 picked "Delete it"') == (True, 'owner R9 picked "Delete it" (the agent\'s option, the owner\'s pick)')
 
 
 def test_a_catalog_rule_citing_a_pick_is_a_source_finding_when_the_pick_does_not_hold(tmp_path, capsys):

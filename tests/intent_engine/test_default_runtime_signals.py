@@ -514,6 +514,44 @@ def test_a_red_rule_whose_source_is_a_picked_option_names_it_as_the_agents_optio
             in _last(tmp_path).splitlines()), _last(tmp_path)
 
 
+@pytest.mark.parametrize('source', ['R106 picked "At most four days."',     # an option offered, not picked
+                                    'R106 picked "At most five days."',     # words in no option
+                                    'R104 picked "At most three days."'])   # a plain request: his words, no options
+def test_a_red_rule_whose_picked_source_does_not_hold_prints_it_as_written_never_as_his_pick(tmp_path, source):
+    """R105-2: the red's detail printed `owner R106 picked "At most four days." (the agent's option, the owner's pick)`
+    for an option the owner did not pick, beside the red saying so. A picked source that does not hold is printed as
+    the rule writes it."""
+    from flowguard.map.requests import store_choice, store_request
+    store_choice(tmp_path, b'A', b'How many days?\nA. At most three days.\nB. At most four days.\n',
+                 ['A. At most three days.'], identifier='R106')
+    store_request(tmp_path, b'At most three days.\n', identifier='R104')
+    policy = _project(tmp_path, '''
+        # flowguard: same STANDING
+        def standing(days: int) -> bool:
+            return days <= 3
+    ''', '''
+        from policy import standing
+        def test_native():
+            assert standing(0) is True
+    ''', rule=f'''
+        from flowguard.intent import rule, row
+        @rule('STANDING_RULE', decides='standing', fields={{'days': int}}, anchor='STANDING', source={source!r})
+        def STANDING_RULE(days):
+            return days <= 3
+    ''')
+    policy.write_text(policy.read_text().replace('return days <= 3', 'return days <= 4'))
+    from tests.intent_engine import _cli_fixture
+    result = _run(tmp_path)
+    assert result.returncode == 1 and 'red: rule STANDING_RULE: ' in _text(result), _text(result)
+    # pytest's red (plugin) and check's, which reads the results it ran (`cli._rule_finding`), print it alike.
+    for run in ('pytest', 'check'):
+        if run == 'check':
+            assert _cli_fixture.main(['--root', str(tmp_path), 'check'], cwd=tmp_path) == 1
+        shown = _last(tmp_path)
+        assert f'    STANDING_RULE source: {source}' in shown.splitlines(), (run, shown)
+        assert "the owner's pick" not in shown, (run, shown)
+
+
 def test_fixed_9_reused_connection_calls_run_once_each_and_are_not_compared(tmp_path):
     policy = _project(tmp_path, '''
         import sqlite3
