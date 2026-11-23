@@ -1255,6 +1255,11 @@ def copy_cut(name, limit, left):
     return f'{name}: compared on {limit} inputs; {" and ".join(parts)} left out' if parts else None
 
 
+# The two routes of rule 7 of the FlowGuard rules block by which the owner's decision is stored before a rule changes.
+STORE_ROUTES = ('typed words with python -m flowguard req add - --id R<n>, or his pick among options you offered with '
+                'python -m flowguard req add REPLY --id R<n> --offer FILE --picked "TEXT"')
+
+
 def rule_steps(rule_id, homes, where, messages=()):
     """The next step of a violated rule by what its red `messages` say, in the same words in pytest, `check` and
     the vitest report (no messages: the code disagrees). The code disagrees with the rule (`-> rule X, code Y`):
@@ -1264,7 +1269,7 @@ def rule_steps(rule_id, homes, where, messages=()):
     differently (`conflict A vs B`): one of them stays, which only the owner can choose; his decision is stored first,
     by either route of the FlowGuard rules block (his typed words, or his pick among options the agent offered), then
     the rule changes. Any other red without a step of its own: correct the rule's source, binding or rows. When the
-    need changed, the owner's new words are stored first, then the rule changes."""
+    need changed, the owner's new decision is stored first, by either route (STORE_ROUTES), then the rule changes."""
     kinds, conflicts = set(), []
     # A row the rule itself contradicts (`self:`), or the rule that decides over it (`row X L6 ... the decision of`),
     # also fails against the code that agrees with what decides (`(row L6)`): that is the row's red, not the code's.
@@ -1293,11 +1298,9 @@ def rule_steps(rule_id, homes, where, messages=()):
         ('gap', f'add rules or regression rows at {where} so undecided cells have a rule result; '),
         ('other', f'inspect rule {where} and correct its source, binding or regression rows; ')) if kind in kinds]
     if conflicts:
-        steps.append('when the owner decides, first store his typed words with python -m flowguard req add - --id R<n>, '
-                     'or his pick among options you offered with python -m flowguard req add REPLY --id R<n> --offer '
-                     f'FILE --picked "TEXT", then update rule {where}')
+        steps.append(f'when the owner decides, first store his {STORE_ROUTES}, then update rule {where}')
     elif steps:
-        steps.append(f'if requirements changed, first store the new owner words with python -m flowguard req add, then update rule {where}')
+        steps.append(f"if requirements changed, first store the owner's new {STORE_ROUTES}, then update rule {where}")
     return steps
 
 

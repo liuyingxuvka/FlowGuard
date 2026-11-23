@@ -162,7 +162,8 @@ class Archive:
 
     def status(self, rid, quote=None):
         """(valid, reason) of the stored request `rid` cited by the intent form `owner R1`, with its `quote` compared
-        to the stored bytes as every source reads them (`_legacy_match`: UTF-8, or UTF-16 by its byte order mark)."""
+        to the stored bytes as every source reads them (`_legacy_match`: UTF-8, or UTF-16 by its byte order mark);
+        bytes that are no such text do not hold, the reason naming the file and the decoder's text (`_unreadable`)."""
         item = self.row(rid)
         if item is None:
             return False, f'{rid} missing -> req add the actual owner words'
@@ -173,7 +174,10 @@ class Archive:
         if quote is not None and item['reply'] == 'selected':
             return False, f'{rid}\'s answer was selected, not written by the owner -> {SELECTED_STEP.format(rid=rid)}'
         if quote is not None:
-            if not _legacy_match(read_request_bytes(self.root, rid), quote):
+            raw = read_request_bytes(self.root, rid)
+            if unreadable := _unreadable(rid, raw, item['kind'] == 'choice'):
+                return False, ' -> '.join(unreadable)
+            if not _legacy_match(raw, quote):
                 return False, f'{rid} quote gone -> quote the actual stored words'
         return True, f'owner {rid}'
 
@@ -183,6 +187,23 @@ STORE_STEP = "store the owner's words with python -m flowguard req add - --id {r
 # A pick not stored: a plain request under its id would close the choice route there (the archive is write-once).
 CHOICE_STEP = ('store his reply with the options you offered: python -m flowguard req add REPLY --id {rid} --offer FILE '
                '--picked "TEXT"')
+# A record whose bytes are no text FlowGuard reads: the archive keeps them (written once); a new record supersedes it.
+REREAD_STEP = 'store his words again as UTF-8 text: python -m flowguard req add - --id R<n> --supersedes {rid}'
+REREAD_CHOICE_STEP = ('store his reply and the options you offered again as UTF-8 text: python -m flowguard req add '
+                      'REPLY --id R<n> --offer FILE --picked "TEXT" --supersedes {rid}')
+
+
+def _unreadable(rid, raw, choice, path=None):
+    """(what is wrong, the step) of stored bytes of the record `rid` that a source reads (its request or reply, or with
+    `path` a choice's offer) when they are no UTF-8 or UTF-16 text, read by the one decoder of the archive's checks
+    (`document_text`): `R1: .flowguard/requests/R1.md is no UTF-8 or UTF-16 text: <the decoder's text>`, the source's
+    problem as any other of a stored record, never an error of the rule's test; None when they are text."""
+    problem = document_text((REQUEST_DIR / (rid + '.md')).as_posix() if path is None else path, raw)[1]
+    if not problem:
+        return None
+    return f'{rid}: {problem}', (REREAD_CHOICE_STEP if choice else REREAD_STEP).format(rid=rid)
+
+
 _ARCHIVES = {}      # resolved root -> (what its request files are, the Archive read from them)
 
 
@@ -527,7 +548,8 @@ def _request_problem(cfg, archive, rid, quote, matches, revision, baseline, pick
     supersession that it holds); None when it holds. `baseline` only words a supersession this task stored. With
     `picked` (`R106 picked "words"`) the words are those of an option the owner picked in a choice (`_picked_problem`);
     the owner's own words of a choice are its reply, which a reply he selected without typing does not hold. The step
-    of a record not stored names the route its form needs: `req add --offer --picked` for a pick (CHOICE_STEP)."""
+    of a record not stored names the route its form needs: `req add --offer --picked` for a pick (CHOICE_STEP). Bytes
+    the quote is compared with that are no UTF-8 or UTF-16 text are this source's problem (`_unreadable`)."""
     row = archive.row(rid)
     store = (CHOICE_STEP if picked else STORE_STEP).format(rid=rid)
     if revision is None:
@@ -569,6 +591,8 @@ def _request_problem(cfg, archive, rid, quote, matches, revision, baseline, pick
         return _picked_problem(rid, quote, record['picked'], offer)
     if quote is not None and choice and record['reply'] == 'selected':
         return f"{rid}'s answer was selected, not written by the owner", SELECTED_STEP.format(rid=rid)
+    if quote is not None and (unreadable := _unreadable(rid, raw, choice)):
+        return unreadable
     if quote is not None and not matches(raw, quote):
         return f'"{_short(quote)}" is not in {rid}', 'quote the stored words exactly'
     return None
@@ -577,9 +601,11 @@ def _request_problem(cfg, archive, rid, quote, matches, revision, baseline, pick
 def _picked_problem(rid, quote, picked, offer):
     """(what is wrong, the step) of words cited as an option the owner picked in the choice `rid`, or None: they occur
     exactly (`exact_quote`) in one of its picked option texts, and that text in the offer as stored (`offer`, None when
-    that commit holds no offer)."""
+    that commit holds no offer). An offer that is no UTF-8 or UTF-16 text is named as such (`_unreadable`)."""
     if offer is None:
         return f'the offer of {rid} was not stored then', 'restore the stored original'
+    if unreadable := _unreadable(rid, offer, True, offer_path(rid).as_posix()):
+        return unreadable
     holding = [text for text in picked if exact_quote(text.encode('utf-8'), quote)]
     if not holding:
         if exact_quote(offer, quote):
@@ -669,20 +695,23 @@ def conflict_owners(declarations, cfg, archive):
     without typing as `R5 selected`, with `CHOICE_NOTE`, never as his words. A side whose source does not hold is named
     outside that list as the rule writes it, `THREE cites R2 picked "Three days.", which does not hold`, and is neither
     his choice nor his words (its red says why): `the pick THREE cites` for the picked form or `owner R5` on a selected
-    record, `the words THREE cites` for any other. Whether a side is a choice follows its source's form, never the
-    record alone: `R5 "words"` quotes his words, which a selected record refuses."""
+    record, `the words THREE cites` for any other, quoted words included (`owner R5` with `quote=`, `THREE cites owner
+    R5 "B. Four days.", which does not hold`). Whether a side is a choice follows its source's form, never the record
+    alone: `R5 "words"` and `owner R5` with `quote=` quote his words, which a selected record refuses."""
     sides = []
     for declaration in declarations:
         src = cited(parse(declaration.source), cfg)
         if src.kind not in OWNER_KINDS:
             return ''
         rid = src.rids[0]
-        row = archive.row(rid) if src.kind == 'owner' else None
+        quoted = src.kind == 'owner' and declaration.quote is not None     # `owner R5` with quote=: words, no pick
+        row = archive.row(rid) if src.kind == 'owner' and not quoted else None
         selected = row is not None and row['kind'] == 'choice' and row['reply'] == 'selected'
         choice = src.kind == 'picked' or selected
         holds = authority(src, declaration.confirmed, cfg, archive, declaration.quote)[0]
         name = _pick(src) if src.kind == 'picked' else f'{rid} selected' if selected else rid
-        sides.append((declaration.id, name if holds else f'{declaration.id} cites {src.text}, which does not hold',
+        written = f'{src.text} "{declaration.quote}"' if quoted else src.text
+        sides.append((declaration.id, name if holds else f'{declaration.id} cites {written}, which does not hold',
                       choice, holds))
     settle = 'only the owner can settle which holds'
     held = [side for side in sides if side[3]]

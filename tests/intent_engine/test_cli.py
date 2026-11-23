@@ -421,7 +421,10 @@ def test_init_can_extend_a_final_pytest_table_without_a_trailing_newline(tmp_pat
     assert path.read_bytes() == first
 
 
-REQ_ADD = '    if requirements changed, first store the new owner words with python -m flowguard req add, then update rule tests/intent/policy.py:2'
+# R105: both routes of rule 7 of the rules block, as the conflict step names them (5.0.1 named only `req add`).
+REQ_ADD = ("    if requirements changed, first store the owner's new typed words with python -m flowguard req add - --id R<n>, "
+           'or his pick among options you offered with python -m flowguard req add REPLY --id R<n> --offer FILE --picked '
+           '"TEXT", then update rule tests/intent/policy.py:2')
 LONGER = """@rule('LONGER',decides='acceptance',fields={'days':int},source='doc policy.txt "At most three days."')
 def LONGER(days):
     return days <= 4

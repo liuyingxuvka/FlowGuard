@@ -827,8 +827,9 @@ def test_a_rule_bound_to_copies_that_take_different_parameters_states_the_anchor
     red = ('red: rule SCOPE: same anchor PROJECT_SCOPE: policy.py:can_view(user, project): bool and '
            'policy.py:visible_projects(user, projects): list take different parameters -> inspect rule decisions.py:2 and '
            'correct its source, binding or regression rows')
-    detail = ('    if requirements changed, first store the new owner words with python -m flowguard req add, then update '
-              'rule tests/intent/decisions.py:2')
+    detail = ("    if requirements changed, first store the owner's new typed words with python -m flowguard req add - --id "
+              'R<n>, or his pick among options you offered with python -m flowguard req add REPLY --id R<n> --offer FILE '
+              '--picked "TEXT", then update rule tests/intent/decisions.py:2')
     result = _run(tmp_path)
     assert result.returncode == 1 and [line for line in block(result) if line.startswith('red: ')] == [red], _text(result)
     assert detail in last(tmp_path).splitlines(), last(tmp_path)

@@ -614,6 +614,168 @@ def test_two_rules_citing_the_owners_picks_that_disagree_name_his_picks_never_hi
         assert "the owner's words of the two rules" not in conflicts[0]
 
 
+QUOTED_RULES = '''
+    from flowguard.intent import rule
+
+
+    @rule('THREE', decides='loan days', fields={{'days': int}}, source={three!r}, quote={quote!r})
+    def THREE(days):
+        return days <= 3
+
+
+    @rule('FOUR', decides='loan days', fields={{'days': int}}, source={four!r})
+    def FOUR(days):
+        return days <= 4
+'''
+
+
+@pytest.mark.parametrize('three, quote, owners', [
+    # `owner R5` with quote= quotes words as his; a selected reply holds none, so it is the words THREE cites, no pick.
+    ('owner R5', 'B. Four days.',
+     '(owner R3; THREE cites owner R5 "B. Four days.", which does not hold) -> the words THREE cites and the owner\'s '
+     'words behind FOUR disagree; only the owner can settle which holds'),
+    # R3 holds, its quote does not: the side is named with the words the rule quotes.
+    ('owner R3', 'ten days',
+     '(owner R3; THREE cites owner R3 "ten days", which does not hold) -> the words THREE cites and the owner\'s words '
+     'behind FOUR disagree; only the owner can settle which holds'),
+    ('owner R3', 'Loans last three days.',
+     "(owner R3, R3) -> the owner's words of the two rules disagree; only the owner can settle which holds"),
+])
+def test_a_conflict_side_that_quotes_words_with_the_owner_form_is_judged_and_named_as_words(tmp_path, three, quote, owners):
+    """R105: `owner R5` with quote= on a reply he selected was refused (`R5's answer was selected, not written by the
+    owner`), yet the conflict called it `the pick THREE cites`, as the record alone decided whether a side was a
+    choice; and a side whose quote= did not hold was named `THREE cites owner R3`, without the words that do not
+    hold."""
+    from flowguard.map.requests import store_choice
+    _project(tmp_path, **{'tests/intent/days.py': QUOTED_RULES.format(three=three, quote=quote,
+                                                                      four='R3 "Loans last three days."')})
+    store_request(tmp_path, b'Loans last three days.\n', identifier='R3')
+    store_choice(tmp_path, b'B. Four days.', LOAN_OFFER, ['B. Four days.'], identifier='R5', selected=True)
+    engine = Engine(load(load_config(tmp_path)))
+    for rule_id in ('THREE', 'FOUR'):
+        conflicts = [line for line in engine.run_rules(engine.m.rules[rule_id])['red'] if line.startswith('conflict ')]
+        assert conflicts == [f'conflict THREE vs FOUR at days=4: F vs T (1 of 6 shared cells) {owners}'], conflicts
+
+
+LATIN_REQUEST = 'Loans last three däys.\n'.encode('latin-1')     # `req add` stores such bytes as it gets them
+UNREADABLE = ("{rid}: .flowguard/requests/{rid}.md is no UTF-8 or UTF-16 text: 'utf-8' codec can't decode byte 0xe4 in "
+              "position 18: invalid continuation byte")
+REREAD = 'store his words again as UTF-8 text: python -m flowguard req add - --id R<n> --supersedes {rid}'
+REREAD_CHOICE = ('store his reply and the options you offered again as UTF-8 text: python -m flowguard req add REPLY '
+                 '--id R<n> --offer FILE --picked "TEXT" --supersedes {rid}')
+
+
+def test_stored_owner_bytes_that_are_no_text_are_the_problem_of_the_source_that_reads_them(tmp_path):
+    """R105, R85: a stored request (or a choice's reply or offer) whose bytes are no UTF-8 or UTF-16 text stopped every
+    source that quotes it with a bare `UnicodeDecodeError: 'utf-8' codec can't decode byte 0xe4 ...` naming no file: the
+    rule's test in each form (`R1 "words"`, `owner R1` with quote=, the baseline's judgement), and a rules.toml entry's
+    `check --static`, `show rules` and the end of a pytest session whose tests passed. It is now that source's problem
+    as any other of a stored record, naming the file and giving the decoder's text, judged as a request not stored."""
+    from flowguard.map.requests import store_choice
+    cfg = _project(tmp_path)
+    store_request(tmp_path, LATIN_REQUEST, identifier='R1')
+    store_choice(tmp_path, 'Drei Tage, bätte.\n'.encode('latin-1'), LOAN_OFFER, ['A. Three days.'], identifier='R2')
+    archive = sources.shared_archive(tmp_path)
+    unreadable = f"{UNREADABLE.format(rid='R1')} -> {REREAD.format(rid='R1')}"
+    assert _authority(cfg, 'R1 "three"') == (False, unreadable)
+    assert archive.status('R1', 'three') == (False, unreadable)
+    assert sources.authority(sources.parse('owner R1'), None, cfg, archive, 'three') == (False, unreadable)
+    reply = ("R2: .flowguard/requests/R2.md is no UTF-8 or UTF-16 text: 'utf-8' codec can't decode byte 0xe4 in "
+             f"position 12: invalid continuation byte -> {REREAD_CHOICE.format(rid='R2')}")
+    assert _authority(cfg, 'R2 "Drei"') == (False, reply)
+    # A source that reads no such bytes is not judged by them: the form without a quote, a pick (its offer is text).
+    assert archive.status('R1') == (True, 'owner R1')
+    assert _authority(cfg, 'R2 picked "Three days."')[0] is True
+    # An offer that is no such text (req add refuses one; an archive another tool wrote may hold it) is named the same.
+    assert sources._picked_problem('R2', 'Three', ['A. Three days.'], 'A. Three däys.\n'.encode('latin-1')) == (
+        "R2: .flowguard/requests/offers/R2.md is no UTF-8 or UTF-16 text: 'utf-8' codec can't decode byte 0xe4 in "
+        'position 10: invalid continuation byte', REREAD_CHOICE.format(rid='R2'))
+    # Judged as a request not stored: red when this change cites it, before when the baseline cited it so, grey
+    # without a baseline; `owner R1` grey as for its other unverified records.
+    base = _commit(tmp_path)
+    assert _state(tmp_path, 'R1 "three"', base) == ('red', unreadable)
+    assert _state(tmp_path, 'R1 "three"', None) == ('grey', unreadable)
+    assert sources._problem(sources.parse('R1 "three"'), cfg, archive, revision=base) == (
+        UNREADABLE.format(rid='R1'), REREAD.format(rid='R1'))
+    assert sources._problem(sources.parse('owner R1'), cfg, archive, revision=base, quote='three') == (
+        UNREADABLE.format(rid='R1'), REREAD.format(rid='R1'))
+    base = _commit(tmp_path, {'tests/intent/days.py': INTENT.format(source='R1 "three"')}, message='cited so')
+    assert _state(tmp_path, 'R1 "three"', base) == ('before', unreadable)
+    _write(tmp_path, {'tests/intent/days.py': QUOTED_RULES.format(three='owner R1', quote='three', four='owner R1')
+                      .replace("'FOUR', decides='loan days'", "'FOUR', decides='loan weeks'")})
+    engine = Engine(load(load_config(tmp_path)))
+    engine.baseline = base
+    rule = engine.m.rules['THREE']
+    assert sources.source_state(engine, rule, rule.confirmed, rule.quote) == ('grey', unreadable)
+    # Following the step: his words stored again as UTF-8 text supersede R1, and the source names the new record.
+    store_request(tmp_path, 'Loans last three däys.\n'.encode(), identifier='R7', supersedes=['R1'])
+    assert _authority(cfg, 'R1 "three"') == (False, "R1 is superseded by R7 -> update it from R7's words")
+    assert _authority(cfg, 'R7 "three däys"') == (True, 'owner R7')
+
+
+@pytest.mark.parametrize('three, quote', [('R1 "three"', None), ('owner R1', 'three')])
+def test_a_rule_citing_a_request_that_is_no_text_keeps_the_conflict_of_the_other_rule_in_every_runner(tmp_path, capsys, three,
+                                                                                                    quote):
+    """R105, R85 (5.1 round A regression): once every side of a conflict was judged, a side citing a request stored as
+    Latin-1 put its UnicodeDecodeError into the other rule's test too: `FAILED tests/intent/days.py::FOUR[rules] -
+    UnicodeDecodeError`, the block `0 red` with two tests failed, `check` `red: pytest: exit 1 -> read
+    .flowguard/cache/check-output.txt ...`, and `show FOUR` and `show THREE` `flowguard: 'utf-8' codec can't decode byte
+    0xe4 in position 18: invalid continuation byte`, exit 2. The conflict line was gone from every runner. A rules.toml
+    entry citing it stopped `check --static` and `show rules` the same way, and pytest's end after its tests passed."""
+    import subprocess
+    import sys
+    from flowguard.intent import cli
+    from tests.intent_engine import _cli_fixture as cli_fixture
+    root = tmp_path / 'project'
+    root.mkdir()
+    (root / 'pyproject.toml').write_text('[project]\nname = "app"\nversion = "0"\n', encoding='utf-8')
+    (root / 'tests').mkdir()
+    (root / 'tests/test_a.py').write_text('def test_a():\n    assert 2 * 3 == 6\n', encoding='utf-8')
+    cfg = load_config(root)
+    cli.init(cfg)
+    store_request(root, LATIN_REQUEST, identifier='R1')
+    store_request(root, b'Loans last four days.\n', identifier='R3')
+    _commit(root)
+    _write(root, {'tests/intent/days.py': QUOTED_RULES.format(three=three, quote=quote, four='R3 "Loans last four days."')})
+    capsys.readouterr()
+    conflict = ('conflict THREE vs FOUR at days=4: F vs T (1 of 6 shared cells) (owner R3; THREE cites '
+                + ('R1 "three"' if three.startswith('R1') else 'owner R1 "three"') + ", which does not hold) -> the words "
+                "THREE cites and the owner's words behind FOUR disagree; only the owner can settle which holds")
+    unreadable = f"{UNREADABLE.format(rid='R1')} -> {REREAD.format(rid='R1')}"
+    bootstrap = 'import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; raise SystemExit(pytest.main(sys.argv[1:]))'
+    ran = subprocess.run([sys.executable, '-c', bootstrap, cli_fixture.SOURCE, '-q', '-rf', '-p', 'no:cacheprovider'],
+                         cwd=root, capture_output=True, text=True, timeout=120)
+    output = ran.stdout + ran.stderr
+    assert ran.returncode == 1 and 'UnicodeDecodeError' not in output, output
+    assert [line for line in output.splitlines() if line.startswith('FAILED ')] == [
+        'FAILED tests/intent/days.py::FOUR[rules] - conflict THREE vs FOUR at days=4: ...',
+        'FAILED tests/intent/days.py::THREE[rules] - conflict THREE vs FOUR at days=4:...'], output
+    assert [line[:22] for line in cli_fixture.block(ran)[1:]] == ['red: rule FOUR: confli', 'red: rule THREE: confl'], output
+    shown = cli_fixture.last(root)
+    assert f'    FOUR: {conflict}' in shown.splitlines() and f'    THREE: {conflict}' in shown.splitlines(), shown
+    assert (f'    THREE: {unreadable}' in shown.splitlines()) is three.startswith('R1'), shown   # red; owner R1 grey
+    assert cli_fixture.main(['--root', root, 'check', '--static'], cwd=root) == 0
+    assert cli_fixture.block(capsys.readouterr().out)[1:] == []      # intent rules run in pytest, not in the static check
+    assert cli_fixture.check(cfg) == 1
+    text = capsys.readouterr().out
+    assert [line[:22] for line in cli_fixture.block(text)[1:]] == ['red: rule THREE: confl', 'red: rule FOUR: confli'], text
+    for rule_id in ('FOUR', 'THREE'):
+        assert cli_fixture.main(['--root', root, 'show', rule_id], cwd=root) == 0
+        lines = capsys.readouterr().out.splitlines()
+        assert conflict in lines and (unreadable in lines) is (rule_id == 'THREE'), lines
+    # A rules.toml entry citing it is a source finding naming the file, in check --static, show rules and pytest.
+    _write(root, {'.flowguard/rules.toml': '[rule.three]\ntext = "Three days."\nsource = \'R1 "three"\'\n'})
+    assert cli_fixture.main(['--root', root, 'check', '--static'], cwd=root) == 1
+    text = capsys.readouterr().out
+    assert cli_fixture.block(text)[1].startswith('red: source rule.three: rules.toml:rule.three R1: .flowguard/requests'), text
+    assert cli_fixture.main(['--root', root, 'show', 'rules'], cwd=root) == 0
+    assert f'    source: R1 "three" (does not hold: {unreadable})' in capsys.readouterr().out.splitlines()
+    ran = subprocess.run([sys.executable, '-c', bootstrap, cli_fixture.SOURCE, '-q', 'tests/test_a.py', '-p',
+                          'no:cacheprovider'], cwd=root, capture_output=True, text=True, timeout=120)
+    assert ran.returncode == 1 and 'Traceback' not in ran.stdout + ran.stderr, ran.stdout + ran.stderr
+    assert '1 passed' in ran.stdout and any(line.startswith('red: source rule.three: ') for line in cli_fixture.block(ran)), ran.stdout
+
+
 def test_check_all_fails_a_grey_rule_that_cites_the_owners_words_through_the_catalog(tmp_path):
     from flowguard.intent.cli import _owner_rules_unverified
     cfg = _project(tmp_path, rules='''

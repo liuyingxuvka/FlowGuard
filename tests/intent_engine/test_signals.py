@@ -1,6 +1,8 @@
 """Human-readable views preserve uncertainty, locations and bounded output."""
 from contextlib import closing
 
+import pytest
+
 from flowguard.intent import differences as D, signals
 from flowguard.structure import build
 from tests.intent_engine.test_anchor_differences import compare, original_flag, unintended_flag
@@ -238,6 +240,25 @@ def test_a_conflict_step_says_who_decides_and_both_routes_of_storing_his_decisio
         'when the owner decides, first store his typed words with python -m flowguard req add - --id R<n>, or his pick '
         'among options you offered with python -m flowguard req add REPLY --id R<n> --offer FILE --picked "TEXT", then '
         'update rule tests/intent/days.py:9']
+
+
+@pytest.mark.parametrize('said, first', [
+    (['days=4 -> rule False, code True'], 'change the code so app.py:accept follows rule FOUR; '),
+    (['self: rule FOUR gives False on its own row L6 (expected True)'],
+     'correct regression rows or rule tests/intent/days.py:9 so the rule and its regression rows agree; '),
+    (['gap in loan days (total=True): no rule decides 2 cells, smallest days=-1'],
+     'add rules or regression rows at tests/intent/days.py:9 so undecided cells have a rule result; '),
+    (['unknown problem'], 'inspect rule tests/intent/days.py:9 and correct its source, binding or regression rows; '),
+])
+def test_every_rule_step_that_stores_the_owners_decision_names_both_routes(said, first):
+    """R105: after the conflict step named both routes of rule 7 of the rules block, every other rule step still said
+    `if requirements changed, first store the new owner words with python -m flowguard req add, then update rule ...`,
+    the route that stores an answer to options the agent offered as a plain request and closes its id to the choice."""
+    assert signals.rule_steps('FOUR', ['app.py:accept'], 'tests/intent/days.py:9', said) == [
+        first,
+        "if requirements changed, first store the owner's new typed words with python -m flowguard req add - --id R<n>, "
+        'or his pick among options you offered with python -m flowguard req add REPLY --id R<n> --offer FILE --picked '
+        '"TEXT", then update rule tests/intent/days.py:9']
 
 
 def test_a_line_names_at_most_three_places_and_paths_are_file_names_unless_two_share_one():

@@ -189,11 +189,15 @@ def test_stored_request_bytes_have_one_decoder_and_a_row_holds_no_words_of_them(
     archive = Archive(root)
     assert archive.status('R1', 'three d\u00e4ys') == (True, 'owner R1')
     assert archive.status('R1', 'ten days') == (False, 'R1 quote gone -> quote the actual stored words')
-    # Bytes that are no UTF-8 or UTF-16 text stop the owner form as they stop the others: one decoder, one error.
-    for compare in (lambda: archive.status('R2', 'four d\u00e4ys'),
-                    lambda: _legacy_match((root / '.flowguard/requests/R2.md').read_bytes(), 'four d\u00e4ys')):
-        with pytest.raises(UnicodeDecodeError):
-            compare()
+    # Bytes that are no UTF-8 or UTF-16 text: the one decoder raises, and the owner form, as every other, checks them
+    # first (`document_text`): they do not hold, the reason naming the file and the decoder's text (5.1 round A raised
+    # UnicodeDecodeError here too, into the rule's test).
+    with pytest.raises(UnicodeDecodeError):
+        _legacy_match((root / '.flowguard/requests/R2.md').read_bytes(), 'four d\u00e4ys')
+    assert archive.status('R2', 'four d\u00e4ys') == (
+        False, "R2: .flowguard/requests/R2.md is no UTF-8 or UTF-16 text: 'utf-8' codec can't decode byte 0xe4 in "
+               'position 17: invalid continuation byte -> store his words again as UTF-8 text: python -m flowguard req '
+               'add - --id R<n> --supersedes R2')
     for row in owner_words(root)['rows']:
         assert 'first_line' not in row and 'extra_lines' not in row, row
         assert not any('\ufffd' in str(value) or 'Loans' in str(value) for value in row.values()), row
