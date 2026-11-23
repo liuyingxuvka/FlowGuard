@@ -38,6 +38,13 @@ class Issue:
     file: str = ''
     line: int = 0
     name: str = ''
+    places: tuple = ()      # a finding of several comments (code 'parameters'): each copy's `path:function`
+    detail: tuple = ()      # further lines only `show --last` prints
+
+    def __post_init__(self):
+        # a cached issue comes back from JSON with lists
+        object.__setattr__(self, 'places', tuple(self.places))
+        object.__setattr__(self, 'detail', tuple(self.detail))
 
 
 def _status(issues):
@@ -83,6 +90,7 @@ class Anchor:
     on: str = ''             # `on=update` / `on=create`: the pairs hold only for writes that change a row / make one
     projection: str = ''     # `-> result[0]` / `-> result.ok`: copies are compared on this part of the result
     fields: tuple = ()       # `fields days=(today - hire.due).days`: rule fields read from each call's own arguments
+    returns: str = ''        # the return type its source declares, as written (`bool`, `Project[]`): named, never compared
 
     @property
     def inputs(self):
@@ -863,7 +871,8 @@ def source_facts(tree, text, module, file, *, source_digest='', is_test=False):
                            tuple(params), output_name, output_type, calibrated_by=calibrated_by,
                            issues=tuple(local), source_digest=source_digest, receiver=receiver,
                            source_role='test' if is_test else 'production', owner=reference,
-                           projection=projection or '', fields=fields)
+                           projection=projection or '', fields=fields,
+                           returns=ast.unparse(node.returns) if node is not None and node.returns is not None else '')
         entries.append(asdict(entry))
     return {'anchors': entries, 'anchor_issues': [asdict(p) for p in problems]} if entries or problems else {}
 
@@ -951,7 +960,8 @@ def foreign_owners(text, module, file, *, is_test=False, functions=()):
                 target = min(following_rows, key=lambda row: row['line'])
                 params = tuple(Parameter(value, '', '', 'input', True) for value in target.get('raw', {}).get('parameters', ()))
                 entries.append(asdict(Anchor('sensor', name, file, module, target['qual'], number, target['line'], params,
-                                             source_role='test' if is_test else 'production', owner=reference)))
+                                             source_role='test' if is_test else 'production', owner=reference,
+                                             returns=target.get('raw', {}).get('returns', ''))))
             continue
         owner = _data_owner(spelling, body, file, module, number, is_test)
         (entries if isinstance(owner, dict) else problems).append(owner if isinstance(owner, dict) else asdict(owner))
@@ -1058,29 +1068,95 @@ def _data_agreements(entries):
     return tuple(combined.get(number, anchor) for number, anchor in enumerate(entries) if number not in omitted)
 
 
+def _comment_mark(file):
+    """How a flowguard comment starts in the syntax of `file`: `//` in JS/TS, `#` in Python."""
+    from ..structure.readers.registry import ECMA, language_for
+    return '//' if language_for(file) in ECMA else '#'
+
+
+def _place(anchor):
+    """An anchor's place as a line names it: `path:function`, `path:line` for a comment on no function."""
+    return f'{anchor.file}:{anchor.qual}' if anchor.qual else f'{anchor.file}:{anchor.line}'
+
+
+def _called(anchor):
+    """`(parameters)` of a copy as its source spells them, `: type` after it where its source declares a return type."""
+    return '(' + ', '.join(p.source for p in anchor.parameters) + ')' + (f': {anchor.returns}' if anchor.returns else '')
+
+
+def _parameters_issue(name, group):
+    """The one red of a same-name group whose copies take different parameters (`_index`), in the words of a
+    comparison that runs them (`signals.copies_parameters`): each copy `path:function(parameters)`, with the return
+    type its source declares. Its detail says what a comment can say there: a Python copy maps its parameters to the
+    reference's names (`# flowguard: same NAME(days=<its parameter>)`); a JS/TS comment names none."""
+    from .signals import FOREIGN_PARAMETERS, copies_parameters
+    text, step = copies_parameters([(_place(anchor), _called(anchor)) for anchor in group])
+    reference = next((anchor for anchor in group if anchor.owner), group[0])
+    wanted = [p.name for p in reference.parameters]
+    detail = []
+    for anchor in group:
+        own = [p.name for p in anchor.parameters]
+        if anchor is not reference and _comment_mark(anchor.file) == '#' and own != wanted and len(own) == len(wanted):
+            # parameters correspond only by name; the mapping is written, never guessed from position or type
+            detail.append(f'parameters correspond only by name: write # flowguard: same {name}('
+                          + ', '.join(f'{p}=<its parameter>' for p in wanted)
+                          + f') above {_place(anchor)} if it is a copy of {_place(reference)}')
+    if any(_comment_mark(anchor.file) == '//' for anchor in group):
+        detail.append(FOREIGN_PARAMETERS)
+    return Issue('red', 'parameters', f'{text} -> {step}', group[0].file, group[0].line, name,
+                 places=tuple(_place(anchor) for anchor in group), detail=tuple(detail))
+
+
+def _conflicts(group):
+    """What the anchors of one name declare differently, each with the places that declare it, as {what: which}:
+    roles (`same` beside `event`, other states values), the input parameters they take, units (the output's name, an
+    input's unit), return types and input types. A label or unit left out, and a type the source does not give, is
+    unknown, never a difference."""
+    def spelled(anchor):
+        kind = {'sensor': 'same', 'owner': 'together' if anchor.pairs else 'writers'}.get(anchor.kind, anchor.kind)
+        return kind + (' ' + ','.join(map(str, anchor.values)) if anchor.values else '')
+    def apart(label, values, key=lambda value: value):
+        """`label` and each value with its place, of [(value, place)] holding more than one known value; else ''."""
+        values = [(value, place) for value, place in values if value not in ('', '?')]
+        return label + ', '.join(f'{value} at {place}' for value, place in values) \
+            if len({key(value) for value, _ in values}) > 1 else ''
+    found = {}
+    if len({(anchor.kind, anchor.values) for anchor in group}) > 1:
+        found['roles'] = ', '.join(f'{spelled(anchor)} at {_place(anchor)}' for anchor in group)
+    inputs = [(set(p.name for p in a.inputs if not (p.inferred and p.source_type == '?')), set(p.name for p in a.inputs))
+              for a in group]
+    if any(required - allowed for required, _ in inputs for _, allowed in inputs):
+        found['parameters'] = ', '.join(_place(anchor) + _called(anchor) for anchor in group)
+    names = list(dict.fromkeys(p.name for a in group for p in a.inputs))
+    units = [apart('output ', [(a.output, _place(a)) for a in group]),
+             *(apart(f'parameter {key} ', [(p.unit, _place(a)) for a in group for p in a.inputs if p.name == key])
+               for key in names)]
+    returned = apart('', [(a.output_type, _place(a)) for a in group], _type_id)
+    typed = [apart(f'parameter {key} ', [(p.source_type, _place(a)) for a in group for p in a.inputs if p.name == key],
+                   _type_id) for key in names]
+    for kind, said in (('units', units), ('return types', [returned]), ('parameter types', typed)):
+        if any(said):
+            found[kind] = '; '.join(part for part in said if part)
+    return found
+
+
 def _index(entries, problems):
+    """The index of the anchors and their issues: besides each anchor's own, a group of one name whose anchors
+    declare different roles, parameters, units or types. Copies that take different parameters and differ in
+    nothing else but their return types are one red that names each copy with its parameters (`_parameters_issue`);
+    any other difference is red at each comment of the group, naming what differs and where (`_conflicts`). A name
+    with more than one reference or data agreement is red at each, its step in its file's comment syntax."""
     index = Index(_data_agreements(tuple(entries)))
     for name, group in index.by_name.items():
-        # Omitted labels/units are unknown metadata, not conflicting declarations.
-        roles = {(a.kind, a.values) for a in group}
-        inputs = [(set(p.name for p in a.inputs if not (p.inferred and p.source_type == '?')),
-                   set(p.name for p in a.inputs)) for a in group]
-        types = [{_type_id(value) for value in values if value not in ('', '?')} for values in
-                 [[a.output_type for a in group], *[[p.source_type for a in group for p in a.inputs if p.name == name]
-                   for name in {p.name for a in group for p in a.inputs}]]]
-        labels = [{a.output for a in group if a.output}, *[{p.unit for a in group for p in a.inputs if p.name == name and p.unit not in ('', '?')}
-                  for name in {p.name for a in group for p in a.inputs}]]
-        if len(roles) > 1 or any(required - allowed for required, _ in inputs for _, allowed in inputs) or any(len(values) > 1 for values in types + labels):
-            reference = next((a for a in group if a.owner), group[0])
-            wanted = [p.name for p in reference.inputs]
+        found = _conflicts(group)
+        if found and set(found) <= {'parameters', 'return types'} \
+                and len({tuple(p.name for p in anchor.parameters) for anchor in group}) > 1:
+            problems.append(_parameters_issue(name, group))
+        elif found:
+            said = ' and '.join(f'{kind} ({which})' for kind, which in found.items())
             for anchor in group:
-                own = [p.name for p in anchor.inputs]
-                hint = ''
-                if len(roles) == 1 and anchor is not reference and own != wanted and len(own) == len(wanted):
-                    # Parameters correspond only by name; the mapping is written, never guessed from position or type.
-                    hint = (f'; parameters correspond only by name: write # flowguard: same {name}('
-                            + ', '.join(f'{p}=<its parameter>' for p in wanted) + ') on this copy')
-                problems.append(Issue('red', 'identity', f'same anchor {name} has conflicting roles, units or signature' + hint, anchor.file, anchor.line, name))
+                problems.append(Issue('red', 'identity', f'same anchor {name} has conflicting {said}', anchor.file,
+                                      anchor.line, name))
         owners = [anchor for anchor in group if anchor.owner or anchor.kind == 'owner']
         if len(owners) > 1:
             data_only = all(anchor.kind == 'owner' and not anchor.qual and (anchor.writers or anchor.pairs)
@@ -1091,7 +1167,7 @@ def _index(entries, problems):
                            'use one writers declaration and one together declaration in the same file; '
                            'multiple together declarations or different on= scopes cannot share one registration') if data_only else \
                     (f'{name} has {len(owners)} references ({places}): '
-                     'keep one reference; mark the copies # flowguard: same ' + name)
+                     f'keep one reference; mark the copies {_comment_mark(anchor.file)} flowguard: same ' + name)
                 problems.append(Issue('red', 'owner', message, anchor.file, anchor.line, name))
     index.issues = tuple(problems)
     return index

@@ -915,6 +915,11 @@ def parameters_differ(was, now):
 
 
 PARAMETERS_STEP = 'check whether these are copies of one decision, then correct the code or the marks'
+# What is true of JS/TS copies whose parameter names differ (`anchors._parameters_issue`, in the detail): a `//` comment
+# maps no names, as a Python copy's `# flowguard: same NAME(days=overdue_days)` does.
+FOREIGN_PARAMETERS = ('FlowGuard gives JS/TS copies each input by position and reads a parameter of another name as '
+                      'another input; // flowguard: same names no parameters, so JS/TS copies are compared only where '
+                      'their parameters have the same names')
 
 
 def copies_parameters(signatures, limit=PLACES):
@@ -930,6 +935,18 @@ def copies_parameters(signatures, limit=PLACES):
         shown.append(f'{hidden} other cop{"y" if hidden == 1 else "ies"}')
     named = shown[0] if len(shown) == 1 else ', '.join(shown[:-1]) + ' and ' + shown[-1]
     return f'{named} take different parameters', PARAMETERS_STEP
+
+
+PARAMETERS = 'parameters'       # the member of a `same:NAME` finding whose copies take different parameters
+
+
+def parameters_finding(name, what, step, places, *, detail=()):
+    """The `same:NAME` finding of copies that take different parameters (`copies_parameters`) that the flowguard
+    comments show (`anchors._index`, an issue of code 'parameters') or `check` finds where no comment does: one red
+    member (PARAMETERS) naming each copy (`places`, `path:function`), so check --static, pytest, check and vitest
+    give it as one line. A comparison that runs the copies says nothing more of a group the comments name so."""
+    return finding('same', f'same:{name}', f'same {name}', [what], step, function=PARAMETERS, places=places,
+                   files={place.rpartition(':')[0] for place in places}, detail=detail)
 
 
 def copies_issue(name, fresh, old, *, places, files=()):

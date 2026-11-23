@@ -78,9 +78,16 @@ def _parameters(node, source):
     return names
 
 
+def _returns(node, source):
+    """The return type a JS/TS function declares (`: Project[]`), as written on one line; '' where it declares none."""
+    from ..structure.readers.common import text
+    returned = node.child_by_field_name('return_type')
+    return ' '.join(text(returned, source).removeprefix(':').split()) if returned is not None else ''
+
+
 def declarations(data, rel):
     """{name: facts} of the module-level functions the adapter can wrap: `function f` and `const f = (...) =>`
-    (also `export`ed). `line` is the line of the statement the plugin edits."""
+    (also `export`ed). `line` is the line of the statement the plugin edits; `returns` the return type it declares."""
     from ..structure.readers.common import parse, text
     from ..structure.readers.registry import language_for
     source, tree = parse(data, language_for(rel))
@@ -92,7 +99,8 @@ def declarations(data, rel):
         if inner.type in WRAPPABLE:
             name = text(inner.child_by_field_name('name'), source)
             found.setdefault(name, dict(form='function', line=inner.start_point.row + 1, node=inner,
-                                        params=_parameters(inner, source), is_async=text(inner, source).startswith('async')))
+                                        params=_parameters(inner, source), returns=_returns(inner, source),
+                                        is_async=text(inner, source).startswith('async')))
         elif inner.type == 'lexical_declaration' and text(inner, source).startswith('const'):
             for declarator in inner.named_children:
                 value = declarator.child_by_field_name('value')
@@ -101,6 +109,7 @@ def declarations(data, rel):
                         and value.type in ('arrow_function', 'function_expression', 'function'):
                     found.setdefault(text(name, source), dict(form='const', line=declarator.start_point.row + 1, node=value,
                                                               params=_parameters(value, source),
+                                                              returns=_returns(value, source),
                                                               is_async=text(value, source).startswith('async')))
     return found
 
@@ -629,7 +638,8 @@ def plan(cfg, commit, changed, key):
                                              else git_blob(cfg.root, commit, path), old_tables) if was is not None
                                else ('', ABSENT if commit else NO_BASELINE))
             points.append(dict(id=ident, name=name, anchored=anchored, why=why, owner=ident in owners, rel=rel, file=(cfg.root / rel).as_posix(), fn=qual,
-                               line=found['line'], target_line=line, form=found['form'], params=found['params'], skip=skip,
+                               line=found['line'], target_line=line, form=found['form'], params=found['params'],
+                               returns=found['returns'], skip=skip,
                                recordable=(not found['is_async'] and 'generator' not in found['node'].type
                                            and skip != BINDING + qual),
                                binding_edited=_binding_edited(cfg, graph, rel, skip, old_sources, modules),
@@ -1247,7 +1257,7 @@ def _shown(encoded):
     return value_text(_plain(encoded))
 
 
-def judge(cfg, data, records, package=None):
+def judge(cfg, data, records, package=None, named=frozenset()):
     """What this run found, as the 4.3 block reads it (`delivered`): `delivery` holds same-name copies as family
     'same' (one member per input: red where this change broke a pair that agreed at the baseline, before where the
     copies already differed on that input, `signals.copy_partition`), the changed line of each changed function whose
@@ -1259,7 +1269,8 @@ def judge(cfg, data, records, package=None):
     this run compared on every copy and found to agree. A same-name function no test reached is listed as unreached,
     or with the reason its source cannot be sealed, only when this change edits it or writes its mark (R99). `package`
     is the folder of the vitest run: a point in another package cannot be reached by its tests and is not listed as
-    unreached."""
+    unreached. `named` are the same names whose copies this run's map checks already name as taking different
+    parameters (`anchors._index`, `static_lines`): their red is that line alone, and no line of this run says it again."""
     from . import cache, cells as C, signals
     from .engine import CONFLICT, Engine, PredicateError, outcome_eq
     from .health import LINES_ONLY, Issue
@@ -1367,21 +1378,25 @@ def judge(cfg, data, records, package=None):
                                  {places[target] for target, answer in old if missing(answer)}))
         fresh, old, unknown = signals.copy_partition(current_rows, _same, _shown, owner=reference, total=len(group),
                                                      words=signals.copy_says)
-        if any(kept[3] & apart for kept in (*fresh, *old)):
+        differ = any(kept[3] & apart for kept in (*fresh, *old))     # copies of other parameters answered apart
+        if differ:
             # where such copies disagree, one line says they take different parameters: red where a line of theirs is,
             # and a line that also shows copies of the same parameters apart keeps those
-            text, step = signals.copies_parameters([(places[target], f'({", ".join(params[target])})') for target in group])
+            text, step = signals.copies_parameters([(places[target], f'({", ".join(params[target])})'
+                                                     + (f': {points[target]["returns"]}' if points[target]['returns'] else ''))
+                                                    for target in group])
             line = ('', text, step, {pair for kept in (*fresh, *old) for pair in kept[3] & apart})
             red = any(kept[3] & apart for kept in fresh)
             fresh, old = ([(where, said, then, pairs - apart) for where, said, then, pairs in lines if pairs - apart]
                           for lines in (fresh, old))
-            fresh, old = ([line, *fresh], old) if red else (fresh, [line, *old])
+            if point['name'] not in named:      # else the map checks' line of this run says it
+                fresh, old = ([line, *fresh], old) if red else (fresh, [line, *old])
         if fresh or old:
             issues.append(signals.copies_issue(point['name'], fresh, old, places=list(places.values()),
                                                files={points[target]['rel'] for target in group}))
         if unknown:
             skipped(point['name'], [f'the baseline of a copy could not run; now on {where}: {text}' for where, text, _, _ in unknown])
-        if whole and not (fresh or old or unknown):
+        if whole and not (fresh or old or unknown or differ):
             agreed.add(point['name'])
     # rules on the observed calls and replayed classes, as the pytest side checks a reading
     model = load(cfg)
@@ -1545,9 +1560,12 @@ def report(root, plan_path, observations, package=None, *, in_test=False):
     data = json.loads(Path(plan_path).read_text(encoding='utf-8'))
     records = _observations(observations)
     recorded = sum(record.get('record_seconds', 0) for record in records)
-    result = judge(cfg, data, [record for record in records if 'id' in record], package)
-    own, ignored, said = delivered(result)
     static = static_lines(observations)
+    # copies the map checks of this run name as taking different parameters: their line is the one red of the group
+    named = {line.name.partition(':')[2] for line in static['lines']
+             if line.name.startswith('same:') and line.function == signals.PARAMETERS} if static else frozenset()
+    result = judge(cfg, data, [record for record in records if 'id' in record], package, named)
+    own, ignored, said = delivered(result)
     if static is None and _wired(cfg, package):
         # D19: the static test is wired but did not report here (a filtered run, or one written by an init before 4.3);
         # the block prints this item on a line of its own (`signals.render_block`)

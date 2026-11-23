@@ -1479,19 +1479,22 @@ def _step_of(message, step):
 def _index_findings(index):
     """The findings of the flowguard comments, in the words of a pytest session: a malformed comment is red (it
     disables checks, D4), and a source file that does not parse is not compared, only that file."""
-    from .signals import ascii_text, finding, not_compared, split_step
-    reds, unparsed = {}, {}
+    from .signals import ascii_text, finding, not_compared, parameters_finding, split_step
+    reds, unparsed, copies = {}, {}, []
     for issue in index.issues:
         place = f'{issue.file}:{issue.line}' if issue.line else issue.file
-        if issue.level == 'red':
+        if issue.level == 'red' and issue.code == 'parameters':     # copies that take different parameters: one line
+            what, step = split_step(ascii_text(issue.message))
+            copies.append(parameters_finding(issue.name, what, step, issue.places, detail=issue.detail))
+        elif issue.level == 'red':
             what, step = split_step(ascii_text(issue.message))
             entry = reds.setdefault(f'comment:{place}:{issue.code}', dict(place=place, file=issue.file, whats=[],
                                                                           step=step or 'correct this flowguard comment'))
             entry['whats'].append(what)
         elif issue.code == 'source-syntax':
             unparsed.setdefault(issue.file, []).append('cannot be parsed: ' + ascii_text(issue.message))
-    return ([finding('input', name, f'comment {entry["place"]}', entry['whats'], entry['step'], places=(entry['place'],),
-                     files=(entry['file'],)) for name, entry in reds.items()],
+    return ([*copies, *(finding('input', name, f'comment {entry["place"]}', entry['whats'], entry['step'],
+                                places=(entry['place'],), files=(entry['file'],)) for name, entry in reds.items())],
             [not_compared(file, reasons, places=(file,)) for file, reasons in unparsed.items()])
 
 
@@ -1666,16 +1669,21 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
     one that already differed there is old: `before` or `known` where this change touches a copy's file (the member
     is touched then, as in a pytest session), else no line. Copies of another signature are red where they are this
     change's (copies that take different parameters in the words `signals.copies_parameters` gives them in a pytest
-    session), and what could not be compared is not compared. (issues, lines, ran, touched functions): `ran` names
-    the groups whose every pair was compared on every input made for it and agreed (`same:NAME`), whose known entry
-    is then `known fixed?`, as in pytest."""
+    session; a group whose flowguard comments already show what they declare differently, `anchors._index`, has the
+    comments' red alone), and what could not be compared is not compared. (issues, lines, ran, touched functions):
+    `ran` names the groups whose every pair was compared on every input made for it and agreed (`same:NAME`), whose
+    known entry is then `known fixed?`, as in pytest."""
     import math
     from ..map.common import git_renames, read_source
     from .differences import _compare_pairs
     from .plugin import _parse_baseline, compare_copies
     from .runtime import Runtime, _module_at, sealed
-    from .signals import copies_parameters, finding, not_compared
+    from .signals import copies_parameters, finding, not_compared, parameters_finding
     issues, lines, ran, members = [], [], set(), set()
+    # the groups whose flowguard comments already show copies that take different parameters (`anchors._index`),
+    # and those the comments show to declare other roles, units or types: their red is the comments' own
+    named = {issue.name for issue in index.issues if issue.level == 'red' and issue.code == 'parameters'}
+    declared = {issue.name for issue in index.issues if issue.level == 'red' and issue.code in ('parameters', 'identity')}
     # without a baseline the copies still run sealed now; nothing is read at a baseline
     runtime = Runtime(cfg.root, baseline) if baseline else Runtime(cfg.root, previous={})
     renamed = git_renames(cfg.root, baseline) if baseline else {}
@@ -1713,7 +1721,7 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
                            name=anchor.name, kind='sensor', node=None) for anchor in copies]
             lines_of = {anchor.target: f'{anchor.file}:{anchor.target_line}' for anchor in copies}
             found = compare_copies(name, points, [row for row in differ if json_input(row)], source, run, lines_of.get,
-                                   no_inputs='the inputs where its copies differ are not JSON')
+                                   no_inputs='the inputs where its copies differ are not JSON', said=name in named)
             if found.issue is not None:
                 issues.append(found.issue)
                 if found.issue.files & touched:
@@ -1727,12 +1735,13 @@ def _same_name_findings(cfg, index, compared, touched, baseline):
         differing = {reason for item in result['items'] if item['changes'] for reason in item['reasons']}
         reasons = [reason.removeprefix(name + ': ') for reason in result['reasons'] if reason not in differing]
         if result['status'] == 'red' and not result['changes']:
-            if new and len({tuple(p.name for p in anchor.parameters) for anchor in copies}) > 1:
+            if name in declared:
+                pass        # the comments' red names what the copies declare differently (`_index_findings`)
+            elif new and len({tuple(p.name for p in anchor.parameters) for anchor in copies}) > 1:
                 # copies that take different parameters, in the words of a pytest session (`compare_copies`)
                 text, step = copies_parameters([(f'{anchor.file}:{anchor.qual}', '(' + ', '.join(p.source for p in anchor.parameters) + ')')
                                                 for anchor in copies])
-                issues.append(finding('same', f'same:{name}', f'same {name}', [text], step, function='signature',
-                                      places=tuple(f'{anchor.file}:{anchor.qual}' for anchor in copies), files=files))
+                issues.append(parameters_finding(name, text, step, tuple(f'{anchor.file}:{anchor.qual}' for anchor in copies)))
             elif new:   # copies whose declared inputs or outputs no longer match: nothing compares them
                 issues.append(finding('same', f'same:{name}', f'same {name}', reasons, 'declare the same inputs and outputs on every copy',
                                       function='signature', places=tuple(f'{anchor.file}:{anchor.qual}' for anchor in copies),

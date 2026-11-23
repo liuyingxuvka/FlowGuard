@@ -370,7 +370,7 @@ def _sealed_numbers(tree, qual):
     return list({(type(number), number): number for number in [*numbers, *read]}.values())
 
 
-def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no recorded JSON inputs'):
+def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no recorded JSON inputs', said=False):
     """The sealed comparison of the copies of one same name (design 4.5), in pytest and in check alike: the copies
     (`points`: anchor, target, file, module, qual of each) run in the closed environment, never imported, on the
     inputs `signals.copy_inputs` makes of the `recorded` ones ({declared name: value}) and the numbers the copies use,
@@ -379,7 +379,9 @@ def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no 
     baseline could not run names it by (`signals.copy_answers`). Returns what the run reports: `grey` reasons (not
     compared), the `same:NAME` finding (`signals.copies_issue`: a pair red where this change broke it, old where it
     already differed at the baseline) or None, and `ran` when every copy answered every compared input. `no_inputs`
-    says why nothing was compared when no input could be made ('': nothing is said)."""
+    says why nothing was compared when no input could be made ('': nothing is said). `said`: the group's flowguard
+    comments already show copies that take different parameters (`anchors._index`), whose one red is theirs; an input
+    a copy cannot take is still not run on it, and no line of this comparison says so again."""
     import ast
     from types import SimpleNamespace
     from . import cells as C, runtime as R, signals
@@ -455,7 +457,7 @@ def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no 
     reference = next((named[point['target']] for point in points if point['anchor'].owner), None)
     fresh, old, _ = signals.copy_partition(spelled(named, signals.value_text), equal, signals.value_text, reference, len(points),
                                           words=signals.copy_says)
-    if unfit:
+    if unfit and not said:
         # an old matter where every copy took these parameters at the baseline as well (R99), else this change's
         past = [_signature(source(point, True), point['qual']) if source(point, True) is not None else None for point in points]
         text, step = signals.copies_parameters([(named[point['target']], signatures[point['target']][1]) for point in points])
@@ -981,6 +983,8 @@ class Observations:
             if point['anchor'] and point['kind'] == 'sensor':
                 groups.setdefault(point['name'], []).append(point)
         reached = {point['target'] for _, point, _, _, _ in self.records}      # the copies a test called
+        # the groups whose comments show copies that take different parameters: the comments' red says it (`report`)
+        apart = {issue.name for issue in self.index.issues if issue.level == 'red' and issue.code == 'parameters'}
         for name, points in groups.items():
             if len(points) < 2:
                 continue
@@ -994,7 +998,7 @@ class Observations:
                     continue
             recorded = [_declared(point, sample['inputs']) for point in points for sample in samples.get(point['target'], {}).values()]
             found = compare_copies(name, points, recorded, source, run, self._place,
-                                   no_inputs='no recorded JSON inputs' if fresh else '')
+                                   no_inputs='no recorded JSON inputs' if fresh else '', said=name in apart)
             self.grey.extend(found.grey)
             if found.issue is not None:
                 self.copies.append(found.issue)
@@ -1190,7 +1194,10 @@ class Observations:
         self._judged_names()
         syntax = []             # files that cannot be parsed: only they are unverified
         for issue in self.index.issues:
-            if issue.level == 'red':
+            if issue.level == 'red' and issue.code == 'parameters':     # copies that take different parameters: one line
+                what, step = signals.split_step(signals.ascii_text(issue.message))
+                self.issues.append(signals.parameters_finding(issue.name, what, step, issue.places, detail=issue.detail))
+            elif issue.level == 'red':
                 place = f'{issue.file}:{issue.line}' if issue.line else issue.file
                 what, step = signals.split_step(signals.ascii_text(issue.message))
                 self._found('input', f'comment:{place}:{issue.code}', f'comment {place}', what,

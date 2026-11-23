@@ -1618,9 +1618,15 @@ def test_same_name_copies_whose_parameters_differ_where_an_input_fills_them_are_
     code, text = _vitest(root, vitest_home)
     block = _block(text)
     assert code == 1 and 'TypeError' not in '\n'.join(block), text
+    # the map checks of this run name the copies with their declared return types, and their line is the group's one
+    # red; the block keeps 200 characters besides the places, show --last the whole line
     assert [line for line in block if 'same PROJECT_SCOPE:' in line] == [
-        'red: same PROJECT_SCOPE: scope.ts:canView(user, project) and scope.ts:visibleProjects(user, projects) take different '
-        'parameters -> check whether these are copies of one decision, then correct the code or the marks'], block
+        'red: same PROJECT_SCOPE: scope.ts:canView(user, project): boolean and scope.ts:visibleProjects(user, projects): '
+        '{ org: numb...[] take different parameters -> check whether these are copies of one decision, then correct the '
+        'code or the marks'], block
+    assert 'red: same PROJECT_SCOPE: src/scope.ts:canView(user, project): boolean and src/scope.ts:visibleProjects(user, ' \
+           'projects): { org: number }[] take different parameters -> check whether these are copies of one decision, ' \
+           'then correct the code or the marks' in _cli_fixture.last(root).splitlines(), _cli_fixture.last(root)
     # copies of the same parameter names that disagree keep the words of what each returned
     assert [line for line in block if 'same LATE:' in line] == [
         'red: same LATE: on days=3: late.ts:late returns False, late.ts:overdueLate returns True -> decide which copy is right, '
@@ -1630,6 +1636,79 @@ def test_same_name_copies_whose_parameters_differ_where_an_input_fills_them_are_
     assert {key: value for key, value in _cli_fixture.unchecked(root).items() if 'scope.ts' in key} == {
         'PROJECT_SCOPE (src/scope.ts:2)': ['baseline: function absent at baseline'],
         'PROJECT_SCOPE (src/scope.ts:7)': ['baseline: function absent at baseline']}, _cli_fixture.last(root)
+
+
+PT_SCOPE = """
+    export interface User { org: number }
+    export interface Project { org: number; id: number }
+
+    // flowguard: same PROJECT_SCOPE
+    export function canView(user: User, project: Project): boolean {
+      return user.org === project.org;
+    }
+
+    // flowguard: same PROJECT_SCOPE
+    export function visibleProjects(user: User, projects: Project[]): Project[] {
+      return projects.filter((project) => project.org === user.org);
+    }
+"""
+PT_SCOPE_RED = ('red: same PROJECT_SCOPE: scope.ts:canView(user, project): boolean and scope.ts:visibleProjects(user, projects): '
+                'Project[] take different parameters -> check whether these are copies of one decision, then correct the code '
+                'or the marks')
+
+
+def test_typescript_copies_that_take_different_parameters_are_one_red_in_check_static_and_vitest(vitest_home):
+    # Review of 5.1 (U5-PTWF-4a): Planning Tool's red was check --static's, which still printed 5.0.1's two lines,
+    # `red: comment scope.ts:4: same anchor PROJECT_SCOPE has conflicting roles, units or signature -> correct this
+    # flowguard comment`, naming no function or difference, the second offering `write # flowguard: same
+    # PROJECT_SCOPE(user=<its parameter>, project=<its parameter>) on this copy`: a Python comment in a .ts file, which
+    # the TS reader refuses when written with `//`. A vitest run gave both and a third red for the one problem.
+    root = vitest_home / 'pt-scope'
+    files = {}
+    for package in ('web', 'api'):
+        files.update({
+            f'{package}/package.json': '{"name": "' + package + '", "private": true, "type": "module", "scripts": {"test": "vitest run"}, '
+                                       '"devDependencies": {"vitest": "' + VITEST + '"}}\n',
+            f'{package}/src/limit.ts': 'export function over(x: number): boolean {\n  return x > 3;\n}\n',
+            f'{package}/tests/limit.test.ts': "import { expect, it } from 'vitest';\nimport { over } from '../src/limit';\n"
+                                             "it('over', () => { expect(over(4)).toBe(true); });\n"})
+    _commit(root, files)
+    assert _flowguard(root, 'init')[0] == 0
+    _commit(root, message='flowguard init')
+    _write(root, {'api/src/scope.ts': PT_SCOPE, 'api/tests/scope.test.ts': """
+        import { it, expect } from 'vitest';
+        import { canView, visibleProjects } from '../src/scope';
+        it('scope', () => {
+          const u = { org: 1 };
+          expect(canView(u, { org: 1, id: 1 })).toBe(true);
+          expect(visibleProjects(u, [{ org: 1, id: 1 }, { org: 2, id: 2 }])).toEqual([{ org: 1, id: 1 }]);
+        });
+    """})
+    code, text = _flowguard(root, 'check', '--static')
+    assert code == 1 and [line for line in text.splitlines() if line.startswith('red: ')] == [PT_SCOPE_RED], text
+    shown = _cli_fixture.last(root)
+    # what is true of JS/TS copies, and no `#` comment for a .ts file
+    assert '    ' + signals.FOREIGN_PARAMETERS in shown.splitlines() and '# flowguard' not in shown, shown
+    code, text = _vitest(root / 'api', vitest_home)
+    block = _block(text)
+    assert code == 1 and [line for line in block if line.startswith('red: ')] == [PT_SCOPE_RED], text
+    # the parameter mapping a Python copy writes is no JS/TS comment: the reader refuses it, as before
+    (root / 'api/src/scope.ts').write_text(textwrap.dedent(PT_SCOPE).lstrip().replace(
+        '// flowguard: same PROJECT_SCOPE\nexport function visibleProjects',
+        '// flowguard: same PROJECT_SCOPE(user=user, project=projects)\nexport function visibleProjects'), encoding='utf-8')
+    code, text = _flowguard(root, 'check', '--static')
+    assert code == 1 and [line for line in text.splitlines() if line.startswith('red: ')] == [
+        'red: comment scope.ts:9: scope.ts:9: same needs one NAME: // flowguard: same NAME -> correct this flowguard comment'], text
+    # two references of one name: the step is written in the file's own comment syntax
+    (root / 'api/src/scope.ts').write_text(textwrap.dedent(PT_SCOPE).lstrip().replace(
+        'same PROJECT_SCOPE\n', 'same PROJECT_SCOPE ref\n').replace('projects: Project[]): Project[]', 'project: Project): boolean')
+        .replace('return projects.filter((project) => project.org === user.org);', 'return project.org === user.org;'),
+        encoding='utf-8')
+    code, text = _flowguard(root, 'check', '--static')
+    assert code == 1 and [line for line in text.splitlines() if line.startswith('red: ')] == [
+        f'red: comment scope.ts:{line}: PROJECT_SCOPE has 2 references (scope.ts:4, scope.ts:9): '
+        'keep one reference; mark the copies // flowguard: same PROJECT_SCOPE -> correct this flowguard comment'
+        for line in (4, 9)], text
 
 
 def test_a_known_fixed_of_the_map_checks_is_listed_in_a_vitest_run_that_touches_the_entrys_sites(vitest_home):

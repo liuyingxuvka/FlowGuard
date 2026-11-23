@@ -164,8 +164,12 @@ def test_parameters_correspond_only_by_name_unless_the_copy_writes_its_mapping(t
             return overdue_days <= 4
     '''
     index = anchors._index([anchors._anchor(row) for row in _facts(source)['anchors']], [])
-    hint = next(issue.message for issue in index.issues if 'ELIGIBLE(' in issue.message)
-    assert 'parameters correspond only by name: write # flowguard: same ELIGIBLE(days=<its parameter>)' in hint
+    # one red for the group, which names each copy's parameters; a Python copy keeps the mapping it can write
+    assert [(issue.code, issue.message) for issue in index.issues] == [
+        ('parameters', 'policy.py:owner(days): bool and policy.py:copy(overdue_days): bool take different parameters '
+                       '-> check whether these are copies of one decision, then correct the code or the marks')]
+    assert index.issues[0].detail == ('parameters correspond only by name: write # flowguard: same ELIGIBLE(days=<its '
+                                      'parameter>) above policy.py:copy if it is a copy of policy.py:owner',)
     mapped = source.replace('# flowguard: same ELIGIBLE\n', '# flowguard: same ELIGIBLE(days=overdue_days)\n')
     facts = _facts(mapped)
     copy = anchors._anchor(facts['anchors'][1])

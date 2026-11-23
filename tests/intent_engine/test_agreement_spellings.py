@@ -632,10 +632,10 @@ def second(value: int) -> bool: return value > 0
 def first(value: int) -> bool: return value > 0
 # flowguard: same LIMIT
 def second(other: int) -> bool: return other > 0
-''', 'identity'),
+''', 'parameters'),     # 5.1: copies that take different parameters are one red of the group
 ])
 def test_new_names_do_not_relax_units_signatures_or_the_single_reference(tmp_path, source, expected):
     _files(tmp_path, {'policy.py': source})
     with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
         index = anchors.collect(graph)
-    assert any(issue.code == expected and issue.name == 'LIMIT' for issue in index.issues)
+    assert any(issue.code == expected and issue.name == 'LIMIT' and issue.level == 'red' for issue in index.issues)

@@ -717,3 +717,50 @@ def test_same_name_copies_that_take_different_parameters_are_named_as_such(tmp_p
     assert result.returncode == 0 and block(result)[1:] == [
         'before: same PROJECT_SCOPE disagreed at task start: policy.py:can_view(user, project) and '
         'policy.py:visible_projects(user, projects) take different parameters -> leave it unless your task is about it'], _text(result)
+
+
+TYPED_SCOPE = SCOPE.replace('def can_view(user, project):', 'def can_view(user: dict, project: dict) -> bool:').replace(
+    'def visible_projects(user, projects):', 'def visible_projects(user: dict, projects: list) -> list:')
+TYPED_RED = ('red: same PROJECT_SCOPE: scope.py:can_view(user, project): bool and scope.py:visible_projects(user, projects): '
+             'list take different parameters -> check whether these are copies of one decision, then correct the code or '
+             'the marks')
+
+
+def test_copies_whose_comments_show_other_parameters_are_one_red_in_check_static_pytest_and_check(tmp_path):
+    # Review of 5.1 (U5-PTWF-4a): with annotations the flowguard comments' index saw the copies differ too. pytest and
+    # check printed 3 reds for one problem, two of them `red: comment scope.py:1: same anchor PROJECT_SCOPE has
+    # conflicting roles, units or signature -> correct this flowguard comment`, which named no function, signature or
+    # difference; check --static printed those two.
+    from tests.intent_engine._cli_fixture import main
+    _project(tmp_path, 'def other():\n    return 1\n', 'def test_nothing():\n    assert True\n')
+    (tmp_path / 'scope.py').write_text(TYPED_SCOPE.lstrip(), encoding='utf-8')
+    (tmp_path / 'tests/test_scope.py').write_text(SCOPE_TEST.lstrip(), encoding='utf-8')
+    assert main(['--root', str(tmp_path), 'check', '--static'], cwd=tmp_path) == 1
+    assert [line for line in last(tmp_path).splitlines() if line.startswith('red: ')] == [TYPED_RED], last(tmp_path)
+    result = _run(tmp_path)
+    assert result.returncode == 1 and [line for line in block(result) if line.startswith('red: ')] == [TYPED_RED], _text(result)
+    assert main(['--root', str(tmp_path), 'check'], cwd=tmp_path) == 1
+    assert [line for line in last(tmp_path).splitlines() if line.startswith('red: ')] == [TYPED_RED], last(tmp_path)
+    # a Python copy keeps the mapping it can write, in the detail; no line offers a `//` comment
+    detail = last(tmp_path).splitlines()
+    assert '    parameters correspond only by name: write # flowguard: same PROJECT_SCOPE(user=<its parameter>, project=<its ' \
+           'parameter>) above scope.py:visible_projects if it is a copy of scope.py:can_view' in detail, last(tmp_path)
+    assert '//' not in last(tmp_path)
+
+
+def test_copies_that_declare_other_types_keep_a_line_at_each_comment_that_names_the_difference(tmp_path):
+    # the same parameters, other return types: no copies that take different parameters, a conflict of the comments
+    from tests.intent_engine._cli_fixture import main
+    _project(tmp_path, """
+        # flowguard: same DAYS
+        def first(days: int) -> bool:
+            return days > 3
+
+        # flowguard: same DAYS
+        def second(days: int) -> int:
+            return days - 3
+    """, 'def test_nothing():\n    assert True\n')
+    assert main(['--root', str(tmp_path), 'check', '--static'], cwd=tmp_path) == 1
+    assert [line for line in last(tmp_path).splitlines() if line.startswith('red: ')] == [
+        f'red: comment policy.py:{line}: same anchor DAYS has conflicting return types (bool at policy.py:first, int at '
+        'policy.py:second) -> correct this flowguard comment' for line in (1, 5)], last(tmp_path)

@@ -1210,13 +1210,16 @@ def extract(root, rel, data, module, is_test):
             own_shadows = scoped_names(node) | destructured | ((set(parameters) | set(shadows)) - local_functions(node) - {name})
             body = field(node, 'body')
             header = source[node.start_byte:(body.start_byte if body else node.end_byte)].decode('utf-8')
+            # the return type the function declares (`: Project[]`), as written on one line: a `same` copy names it
+            returned = field(node, 'return_type') if not is_class else None
+            returns = dict(returns=' '.join(text(returned, source).removeprefix(':').split())) if returned is not None else {}
             row = dict(qual=qual, kind=('interface' if node.type == 'interface_declaration' else 'enum' if node.type == 'enum_declaration' else 'class') if is_class else 'method' if cls else 'function',
                        cls=cls, line=node.start_point.row + 1, end=node.end_point.row + 1,
                        sig=header, doc='', fp=fingerprint(node, source, name),
                        shape=[] if name.startswith('<anonymous') or is_class or body is None
                        else kinds_shape(own_kinds(body))[:SHAPE_K],
                        size=node.descendant_count, raw=dict(name=name, scope=scope, declared_qual=declared_qual, parameters=arg_names,
-                       shadows=sorted(own_shadows), declaration_kind=node.type, **holder_of(node)),
+                       shadows=sorted(own_shadows), declaration_kind=node.type, **holder_of(node), **returns),
                        column=position(node, source)['column'], end_column=position(node, source)['end_column'])
             if not scope and name.startswith('<anonymous') and (registered := registration(node)) is not None:
                 row['raw']['callback'] = registered     # a module-level callback: how its module registers it
