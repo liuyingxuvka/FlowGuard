@@ -753,7 +753,8 @@ def test_a_hold_that_is_not_confirmed_is_noted_only_on_a_finding_of_its_agreemen
 # ---- the baseline reads only what the map reads -------------------------------------------------------------
 
 def test_a_deleted_file_the_map_never_reads_gives_the_baseline_nothing(tmp_path):
-    # `.flowguard/**` and `[tool.flowguard] exclude` are never mapped, so they held no write at the baseline either.
+    # `.flowguard/**` and `[tool.flowguard] exclude` are never mapped, so they held no write at the baseline either:
+    # since 5.1 a path the map does not read is not among the paths whose baseline side the change alters (`store.mapped`).
     retired = '''
         def reserve(db, hire_id):
             db.execute("UPDATE hires SET reserved = 1 WHERE id = ?", (hire_id,))
@@ -766,5 +767,6 @@ def test_a_deleted_file_the_map_never_reads_gives_the_baseline_nothing(tmp_path)
     with closing(build(tmp_path)) as graph:
         change = owners.Change(load_config(tmp_path), graph, 'HEAD')
         assert {path: change.module(path) for path in sorted(change.baseline_paths()) if path.endswith('.py')} == {
-            '.flowguard/models/retired.py': None, 'shop/old.py': 'shop.old', 'vendor/tool.py': None}
+            'shop/old.py': 'shop.old'}
+        assert change.module('.flowguard/models/retired.py') is None and change.module('vendor/tool.py') is None
         assert {row['file'] for row in change.baseline_writes('hires.reserved')} == {'shop/old.py'}

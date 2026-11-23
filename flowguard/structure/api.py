@@ -401,6 +401,10 @@ class MapHandle:
         revision = self._baseline_revision(revision)
         if revision == ':':
             return git_path_object(self.root, revision, path)
+        return self._baseline_tree(revision).get(Path(path).as_posix())
+
+    def _baseline_tree(self, revision):
+        """{path: blob} of the files of commit `revision` (pinned), below this map's root and relative to it, read once."""
         trees = self._derived.setdefault('baseline_objects', {})
         if revision not in trees:
             listing = git_run(self.root, 'ls-tree', '-r', '-z', revision).stdout
@@ -412,7 +416,15 @@ class MapHandle:
                     if kind == b'blob':     # a file; a folder or a submodule's commit is none (git_path_object)
                         objects[os.fsdecode(name)] = found.decode()
             trees[revision] = objects
-        return trees[revision].get(Path(path).as_posix())
+        return trees[revision]
+
+    def _baseline_files(self, revision):
+        """The paths of the files at the baseline `revision` (relative to this map's root, as `_baseline_object` names
+        them): a commit's tree, or the index's files for ':'."""
+        revision = self._baseline_revision(revision)
+        if revision == ':':
+            return sorted(os.fsdecode(name) for name in git_run(self.root, 'ls-files', '-z').stdout.split(b'\0') if name)
+        return sorted(self._baseline_tree(revision))
 
     def _baseline_bytes(self, revision, path):
         blob = self._baseline_object(revision, path)
@@ -1856,9 +1868,12 @@ class MapHandle:
         return sorted(tests)
 
     def _git_changed(self, since: str) -> list[str]:
+        """The paths the working tree changes against git `since` (Git's diff, untracked files too) that this map reads
+        or lists (`store.mapped`): a path its ignore patterns, `[tool.flowguard] exclude` among them, leave out, or a
+        source inside an environment, is no change of the map's, and its baseline version is never read."""
         out = git_run(self.root, "diff", "--name-only", "--relative", since, "--").stdout.decode().split("\n")
         out += git_run(self.root, "ls-files", "--others", "--exclude-standard").stdout.decode().split("\n")
-        return sorted({f for f in out if f})
+        return store.mapped(self.root, sorted({f for f in out if f}))
 
     def _delta_against(self, since: str, files: list[str]) -> list[tuple]:
         rows = []

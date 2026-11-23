@@ -575,10 +575,20 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
+["flowguard/intent/plugin.py:Observations._map:MapError"]
+count = 1
+reason = "When the session's map cannot be built (a reader whose optional extra is not installed, Git, the cache), it keeps the error's text in map_error and returns None; the session compares only the functions a flowguard comment names and report gives the text as one red map checks line with exit 1, so the project's tests run and pytest's own summary stays (R85)."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
 ["flowguard/intent/plugin.py:Observations._rule_signals:PredicateError"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
+
+["flowguard/intent/plugin.py:Observations.report:MapError"]
+count = 1
+reason = "When the map checks of a pytest session stop on a MapError (a reader whose optional extra is not installed, Git, the cache), it keeps the error's text in map_error; report then gives it as one red map checks line with its step and exit 1, beside the session's other lines, instead of a traceback that replaces pytest's own summary (R85)."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
 ["flowguard/intent/plugin.py:Session.ledger:(MapError, OSError, UnicodeError)"]
 count = 1

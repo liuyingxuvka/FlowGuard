@@ -83,6 +83,8 @@ Use `python -m flowguard check --static` for checks without running tests, or ad
 
 The base installation reads Python. Install `flowguard[languages]` for TS/JS, Prisma, SQL and the frozen C/C++/C# readers. Vitest with ESM supports execution observations; Jest runs static checks. A function that cannot run in the closed comparison after the tests is `not compared`, with its reason. Agreement on tested inputs does not prove the intended business answer.
 
+A file listed in `[tool.flowguard] exclude = ["translations/*.ts"]` (paths from the project root, `**` across folders) is never read, at the task start either, and its reader need not be installed; a change that adds one to the list makes each agreement it held a `loosened` line. An included file whose reader is not installed stops `check --static` with its error (exit 2) and is one red `map checks` line after pytest's own summary.
+
 FlowGuard acts only inside test runs. It never runs a function a second time inside a test, and builds, the dev server and production never load it.
 
 ## Compatibility and repository

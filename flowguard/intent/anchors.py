@@ -958,6 +958,26 @@ def foreign_owners(text, module, file, *, is_test=False, functions=()):
     return {'anchors': entries, 'anchor_issues': problems} if entries or problems else {}
 
 
+def comment_agreements(text, module, file, *, is_test=False):
+    """The agreements the `// flowguard:` comment lines of a JS/TS source state, read without its grammar (a file the
+    map no longer reads, which `owners.loosened` compares at the baseline): the together and writers rows
+    `foreign_owners` reads, and each `same NAME` (`same NAME ref`) as a sensor row whose function is unknown (`qual`
+    ''). Only a line that is a `//` comment is read: a `flowguard:` inside a string, a template or other text is no
+    agreement, and neither is one after code on its line."""
+    lines = [line if re.match(r'\s*//', line) else '' for line in _lines(text)]
+    rows = [row for row in foreign_owners('\n'.join(lines), module, file, is_test=is_test).get('anchors', ())
+            if row['kind'] == 'owner']
+    role = 'test' if is_test else 'production'
+    for number, line in enumerate(lines, 1):
+        found = _FOREIGN_HEAD.search(line)
+        if found and found[1] == 'same':
+            _, name, reference = _agreement('same', found[2])
+            if re.fullmatch(_NAME, name.strip()):
+                rows.append(asdict(Anchor('sensor', name.strip(), file, module, '', number, number, source_role=role,
+                                          owner=reference)))
+    return rows
+
+
 def _anchor(data):
     data = dict(data)
     data['parameters'] = tuple(Parameter(**p) for p in data.get('parameters', ()))

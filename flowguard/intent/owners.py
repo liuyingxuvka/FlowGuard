@@ -19,7 +19,7 @@ import re
 import threading
 import time
 
-from flowguard.map.common import git_blob, git_renames, git_run, is_test_file, read_source
+from flowguard.map.common import MapError, git_blob, git_renames, git_run, is_test_file, read_source
 
 SIMILAR_SHAPE = 0.5          # 3-gram Jaccard of two function bodies that counts as a similar structure
 TRIVIAL = {0, 1, -1, 2}      # numbers too common to tie two functions together
@@ -165,30 +165,66 @@ class Change:
 
     def baseline_paths(self):
         """The paths whose baseline side this change alters: `files`, and the old path of a staged rename, which
-        `files` (Git's rename detection) names by its new path only. Read once."""
+        `files` (Git's rename detection) names by its new path only; as `files`, only paths the map reads
+        (`store.mapped`). Read once."""
         if not hasattr(self, '_baseline_paths'):
+            from flowguard.structure.store import mapped
             listed = git_run(self.graph.root, 'diff', '--name-only', '-z', '--relative', '--no-renames', self.baseline,
                              '--').stdout if self.baseline else b''
-            self._baseline_paths = frozenset(self.files | {os.fsdecode(name) for name in listed.split(b'\0') if name})
+            self._baseline_paths = frozenset(self.files | set(mapped(self.graph.root, [os.fsdecode(name) for name in
+                                                                                      listed.split(b'\0') if name],
+                                                                     self._ignore())))
         return self._baseline_paths
+
+    def _ignore(self):
+        """The map's ignore patterns now (`store.ignored`), read once."""
+        if not hasattr(self, '_ignored'):
+            from flowguard.structure.store import ignored
+            self._ignored = ignored(self.graph.root)
+        return self._ignored
 
     def module(self, file):
         """The module the map names `file` by; for a file the working tree no longer holds (this change deletes it or
-        renames it away) the name `graph.impact` gives it (`_file_deltas`). None for a file the map does not read,
-        such as one its ignore patterns leave out (`store.ignored`), which it did not read at the baseline either."""
-        from flowguard.map.common import matches_any
+        renames it away) the name `graph.impact` gives it (`_file_deltas`). None for a file the map does not read
+        (`store.mapped`), such as one its ignore patterns leave out, which it did not read at the baseline either."""
         from flowguard.structure.readers.registry import language_for, module_name
-        from flowguard.structure.store import ignored
+        from flowguard.structure.store import mapped
         if file in self._modules:
             return self._modules[file]
         language = language_for(file)
         if not language or (self.graph.root / file).exists():
             return None
-        if not hasattr(self, '_ignored'):
-            self._ignored = ignored(self.graph.root)
-        if matches_any(file, self._ignored):
+        if not mapped(self.graph.root, [file], self._ignore()):
             return None
         return file[:-3].replace('/', '.') if language == 'python' else module_name(file)
+
+    def newly_excluded(self):
+        """{path: module} of the files the baseline's map read that the map now leaves out: this change edits
+        `[tool.flowguard] exclude` (or its pyproject.toml) so that its ignore patterns take a file with a reader out
+        of the map (`store.mapped` with the baseline's pyproject.toml and with the current one). Their agreements are
+        gone from the map, which `loosened` reports. The module is the name `graph.impact` gives a file the map lacks.
+        Empty without a baseline or when pyproject.toml is as at the baseline. Read once."""
+        if not hasattr(self, '_newly_excluded'):
+            from flowguard.structure.readers.registry import language_for, module_name
+            from flowguard.structure.store import ignored, mapped, project_config
+            self._newly_excluded = {}
+            root = self.graph.root
+            then = self.graph._baseline_bytes(self.baseline, 'pyproject.toml') if self.baseline else None
+            now = (root / 'pyproject.toml').read_bytes() if (root / 'pyproject.toml').is_file() else None
+            if self.baseline and then != now:
+                import tomllib
+                try:
+                    before = ignored(root, project_config(root, data=then or b''))
+                except tomllib.TOMLDecodeError as error:
+                    raise MapError(f'pyproject.toml at the baseline {self.baseline[:7]} does not parse: {error}; the '
+                                   'files this change takes out of the map were not compared') from error
+                if before != self._ignore():
+                    sources = [path for path in self.graph._baseline_files(self.baseline) if language_for(path)]
+                    read = mapped(root, sources, before)
+                    kept = set(mapped(root, read, self._ignore()))
+                    self._newly_excluded = {path: path[:-3].replace('/', '.') if language_for(path) == 'python'
+                                            else module_name(path) for path in read if path not in kept}
+        return self._newly_excluded
 
     def old_facts(self, file):
         """The map facts the same extractor reads from the file's baseline bytes ({} when it was absent, or when
@@ -1239,13 +1275,15 @@ def loosened(change, index):
     from .signals import LOOSENED_STEP, Line
     found = Findings()
     paths = change.baseline_paths() if change.baseline else frozenset()
-    if not paths:
+    excluded = change.newly_excluded() if change.baseline else {}
+    if not paths and not excluded:
         return found
     from flowguard.structure import store
-    from .anchors import _graph_locator
+    from .anchors import _graph_locator, comment_agreements
     graph = change.graph
-    # a 4.2 bare name means the functions of that name in the map, at the baseline too, as the step 5.0 prints names them
-    modules = {path: change.module(path) for path in paths if change.module(path)} | change._modules
+    # a 4.2 bare name means the functions of that name in the map, at the baseline too, as the step 5.0 prints names them;
+    # a file this change takes out of the map keeps the module it had, on both sides
+    modules = {path: change.module(path) for path in paths if change.module(path)} | excluded | change._modules
     locate = _graph_locator(graph, modules)
 
     def nodes(path):
@@ -1287,6 +1325,20 @@ def loosened(change, index):
             old_rows.extend(rows)
     for path in sorted(paths):
         old_rows.extend(then_rows[path])
+    for path, module in sorted(excluded.items()):
+        # A file the baseline's map read and this change's exclude takes out of the map: its agreements are gone from
+        # it. Python's are its baseline facts (the stdlib reader); another file's comment lines are read as text, so
+        # a grammar the map no longer needs is never loaded for it (R85).
+        data = graph._baseline_bytes(change.baseline, path)
+        if path.endswith('.py'):
+            rows, _ = _stated(locate, path, module, graph._baseline_part(change.baseline, path, module, 'anchor_issues',
+                                                                         is_test_file(path)) or (),
+                              lambda path=path, data=data: (read_source(graph.root / path, data=data), ()))
+            old_rows.extend([*(graph._baseline_part(change.baseline, path, module, 'anchors', is_test_file(path)) or ()),
+                             *rows])
+        else:
+            old_rows.extend(comment_agreements(read_source(graph.root / path, data=data), module, path,
+                                               is_test=is_test_file(path)))
     (then, same_then), (now, same_now) = _agreements(old_rows, modules, moved), _agreements(new_rows, modules)
     files = {module: path for path, module in modules.items()}
 
@@ -1297,6 +1349,8 @@ def loosened(change, index):
 
     def line(key, text, row, function=''):
         place = f'{row["file"]}:{row["line"]}'
+        if row['file'] in excluded:
+            text += ' (its file is now excluded by [tool.flowguard] exclude)'
         found.lines.append(Line('loosened', f'loosened:{key}', function, text, LOOSENED_STEP, (place,), (f'comment at {place}',)))
 
     def added(new, old):
@@ -1328,7 +1382,11 @@ def loosened(change, index):
                     line(f'writer:{name}:{writer}', f'{spelled(writer, row)} added to writers {name}', row)
     for (name, function), rows in sorted(same_then.items()):
         for row in rows[len(same_now.get((name, function), ())):]:
-            line(f'same:{name}:{function}', f'same {name} removed from {row["file"]}:{row["qual"]}', row, function)
+            if row['qual']:
+                line(f'same:{name}:{function}', f'same {name} removed from {row["file"]}:{row["qual"]}', row, function)
+            else:       # a JS/TS comment read as text names no function (`comment_agreements`): its line instead
+                place = f'{row["file"]}:{row["line"]}'
+                line(f'same:{name}:{place}', f'same {name} removed from {place}', row)
     return found
 
 

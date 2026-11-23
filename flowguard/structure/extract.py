@@ -1074,9 +1074,9 @@ def extract(root: Path, rel: str, data: bytes, module: str, is_test: bool) -> di
             missing = getattr(error, 'name', None)
             if missing not in {'tree-sitter', 'tree_sitter', *GRAMMARS[language][:2]}:
                 raise
-            raise MapError(f'{rel}: {language} reader unavailable: missing {missing}; '
-                           'install the optional dependencies with pip install '
-                           '"flowguard[languages] @ git+https://github.com/liuyingxuvka/FlowGuard.git"') from error
+            raise MapError(f'{rel}: {language} reader unavailable: missing {missing} -> pip install '
+                           '"flowguard[languages] @ git+https://github.com/liuyingxuvka/FlowGuard.git", or list it in '
+                           '[tool.flowguard] exclude') from error
     facts = _extract_python(root, rel, data, module, is_test)
     facts['language'] = 'python'
     import sys

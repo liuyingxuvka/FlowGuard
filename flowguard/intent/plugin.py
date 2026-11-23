@@ -530,9 +530,11 @@ class Observations:
             self.files = {os.fsdecode(value) for value in (changed + added).split(b'\0')
                           if value and value.endswith(b'.py') and state.is_project(str(self.cfg.root / os.fsdecode(value)))}
             self.differs = {os.fsdecode(value) for value in changed.split(b'\0') if value}
-            # A changed TS/JS, Prisma, SQL or other mapped file is a change too: the map checks read it.
-            self.mapped = {os.fsdecode(value) for value in (changed + added).split(b'\0')
-                           if value and language_for(os.fsdecode(value)) not in (None, 'python')}
+            # A changed TS/JS, Prisma, SQL or other mapped file is a change too: the map checks read it. A file the map
+            # leaves out (`store.mapped`: its ignore patterns, [tool.flowguard] exclude among them) is none.
+            from ..structure.store import mapped
+            self.mapped = set(mapped(self.cfg.root, [os.fsdecode(value) for value in (changed + added).split(b'\0')
+                                                     if value and language_for(os.fsdecode(value)) not in (None, 'python')]))
             self.renamed = git_renames(self.cfg.root, baseline)
             # every file the change edits, adds or deletes: a finding's member there is touched (`signals.deliver`)
             self.touched = {os.fsdecode(value) for value in (changed + added).split(b'\0') if value}
@@ -541,6 +543,9 @@ class Observations:
             self.differs = set()
             self.mapped = set()
             self.touched = set()
+        # pyproject.toml holds what the map reads ([tool.flowguard] exclude, roots): a change of it runs the map checks,
+        # which report the agreements of a file it takes out of the map (`owners.loosened`)
+        self.configured = 'pyproject.toml' in self.touched
         self.points = {a.target: dict(anchor=a, target=a.target, file=a.file, module=a.module, qual=a.qual,
                                      name=a.name, kind=a.kind, node=None)
                        for a in self.index.entries if a.kind in ('sensor', 'event') and a.source_role != 'test'
@@ -548,6 +553,8 @@ class Observations:
         self.changed, self.records, self.grey = bool(self.files), [], []
         self.metadata, self.bound, self.event_codes, self.payload = {}, {}, {}, None
         self.structure = None
+        self.map_error = None       # the text of a MapError that stopped the map checks (`_map`, `report`): no second build
+        self.map_missed = []        # what the session could not compare without its map (`_map`)
         self.old_copies = set()     # the same names whose copies this change leaves as they were (`_compare`)
         self.event_record = self.capture = None
         self.text = ''
@@ -598,8 +605,8 @@ class Observations:
         # file's constants that change with them, the names its imports bind to them, its module names)} of each
         # file importing one, as the vitest plan follows imports (`runtime._imported_changes`).
         changed_modules, imported = {}, {}
-        if self.files:
-            graph = state.get_map()
+        graph = self._map() if self.files else None
+        if graph is not None:
             # the map's Python files; whether one is project code is asked only where an importer of a module is
             # looked for (`project`), not of every file
             modules = {path: module for path, module, error in graph.con.execute('SELECT path, module, parse_error FROM file')
@@ -665,9 +672,8 @@ class Observations:
         # A before/after comparison is due for a function whose sealed run changed, not for its unchanged neighbours.
         for point in self.points.values():
             point['changed'] = (point['file'] in self.files or point['file'] in imported) and reaches(point['file'], point['qual'])
-        if self.changed:
+        if graph is not None:
             # The existing map supplies module ownership for unanchored changed functions.
-            graph = state.get_map()
             # The running FlowGuard never observes its own observation code: hooking the
             # changed Runtime.observe (or a replay helper) re-enters itself without end.
             tool, own = Path(__file__).resolve().parents[1], {}
@@ -691,6 +697,19 @@ class Observations:
                                                        node=node, changed=True, why=why))
         for point in self.points.values():
             self.by_file.setdefault(point['file'], []).append(point)
+
+    def _map(self):
+        """The session's map, or None when it cannot be built (a reader whose extra is not installed, Git, the
+        cache): the session then compares only the functions a flowguard comment names, and the map checks' red line
+        gives the error's text (`report`, R85). Its tests run as they would without FlowGuard."""
+        from ..map.common import MapError
+        try:
+            return self.state.get_map()
+        except MapError as error:
+            self.map_error = str(error)
+            self.map_missed.append('the functions this change edits that no flowguard comment names, and the files that '
+                                   'import a constant it changes, were not compared')
+            return None
 
     def _module(self, module):
         import types
@@ -1052,25 +1071,40 @@ class Observations:
                                 places=(issue.file,))
         found = None
         catalog = sources.catalog_files(self.cfg)
-        if self.changed or self.mapped or set(sources.CATALOG_FILES) & self.touched:
-            # The map checks need no replay: owner writes and pairs, values, the catalog, structure problems.
-            from . import anchors, owners
-            graph = self.state.get_map()       # the map's index also holds the TS/JS owners (check --static reads it)
-            collector = _SIGNALS.get()
-            everything = collector.everything if collector is not None else False
-            key = (self.cfg.root, self.requested_base, everything)
-            if collector is not None and key in collector.static:
-                found = collector.static[key]
-            else:
-                found = owners.static_findings(self.cfg, graph, anchors.collect(graph), self.runtime.baseline,
-                                              everything=everything)
-                if collector is not None:
-                    collector.static[key] = found
-            self.structure = found.summary         # the session brief's count of open structure problems
-        elif catalog:
-            # Without a change the map checks do not run; an invalid rules.toml or known.toml, or a known entry whose
-            # site names nothing on the map, is red in every run (D4).
-            self.issues.extend(sources.input_findings(self.cfg, self.state.get_map))
+        from ..map.common import MapError
+        if self.map_error is None:      # else the map could not be built when the session began (`_map`)
+            try:
+                if self.changed or self.mapped or self.configured or set(sources.CATALOG_FILES) & self.touched:
+                    # The map checks need no replay: owner writes and pairs, values, the catalog, structure problems.
+                    from . import anchors, owners
+                    graph = self.state.get_map()   # the map's index also holds the TS/JS owners (check --static reads it)
+                    collector = _SIGNALS.get()
+                    everything = collector.everything if collector is not None else False
+                    key = (self.cfg.root, self.requested_base, everything)
+                    if collector is not None and key in collector.static:
+                        found = collector.static[key]
+                    else:
+                        found = owners.static_findings(self.cfg, graph, anchors.collect(graph), self.runtime.baseline,
+                                                      everything=everything)
+                        if collector is not None:
+                            collector.static[key] = found
+                    self.structure = found.summary         # the session brief's count of open structure problems
+                elif catalog:
+                    # Without a change the map checks do not run; an invalid rules.toml or known.toml, or a known entry
+                    # whose site names nothing on the map, is red in every run (D4).
+                    self.issues.extend(sources.input_findings(self.cfg, self.state.get_map))
+            except MapError as error:
+                self.map_error = str(error)
+                found = None
+        if self.map_error is not None:
+            # The map checks could not read the project (a reader whose extra is not installed, Git, the cache): one red
+            # line with the error's text and step (`check --static` exits 2 with it), while the session's other lines,
+            # its records and pytest's own summary stay as they are (R85).
+            what, step = signals.split_step(signals.ascii_text(self.map_error))
+            named = what.partition(': ')[0]         # a reader's error names its file first
+            self._found('input', 'session:map checks', 'map checks', what, step or 'correct this error and rerun the tests',
+                        places=(named,) if named in self.repository else (),
+                        detail=('the map checks of this change did not run', *self.map_missed))
         for error in model.errors:
             place = f'{error["file"]}:{error["line"]}'
             self._found('input', f'load:{place}', f'load {place}', *signals.load_step(error['msg']), places=(place,),
@@ -1951,7 +1985,10 @@ def _verify(session, exitstatus):
                                                completed_nodeids=sorted(state.completed))
     observed = state.observations is not None and (state.observations.records
                                                    or any(line.kind == 'red' for line in state.observations.lines))
-    if not declared and not observed:
+    # A map this session could not build (the map checks' red line says why, `Observations.report`) is not built again:
+    # the session keeps what needs no map, as one that builds none.
+    unbuilt = state.map is None and state.observations is not None and state.observations.map_error is not None
+    if not declared and not observed or unbuilt:
         # Standalone pytest does not build a map, but must retire old traces
         # for a test it ran without recording. Never refresh them by implication.
         # Recorded anchor events are kept even before the first map exists. A

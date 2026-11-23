@@ -195,18 +195,13 @@ def _source_index(root, get_map):
     spells one, the map (`get_map()`, an open map the caller closes) is read and the removed reds are its index's
     (`anchors.collect`), as check --static prints them; otherwise the map is not read."""
     from . import anchors
-    from flowguard.map.common import DEFAULT_IGNORE, matches_any
     from flowguard.map.inventory import list_files
     from flowguard.structure import roots
-    from flowguard.structure.paths import project_files
     from flowguard.structure.readers.registry import ECMA, language_for
-    from flowguard.structure.store import project_config
-    # The same file selection as the map build: [tool.flowguard] exclude applies here too.
-    ignore = [pattern for pattern in DEFAULT_IGNORE if pattern != 'venv/**'] + [
-        str(pattern) for pattern in project_config(Path(root)).get('exclude', [])]
-    files = [file for file in list_files(root) if not matches_any(file, ignore)]
+    from flowguard.structure.store import mapped
+    # The map build's file selection (`store.mapped`): [tool.flowguard] exclude applies here too.
+    files = mapped(root, list_files(root))
     python = [file for file in files if file.endswith('.py')]
-    python = [file for file, owned in zip(python, project_files([str(root / file) for file in python], root)) if owned]
     sources = {file: (root / file).read_bytes() for file in python}
     syspath, unreadable = {}, []
     for file, raw in sources.items():
@@ -224,8 +219,7 @@ def _source_index(root, get_map):
 
     def foreign_removed():
         """Does a JS/TS file the map reads (selected as the map selects them) spell a removed comment?"""
-        spelled = [file for file in files if language_for(file) in ECMA and _FOREIGN_REMOVED.search((root / file).read_bytes())]
-        return any(project_files([str(root / file) for file in spelled], root))
+        return any(language_for(file) in ECMA and _FOREIGN_REMOVED.search((root / file).read_bytes()) for file in files)
     issues = index.issues
     if any(issue.code == 'removed' for issue in issues) or foreign_removed():
         issues = tuple(issue for issue in issues if issue.code != 'removed') + tuple(

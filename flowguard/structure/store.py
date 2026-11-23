@@ -164,9 +164,12 @@ def connect(path: Path) -> sqlite3.Connection:
     return con
 
 
-def project_config(root: Path, *, section='flowguard') -> dict:
-    """Read a tool section from the project's existing TOML; damaged inputs are errors."""
+def project_config(root: Path, *, section='flowguard', data=None) -> dict:
+    """Read a tool section from the project's existing TOML, or from `data`, the bytes of a pyproject.toml (as a
+    baseline commit holds it; b'' for none); damaged inputs are errors."""
     import tomllib
+    if data is not None:
+        return tomllib.loads(data.decode('utf-8-sig')).get('tool', {}).get(section, {})
     path = Path(root) / 'pyproject.toml'
     if not path.exists() and not path.is_symlink():
         return {}
@@ -432,18 +435,34 @@ def build(root, db_path=None, *, roots=None, force=False, workers=None) -> dict:
     return stats
 
 
-def ignored(root):
-    """The patterns of the paths a map of `root` never reads: FlowGuard's defaults and `[tool.flowguard] exclude`."""
+def ignored(root, config=None):
+    """The patterns of the paths a map of `root` never reads: FlowGuard's defaults and `[tool.flowguard] exclude`,
+    of the project's pyproject.toml or of `config`, one `[tool.flowguard]` section (`project_config(data=)`: as a
+    baseline commit had it)."""
     # A real package may be named venv (CPython has one). Environment ownership
     # is decided by project_code, including pyvenv.cfg, rather than that name.
-    return [pattern for pattern in DEFAULT_IGNORE if pattern != 'venv/**'] + [str(p) for p in project_config(root).get("exclude", [])]
+    config = project_config(root) if config is None else config
+    return [pattern for pattern in DEFAULT_IGNORE if pattern != 'venv/**'] + [str(p) for p in config.get("exclude", [])]
+
+
+def mapped(root, paths, ignore=None):
+    """The paths of `paths` (relative to `root`, in their order) a map of `root` reads or lists: none its ignore
+    patterns match (`ignore`, else `ignored(root)`: `[tool.flowguard] exclude` among them), and of the files a reader
+    reads (`language_for`) only those `project_files` accepts as project code, none inside an interpreter's or a
+    dependency's environment. The one decision of which paths a map reads: the build, the change set against a
+    baseline (`MapHandle._git_changed`, and so `impact` and `owners.Change.files`) and `owners.Change.baseline_paths`
+    take it, so a file the map leaves out is never parsed at the baseline either (R85)."""
+    root = Path(root)
+    patterns = ignored(root) if ignore is None else ignore
+    kept = [path for path in paths if not matches_any(path, patterns)]
+    sources = [path for path in kept if language_for(path)]
+    owned = dict(zip(sources, project_files([str(root / path) for path in sources], root)))
+    return [path for path in kept if owned.get(path, True)]
 
 
 def _build(con, root, roots, force, workers, t0):
-    ignore = ignored(root)
-    files = [f for f in list_files(root) if not matches_any(f, ignore)]
-    sources = [f for f in files if language_for(f)]
-    py = [f for f, owned in zip(sources, project_files([str(root / f) for f in sources], root)) if owned]
+    files = mapped(root, list_files(root))
+    py = [f for f in files if language_for(f)]
     python_files = [f for f in py if language_for(f) == 'python']
     blobs = {f: (root / f).read_bytes() for f in py}
     shas = {f: content_digest(root / f, data=b) for f, b in blobs.items()}
