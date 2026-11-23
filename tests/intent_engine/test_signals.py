@@ -418,42 +418,94 @@ def test_the_first_line_of_a_run_that_ended_early_says_what_it_did_not_cover():
         f'FlowGuard {VERSION} (since aaaaaaa): 0 red, 1 not compared; 0.1 s'
 
 
+def _moved_said(text, field, *places):
+    """The block line of one impact line of moved writes of function `f` in src/m.py, whose step shows `field`, and
+    its width as the block counts it (its places not counted)."""
+    step = f'check them for this change only (python -m flowguard show {field})'
+    shown = _block([Line('impact', 'impact:m:f', 'm:f', text, step, ('src/m.py:f', *places), ())])[1]
+    return shown, len(shown.replace('m.py:12', '').replace('m.py:7', ''))
+
+
 def test_an_impact_line_of_moved_writes_keeps_what_moved_where_and_its_other_words_give_way_first():
     """PTWF-V125, PEMEL17-18 (5.1 review): the block cut a moved-writes line in its middle, `set_default_model's
     wri...model, which it calls (model_preferences.py:10); other callers of _ap...yped reads not counted)`: what moved
-    where was gone. `F's writes of FIELDS moved to G, which it calls (place)` stays whole; the other callers and the
-    counts give way first, then the fields are counted where that is shorter, and the line is longer than WIDTH
-    rather than cut inside that clause."""
-    step = 'check them for this change only (python -m flowguard show Prefs.model)'
-    def said(text, *places):
-        line = Line('impact', 'impact:model:f', 'model:f', text, step, ('src/model.py:f', *places), ())
-        shown = _block([line])[1]
-        return shown, len(shown.replace('model.py:12', '').replace('model.py:7', '').replace('model.py', ''))
-    # the rest gives way in its middle; the fields keep their names
-    assert said("set_default's writes of Prefs.model, Prefs.source moved to _apply, which it calls (src/model.py:7); other "
-                'callers of _apply: import_default, load_settings, reset_all and 4 more; 12 other writers (no writers '
-                'agreement), 31 readers of Prefs', 'src/model.py:7') == (
-        "impact: set_default's writes of Prefs.model, Prefs.source moved to _apply, which it calls (model.py:7); other "
-        f'callers ...eaders of Prefs -> {step}', signals.WIDTH)
-    # longer field names are counted, and the rest gets the room that frees
-    assert said("set_default's writes of ModelPreferences.default_model, ModelPreferences.default_source, "
-                'ModelPreferences.revision_note moved to _apply, which it calls (src/model.py:7); other callers of _apply: '
-                'import_default_model; 0 other writers, 1 reader (untyped reads not counted)', 'src/model.py:7') == (
-        "impact: set_default's writes of 3 ModelPreferences fields moved to _apply, which it calls (model.py:7); other "
-        f'callers ...ds not counted) -> {step}', signals.WIDTH)
-    # where the clause alone is longer than WIDTH, the rest is `...`; a clause before it keeps the function's name,
-    # and a single short field its name
-    shown, width = said('set_default now writes Prefs.theme; its writes of Prefs.model moved to _apply, which it calls '
-                        '(src/model.py:7); its writes of Prefs.source moved to _apply_the_source_of_the_default_model, '
-                        'which it calls (src/model.py:12); other callers of _apply: import_default; 3 other writers, 31 '
-                        'readers of Prefs', 'src/model.py:7', 'src/model.py:12')
-    assert shown == ('impact: set_default ...; its writes of Prefs.model moved to _apply, which it calls (model.py:7); its '
-                     'writes of Prefs.source moved to _apply_the_source_of_the_default_model, which it calls (model.py:12); '
-                     f'... -> {step}') and width > signals.WIDTH, shown
+    where was gone. The first fix kept that clause but cut the rest in its middle, and turned every other clause of
+    the line into `...`, a dropped field, a new write and a delete too (5.1 review, FM open 0 and 1). Now only the
+    other callers and the counts give way, the callers to a count first (`other callers of g: 9`); then the field lists
+    are counted, the moved one last, and the list holding the step's field keeps it."""
+    step = 'check them for this change only (python -m flowguard show {})'
+    # the callers list becomes a count, and the counts stay where that fits
+    assert _moved_said("f's writes of P.a moved to g, which it calls (src/m.py:7); other callers of g: import_default, "
+                       'load_settings, reset_all and 6 more; 1 other writer, 3 readers of P', 'P.a', 'src/m.py:7') == (
+        "impact: f's writes of P.a moved to g, which it calls (m.py:7); other callers of g: 9; 1 other writer, 3 readers "
+        f'of P -> {step.format("P.a")}', 176)
+    # then the counts go, and `...` says that something went
+    assert _moved_said("f's writes of P.a, P.b moved to g, which it calls (src/m.py:7); other callers of g: import_default, "
+                       'load_settings, reset_all and 6 more; 12 other writers (no writers agreement), 31 readers of P',
+                       'P.a', 'src/m.py:7') == (
+        "impact: f's writes of P.a, P.b moved to g, which it calls (m.py:7); other callers of g: 9; ... -> "
+        f'{step.format("P.a")}', 154)
+    # then the callers count
+    assert _moved_said("f's writes of P.a moved to _apply_the_default_model_of_the_preferences_pane, which it calls "
+                       '(src/m.py:7); other callers of _apply_the_default_model_of_the_preferences_pane: load; 1 other '
+                       'writer, 3 readers of P', 'P.a', 'src/m.py:7') == (
+        "impact: f's writes of P.a moved to _apply_the_default_model_of_the_preferences_pane, which it calls (m.py:7); "
+        f'... -> {step.format("P.a")}', 173)
+    # then the other change clauses are counted, the longest first; the one holding the step's field keeps it, and
+    # the moved one keeps its names while the line fits
+    assert _moved_said('f now writes P.theme, P.accent_colour, P.border_colour; its writes of P.a moved to g, which it '
+                       'calls (src/m.py:7); no longer writes P.revision_note, P.revision_author; 1 other writer, 3 '
+                       'readers of P', 'P.theme', 'src/m.py:7') == (
+        "impact: f now writes P.theme and 2 more; its writes of P.a moved to g, which it calls (m.py:7); no longer writes "
+        f'2 fields; ... -> {step.format("P.theme")}', 190)
+    # where even the kept clauses pass WIDTH, each stays as a count, the moved one counted last, a delete whole with
+    # its place, and the line is longer
+    shown, width = _moved_said('f now writes P.theme; its writes of P.a, P.b, P.c, P.d, P.e, P.f, P.g, P.h, P.i, P.j, P.k '
+                               'moved to g, which it calls (src/m.py:7); other callers of g: load; writes Q.? where it '
+                               'wrote x, y, z (fields not visible: data is a parameter); no longer writes P.revision_note, '
+                               'P.revision_author; now deletes P (src/m.py:12); 1 other writer, 3 readers of P', 'P.theme',
+                               'src/m.py:7', 'src/m.py:12')
+    assert shown == ("impact: f now writes P.theme; its writes of 11 fields moved to g, which it calls (m.py:7); writes "
+                     'Q.? where it wrote 3 fields (fields not visible); no longer writes 2 fields; now deletes P (m.py:12); '
+                     f'... -> {step.format("P.theme")}') and width > signals.WIDTH, shown
     # any other impact line is cut as before
-    shown, width = said('set_default now writes ' + ', '.join(f'Prefs.field_{number}' for number in range(20))
-                        + '; 0 other writers, 1 reader (untyped reads not counted)')
-    assert width == signals.WIDTH and shown.startswith('impact: set_default now writes Prefs.') and '...' in shown, shown
+    shown = _block([Line('impact', 'impact:m:f', 'm:f', 'f now writes ' + ', '.join(f'P.field_{number}' for number in range(20))
+                         + '; 0 other writers, 1 reader (untyped reads not counted)', step.format('P.field_0'),
+                         ('src/m.py:f',), ())])[1]
+    assert len(shown) == signals.WIDTH and shown.startswith('impact: f now writes P.') and '...' in shown, shown
+
+
+def test_the_moved_line_of_the_reporting_projects_keeps_a_dropped_field_a_new_write_and_a_delete():
+    """5.1 review (FM open 0, 1): with PEMEL Studio's and Planning Tool's names the first fix printed a moved line
+    whose other clauses were `...`, so it read as a plain relocation though the function also stopped writing a
+    field, wrote a new one or deleted rows, a delete was a bare place, and the step named a field the line no longer
+    named. Each clause stays, at least as a count; the step's field stays named; such a line is longer than WIDTH."""
+    for text, field, places in (
+            ("set_default_model now writes ModelPreferences.last_changed; its writes of ModelPreferences.default_model, "
+             'ModelPreferences.default_source moved to _apply_default_model, which it calls '
+             '(src/pemel_service/library/model_preferences.py:11); other callers of _apply_default_model: '
+             'import_default_model; no longer writes ModelPreferences.revision_note; now deletes model_preferences '
+             '(src/pemel_service/library/model_preferences.py:19); 0 other writers, 1 reader (untyped reads not counted)',
+             'ModelPreferences.last_changed', ('src/pemel_service/library/model_preferences.py:set_default_model',
+                                               'src/pemel_service/library/model_preferences.py:11',
+                                               'src/pemel_service/library/model_preferences.py:19')),
+            ("assignProjectManager now writes ProjectMember.role; its writes of ProjectMember.projectId, "
+             'ProjectMember.userId moved to reactivateOrCreateMember, which it calls (src/member-helpers.ts:1); other '
+             'callers of reactivateOrCreateMember: inviteMember; no longer writes ProjectMember.active; now deletes '
+             'ProjectMember (src/members.ts:6); 0 other writers, 1 reader of ProjectMember', 'ProjectMember.role',
+             ('src/members.ts:assignProjectManager', 'src/member-helpers.ts:1', 'src/members.ts:6'))):
+        step = f'check them for this change only (python -m flowguard show {field})'
+        shown = _block([Line('impact', 'impact:f', 'f', text, step, places, ())])[1]
+        said, _, shown_step = shown.partition(' -> ')
+        assert shown_step == step and field in said, shown
+        assert ' now writes ' in said and ' moved to ' in said and 'no longer writes 1 field' in said, shown
+        assert ('now deletes model_preferences (model_preferences.py:19)' in said
+                or 'now deletes ProjectMember (members.ts:6)' in said), shown
+        assert ', which it calls (model_preferences.py:11)' in said or ', which it calls (member-helpers.ts:1)' in said
+    assert shown == ('impact: assignProjectManager now writes ProjectMember.role; its writes of 2 fields moved to '
+                     'reactivateOrCreateMember, which it calls (member-helpers.ts:1); no longer writes 1 field; now deletes '
+                     'ProjectMember (members.ts:6); ... -> check them for this change only (python -m flowguard show '
+                     'ProjectMember.role)'), shown
 
 
 def test_a_line_of_copies_that_take_different_parameters_never_cuts_inside_a_signature_or_a_return_type():

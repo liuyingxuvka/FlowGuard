@@ -14,6 +14,7 @@ from collections import Counter
 from contextlib import contextmanager
 import ctypes
 from dataclasses import dataclass, field
+from functools import cached_property
 import os
 import re
 import threading
@@ -1445,12 +1446,15 @@ def field_impact(change, index):
     while the function still writes that model with data whose fields are not visible (`health.unseen_write`), `update
     writes AbsencePhase.? where it wrote endDate, share, startDate (fields not visible: phase is a parameter)`, for the
     field may still be among them; when a function it calls through a call the map resolved
-    (`MapHandle.resolved_calls`) on every path of the function (`_moved_writes`) writes it now, `set_default's writes
-    of Prefs.model moved to _apply, which it calls (model.py:7)`, with that function's other resolved callers, and that
-    function's own line is left out when every field it newly writes is one the caller wrote at the baseline (the
-    detail keeps what it said); otherwise `no longer writes`. A delete of such a field's model the function did not have at the baseline is added, `now deletes
-    Assignment (assignments.ts:9)`. A call the map does not resolve, or one under a condition, links nothing: the two
-    functions keep a line each."""
+    (`MapHandle.resolved_calls`) on every path of the function writes it now on every path of its own
+    (`_moved_writes`), `set_default's writes of Prefs.model moved to _apply, which it calls (model.py:7)`, with that
+    function's other resolved callers, and that function's own line is left out when every field it newly writes is
+    one the caller wrote at the baseline (the detail keeps what it said); otherwise `no longer writes`. A delete of
+    such a field's model the function did not have at the baseline is added, `now deletes Assignment
+    (assignments.ts:9)`. A call the map does not resolve, a call or a write under a condition, and one the path
+    queries cannot place (`_Paths`: a function the current text does not hold by the map's name and line, a language
+    other than Python and JS/TS, a write that is no assignment or Prisma call) link nothing: the two functions keep a
+    line each, as in 5.0.1. The block cuts the moved line by its own rule (`signals._cap_moved`)."""
     from .health import _test_files, deleted_model, unseen_write, written_field, writers
     from .signals import Line
     found = Findings()
@@ -1462,36 +1466,42 @@ def field_impact(change, index):
 
     def facts(rows):
         """({function: {field: row}}, {function: {model: row}} of the writes whose fields are not visible,
-        {function: {model: row}} of the deletes), production code's, seed scripts aside; a row each, the first."""
-        fields, unseen, deleted = {}, {}, {}
+        {function: {model: row}} of the deletes, {function: {field: [row]}}), production code's, seed scripts aside; a
+        row each, the first, and every row of each field last."""
+        fields, unseen, deleted, every = {}, {}, {}, {}
         for row in rows:
             if seeding(row['file']):
                 continue
             if (key := written_field(row, tests)) is not None:
                 fields.setdefault(row_function(row), {}).setdefault(key, row)
+                every.setdefault(row_function(row), {}).setdefault(key, []).append(row)
             elif (model := unseen_write(row, tests)) is not None:
                 unseen.setdefault(row_function(row), {}).setdefault(model, row)
             elif (model := deleted_model(row, tests)) is not None:
                 deleted.setdefault(row_function(row), {}).setdefault(model, row)
-        return fields, unseen, deleted
+        return fields, unseen, deleted, every
 
-    now, unseen, deleted = facts(change.writes())
-    then, _, deleted_then = facts(change.baseline_writes())
+    now, unseen, deleted, every = facts(change.writes())
+    then, _, deleted_then, _ = facts(change.baseline_writes())
     changes = {}
     for function in sorted(touched):
         written, before = now.get(function, {}), then.get(function, {})
         added, removed = sorted(written.keys() - before.keys()), sorted(before.keys() - written.keys())
         if added or removed:
             changes[function] = added, removed
-    moves, calls = _moved_writes(graph, changes, now, then, unseen)
-    movers = {}
+    moves, calls = _moved_writes(graph, changes, now, then, unseen, every)
+    movers, given = {}, {}
     for function, moved in moves.items():
-        for callee, _ in moved:
+        for callee, keys in moved:
             movers.setdefault(callee, []).append(function)
-    # a helper whose new writes are all its callers' old ones says nothing its caller's moved line does not
+            given[function, callee] = set(keys)
+    # a helper whose new writes are all its callers' old ones says nothing its caller's moved line does not, unless a
+    # field a caller stopped writing did not move to it (the helper writes it on some paths only): its own line says so
     absorbed = {callee for callee, callers in movers.items() if callee in changes and changes[callee][0]
                 and not changes[callee][1]
-                and set(changes[callee][0]) <= {key for caller in callers for key in then.get(caller, {})}}
+                and set(changes[callee][0]) <= {key for caller in callers for key in then.get(caller, {})}
+                and not any(key in changes[caller][1] and key not in given[caller, callee]
+                            for caller in callers for key in changes[callee][0])}
     nodes = {}
 
     def node(ident):
@@ -1585,15 +1595,17 @@ def field_impact(change, index):
     return found
 
 
-def _moved_writes(graph, changes, now, then, unseen):
+def _moved_writes(graph, changes, now, then, unseen, every):
     """({function: [(callee, [field])]}, (down, up)): of each function this change made stop writing fields itself, the
     fields a function it calls through a call the map resolved (`MapHandle.resolved_calls`, its anonymous callbacks'
     calls its own: `named`) writes now, each field to the first such callee by id, where that call runs whenever the
-    function returns (`_call_on_every_path`) and sits in no more anonymous callbacks than the field's write did at the
-    baseline (`prisma.$transaction(async (tx) => ...)` around both). A call under a condition, or one the current text
-    does not show, moves nothing: the function and the callee keep a line each (PEMEL17-18). A field of a model the
-    function still writes with data whose fields are not visible is none (`unseen`: it may still write it). `down`
-    and `up` are the resolved calls by named function, read only when some function stopped writing a field."""
+    function returns (`_Paths.call`), the callee's write of the field (one of its rows in `every`) runs whenever the
+    callee returns (`_Paths.write`, the same path query at the write's place), and the two sit in no more anonymous
+    callbacks together than the field's write did at the baseline (`prisma.$transaction(async (tx) => ...)` around
+    both, in the function or in the callee). A call or a write under a condition, or one `_Paths` cannot place in the
+    current text, moves nothing: the function and the callee keep a line each (PEMEL17-18). A field of a model the
+    function still writes with data whose fields are not visible is none (`unseen`: it may still write it). `down` and
+    `up` are the resolved calls by named function, read only when some function stopped writing a field."""
     if not any(removed for _, removed in changes.values()):
         return {}, ({}, {})
     down, up, through = {}, {}, {}
@@ -1604,14 +1616,17 @@ def _moved_writes(graph, changes, now, then, unseen):
                 down.setdefault(caller, set()).add(callee)
                 up.setdefault(callee, set()).add(caller)
                 through.setdefault((caller, callee), set()).add(src)
-    moves, trees = {}, {}
+    moves, paths = {}, _Paths(graph)
     for function, (_, removed) in changes.items():
         left = [key for key in removed if key.rpartition('.')[0] not in unseen.get(function, {})]
         for callee in sorted(down.get(function, ())):
             if not (taken := [key for key in left if key in now.get(callee, {})]):
                 continue
-            reach = _call_on_every_path(graph, function, callee, through[function, callee], trees)
-            if taken := [key for key in taken if reach is not None and reach <= _callbacks(then[function][key])]:
+            if (reach := paths.call(function, callee, through[function, callee])) is None:
+                continue
+            inside = {key: paths.write(callee, every[callee][key]) for key in taken}
+            if taken := [key for key in taken if inside[key] is not None
+                         and reach + inside[key] <= _callbacks(then[function][key])]:
                 moves.setdefault(function, []).append((callee, taken))
                 left = [key for key in left if key not in taken]
     return moves, (down, up)
@@ -1622,38 +1637,111 @@ def _callbacks(row):
     return sum(part.startswith('<anonymous') for part in row['node'].partition(':')[2].split('.'))
 
 
-def _call_on_every_path(graph, function, callee, sources, trees):
-    """The fewest anonymous callbacks a call of `callee` in the current text of `function` sits in where it runs
-    whenever `function` returns (Python: `query.call_on_every_path`, never in a callback; JS/TS:
-    `ecma.call_on_every_path`, on the lines of the map's call edges from `sources`, `function` and its callbacks, or
-    anywhere in it for a call `_imported_member_calls` resolved, which has no edge), or None: a call only on some
-    paths, or none spelled with the callee's name (an import alias). `trees` keeps each file's parse."""
-    from flowguard.structure.query import call_on_every_path
-    from flowguard.structure.readers.registry import ECMA, language_for
-    node, target = graph.node(function), graph.node(callee)
-    if node is None or target is None or not node['end_line']:
-        return None
-    name, file, language = target['qual'].rpartition('.')[2], node['file'], language_for(node['file'])
-    if language == 'python':
+class _Paths:
+    """The path queries `_moved_writes` asks of the current text: whether a call (`call`) or a write (`write`) runs
+    whenever its function returns, Python's through `query.on_every_path` and JS/TS's through
+    `ecma.call_on_every_path`. Each file is parsed once. Where the map has no such function, its def is not found by
+    name and the map's line, or its language is neither, no answer is established (None) and the two 5.0.1 lines
+    stay."""
+
+    def __init__(self, graph):
+        self.graph, self.trees = graph, {}
+
+    def tree(self, file, language):
+        """The parse of `file`'s current text, once: Python's syntax tree, JS/TS's `(source, tree)`."""
         from flowguard.map.inventory import syntax_tree
+        from flowguard.structure.readers.common import parse
+        if file not in self.trees:
+            raw = self.graph.root / file
+            self.trees[file] = syntax_tree(read_source(raw)) if language == 'python' else parse(raw.read_bytes(), language)
+        return self.trees[file]
+
+    def parsed(self, ident):
+        """(node, language, tree) of the function `ident` in its file's current text (Python: its def, found by name
+        and the map's line, the first decorator's for a decorated def; JS/TS: `(source, tree)` of the file), or None."""
+        from flowguard.structure.readers.registry import ECMA, language_for
+        node = self.graph.node(ident)
+        if node is None or not node['end_line'] or (language := language_for(node['file'])) != 'python' \
+                and language not in ECMA:
+            return None
+        if language != 'python':
+            return node, language, self.tree(node['file'], language)
         own = node['qual'].rpartition('.')[2]
-        definition = next((item for item in ast.walk(syntax_tree(read_source(graph.root / file)))
+        definition = next((item for item in ast.walk(self.tree(node['file'], language))
                            if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and item.name == own
                            and (item.decorator_list[0].lineno if item.decorator_list else item.lineno) == node['line']),
                           None)
-        return 0 if definition is not None and call_on_every_path(definition, name) else None
-    if language not in ECMA:
-        return None
-    from flowguard.structure.readers import ecma
-    from flowguard.structure.readers.common import parse
-    if file not in trees:
-        trees[file] = parse((graph.root / file).read_bytes(), language)
-    edges = {}
-    for src, line in graph.con.execute("SELECT src, line FROM edge WHERE kind = 'calls' AND dst = ? AND prov != 'guessed'",
-                                       (callee,)):
-        edges.setdefault(src, set()).add(line)
-    lines = None if any(src not in edges for src in sources) else {line for src in sources for line in edges[src]}
-    return ecma.call_on_every_path(*trees[file], (node['line'], node['end_line']), name, lines)
+        return None if definition is None else (node, language, definition)
+
+    @cached_property
+    def handlers(self):
+        """(rows, names, held) of the map's handlers in production code (a test's are none) that can end without
+        raising: their rows, the names of the classes whose `__exit__` may return a true value and of the functions
+        holding such a handler or a suppress (a `@contextmanager` generator that swallows the error at its yield is
+        one), and whether a name may hold a context manager that suppresses: there is such a class, or a
+        `contextlib.suppress(...)` made elsewhere than as a with item."""
+        from .health import _test_files
+        tests = _test_files(self.graph)
+        rows = [row for row in self.graph.handlers(language='python') if row['file'] not in tests
+                and row['kind'] in ('except', 'finally', 'suppress', 'exit_method') and row['non_raising']]
+        names = {row['node'].partition(':')[2].removesuffix('.__aexit__').removesuffix('.__exit__').rpartition('.')[2]
+                 for row in rows} - {''}
+        made = {file: {item.context_expr.lineno for item in ast.walk(self.tree(file, 'python'))
+                       if isinstance(item, ast.withitem)}
+                for file in {row['file'] for row in rows if row['kind'] == 'suppress'}}
+        return rows, names, any(row['kind'] == 'exit_method' or row['kind'] == 'suppress' and row['line'] not in made[row['file']]
+                                for row in rows)
+
+    def suppresses(self, file):
+        """The `query.may_suppress` test of a Python with item's context manager in `file`: the lines of the
+        `contextlib.suppress(...)` calls `handlers` holds there, its names and whether a name may hold one."""
+        from flowguard.structure.query import may_suppress
+        rows, names, held = self.handlers
+        return may_suppress({row['line'] for row in rows if row['kind'] == 'suppress' and row['file'] == file}, names, held)
+
+    def call(self, function, callee, sources):
+        """The fewest anonymous callbacks a call of `callee` in `function` sits in where it runs whenever `function`
+        returns (Python: `query.call_on_every_path`, never in a callback; JS/TS: `ecma.call_on_every_path`, on the
+        lines of the map's call edges from `sources`, `function` and its callbacks, or anywhere in it for a call
+        `_imported_member_calls` resolved, which has no edge), or None: a call only on some paths, none spelled with the
+        callee's name (an import alias), or a function `parsed` does not find."""
+        from flowguard.structure.query import call_on_every_path
+        from flowguard.structure.readers import ecma
+        target, found = self.graph.node(callee), self.parsed(function)
+        if target is None or found is None:
+            return None
+        (node, language, parsed), name = found, target['qual'].rpartition('.')[2]
+        if language == 'python':
+            return 0 if call_on_every_path(parsed, name, self.suppresses(node['file'])) else None
+        edges = {}
+        for src, line in self.graph.con.execute(
+                "SELECT src, line FROM edge WHERE kind = 'calls' AND dst = ? AND prov != 'guessed'", (callee,)):
+            edges.setdefault(src, set()).add(line)
+        lines = None if any(src not in edges for src in sources) else {line for src in sources for line in edges[src]}
+        return ecma.call_on_every_path(*parsed, (node['line'], node['end_line']), name, lines)
+
+    def write(self, function, rows):
+        """The fewest anonymous callbacks a write of one field by `function` (its `rows`, `MapHandle.writes`) sits in
+        where it runs whenever `function` returns, read at the write's place as `call` reads a call: in Python an
+        assignment to that field on the row's line (`query.assigns`), never in a callback; in JS/TS the Prisma call on
+        the row's call line by its method (`tx.projectMember.create(...)`). None where none does, for a write of
+        another kind (SQL text, a JS/TS property assignment) and for a function `parsed` does not find."""
+        from flowguard.structure.query import assigns, on_every_path
+        from flowguard.structure.readers import ecma
+        if (found := self.parsed(function)) is None:
+            return None
+        node, language, parsed = found
+        reached = []
+        for row in rows:
+            if language == 'python' and row['method'] == 'assign':
+                if on_every_path(parsed, lambda item, row=row: assigns(item, row['line'], row['field']),
+                                 self.suppresses(node['file'])):
+                    reached.append(0)
+            elif language != 'python' and row['how'] == 'prisma':
+                crossed = ecma.call_on_every_path(*parsed, (node['line'], node['end_line']), row['method'], {row['call_line']})
+                if crossed is not None:
+                    reached.append(crossed)
+        return min(reached, default=None)
 
 
 def static_findings(cfg, graph, index, base=None, *, everything=False, replay=False):

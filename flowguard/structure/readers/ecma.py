@@ -136,33 +136,80 @@ def anonymous(node):
         parent is not None and parent.type in ('variable_declarator', 'export_statement'))
 
 
-# The parts of a statement or expression that run whenever it does; its other parts run on some paths only.
+# The parts of a statement or expression that run whenever it does (`call_on_every_path`): of these kinds the parts
+# named, of a kind of RUN_WHOLE every part; any other kind (an else, a case, a catch, a destructuring pattern whose
+# default runs only for an undefined value, JSX, a kind the query does not know) runs its parts on some paths only.
 ALWAYS_PARTS = {'if_statement': ('condition',), 'while_statement': ('condition',), 'switch_statement': ('value',),
                 'for_statement': ('initializer', 'condition'), 'for_in_statement': ('right',),
-                'ternary_expression': ('condition',)}
+                'ternary_expression': ('condition',), 'do_statement': ('body',), 'variable_declarator': ('value',),
+                'labeled_statement': ('body',)}
+RUN_WHOLE = {'expression_statement', 'lexical_declaration', 'variable_declaration', 'return_statement', 'statement_block',
+             'parenthesized_expression', 'await_expression', 'yield_expression', 'arguments', 'call_expression',
+             'new_expression', 'member_expression', 'subscript_expression', 'binary_expression', 'unary_expression',
+             'update_expression', 'assignment_expression', 'augmented_assignment_expression', 'sequence_expression',
+             'array', 'object', 'pair', 'spread_element', 'template_string', 'template_substitution', 'as_expression',
+             'satisfies_expression', 'non_null_expression', 'type_assertion'}
 SHORT_CIRCUIT = {'&&', '||', '??', '&&=', '||=', '??='}
+LOOPS = {'for_statement', 'for_in_statement', 'while_statement', 'do_statement'}
 
 
-def _returns(node):
-    """Whether `node` holds a return of the function it is in (none of a nested function or class)."""
+def _leaves(node, source):
+    """Whether `node` holds a return of the function it is in (none of a nested function or class), or a break or
+    continue that ends outside it: of a loop, a switch or a label around it. After such a statement the rest of its
+    block runs on some paths only."""
     scopes = FUNCTIONS | CLASSES | {'class'}
-    stack = [] if node.type in scopes else [node]
+    stack = [] if node.type in scopes else [(node, 0, 0, frozenset())]
+    while stack:
+        item, loops, switches, labels = stack.pop()
+        if item.type == 'return_statement':
+            return True
+        if item.type in ('break_statement', 'continue_statement'):
+            label = item.child_by_field_name('label')
+            if label is not None and text(label, source) not in labels or label is None and not loops \
+                    and not (switches and item.type == 'break_statement'):
+                return True
+        if item.type in LOOPS:
+            loops += 1
+        elif item.type == 'switch_statement':
+            switches += 1
+        elif item.type == 'labeled_statement':
+            labels |= {text(item.child_by_field_name('label'), source)}
+        stack.extend((child, loops, switches, labels) for child in item.named_children if child.type not in scopes)
+    return False
+
+
+def _broken(statement, source):
+    """Whether a labeled statement's body holds a break or continue of its label (of no function of its own)."""
+    label, scopes = text(statement.child_by_field_name('label'), source), FUNCTIONS | CLASSES | {'class'}
+    stack = [statement.child_by_field_name('body')]
     while stack:
         item = stack.pop()
-        if item.type == 'return_statement':
+        if item.type in ('break_statement', 'continue_statement') and item.child_by_field_name('label') is not None \
+                and text(item.child_by_field_name('label'), source) == label:
             return True
         stack.extend(child for child in item.named_children if child.type not in scopes)
     return False
 
 
+def _optional(node, source):
+    """Whether a call or member access is optional (`x?.name()`, `x?.[key]`, `f?.()`), its own `?.` or its callee's."""
+    callee = node.child_by_field_name('function')
+    return any(child.type in ('?.', 'optional_chain') for child in node.children) \
+        or callee is not None and '?.' in text(callee, source)
+
+
 def call_on_every_path(source, tree, function, name, lines=None):
     """The fewest anonymous callbacks (`anonymous`) between the function whose text spans the lines `function`
     (first, last) of a parsed JS/TS file (`parse`) and a call of `name` in it (`name(...)`, `x.name(...)`; one that
-    starts on a line of `lines` when given) that runs whenever the function returns, or None: a call outside the
-    branches of an if/else, switch, for, for-in/of and while (a do-while's body runs), of a try/catch/finally, a
-    ternary and `&&`, `||`, `??` (and their assignments), not optional (`x?.name()`), inside no named function or class
-    of its own, and after no statement of its blocks that holds a return. A throw ends on an error path, not a return.
-    A callback is counted, not judged: whether the function it is passed to calls it is not read."""
+    starts on a line of `lines` when given) that runs whenever the function returns, or None. Walking from the call
+    to the function, each node is of a kind that runs that part whenever it runs (ALWAYS_PARTS: an if's, while's or
+    switch's test, a for's start, a ternary's condition, a do-while's or a label's body, a declaration's value;
+    RUN_WHOLE): not a branch of an if/else, switch, for, for-in/of, while, try/catch/finally or ternary, not the right
+    side of `&&`, `||`, `??` (and their assignments), not optional (`x?.name()`), not in a parameter's or a
+    destructuring default, a named function or class of its own, or a labeled statement whose body breaks to its
+    label; and in each block after no statement that holds a return, or a break or continue that ends outside it
+    (`do { if (s) continue; helper(tx); } while (s)`). A throw ends on an error path, not a return. A callback (its
+    body) is counted, not judged: whether the function it is passed to calls it is not read."""
     first, last = function
     fewest, stack = None, [tree.root_node]
     while stack:
@@ -174,28 +221,31 @@ def call_on_every_path(source, tree, function, name, lines=None):
         if callee is None or (lines is not None and node.start_point.row + 1 not in lines):
             continue
         spelled = callee.child_by_field_name('property') if callee.type == 'member_expression' else callee
-        if spelled is None or text(spelled, source) != name or '?.' in text(callee, source) \
-                or any(child.type in ('?.', 'optional_chain') for child in node.children):
+        if spelled is None or text(spelled, source) != name or _optional(node, source):
             continue
         crossed, child, item = 0, node, node.parent
         while item is not None:
             if item.type in FUNCTIONS:
+                if child != item.child_by_field_name('body'):           # a parameter's default
+                    break
                 if not anonymous(item):         # the function itself, or a named function of its own
                     if item.start_point.row + 1 == first and item.end_point.row + 1 == last:
                         fewest = crossed if fewest is None else min(fewest, crossed)
                     break
                 crossed += 1
-            elif item.type in CLASSES or item.type in ('class', 'try_statement', 'program'):
-                break
-            elif item.type in ALWAYS_PARTS and child not in [item.child_by_field_name(part) for part in ALWAYS_PARTS[item.type]]:
+            elif item.type in ALWAYS_PARTS:
+                if child not in [item.child_by_field_name(part) for part in ALWAYS_PARTS[item.type]] \
+                        or item.type == 'labeled_statement' and _broken(item, source):
+                    break
+            elif item.type not in RUN_WHOLE:
                 break
             elif item.type in ('binary_expression', 'augmented_assignment_expression') and operator(item) in SHORT_CIRCUIT \
                     and child == item.child_by_field_name('right'):
                 break
-            elif item.type == 'call_expression' and child == item.child_by_field_name('arguments') \
-                    and '?.' in text(item.child_by_field_name('function'), source):
+            elif item.type in ('call_expression', 'member_expression', 'subscript_expression') and _optional(item, source) \
+                    and child != item.child_by_field_name('object' if item.type != 'call_expression' else 'function'):
                 break
-            elif item.type == 'statement_block' and any(_returns(statement) for statement in item.named_children
+            elif item.type == 'statement_block' and any(_leaves(statement, source) for statement in item.named_children
                                                         if statement.end_byte <= child.start_byte):
                 break
             child, item = item, item.parent

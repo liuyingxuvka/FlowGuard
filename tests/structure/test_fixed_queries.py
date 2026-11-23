@@ -4,7 +4,7 @@ import ast
 import pytest
 
 from flowguard.structure import build
-from flowguard.structure.query import call_on_every_path, handler_outcome
+from flowguard.structure.query import assigns, call_on_every_path, handler_outcome, may_suppress, on_every_path
 
 
 def test_config_roots_accept_the_config_objects_absolute_paths(repo, tmp_path):
@@ -146,8 +146,54 @@ def test_handler_query_uses_all_paths_instead_of_any_raise(body, always_raises):
     ('x = q or _apply(p)', False), ('[_apply(x) for x in rows]', False), ('assert _apply(p)', False),
     ('later = lambda: _apply(p)\nlater()', False), ('def later():\n    _apply(p)\nlater()', False),
     ('apply(p)', False),
+    # 5.1 review (FM open 3): a chained comparison runs its later operands on some paths only, and a local name's
+    # annotation is never evaluated
+    ('x = p < q < _apply(p)', False), ('x = _apply(p) < q < s', True), ('x: _apply(p) = 1', False),
+    ('x: int = _apply(p)', True),
 ])
 def test_a_call_on_every_path_is_one_no_branch_return_or_nested_scope_can_skip(body, always):
     """PEMEL17-18: writes moved into a helper are one line only where the call runs whenever the function returns."""
     function = ast.parse('async def f(self, p, q, s, rows, lock):\n' + ''.join(f'    {line}\n' for line in body.splitlines())).body[0]
-    assert call_on_every_path(function, '_apply') is always
+    assert call_on_every_path(function, '_apply', may_suppress(set(), set(), False)) is always
+
+
+SUPPRESSING = '''import contextlib
+from contextlib import suppress as quiet
+
+
+def f(p, lock, guard):
+    BODY
+'''
+
+
+@pytest.mark.parametrize('body,lines,names,held,always', [
+    # 5.1 review (FM open 3): a with whose context manager may suppress an error of its block may stop at any of its
+    # statements while the function goes on, so neither its block nor, read conservatively, what follows it is on
+    # every path
+    ('with contextlib.suppress(ValueError):\n        check(p)\n        _apply(p)', {6}, set(), False, False),
+    ('with quiet(ValueError):\n        _apply(p)', {6}, set(), False, False),
+    ('with contextlib.suppress(ValueError):\n        check(p)\n    _apply(p)', {6}, set(), False, False),
+    ('if p:\n        with contextlib.suppress(ValueError):\n            check(p)\n    _apply(p)', {7}, set(), False, False),
+    ('with Quiet():\n        _apply(p)', set(), {'Quiet'}, True, False),
+    ('with mod.logged():\n        _apply(p)', set(), {'logged'}, False, False),
+    ('with guard:\n        _apply(p)', set(), {'Quiet'}, True, False),
+    ('with self.guard:\n        _apply(p)', set(), set(), True, False),
+    # a context manager the map does not read as suppressing runs its block, and its own expression runs always
+    ('with open(p):\n        _apply(p)', {9}, {'Quiet'}, True, True), ('with lock:\n        _apply(p)', set(), set(), False, True),
+    ('with contextlib.suppress(_apply(p)):\n        pass', {6}, set(), False, True),
+    ('_apply(p)\n    with contextlib.suppress(ValueError):\n        check(p)', {7}, set(), False, True),
+])
+def test_a_call_in_or_after_a_with_that_may_suppress_is_not_on_every_path(body, lines, names, held, always):
+    function = ast.parse(SUPPRESSING.replace('BODY', body)).body[2]
+    assert call_on_every_path(function, '_apply', may_suppress(lines, names, held)) is always
+
+
+def test_a_write_on_every_path_is_an_assignment_to_its_field_on_its_line_by_the_same_path_query():
+    """5.1 review (FM open 2): the helper's write of a moved field is placed as its write row has it (an assignment on
+    the row's line to that field) and judged by the same path query as the call."""
+    function = ast.parse('def g(p, s):\n    p.a = 1\n    if s:\n        p.b = 2\n    p.c, p.d = 3, 4\n'
+                         '    p["e"] = 5\n    q = p.a\n').body[0]
+    never = may_suppress(set(), set(), False)
+    assert [on_every_path(function, lambda node, line=line, field=field: assigns(node, line, field), never)
+            for line, field in ((2, 'a'), (4, 'b'), (5, 'd'), (6, 'e'), (7, 'a'), (2, 'b'))] == \
+        [True, False, True, True, False, False]

@@ -101,7 +101,8 @@ def exit_may_suppress(function):
 
 _SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
 _COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
-_SOME_PATHS = (ast.Try, getattr(ast, 'TryStar', ast.Try), ast.Assert, *_SCOPES)
+_SOME_PATHS = (ast.Try, getattr(ast, 'TryStar', ast.Try), ast.Assert, getattr(ast, 'TypeAlias', ast.Assert), *_SCOPES)
+_WITH = (ast.With, ast.AsyncWith)
 
 
 def _returns(node):
@@ -115,48 +116,102 @@ def _returns(node):
     return False
 
 
-def _always_parts(node):
+def _suppressing(node, suppresses):
+    """Whether `node` holds a with statement of the function it is in whose context manager may suppress an error of
+    its block (`suppresses`)."""
+    stack = [] if isinstance(node, _SCOPES) else [node]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, _WITH) and any(suppresses(part.context_expr) for part in item.items):
+            return True
+        stack.extend(child for child in ast.iter_child_nodes(item) if not isinstance(child, _SCOPES))
+    return False
+
+
+def _always_parts(node, suppresses):
     """The children of `node` that run whenever it does; a statement list is one child. Of an if or while its test, of
-    a for its iterable, of a match its subject, of and/or its first operand and of a comprehension its first iterable;
-    nothing of a try, assert, nested def, lambda or class; all of any other node, a with block's body too."""
+    a for its iterable, of a match its subject, of and/or its first operand, of a chained comparison its first two
+    operands, of a comprehension its first iterable and of an annotated assignment its target and value (a local
+    name's annotation is never evaluated); nothing of a try, assert, type alias, nested def, lambda or class; of a with
+    its items, and its block too unless the context manager of an item may suppress an error of it (`suppresses`); all
+    of any other node."""
     if isinstance(node, (ast.If, ast.While, ast.IfExp)):
         return [node.test]
     if isinstance(node, (ast.For, ast.AsyncFor)):
         return [node.iter]
     if isinstance(node, ast.BoolOp):
         return node.values[:1]
+    if isinstance(node, ast.Compare):
+        return [node.left, *node.comparators[:1]]
     if isinstance(node, ast.Match):
         return [node.subject]
     if isinstance(node, _COMPREHENSIONS):
         return [node.generators[0].iter]
+    if isinstance(node, ast.AnnAssign):
+        return [node.target, *([node.value] if node.value is not None else [])]
     if isinstance(node, _SOME_PATHS):
         return []
-    if isinstance(node, (ast.With, ast.AsyncWith)):
-        return [*node.items, node.body]
+    if isinstance(node, _WITH):
+        return [*node.items, *([] if any(suppresses(part.context_expr) for part in node.items) else [node.body])]
     return list(ast.iter_child_nodes(node))
 
 
-def call_on_every_path(function, name):
-    """Whether `function` (an ast def) calls `name` (`name(...)` or `x.name(...)`) where the call runs whenever the
-    function returns: in a statement of its body or of a with block in it, outside the branches of an if/elif/else,
-    for, while, try/except/finally, match, assert, conditional expression and and/or (`_always_parts`), inside no
-    comprehension, lambda, nested def or class, and after no statement that holds a return. A raise ends on an error
-    path, not a return, so a guard that raises leaves the call on every path. A call under another name (an import
-    alias) is not one of `name`."""
-    def calls(node):
-        callee = node.func if isinstance(node, ast.Call) else None
-        return isinstance(callee, ast.Name) and callee.id == name or isinstance(callee, ast.Attribute) and callee.attr == name
-
+def on_every_path(function, found, suppresses):
+    """Whether a node of `function` (an ast def) that `found` accepts runs whenever the function returns: in a
+    statement of its body or of a with block in it, outside the branches of an if/elif/else, for, while,
+    try/except/finally, match, assert, conditional expression, and/or and chained comparison (`_always_parts`),
+    inside no comprehension, lambda, nested def or class, and after no statement that holds a return. A with whose
+    context manager may suppress an error of its block (`suppresses`, asked of each item's context manager: the
+    block may stop at any of its statements and the function go on after it) runs neither its block nor, read
+    conservatively, what follows it. A raise ends on an error path, not a return, so a guard that raises leaves the
+    node on every path."""
     def reached(item):
         if isinstance(item, list):
             for statement in item:
                 if reached(statement):
                     return True
-                if _returns(statement):
+                if _returns(statement) or _suppressing(statement, suppresses):
                     return False
             return False
-        return calls(item) or any(reached(child) for child in _always_parts(item))
+        return found(item) or any(reached(child) for child in _always_parts(item, suppresses))
     return reached(function.body)
+
+
+def call_on_every_path(function, name, suppresses):
+    """Whether `function` (an ast def) calls `name` (`name(...)` or `x.name(...)`) where the call runs whenever the
+    function returns (`on_every_path`). A call under another name (an import alias) is not one of `name`."""
+    def calls(node):
+        callee = node.func if isinstance(node, ast.Call) else None
+        return isinstance(callee, ast.Name) and callee.id == name or isinstance(callee, ast.Attribute) and callee.attr == name
+    return on_every_path(function, calls, suppresses)
+
+
+def assigns(node, line, field):
+    """Whether `node` is an assignment statement on `line` whose target writes `field` (`x.field = ...`,
+    `x['field'] = ...`, one of a tuple's), the place of a Python write row (`MapHandle.writes`)."""
+    if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)) or node.lineno != line:
+        return False
+    targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+    return any(isinstance(part, ast.Attribute) and part.attr == field
+               or isinstance(part, ast.Subscript) and isinstance(part.slice, ast.Constant) and part.slice.value == field
+               for target in targets for part in ast.walk(target))
+
+
+def may_suppress(lines, names, held):
+    """The question `on_every_path` asks of a with item's context manager (an ast expression): whether it may suppress
+    an error of its block, as the map's handlers read the project's production code. A call on one of `lines` (where
+    the map has a `contextlib.suppress(...)` call, under any name), a call or a name of one of `names` (a class whose
+    `__exit__` may return a true value, `exit_may_suppress`, or a function holding a handler that can end without
+    raising or a suppress, which a `@contextmanager` generator that swallows the error at its yield is), and, where
+    `held` (the project has such a context manager), any other expression (`with self._guard:`): the object it
+    holds may be one. Any other call (`open(...)`, `lock.acquire_timeout()`) is read as not suppressing."""
+    def suppresses(expression):
+        if isinstance(expression, ast.Call):
+            callee = expression.func
+            return expression.lineno in lines or (callee.id if isinstance(callee, ast.Name) else
+                                                  callee.attr if isinstance(callee, ast.Attribute) else None) in names
+        return held
+    return suppresses
 
 
 _CAMEL = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|[0-9]+")

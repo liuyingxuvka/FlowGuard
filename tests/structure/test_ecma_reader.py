@@ -200,6 +200,19 @@ ALWAYS_CALLED = [
     ('await prisma.$transaction(async (tx) => {\n  if (!s) return;\n  await helper(tx);\n});', None),
     ('function later() {\n  helper(tx);\n}\nlater();', None), ('const later = () => helper(tx);\nlater();', None),
     ('helperX(tx);', None),
+    # 5.1 review (FM open 3): a continue or break before the call in a do-while body, a labelled block that breaks to
+    # its label, a destructuring or parameter default, an optional access and a kind the query does not know (a throw,
+    # JSX, a class's static block) leave the call on some paths only
+    ('do {\n  if (s) continue;\n  helper(tx);\n} while (s);', None), ('do {\n  if (s) break;\n  helper(tx);\n} while (s);', None),
+    ('do {\n  for (const i of items) { if (i) continue; }\n  helper(tx);\n} while (s);', 0),
+    ('do {\n  switch (s) { case 1: break; }\n  helper(tx);\n} while (s);', 0),
+    ('block: {\n  if (s) break block;\n  helper(tx);\n}', None), ('block: {\n  helper(tx);\n  if (s) break block;\n}', None),
+    ('block: {\n  helper(tx);\n}', 0), ('block: {\n  if (s) break block;\n}\nhelper(tx);', 0),
+    ('outer: for (const i of items) {\n  for (const j of items) { if (j) continue outer; }\n}\nhelper(tx);', 0),
+    ('const { a = helper(tx) } = s;', None), ('const [b = helper(tx)] = items;', None), ('({ a = helper(tx) } = s);', None),
+    ('await prisma.$transaction(async (tx2 = helper(tx)) => tx2);', None), ('s?.[helper(tx)];', None),
+    ('x?.(helper(tx));', None), ('helper(tx)?.x;', 0), ('x[helper(tx)] = 1;', 0), ('throw helper(tx);', None),
+    ('class Inner { static { helper(tx); } }', None),
 ]
 
 
