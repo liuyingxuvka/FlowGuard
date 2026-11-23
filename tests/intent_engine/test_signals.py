@@ -1068,3 +1068,20 @@ def test_every_line_has_one_arrow_before_its_step_whatever_the_project_spells(tm
         if run == 'pytest':
             assert ("red: same ROUTE: on a=1: the reference route.py:route returns '1 -\\u003e hub', route.py:route_copy returns "
                     "'1 -\\u003e cafe' -> make route.py:route_copy agree with the reference") in shown, shown
+
+
+def test_a_line_whose_step_leaves_its_text_no_room_keeps_its_words_and_a_shorter_step_still_cuts_them():
+    # 5.1: a copies line's step names how its copies resemble, who decides and the route (R101), more than WIDTH by
+    # itself; the text then gave way to `orders.py:preview_accept i...e orders.py:accept`, too long still and unreadable.
+    places = ('orders.py:preview_accept', 'orders.py:accept')
+    text = 'copies of ACCEPT: orders.py:preview_accept is a diverged copy of the reference orders.py:accept'
+    long = ('they resemble the reference accept (structural similarity 1.00); calling accept or marking each copy same ACCEPT '
+            "makes them agree; whether they must stay separate is the owner's decision; if they must: python -m flowguard "
+            'known add copies:ACCEPT --act ignore --why TEXT')
+    line = signals.Line('impact', 'copies:ACCEPT', 'orders:preview_accept', text, long, places)
+    assert _block([line])[1] == f'impact: {text} -> {long}'
+    # a step that leaves the line room within WIDTH: the words between the places give way, as before
+    filler = 'x' * 150
+    said = _block([signals.Line('impact', 'copies:ACCEPT', 'orders:preview_accept', text, filler, places)])[1]
+    assert said == ('impact: copies of ACCEPT: orders.py:preview_accept is a div...ference orders.py:accept -> ' + filler), said
+    assert len(said.replace(places[0], '').replace(places[1], '')) == signals.WIDTH, said

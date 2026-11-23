@@ -2494,7 +2494,7 @@ def test_the_session_brief_names_the_heaviest_open_structure_problems_in_one_lin
     assert code == 0, text
     code, after = _flowguard(tmp_path)
     assert code == 0 and len(after.splitlines()) - len(before.splitlines()) == 1, (before, after)
-    assert after.splitlines()[-1] == ('0 open structure issues (1 other fields have multiple writers and no writer agreement); highest severity: write Job.status (last check; check --static --all lists each with its next step, check --all also copies that drifted apart)'), after
+    assert after.splitlines()[-1] == ('0 open structure issues (1 other field has multiple writers and no writer agreement); highest severity: write Job.status (last check; check --static --all lists each with its next step, check --all also copies that drifted apart)'), after
 
 
 

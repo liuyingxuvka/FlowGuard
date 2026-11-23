@@ -1836,20 +1836,28 @@ def discover(cfg, graph, index, change, *, everything=False):
             # The 4.3 finding: a copy of the reference is a `copies:` member (a structure finding, never red, D1); one this
             # change adds or edits is new (its baseline version is not compared here, so it never was broken at the task
             # start), the reference and the copies the baseline had as they were are old (the agreement is the current one).
-            from .health import Issue, LINES_ONLY
+            from .health import Issue, LINES_ONLY, copies_step
+            # The step says how they resemble and who decides (R101), as the structural copies' (`health.copies_step`).
+            if category == 'copy':
+                step = copies_step(f'copies:{owner.name}', f'they answer as the reference {owner.qual} on {compared_count} '
+                                   'representative values (not a proof)',
+                                   f'calling {owner.qual} or marking each copy same {owner.name} keeps them in agreement')
+            else:
+                share = min(_similarity(row['shape'], home['shape']) for row in members)
+                step = copies_step(f'copies:{owner.name}', f'they resemble the reference {owner.qual} (structural similarity {share:.2f})',
+                                   f'calling {owner.qual} or marking each copy same {owner.name} makes them agree')
             parts = tuple((row['id'], f'{row["file"]}:{row["qual"]}', f'is a {category} of the reference {owner.file}:{owner.qual}',
-                           f'call {owner.qual}') for row in members)
+                           step) for row in members)
             facts = dict(family='copies', subject=f'copies of {owner.name}', parts=parts,
+                         broken=f'was a {category} of the reference at task start',
                          fresh=frozenset(row['id'] for row in members if row['id'] in added and old_owner or row['id'] in edited))
             if category == 'diverged copy':
-                found.issues.append(Issue(f'copies:{owner.name}', 5, f'copy {owner.name}', f'reference {label}: {text}',
-                                          f'choose one for each copy: call {owner.qual}; or write # flowguard: same {owner.name} above the copy and make it agree; '
-                                          f'or, for copies meant to differ, python -m flowguard known add copies:{owner.name} --act ignore --why TEXT records that',
+                found.issues.append(Issue(f'copies:{owner.name}', 5, f'copy {owner.name}', f'reference {label}: {text}', step,
                                           frozenset({owner.target, *(row['id'] for row in members)}),
                                           frozenset({owner.file, *(row['file'] for row in members)}), **facts))
             elif category == 'copy' and fresh and old_owner:
                 found.issues.append(Issue(f'copies:{owner.name}', LINES_ONLY, f'copy {owner.name}', f'reference {label}: {text}',
-                                          f'call {owner.qual}', frozenset(row['id'] for row in members),
+                                          step, frozenset(row['id'] for row in members),
                                           frozenset(row['file'] for row in members), **facts))
     found.stats.update(copy_candidates=candidates_seen, copy_seconds=time.perf_counter() - started)
     if complete:

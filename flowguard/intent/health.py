@@ -53,6 +53,10 @@ class Issue:
     detail: tuple = ()           # further lines only `show --last` and `show NAME` print
     held: str = ''               # a fact a before line states as already true at task start, for a finding that breaks
                                  # no agreement ('Job.status has no writers agreement and 4 files write it')
+    joint: str = ''              # the text of the one impact line of a finding this change added every member of, after
+                                 # its subject ('a.py:f and b.py:f differ'); '' for a line per member
+    broken: str = ''             # what a before line says of an old member after its place; '' for its family's
+                                 # (`signals.BROKEN`): 'was a diverged copy of the reference at task start'
 
 
 def _findings():
@@ -517,11 +521,98 @@ def _module_functions(change, *, before=False):
     return sorted(rows, key=lambda row: (row[1], row[4], row[0]))
 
 
+def copies_step(name, resemble, agree):
+    """The step of a `copies` finding (R101): how its copies resemble (`resemble`), what makes them agree (`agree`),
+    that whether they must stay separate is the owner's decision, and the known.toml entry that records it, the one
+    that also takes the finding out of the brief's count (`assess`): PEMEL Studio's build script must not import the
+    app whose helper it copies. Its impact line states it, and its before line's detail (`signals.deliver`)."""
+    return (f"{resemble}; {agree}; whether they must stay separate is the owner's decision; "
+            f'if they must: python -m flowguard known add {name} --act ignore --why TEXT')
+
+
+DIFF_LINES = 400            # lines of each body `_first_difference` compares at most
+DIFF_TEXT = 60              # characters of each side of a first difference shown
+CALLERS_NAMED = 3           # callers a copy's detail line names; more are counted
+
+
+def _body(root, file, line, end):
+    """The lines of one function's source on the map, (number, folded text), its blank lines left out: CRLF and CR
+    read as LF (`read_source`, through `normalize_newlines`), each line's runs of white space as one space."""
+    text = read_source(root / file).split('\n')[line - 1:end or line]
+    return [(line + offset, ' '.join(row.split())) for offset, row in enumerate(text) if row.strip()]
+
+
+def _first_difference(root, one, other):
+    """`first difference: app/psp.py:5 break | web/psp.py:5 raise ValueError("cycle")`: the first lines of two copies'
+    bodies (`_body`, at most DIFF_LINES each) where difflib finds them apart, each side cut to DIFF_TEXT characters, a
+    side with no line there `(no line)`. It only locates the difference: what each copy answers is for the tests."""
+    import difflib
+    (file_a, line_a, end_a), (file_b, line_b, end_b) = one, other
+    a, b = _body(root, file_a, line_a, end_a)[:DIFF_LINES], _body(root, file_b, line_b, end_b)[:DIFF_LINES]
+    codes = difflib.SequenceMatcher(None, [row for _, row in a], [row for _, row in b], autojunk=False).get_opcodes()
+    found = next(((i, j, tag) for tag, i, _, j, _ in codes if tag != 'equal'), None)
+    if found is None:
+        return (f'first difference: none in the first {DIFF_LINES} lines of each with white space folded'
+                if DIFF_LINES in (len(a), len(b)) else 'first difference: none with white space folded')
+
+    def side(file, rows, index, empty, end):
+        if empty or index >= len(rows):
+            number = rows[index][0] if index < len(rows) else (rows[-1][0] + 1 if rows else end)
+            return f'{file}:{number} (no line)'
+        number, text = rows[index]
+        return f'{file}:{number} ' + (text if len(text) <= DIFF_TEXT else text[:DIFF_TEXT - 3] + '...')
+    i, j, tag = found
+    return (f'first difference: {side(file_a, a, i, tag == "insert", end_a)} | '
+            f'{side(file_b, b, j, tag == "delete", end_b)}')
+
+
+def _signature(qual, sig):
+    """A function's signature as its copy's detail names it: the map's `sig` (`(title, rows)` in Python, `function
+    total(items: number[]): number` in TS/JS), headed by the function's name when it lacks it."""
+    said = (sig or '').strip().removesuffix('=>').strip()
+    return said if said.partition('(')[0].strip().endswith(qual) else qual + said
+
+
+def _copies_detail(change, items, similar):
+    """The detail of a `copies` finding (`show --last`): each copy's place, signature and the functions that call
+    it through a call the map resolved (`MapHandle.resolved_calls`), then the first line where each later copy's body
+    differs from the first one's (`_first_difference`)."""
+    graph = change.graph
+    callers = graph.resolved_calls()[1]
+    ids = [ident for _, members in items for ident, *_ in members]
+    nodes = {row[0]: row[1:] for row in graph.con.execute(
+        f"SELECT id, qual, file, line, end_line, sig FROM node WHERE id IN ({','.join('?' * len(ids))})", ids)}
+    detail = []
+    for _, members in items:
+        for ident, file, *_ in members:
+            qual, _, line, _, sig = nodes[ident]
+            calling = sorted(caller for caller in callers.get(ident, ()) if caller != ident and not caller.startswith(ident + '.'))
+            placed = {row[0]: row[1:] for row in graph.con.execute(
+                f"SELECT id, qual, file, line FROM node WHERE id IN ({','.join('?' * len(calling))})", calling)} if calling else {}
+            named = [f'{placed[caller][0]} ({placed[caller][1]}:{placed[caller][2]})' if caller in placed else caller
+                     for caller in calling[:CALLERS_NAMED]]
+            more = f' and {len(calling) - CALLERS_NAMED} more' if len(calling) > CALLERS_NAMED else ''
+            called = (f'called by {len(calling)} function{"s" * (len(calling) != 1)} through '
+                      f'{"a resolved call" if len(calling) == 1 else "resolved calls"}: {", ".join(named)}{more}' if calling
+                      else 'called by no function through a call the map resolved')
+            share = f'structural similarity {similar[ident]:.2f} to the first copy; ' if ident in similar else ''
+            detail.append(f'{file}:{line} {_signature(qual, sig)}: {share}{called}')
+    for _, members in items:
+        (first, *rest) = [(file, nodes[ident][2], nodes[ident][3]) for ident, file, *_ in members]
+        detail.extend(_first_difference(change.graph.root, first, other) for other in rest)
+    return tuple(detail)
+
+
 def copies(change, index, *, before=False):
     """Module-level functions with one name in different files, almost the same structure (3-gram shape
     similarity SIMILAR_COPY or more) but different bodies: copies that drifted apart. One issue per set of
     files (two files that share several such functions are one issue), its members compared with the one
-    in the first file by path. A registered sensor is not listed. `before`: the problems as they stood at the change's baseline (`_module_functions`)."""
+    in the first file by path. A registered sensor is not listed. `before`: the problems as they stood at the change's
+    baseline (`_module_functions`). A member's impact line names the copies whose bodies differ from its own
+    (`app/report_c.py:_section and app/report_a.py:_section, app/report_b.py:_section differ`); when this change added
+    every member of a finding of two files (`Issue.joint`), its one impact line names both, `app/psp.py:display_ancestry
+    and web/psp.py:display_ancestry differ`. The step says how they resemble and who decides (`copies_step`); the
+    detail (`_copies_detail`) locates the difference, and is read only for the problems as they stand now."""
     from flowguard.structure.store import shape_list
     from .owners import STRUCTURAL_COPIES
     found = _findings()
@@ -534,11 +625,15 @@ def copies(change, index, *, before=False):
         shape = set(shape_list(blob) if isinstance(blob, bytes) else blob or ())
         if len(shape) >= 8:
             groups.setdefault(qual, []).append((ident, file, fp, line, shape))
-    by_files = {}
+    by_files, similar = {}, {}          # similar: {member: its shape similarity to the first member}
     for name, rows in sorted(groups.items()):
         first = rows[0]
-        members = [first, *(row for row in rows[1:] if row[1] != first[1] and row[2] != first[2]
-                            and len(row[4] & first[4]) / len(row[4] | first[4]) >= SIMILAR_COPY)]
+        members = [first]
+        for row in rows[1:]:
+            share = len(row[4] & first[4]) / len(row[4] | first[4])
+            if row[1] != first[1] and row[2] != first[2] and share >= SIMILAR_COPY:
+                members.append(row)
+                similar[row[0]] = share
         if len(members) > 1:
             by_files.setdefault(frozenset(row[1] for row in members), []).append((name, members))
     then = None
@@ -550,18 +645,26 @@ def copies(change, index, *, before=False):
         names = [name for name, _ in items]
         text = (f'Same-named functions have different bodies (structural similarity at least {SIMILAR_COPY:g}): '
                 + '; '.join(f'{name} ' + '  '.join(f'{file}:{line}' for _, file, _, line, _ in members) for name, members in items))
-        label = names[0].strip('_').upper()
-        step = (f'keep one implementation and call it elsewhere; to bind agreement, write same {label} ref above the reference and same {label} above each copy'
-                f' (# or // flowguard:); rename intentionally different functions')
         name = 'copies:' + '+'.join(names)
+        shares = sorted({round(similar[row[0]], 2) for _, members in items for row in members[1:]})
+        labels = [qual.strip('_').upper() for qual in names]
+        step = copies_step(name, f'they resemble (structural similarity {shares[0]:.2f}' + (f' to {shares[-1]:.2f})' if len(shares) > 1 else ')'),
+                           'keeping one implementation or marking each copy ' + (
+                               f'same {labels[0]}' if len(labels) == 1 else
+                               'of each function with a same NAME of its own (' + ', '.join(labels) + ')') + ' makes them agree')
         nodes = frozenset(row[0] for _, members in items for row in members)
-        parts = tuple((ident, f'{file}:{qual}', f'has another body than the same-named {qual} in '
-                       + ', '.join(sorted({other for _, other, *_ in members if other != file})), step)
-                      for qual, members in items for ident, file, *_ in members)
+        # Only short words lie between the places a line names, which the block keeps whole (`signals._cap`): the
+        # step leaves the text little room.
+        parts = tuple((ident, f'{file}:{qual}', 'and ' + ', '.join(
+                          f'{other}:{qual}' for _, other, fp_other, *_ in members if other != file and fp_other != fp) + ' differ', step)
+                      for qual, members in items for ident, file, fp, *_ in members)
+        fresh = nodes - then.get(name, frozenset()) if then is not None else frozenset()
+        joint = (', '.join(' and '.join(f'{file}:{qual}' for _, file, *_ in members) for qual, members in items) + ' differ'
+                 if len(files) == 2 and fresh == nodes else '')
         found.issues.append(Issue(name, 5, f'copy {names[0]}' + (f' ({len(names)} total)' if len(names) > 1 else ''),
                                   text, step, nodes, files, family='copies',
                                   subject='copies ' + '+'.join(names[:3]) + (f' (+{len(names) - 3} more)' if len(names) > 3 else ''), parts=parts,
-                                  fresh=nodes - then.get(name, frozenset()) if then is not None else frozenset()))
+                                  fresh=fresh, joint=joint, detail=() if before else _copies_detail(change, items, similar)))
     return found
 
 
@@ -857,9 +960,12 @@ def brief_lines(cfg):
     data = cache.structure_summary(cfg)
     if not data:
         return []
+    from .owners import _counted
     lines = []
     if data['count'] or data['writers']:
-        lines.append(f'{data["count"]} open structure issues' + (f' ({data["writers"]} other fields have multiple writers and no writer agreement)' if data['writers'] else '')
+        others = data['writers']
+        lines.append(_counted(data['count'], 'open structure issue')
+                     + (f' ({_counted(others, "other field")} {"has" if others == 1 else "have"} multiple writers and no writer agreement)' if others else '')
                      + '; highest severity: ' + '; '.join(data['top']) + ' (last check; check --static --all lists each with its next step, check --all also copies that drifted apart)')
     regions, unwritable = data['regions'], data['unwritable']
     counted, when = f'{regions} generated region{"s" * (regions != 1)}', '(last check or docs run)'

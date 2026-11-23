@@ -93,7 +93,7 @@ def test_an_ignore_entry_takes_its_finding_out_of_the_briefs_count_and_a_leave_e
         assert code == 0, text
         cfg = load_config(tmp_path)
         return cache.structure_summary(cfg)['count'], brief_lines(cfg)
-    assert brief() == (1, ['1 open structure issues; highest severity: labels TYPE_LABELS (last check; '
+    assert brief() == (1, ['1 open structure issue; highest severity: labels TYPE_LABELS (last check; '
                            'check --static --all lists each with its next step, check --all also copies that drifted apart)'])
     code, out = _flowguard(tmp_path, 'known', 'add', finding, '--act', 'leave', '--why', 'the two tables differ on purpose')
     assert code == 0, out

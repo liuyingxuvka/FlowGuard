@@ -48,7 +48,8 @@ class Line:
     function: str = ''          # the finding's member; '' for a file-level one
     text: str = ''              # between '{kind}: ' and ' -> ', paths relative to the repository
     step: str = ''              # after ' -> '
-    places: tuple = ()          # the repository-relative places `text` names
+    places: tuple = ()          # the repository-relative places `text` names; a copies line's also those of the
+                                # finding's other copies, which its text may leave unnamed (`deliver`)
     detail: tuple = ()          # further lines only `show --last` prints
 
 
@@ -64,8 +65,15 @@ FAMILIES = {
     'writers': (False, None, True),     # fields several files write without an agreement: shown in impact lines
 }
 BEFORE_STEP = 'leave it unless your task is about it'
-BROKEN = {'same': 'disagreed at task start'}        # what a before line says of an old member; else 'was broken ...'
+# What a before line says of an old member, unless its finding says it (`Issue.broken`); else 'was broken at task start'.
+# A structural resemblance breaks nothing.
+BROKEN = {'same': 'disagreed at task start', 'copies': 'differed from its same-named copies at task start'}
 IMPACT_STEP = 'fix it, or say why in your report'
+# The family whose members are copies of one another. Its finding's own step says how they resemble and who decides
+# (`health.copies_step`, R101): its impact line states it in place of IMPACT_STEP, and its before line, whose step is
+# BEFORE_STEP, keeps it in its detail. A member's line also holds the places of the finding's other members, which its
+# text need not name, so that `known add` records every copy's site (PEMEL23-15a).
+COPIES = 'copies'
 # The steps of known lines say what is known and who decides (R101): FlowGuard orders no question to the owner; the
 # agent decides when to raise one.
 KNOWN_STEPS = {'leave': 'left as it is on purpose; yours to change only if your task is about it',
@@ -157,7 +165,11 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
     disagreed at task start {what}` for same-name copies, `was broken at task start` otherwise). A finding that
     breaks no agreement states its `held` fact instead (pt-smoke-3, a field several files write without a writers
     agreement): `Job.status has no writers agreement and 4 files write it, cancel.py:cancel among them; so at task
-    start`.
+    start`. The `copies` family (COPIES): an impact line takes the part's step, a before line keeps it in its detail
+    (`copies _literal at model_source.py:_literal differed from its same-named copies at task start`), every line of a
+    member holds the other members' places too, and a finding that gives `Issue.joint` and whose members this change
+    all added is one impact line, `{subject}: {joint}`, holding every member's place, its members still counted one by
+    one when an ignore entry covers it.
     Pure: no map, no Git, no file."""
     touched_functions, touched_files = frozenset(touched_functions), frozenset(touched_files)
     entries = list(known)
@@ -178,7 +190,11 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
         speaking = [entry for entry in naming if entry.act != 'ignore']
         ignoring = ignore_covers(issue, entries)
         names.add(issue.name)
-        verb = BROKEN.get(issue.family, 'was broken at task start')
+        verb = issue.broken or BROKEN.get(issue.family, 'was broken at task start')
+        copies = issue.family == COPIES
+        members = tuple(dict.fromkeys(part[1] for part in issue.parts if part[1] and isinstance(part[1], str))) if copies else ()
+        # one impact line for a finding this change added every member of, when it gives the text naming them all
+        joint = bool(issue.joint) and issue.fresh == {part[0] for part in issue.parts}
         for function, place, what, step in issue.parts:
             # A tuple of places is named by `what` itself, which reads on after the subject (and after the verb of a
             # before line: `same N disagreed at task start on year=2025: ...`).
@@ -186,6 +202,7 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
             places = tuple(place) if many else (place,) if place else ()
             text = f'{issue.subject}: {place} {what}' if place and not many else f'{issue.subject}: {what}'
             where = ', '.join(places)
+            held = places + tuple(other for other in members if other not in places)   # a line's places
             if function in issue.fresh and red:
                 lines.append(Line('red', issue.name, function, text, step, places,
                                   issue.detail + tuple(f'known.{entry.id} names this finding; this change added it, '
@@ -194,9 +211,13 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
             elif function in issue.fresh:
                 if ignoring:
                     ignored.add((issue.name, function))
+                elif shown and joint:
+                    if function == issue.parts[0][0]:
+                        lines.append(Line(new or 'impact', issue.name, function, f'{issue.subject}: {issue.joint}',
+                                          step if copies else IMPACT_STEP, held, issue.detail))
                 elif shown:          # a new writer's own step: there is nothing to fix, only a design matter
                     lines.append(Line(new or 'impact', issue.name, function, text,
-                                      step if issue.family == 'writers' else IMPACT_STEP, places, issue.detail))
+                                      step if issue.family == 'writers' or copies else IMPACT_STEP, held, issue.detail))
             elif ignoring:
                 ignored.add((issue.name, function))
             elif shown and (everything or (function in touched_functions if function else bool(issue.files & touched_files))):
@@ -214,11 +235,11 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
                                       f'{issue.held}; so at task start', BEFORE_STEP, places, issue.detail))
                 elif not speaking:
                     # `same N disagreed at task start on x=3: ...`; a copies line of no input reads on after a colon
-                    joint = ': ' if issue.family in BROKEN and not what.startswith('on ') else ' '
+                    colon = ': ' if issue.family in BROKEN and not what.startswith('on ') else ' '
                     lines.append(Line('before', issue.name, function,
-                                      f'{issue.subject} {verb}{joint}{what}' if many else
+                                      f'{issue.subject} {verb}{colon}{what}' if many else
                                       f'{issue.subject} at {place} {verb}' if place else f'{issue.subject} {verb}',
-                                      BEFORE_STEP, places, issue.detail))
+                                      BEFORE_STEP, held, issue.detail + ((step,) if copies else ())))
     for entry in entries:
         if entry.id in said:
             continue
@@ -498,7 +519,9 @@ def _cap(said, paths=(), places=()):
     ': ' (kind and subject), its places and the step after the last ' -> ' stay whole; the rest gives way in the middle
     of its longest stretches, cut to one length together: first the input the line is about (a changed line's inputs,
     a same-name line's `on ...:`), down to 36 characters, then the other stretches, then that input further. A
-    changed line keeps the words between its values: `(inputs) was X, now Y; k/n inputs differ`."""
+    changed line keeps the words between its values: `(inputs) was X, now Y; k/n inputs differ`. A line that would
+    still be longer than WIDTH with every stretch cut as far as it goes keeps its words (a copies line, whose step
+    names who decides and the route that records it): cutting would leave it neither within WIDTH nor readable."""
     def width(text):
         return _width(text, (*places, *paths))
     if width(said) <= WIDTH:
@@ -528,6 +551,9 @@ def _cap(said, paths=(), places=()):
         pieces += stretches(body, 1)
     def total():
         return width(head + ''.join(piece for piece, _ in pieces) + arrow + step)
+    shortest = min(least for _, least in _GIVE) + 3          # what a stretch that gives way keeps at last
+    if width(head + ''.join(piece if own is None else piece[:shortest] for piece, own in pieces) + arrow + step) > WIDTH:
+        return said
     for rank, least in _GIVE:
         excess = total() - WIDTH
         free = [index for index, (piece, own) in enumerate(pieces) if own == rank and len(piece) > least + 3]

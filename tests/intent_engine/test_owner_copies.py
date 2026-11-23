@@ -810,8 +810,12 @@ def test_a_new_copy_of_a_registered_owner_is_an_impact(tmp_path):
     rules = tmp_path / 'rules.py'
     rules.write_text(rules.read_text(encoding='utf-8') + '\n\ndef again(amount: float) -> float:\n    return 0.5 * amount\n', encoding='utf-8')
     code, text = _check(tmp_path)
+    # 5.1: the step says how they resemble and who decides (R101); 5.0 said `fix it, or say why in your report`.
     assert code == 0 and _block(text)[1:] == [
-        'impact: copies of HALF: rules.py:again is a copy of the reference rules.py:half -> fix it, or say why in your report'], text
+        'impact: copies of HALF: rules.py:again is a copy of the reference rules.py:half -> they answer as the reference half '
+        'on 11 representative values (not a proof); calling half or marking each copy same HALF keeps them in agreement; '
+        "whether they must stay separate is the owner's decision; if they must: python -m flowguard known add copies:HALF "
+        '--act ignore --why TEXT'], text
 
 
 def test_a_typescript_data_owner_turns_a_new_prisma_write_outside_its_writers_red(tmp_path):
@@ -1064,7 +1068,8 @@ def test_known_add_with_act_ignore_takes_the_copies_line_of_a_changed_copy_out(t
     (tmp_path / 'src/a.ts').write_text(body.format(limit=10).replace('* 100) / 100', '* 1000) / 1000'), encoding='utf-8')
     static = lambda: _check(tmp_path, '--static')
     code, text = static()
-    assert code == 0 and _block(text)[1:] == ['before: copies total at a.ts:total was broken at task start -> leave it unless your task is about it'], text
+    assert code == 0 and _block(text)[1:] == ['before: copies total at a.ts:total differed from its same-named copies at task start '
+                                              '-> leave it unless your task is about it'], text
     _known_ignore(tmp_path, 'copies:total', 'the two totals round differently on purpose until the reports merge')
     code, text = static()
     assert code == 0 and _block(text)[1:] == ['loosened: known.copies-total added with act = "ignore" -> name it in your report; '
@@ -1078,7 +1083,8 @@ def test_a_copies_problem_lists_the_same_functions_after_a_file_is_mapped_again(
             "  for (const item of items) {{\n    if (item > {limit}) {{ sum += item * rate; }} else {{ sum += item; }}\n  }}\n"
             "  return Math.round(sum * 100) / 100;\n}}\n")
     _project(tmp_path, {'src/a.ts': body.format(limit=10), 'src/b.ts': body.format(limit=20), 'src/c.ts': body.format(limit=10)})
-    listed = [f'before: copies save at {name}.ts:save was broken at task start -> leave it unless your task is about it' for name in ('a', 'b')]
+    listed = [f'before: copies save at {name}.ts:save differed from its same-named copies at task start -> leave it unless your task '
+              'is about it' for name in ('a', 'b')]
     code, text = _check(tmp_path, '--static', '--all')
     assert _block(text)[1:] == listed, text
     (tmp_path / 'src/a.ts').write_text('// rounded to cents\n' + body.format(limit=10), encoding='utf-8')
@@ -1096,9 +1102,11 @@ def test_a_copies_problem_this_task_made_is_impact_and_known_add_with_act_ignore
     _project(tmp_path, {'src/a.ts': body.format(scale=100), 'src/b.ts': body.format(scale=100)})
     (tmp_path / 'src/a.ts').write_text(body.format(scale=1000), encoding='utf-8')
     code, text = _check(tmp_path, '--static')
+    # 5.1: one line names both copies the task made differ (PTW-4.252-2), its step how they resemble and who decides
     assert code == 0 and _block(text)[1:] == [
-        f'impact: copies save: {name}.ts:save has another body than the same-named save in src/{other}.ts -> fix it, or say why in your report'
-        for name, other in (('a', 'b'), ('b', 'a'))], text
+        'impact: copies save: a.ts:save and b.ts:save differ -> they resemble (structural similarity 1.00); keeping one '
+        "implementation or marking each copy same SAVE makes them agree; whether they must stay separate is the owner's "
+        'decision; if they must: python -m flowguard known add copies:save --act ignore --why TEXT'], text
     _known_ignore(tmp_path, 'copies:save', 'the two save functions round to different units on purpose')
     code, text = _check(tmp_path, '--static')
     assert code == 0 and _block(text)[1:] == ['loosened: known.copies-save added with act = "ignore" -> name it in your report; '
@@ -1169,7 +1177,9 @@ def test_a_copy_this_change_makes_diverge_from_the_reference_is_new_never_broken
     shown = _block(text)
     assert code == 0 and not any(line.startswith('before: ') for line in shown), text
     assert 'impact: copies of ACCEPT: orders.py:preview_accept is a diverged copy of the reference orders.py:accept ' \
-           '-> fix it, or say why in your report' in shown, text
+           '-> they resemble the reference accept (structural similarity 1.00); calling accept or marking each copy same ' \
+           "ACCEPT makes them agree; whether they must stay separate is the owner's decision; if they must: " \
+           'python -m flowguard known add copies:ACCEPT --act ignore --why TEXT' in shown, text
 
 
 def test_copies_meant_to_differ_are_recorded_by_known_add_with_act_ignore(tmp_path):
@@ -1199,9 +1209,9 @@ def test_copies_meant_to_differ_are_recorded_by_known_add_with_act_ignore(tmp_pa
     with closing(build(root)) as graph:
         found = owners.check_findings(load_config(root), graph, anchors.collect(graph))
     step = next(issue.step for issue in found.issues if issue.name == 'copies:ACCEPT')
-    assert step == ('choose one for each copy: call accept; or write # flowguard: same ACCEPT above the copy and make it '
-                    'agree; or, for copies meant to differ, python -m flowguard known add copies:ACCEPT --act ignore --why '
-                    'TEXT records that'), step
+    assert step == ('they resemble the reference accept (structural similarity 1.00); calling accept or marking each copy '
+                    "same ACCEPT makes them agree; whether they must stay separate is the owner's decision; if they must: "
+                    'python -m flowguard known add copies:ACCEPT --act ignore --why TEXT'), step
     assert _cli_fixture.main(['--root', root, 'known', 'add', 'copies:ACCEPT', '--act', 'ignore', '--why',
                               'the preview accepts a fourth day on purpose']) == 0
     code, text = _check(root)
@@ -1227,3 +1237,169 @@ def test_a_rule_bound_to_a_typescript_copy_says_rules_run_python_functions_only(
     red = [line for line in _block(text) if line.startswith('red: rule ISO_WEEKS')]
     assert code == 1 and len(red) == 1 and 'home gone' not in red[0] and 'ModuleNotFoundError' not in red[0], text
     assert red[0].startswith('red: rule ISO_WEEKS: src/weeks.ts:weeks is not Python: a rule runs only Python functions -> '), text
+
+
+# ---- what a copies finding says (5.1, R101: what was found, where the copies differ, and who decides) -----------
+
+ANCESTRY = '''
+    def display_ancestry(nodes, start):
+        chain, seen, current = [], set(), nodes.get(start)
+        while current is not None:
+            if current["id"] in seen:
+                {cycle}
+            seen.add(current["id"])
+            chain.append(current["code"])
+            current = nodes.get(current.get("parent"))
+        return ".".join(reversed(chain))
+'''
+
+
+def _decides(name, resemble, agree):
+    """The step of a copies finding, as 5.1 words it: how its copies resemble, what makes them agree, who decides."""
+    return (f"{resemble}; {agree}; whether they must stay separate is the owner's decision; "
+            f'if they must: python -m flowguard known add {name} --act ignore --why TEXT')
+
+
+def test_two_copies_a_task_adds_apart_are_one_impact_line_whose_detail_locates_the_first_difference(tmp_path):
+    # PTW-4.252-2: Planning Tool's frontend and backend each kept a parent-chain function; 5.0.1 printed one impact line
+    # per copy (`app/psp.py:display_ancestry has another body than the same-named display_ancestry in web/psp.py -> fix
+    # it, or say why in your report`, and the same of web/psp.py), and `show --last` added only the finding's name: where
+    # they differ (a cycle breaks the loop in one, raises in the other) was left to reading both files.
+    _project(tmp_path, {'app/__init__.py': '', 'web/__init__.py': '', 'app/base.py': 'x = 1\n'})
+    (tmp_path / 'app/psp.py').write_text(textwrap.dedent(ANCESTRY.format(cycle='break')).lstrip(), encoding='utf-8')
+    (tmp_path / 'web/psp.py').write_text(textwrap.dedent(ANCESTRY.format(cycle='raise ValueError("cycle")')).lstrip(), encoding='utf-8')
+    (tmp_path / 'web/view.py').write_text('from web.psp import display_ancestry\n\n\ndef render(nodes):\n'
+                                          '    return display_ancestry(nodes, "root")\n', encoding='utf-8')
+    step = _decides('copies:display_ancestry', 'they resemble (structural similarity 0.87)',
+                    'keeping one implementation or marking each copy same DISPLAY_ANCESTRY makes them agree')
+    code, text = _check(tmp_path, '--static')
+    assert code == 0 and _block(text)[1:] == [
+        f'impact: copies display_ancestry: app/psp.py:display_ancestry and web/psp.py:display_ancestry differ -> {step}'], text
+    shown = _cli_fixture.last(tmp_path).splitlines()
+    line = shown.index(f'impact: copies display_ancestry: app/psp.py:display_ancestry and web/psp.py:display_ancestry differ -> {step}')
+    assert shown[line + 1:line + 5] == [
+        '    app/psp.py:1 display_ancestry(nodes, start): called by no function through a call the map resolved',
+        '    web/psp.py:1 display_ancestry(nodes, start): structural similarity 0.87 to the first copy; called by 1 function '
+        'through a resolved call: render (web/view.py:4)',
+        '    first difference: app/psp.py:5 break | web/psp.py:5 raise ValueError("cycle")',
+        '    finding copies:display_ancestry'], shown
+
+
+LITERAL = '''
+    import ast
+
+
+    def _literal(tree, name):
+        for node in tree.body:
+            if isinstance(node, ast.Assign) and len(node.targets) == 1:
+                target = node.targets[0]
+                if isinstance(target, ast.Name) and target.id == name:
+                    return ast.literal_eval(node.value)
+        raise {missing}
+'''
+
+
+def test_a_copy_that_must_stay_separate_is_recorded_by_the_route_its_step_names_and_leaves_the_brief(tmp_path):
+    # PEMEL23-15a, PEMEL23-15b: PEMEL Studio's build script must not import the app, so its `_literal` helper is a copy on
+    # purpose. 5.0.1 said `before: copies _literal at ... was broken at task start` and named no route: the issue's own
+    # step (`keep one implementation and call it elsewhere; ...; rename intentionally different functions`) was printed
+    # nowhere, a new copy's impact line said `fix it, or say why in your report`, `known add` from a run that touched one
+    # copy recorded that copy alone, and every brief said `1 open structure issues; highest severity: copy _literal`.
+    from flowguard.intent.config import load_config
+    from flowguard.intent.health import brief_lines
+    from tests.intent_engine.test_static_check import _flowguard
+    _project(tmp_path, {'src/app/__init__.py': '', 'src/app/model_source.py': LITERAL.format(missing='KeyError(name)'),
+                        'packaging/build_runtime.py': LITERAL.format(missing='LookupError("missing " + name)'),
+                        'tests/test_l.py': 'import ast\nfrom app.model_source import _literal\n\n\ndef test_l():\n'
+                                           '    assert _literal(ast.parse("A = 1"), "A") == 1\n'},
+             pyproject='[tool.pytest.ini_options]\npythonpath = ["src", "."]\n')
+    step = _decides('copies:_literal', 'they resemble (structural similarity 1.00)',
+                    'keeping one implementation or marking each copy same LITERAL makes them agree')
+    code, text = _check(tmp_path, '--static', '--all')
+    assert code == 0 and _block(text)[1:] == [
+        f'before: copies _literal at {name}:_literal differed from its same-named copies at task start -> leave it unless '
+        'your task is about it' for name in ('build_runtime.py', 'model_source.py')], text
+    brief = brief_lines(load_config(tmp_path))
+    assert brief == ['1 open structure issue; highest severity: copy _literal (last check; check --static --all lists each '
+                     'with its next step, check --all also copies that drifted apart)'], brief
+    source = tmp_path / 'src/app/model_source.py'
+    source.write_text(source.read_text(encoding='utf-8').replace('raise KeyError(name)', 'raise KeyError("no " + name)'),
+                      encoding='utf-8')
+    code, text = _check(tmp_path, '--static')            # the task touches one copy: its line alone (R99)
+    assert code == 0 and _block(text)[1:] == [
+        'before: copies _literal at model_source.py:_literal differed from its same-named copies at task start -> leave it '
+        'unless your task is about it'], text
+    shown = _cli_fixture.last(tmp_path).splitlines()
+    assert shown[shown.index(_block(text)[1].replace('model_source.py', 'src/app/model_source.py')) + 1:][:5] == [
+        '    packaging/build_runtime.py:4 _literal(tree, name): called by no function through a call the map resolved',
+        '    src/app/model_source.py:4 _literal(tree, name): structural similarity 1.00 to the first copy; called by no '
+        'function through a call the map resolved',
+        '    first difference: packaging/build_runtime.py:10 raise LookupError("missing " + name) | '
+        'src/app/model_source.py:10 raise KeyError("no " + name)',
+        f'    {step}',
+        '    finding copies:_literal'], shown
+    code, out = _flowguard(tmp_path, 'known', 'add', 'copies:_literal', '--act', 'ignore', '--why',
+                           'the build script must not import the app')
+    assert code == 0 and ('known.copies-_literal added to .flowguard/known.toml: act ignore, sites '
+                          'src/app/model_source.py:_literal, packaging/build_runtime.py:_literal, finding copies:_literal') in out, out
+    code, text = _check(tmp_path, '--static', '--all')
+    assert code == 0 and _block(text)[1:] == ['loosened: known.copies-_literal added with act = "ignore" -> name it in your '
+                                              "report; loosening an agreement is the owner's decision"], text
+    assert brief_lines(load_config(tmp_path)) == []
+
+
+SECTION = '''
+    def _section({title}, {rows}):
+        {lines} = [{title}]
+        for {row} in {rows}:
+            {lines}.append(" {mark} " + {shown}({row}))
+        return "\\n".join({lines})
+
+
+    def build_{key}(rows):
+        return _section("{key}", rows)
+'''
+
+
+def test_a_third_copy_a_task_adds_names_the_copies_it_differs_from_and_its_detail_each_copy(tmp_path):
+    # PEMEL17-20: three private helpers of PEMEL Studio's reports walk the same pattern for three callers; 5.0.1 printed
+    # `impact: copies _section: app/report_c.py:_section has another body than the same-named _section in
+    # app/report_a.py, app/report_b.py -> fix it, or say why in your report` and the finding's name, with no
+    # similarity, signature, caller or difference.
+    def section(key, title, rows, lines, row, mark, shown):
+        return SECTION.format(key=key, title=title, rows=rows, lines=lines, row=row, mark=mark, shown=shown)
+    _project(tmp_path, {'app/__init__.py': '', 'app/report_a.py': section('a', 'title', 'rows', 'lines', 'row', '-', 'str'),
+                        'app/report_b.py': section('b', 'heading', 'items', 'out', 'item', '*', 'repr')})
+    (tmp_path / 'app/report_c.py').write_text(textwrap.dedent(section('c', 'name', 'entries', 'parts', 'entry', '+', 'format')).lstrip(),
+                                              encoding='utf-8')
+    step = _decides('copies:_section', 'they resemble (structural similarity 1.00)',
+                    'keeping one implementation or marking each copy same SECTION makes them agree')
+    impact = f'impact: copies _section: report_c.py:_section and report_a.py:_section, report_b.py:_section differ -> {step}'
+    code, text = _check(tmp_path, '--static')
+    assert code == 0 and _block(text)[1:] == [impact], text
+    shown = _cli_fixture.last(tmp_path).splitlines()
+    line = shown.index(impact.replace('report_', 'app/report_'))
+    assert shown[line + 1:line + 7] == [
+        '    app/report_a.py:1 _section(title, rows): called by 1 function through a resolved call: build_a (app/report_a.py:8)',
+        '    app/report_b.py:1 _section(heading, items): structural similarity 1.00 to the first copy; called by 1 function '
+        'through a resolved call: build_b (app/report_b.py:8)',
+        '    app/report_c.py:1 _section(name, entries): structural similarity 1.00 to the first copy; called by 1 function '
+        'through a resolved call: build_c (app/report_c.py:8)',
+        '    first difference: app/report_a.py:1 def _section(title, rows): | app/report_b.py:1 def _section(heading, items):',
+        '    first difference: app/report_a.py:1 def _section(title, rows): | app/report_c.py:1 def _section(name, entries):',
+        '    finding copies:_section'], shown
+
+
+def test_a_copies_line_names_only_the_copies_whose_body_differs_from_its_own(tmp_path):
+    # 5.0.1 named every other copy: of three copies two of which have one body, `b/m.py:f has another body than the
+    # same-named f in a/m.py, c/m.py`, though c/m.py holds b's body.
+    body = ('def f(items, rate):\n    total = 0\n    for item in items:\n        if item > {limit}:\n'
+            '            total += item * rate\n        else:\n            total += item\n    return round(total, 2)\n')
+    _project(tmp_path, {'base.py': 'x = 1\n'})
+    for folder, limit in (('a', 10), ('b', 20), ('c', 20)):
+        (tmp_path / folder).mkdir()
+        (tmp_path / folder / 'm.py').write_text(body.format(limit=limit), encoding='utf-8')
+    step = _decides('copies:f', 'they resemble (structural similarity 1.00)', 'keeping one implementation or marking each copy same F makes them agree')
+    code, text = _check(tmp_path, '--static', '--all')
+    assert code == 0 and _block(text)[1:] == [f'impact: copies f: {said} -> {step}' for said in (
+        'a/m.py:f and b/m.py:f, c/m.py:f differ', 'b/m.py:f and a/m.py:f differ', 'c/m.py:f and a/m.py:f differ')], text
