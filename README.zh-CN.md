@@ -85,7 +85,7 @@ FlowGuard 5.0 删除了 4.2 的注释写法（`sensor NAME`、`owner NAME`、`ow
 
 保存在仓库里的 SQL 文件（比如手工安装的数据库升级包）描述它所创建的表，并与 Prisma schema 比较；只修改表的文件不描述任何表。有意保留过时的描述时，指定它某个文件里的一张表来记录：`python -m flowguard known add columns:prisma/migrations/~prisma/schema.prisma --site prisma/migrations/20240101_init/migration.sql:central_employees --act leave --why TEXT`。
 
-列在 `[tool.flowguard] exclude = ["translations/*.ts"]` 里的文件（路径从项目根目录算，`**` 跨文件夹）从不被读取，任务起点的版本也不读，也不需要装它的读取器；一个改动把某个文件加进这个列表时，它原有的每条约定都是一行 `loosened`；任务起点的 pyproject.toml 解析不了时，这些文件记为一行 `not compared`。没被排除、读取器又没装的文件会让 `check --static` 带着错误原文退出（退出码 2），在 pytest 里则是 pytest 自己的汇总之后的一行红色 `map checks`。
+列在 `[tool.flowguard] exclude = ["translations/*.ts"]` 里的文件（路径从项目根目录算，`**` 跨文件夹）从不被读取，任务起点的版本也不读，也不需要装它的读取器；一个改动把某个文件加进这个列表时，它原有的每条约定都是一行 `loosened`；任务起点的 pyproject.toml 解析不了，或其 `[tool.flowguard]` 里某个值类型不对（`exclude = 5`）时，这些文件记为一行 `not compared`；当前项目自己的这种文件会带着原文被拒绝，从不抛出回溯。没被排除、读取器又没装的文件会让 `check --static` 带着错误原文退出（退出码 2），在 pytest 里则是 pytest 自己的汇总之后的一行红色 `map checks`。
 
 FlowGuard 只在测试运行里起作用。它从不在测试里把函数再跑一遍；打包、开发服务器和正式运行都不会加载它。运行期间被另一个智能体或某个测试保存过的源文件，其中的函数从此不再记录：它们记为 `not compared`，每个测试都和不带 FlowGuard 时一样运行。同一仓库可以同时有几次运行，比如两个包各自的检查，或 vitest 运行与 `check --static` 并行：每次运行只等另一次运行对缓存的短暂写入，等满 5 秒会在 stderr 说明；vitest 运行则在第一行说明（`waited 9 s for .flowguard/cache/map.sqlite`）。
 

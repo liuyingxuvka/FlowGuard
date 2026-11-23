@@ -94,7 +94,12 @@ class Session:
         self.config = config
         self.owns_host = False
         self.owns_root = False
-        self.cfg = load_config(config.rootpath)
+        try:
+            self.cfg = load_config(config.rootpath)
+        except ValueError as error:
+            # the project's own pyproject.toml refused with its text (a [tool.flowguard] value of another type, an
+            # unknown key), as pytest refuses a pyproject.toml that does not parse: no traceback
+            raise pytest.UsageError(str(error)) from error
         self.is_project = project_code(self.cfg)
         self.model = self.engine = self.map = None
         self.collected, self.selected, self.deferred = set(), set(), set()

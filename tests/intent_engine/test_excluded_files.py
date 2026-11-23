@@ -269,6 +269,41 @@ def test_comment_agreements_reads_comment_lines_only():
         ('owner', 'Job.kind', 2, '', False), ('sensor', 'RATE', 4, '', True)]
 
 
+def _repaired_baseline(tmp_path, broken, words):
+    """A baseline pyproject.toml FlowGuard cannot read (`broken`), which the task repairs while it removes a `same`
+    comment: one not compared line whose detail is `words`, the loosened line, `1 passed`, exit 0, no red line and no
+    traceback, in pytest and check --static alike."""
+    (tmp_path / 'pyproject.toml').write_bytes(broken)
+    root = _commit(tmp_path, {'pytest.ini': '[pytest]\npythonpath = .\naddopts = -p flowguard.intent.plugin\n',
+                              'app/a.py': '# flowguard: same RATE ref\ndef rate(x):\n    return x * 2\n',
+                              'app/b.py': '# flowguard: same RATE\ndef rate(x):\n    return x * 2\n', **CORE})
+    sha = _git(root, 'rev-parse', '--short=7', 'HEAD').strip()
+    (root / 'pyproject.toml').write_text('[project]\nname = "studio"\nversion = "0"\n', encoding='utf-8')
+    started = _flowguard(root, 'new-task')
+    assert started.returncode == 0, started.stdout + started.stderr
+    (root / 'app/b.py').write_text('def rate(x):\n    return x * 2\n', encoding='utf-8')
+    loosened = f'loosened: same RATE removed from b.py:rate -> {signals.LOOSENED_STEP}'
+    unknown = 'the files this change takes out of the map'
+    subject = f'not compared: {unknown} (pyproject.toml at the baseline {sha} {words[:14]}'    # the block's head
+    result = _pytest(root)
+    text = display_text(result)
+    assert result.returncode == 0, text
+    shown = text.splitlines()
+    assert '1 passed' in text and 'Traceback' not in text and not [line for line in shown if line.startswith('red: ')], text
+    assert f'FlowGuard 5.0 (since {sha}): 0 red, 1 loosened, 1 not compared;' in text, text
+    said = [line for line in shown if line.startswith('not compared: ')]
+    assert loosened in shown and len(said) == 1 and said[0].startswith(subject), text
+    last = _flowguard(root, 'show', '--last').stdout.splitlines()
+    assert last[last.index(f'not compared: {unknown} -> not a failure') + 1] == \
+        f'    pyproject.toml at the baseline {sha} {words}', last
+    static = _flowguard(root, 'check', '--static')
+    shown = display_text(static).splitlines()
+    assert static.returncode == 0 and static.stderr == '', static.stdout + static.stderr
+    assert shown[0].startswith(f'FlowGuard 5.0 (since {sha}): 0 red, 1 loosened, 1 not compared;'), shown
+    assert loosened in shown and shown[-1] == said[0], shown
+    return sha, said[0]
+
+
 @pytest.mark.parametrize('broken, cause', [
     (b'[project]\nname = "studio"\nversion = "0"\n<<<<<<< HEAD\n', 'does not parse'),
     (b'[project]\nname = "studio"\nversion = "0"\ndescription = "caf\xe9"\n', 'is no UTF-8 text'),
@@ -283,31 +318,85 @@ def test_a_task_that_repairs_an_unreadable_baseline_pyproject_is_one_not_compare
     import tomllib
     with pytest.raises((UnicodeDecodeError, tomllib.TOMLDecodeError)) as refused:     # the words of this Python's
         tomllib.loads(broken.decode('utf-8-sig'))                                       # decoder or parser
-    words = f'{cause}: {refused.value}'
+    _repaired_baseline(tmp_path, broken, f'{cause}: {refused.value}')
+
+
+PROJECT = b'[project]\nname = "studio"\nversion = "0"\n'
+
+
+@pytest.mark.parametrize('broken, words', [
+    (PROJECT + b'\n[tool.flowguard]\nexclude = 5\n', 'sets tool.flowguard.exclude to an integer (not an array of strings)'),
+    (PROJECT + b'\n[tool.flowguard]\nexclude = "app/b.py"\n',
+     'sets tool.flowguard.exclude to a string (not an array of strings)'),
+    (PROJECT + b'\n[tool.flowguard]\nexclude = ["app/b.py", 5]\n',
+     'sets tool.flowguard.exclude to an array holding an integer (not an array of strings)'),
+    (PROJECT + b'\n[tool]\nflowguard = "x"\n', 'sets tool.flowguard to a string (not a table)'),
+    (b'tool = "x"\n\n' + PROJECT, 'sets tool to a string (not a table)'),
+    (PROJECT + b'\n[tool.flowguard]\nscreen_lines = "40"\n', 'sets tool.flowguard.screen_lines to a string (not an integer)'),
+], ids=['exclude-integer', 'exclude-string', 'exclude-item', 'section-string', 'tool-string', 'other-key'])
+def test_a_baseline_pyproject_whose_flowguard_values_have_another_type_is_one_not_compared_line(tmp_path, broken, words):
+    # Round A of 5.1, F1's neighbour (R85): the baseline's pyproject.toml parses, but its `tool` table, [tool.flowguard]
+    # or one of its keys has another TOML type than FlowGuard reads, and the task repairs it. Every run of that task
+    # ended in a traceback (`TypeError: 'int' object is not iterable` from `store.ignored`, `AttributeError: 'str'
+    # object has no attribute 'get'`) instead of pytest's summary, and check --static exited 1; a string `exclude` was
+    # read as one pattern per character. It is unreadable as a baseline that does not parse: one not compared line
+    # naming the key and the type found, never red.
+    sha, said = _repaired_baseline(tmp_path, broken, words)
+    if words.startswith('sets tool.flowguard.exclude to an integer'):
+        assert said == ('not compared: the files this change takes out of the map (pyproject.toml at the baseline '
+                        f'{sha} sets tool.flowguard.exclude to an integer) -> not a failure'), said
+
+
+@pytest.mark.parametrize('broken, words', [
+    (b'[tool.flowguard]\nexclude = 5\n', 'sets tool.flowguard.exclude to an integer (not an array of strings)'),
+    (b'[tool]\nflowguard = "x"\n', 'sets tool.flowguard to a string (not a table)'),
+    (b'tool = 5\n', 'sets tool to an integer (not a table)'),
+    (b'[tool.flowguard]\nroots = ["src", ["lib"]]\n', 'sets tool.flowguard.roots to an array holding an array (not an array of strings)'),
+    (b'[tool.flowguard]\nintent = 5\nexclude = 5\n', 'sets tool.flowguard.intent to an integer (not a string)'),
+    (b'[tool.flowguard]\nledger = []\n', 'sets tool.flowguard.ledger to an array (not a table)'),
+    (b'[tool.flowguard]\ncheck_lines = true\n', 'sets tool.flowguard.check_lines to a boolean (not an integer)'),
+])
+def test_project_config_names_the_key_and_the_type_found_at_a_baseline_and_in_the_project(tmp_path, broken, words):
+    from flowguard.structure.store import UnreadableConfig, project_config
+    with pytest.raises(UnreadableConfig) as refused:
+        project_config(tmp_path, data=broken)
+    assert str(refused.value) == words
     (tmp_path / 'pyproject.toml').write_bytes(broken)
+    with pytest.raises(UnreadableConfig) as refused:
+        project_config(tmp_path)
+    assert str(refused.value) == 'pyproject.toml ' + words
+    good = b'[tool.flowguard]\nexclude = ["docs"]\nscreen_lines = 30\nledger = { paths = ["app"] }\n[tool.other]\nx = 5\n'
+    assert project_config(tmp_path, data=good) == dict(exclude=['docs'], screen_lines=30, ledger=dict(paths=['app']))
+    assert project_config(tmp_path, data=good, section='other') == dict(x=5)
+    assert project_config(tmp_path, data=b'') == {}
+
+
+@pytest.mark.parametrize('value, words', [
+    ('[tool.flowguard]\nexclude = 5', 'sets tool.flowguard.exclude to an integer (not an array of strings)'),
+    ('[tool]\nflowguard = "x"', 'sets tool.flowguard to a string (not a table)'),
+])
+def test_the_projects_own_pyproject_of_another_type_is_refused_with_its_text_as_a_toml_error_is(tmp_path, value, words):
+    # The current tree's pyproject.toml with a [tool.flowguard] value of another type ended pytest, check --static and
+    # a vitest preparation in a traceback (the int `exclude` in load_config); `[tool] flowguard = "x"` said `unknown
+    # [tool.flowguard] keys: x`. It is refused as a TOML error of that file is: its text, no traceback; pytest says
+    # it as it says its own TOML error (exit 4), `python -m flowguard` and the vitest preparation as `flowguard: ...`
+    # (exit 2), so a vitest run ends with that text (a TOML error there was a traceback too).
+    import tomllib
     root = _commit(tmp_path, {'pytest.ini': '[pytest]\npythonpath = .\naddopts = -p flowguard.intent.plugin\n',
-                              'app/a.py': '# flowguard: same RATE ref\ndef rate(x):\n    return x * 2\n',
-                              'app/b.py': '# flowguard: same RATE\ndef rate(x):\n    return x * 2\n', **CORE})
-    sha = _git(root, 'rev-parse', '--short=7', 'HEAD').strip()
-    (root / 'pyproject.toml').write_text('[project]\nname = "studio"\nversion = "0"\n', encoding='utf-8')
-    started = _flowguard(root, 'new-task')
-    assert started.returncode == 0, started.stdout + started.stderr
-    (root / 'app/b.py').write_text('def rate(x):\n    return x * 2\n', encoding='utf-8')
-    loosened = f'loosened: same RATE removed from b.py:rate -> {signals.LOOSENED_STEP}'
-    unknown = 'the files this change takes out of the map'
-    subject = f'not compared: {unknown} (pyproject.toml at the baseline {sha} {cause}: '
+                              'pyproject.toml': '[project]\nname = "studio"\nversion = "0"\n', **CORE})
+    (root / 'pyproject.toml').write_text(f'[project]\nname = "studio"\nversion = "0"\n\n{value}\n', encoding='utf-8')
     result = _pytest(root)
-    text = display_text(result)
-    assert result.returncode == 0, text
-    shown = text.splitlines()
-    assert '1 passed' in text and 'Traceback' not in text and not [line for line in shown if line.startswith('red: ')], text
-    assert f'FlowGuard 5.0 (since {sha}): 0 red, 1 loosened, 1 not compared;' in text, text
-    assert loosened in shown and [line for line in shown if line.startswith('not compared: ')][0].startswith(subject), text
-    last = _flowguard(root, 'show', '--last').stdout.splitlines()
-    assert last[last.index(f'not compared: {unknown} -> not a failure') + 1] == \
-        f'    pyproject.toml at the baseline {sha} {words}', last
-    static = _flowguard(root, 'check', '--static')
-    shown = display_text(static).splitlines()
-    assert static.returncode == 0 and static.stderr == '', static.stdout + static.stderr
-    assert shown[0].startswith(f'FlowGuard 5.0 (since {sha}): 0 red, 1 loosened, 1 not compared;'), shown
-    assert loosened in shown and shown[-1].startswith(subject), shown
+    assert result.returncode == 4 and 'Traceback' not in result.stdout + result.stderr, result.stdout + result.stderr
+    assert f'ERROR: pyproject.toml {words}' in (result.stdout + result.stderr).splitlines(), result.stdout + result.stderr
+    for command in (['check', '--static'], ['show', 'total']):
+        run = _flowguard(root, *command)
+        assert (run.returncode, run.stdout, run.stderr) == (2, '', f'flowguard: pyproject.toml {words}\n'), run
+    prepare = _run(root, ABSENT + 'from flowguard.intent.vitest import main\nraise SystemExit(main(sys.argv[1:]))\n',
+                   'prepare', '--root', str(root))
+    assert (prepare.returncode, prepare.stdout, prepare.stderr) == (2, '', f'flowguard: pyproject.toml {words}\n'), prepare
+    (root / 'pyproject.toml').write_text('[project]\nname = "studio"\nversion = "0"\n<<<<<<< HEAD\n', encoding='utf-8')
+    with pytest.raises(tomllib.TOMLDecodeError) as refused:
+        tomllib.loads((root / 'pyproject.toml').read_text(encoding='utf-8'))
+    prepare = _run(root, ABSENT + 'from flowguard.intent.vitest import main\nraise SystemExit(main(sys.argv[1:]))\n',
+                   'prepare', '--root', str(root))
+    assert (prepare.returncode, prepare.stdout, prepare.stderr) == (2, '', f'flowguard: {refused.value}\n'), prepare

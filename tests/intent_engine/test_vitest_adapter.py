@@ -3495,6 +3495,97 @@ def test_each_package_s_first_line_says_how_long_its_own_preparation_waited_for_
     assert found and titles['web'].startswith('FlowGuard ') and int(found[1]) <= 2, titles
 
 
+def _titles(root, tmp_path, capsys, plan, run):
+    """The first line of each package's report of one run of the change."""
+    from flowguard.intent import vitest
+    capsys.readouterr()
+    titles = {}
+    for package in ('web', 'api'):
+        observations = tmp_path / f'obs-{run}-{package}'
+        observations.mkdir()
+        vitest.report(str(root), plan, str(observations), str(root / package))
+        titles[package] = capsys.readouterr().out.splitlines()[0]
+    return titles
+
+
+def test_both_packages_whose_preparations_waited_for_the_cache_say_so_each(tmp_path, monkeypatch, capsys):
+    """Round A of 5.1 (PTWF-2): both packages' vitest runs of one change prepare at once while another run writes the
+    cache, and both wait. The first fix kept the waits in the plan both packages share: api's preparation, which built
+    the plan, removed every plan-*.json after web's preparation had written this one, so web's waits were lost and only
+    api's first line said it waited (the Planning Tool shape, 3 of 3 rounds with real vitest). Forced here: web prepares
+    behind one holder, in a process of its own as vitest starts it, while api builds the plan; then api notes its start
+    behind another. Each package's waits are in its own slot of the last runs, and the plan web's run reads stays."""
+    from flowguard.intent import vitest
+    from flowguard.map import common
+    from tests.structure.test_transactions import holding
+    root = _two_packages(tmp_path / 'pt')
+    assert _flowguard(root, 'check', '--static')[0] == 0
+    for package in ('web', 'api'):
+        (root / f'{package}/src/limit.ts').write_text('export function over(x: number): boolean {\n  return x >= 3;\n}\n',
+                                                      encoding='utf-8', newline='\n')
+    monkeypatch.setattr(common, 'CACHE_NOTICE', 0.5)
+    built, prepared, holders = vitest.plan, {}, []
+    boot = ('import sys\nfrom flowguard.map import common\ncommon.CACHE_NOTICE = 0.5\n'
+            'from flowguard.intent.vitest import main\nraise SystemExit(main(sys.argv[1:]))\n')
+    def plan(*args, **kwargs):
+        # api builds the plan: web's preparation runs meanwhile, behind a holder
+        holder = holding(root / '.flowguard/cache/map.sqlite', 'IMMEDIATE', 1.5)
+        try:
+            run = subprocess.run([sys.executable, '-c', boot, 'prepare', '--root', str(root), '--package', str(root / 'web')],
+                                 cwd=root, capture_output=True, encoding='utf-8', timeout=120, env=_environment())
+        finally:
+            holder.communicate(timeout=30)
+        assert run.returncode == 0 and 'flowguard: waiting for ' in run.stderr, run.stdout + run.stderr
+        prepared['web'] = json.loads(run.stdout.splitlines()[-1])
+        data = built(*args, **kwargs)
+        holders.append(holding(root / '.flowguard/cache/map.sqlite', 'IMMEDIATE', 1.5))     # what api's start waits for
+        return data
+    monkeypatch.setattr(vitest, 'plan', plan)
+    try:
+        api = vitest.prepare(str(root), str(root / 'api'))
+    finally:
+        for holder in holders:
+            holder.communicate(timeout=30)
+    web = prepared['web']
+    assert api['status'] == web['status'] == 'on' and api['plan'] == web['plan'] and Path(web['plan']).is_file(), (api, web)
+    titles = _titles(root, tmp_path, capsys, web['plan'], 1)
+    for package, title in titles.items():
+        found = WAITED.search(title)
+        assert found and int(found[1]) <= 2, (package, titles)
+
+
+def test_a_package_whose_preparation_did_not_wait_says_none_when_another_prepares_meanwhile(tmp_path, monkeypatch, capsys):
+    """Round A of 5.1 (PTWF-2): the first fix read the plan's waits, added its own and wrote them back under no lock.
+    In run 1 of a change web's preparation waits 2 s; in run 2 web prepares between api's read and api's write of the
+    plan, so the plan got web's slot of run 1 back, and web's run 2, which waited for nothing, said `waited 2 s`. Each
+    preparation now notes its waits in its own slot, under the cache's write lock: neither run-2 line says a wait."""
+    from flowguard.intent import vitest
+    from flowguard.map import common
+    from tests.structure.test_transactions import holding
+    root = _two_packages(tmp_path / 'pt')
+    assert _flowguard(root, 'check', '--static')[0] == 0
+    (root / 'web/src/limit.ts').write_text('export function over(x: number): boolean {\n  return x >= 3;\n}\n',
+                                           encoding='utf-8', newline='\n')
+    monkeypatch.setattr(common, 'CACHE_NOTICE', 0.5)
+    holder = holding(root / '.flowguard/cache/map.sqlite', 'IMMEDIATE', 2)
+    try:
+        web = vitest.prepare(str(root), str(root / 'web'))
+    finally:
+        holder.communicate(timeout=30)
+    vitest.prepare(str(root), str(root / 'api'))
+    first = _titles(root, tmp_path, capsys, web['plan'], 1)
+    assert WAITED.search(first['web']) and 'waited' not in first['api'], first
+    written = common.atomic_write_text
+    def interleaved(path, text, *args, **kwargs):      # run 2: web prepares inside api's write of the plan
+        monkeypatch.setattr(common, 'atomic_write_text', written)
+        assert vitest.prepare(str(root), str(root / 'web'))['status'] == 'on'
+        return written(path, text, *args, **kwargs)
+    monkeypatch.setattr(common, 'atomic_write_text', interleaved)
+    vitest.prepare(str(root), str(root / 'api'))
+    second = _titles(root, tmp_path, capsys, web['plan'], 2)
+    assert 'waited' not in second['web'] and 'waited' not in second['api'], second
+
+
 def test_a_vitest_run_whose_preparation_waited_for_the_cache_says_so_in_its_first_line(vitest_home):
     """Round A of 5.1: vitest shows a successful preparation's stderr nowhere, so its `flowguard: waiting for ...` line
     (which check --static and pytest print) was lost: the run paused before RUN and its title only reported a longer

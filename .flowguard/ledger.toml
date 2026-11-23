@@ -532,7 +532,7 @@ rule = "旧账"
 
 ["flowguard/intent/owners.py:Change.newly_excluded:UnreadableConfig"]
 count = 1
-reason = "A baseline pyproject.toml whose bytes do not decode or parse leaves unknown which files this change takes out of the map: it becomes one not compared line with the decoder's or parser's own words, the baseline's own problem that the change may repair (R99), and every other map check still runs, as for a baseline .py file that does not parse."
+reason = "A baseline pyproject.toml whose bytes do not decode or parse, or whose tool table, [tool.flowguard] or one of its keys has another TOML type than FlowGuard reads, leaves unknown which files this change takes out of the map: it becomes one not compared line with the decoder's or parser's own words or the key and the type found, the baseline's own problem that the change may repair (R99), and every other map check still runs, as for a baseline .py file that does not parse."
 rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
 ["flowguard/intent/owners.py:_classes:(ValueError, SyntaxError, OSError)"]
@@ -678,6 +678,11 @@ rule = { file = "AGENTS.md", text = "One route per function: when a step fails, 
 ["flowguard/intent/vitest.py:judge:PredicateError"]
 count = 1
 reason = "规则谓词在一个观察到的情况上出错时，把错误原文记成这条规则的红行并停止核对这个点，和 pytest 一侧的做法相同"
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/intent/vitest.py:main:ValueError"]
+count = 1
+reason = "What FlowGuard refuses in its own words during a vitest run's preparation or report (the project's pyproject.toml that does not parse, a [tool.flowguard] value of another type, an unknown key) is printed as one `flowguard: ` line with that text and exit 2, as `python -m flowguard` prints it; the generated module and the adapter end the vitest run with it, so the run still fails, without a traceback."
 rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
 ["flowguard/map/common.py:document_text:UnicodeDecodeError"]

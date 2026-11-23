@@ -208,9 +208,10 @@ class Change:
         of the map (`store.mapped` with the baseline's pyproject.toml and with the current one). Their agreements are
         gone from the map, which `loosened` reports. The module is the name `graph.impact` gives a file the map lacks.
         Empty without a baseline or when pyproject.toml is as at the baseline. A baseline pyproject.toml whose bytes
-        do not decode or parse (`store.UnreadableConfig`) leaves those files unknown: no files, and `unknown` holds
-        the one `not compared` line that says so in the decoder's or parser's words, as for a baseline .py file
-        that does not parse; otherwise `unknown` is (). Read once."""
+        do not decode or parse, or whose `tool` table, [tool.flowguard] or one of its keys has another TOML type than
+        FlowGuard reads (`store.UnreadableConfig`), leaves those files unknown: no files, and `unknown` holds the one
+        `not compared` line that says so in the decoder's or parser's words or names the key and the type found, as
+        for a baseline .py file that does not parse; otherwise `unknown` is (). Read once."""
         if not hasattr(self, '_newly_excluded'):
             from flowguard.structure.readers.registry import language_for, module_name
             from flowguard.structure.store import UnreadableConfig, ignored, mapped, project_config

@@ -48,13 +48,12 @@ def find_root(start=None):
 
 
 def load_config(root=None):
-    from ..structure.store import project_config
+    from ..structure.store import FLOWGUARD_KEYS, project_config
     root = Path(root or find_root()).resolve()
-    settings = project_config(root)
+    settings = project_config(root)         # each key FlowGuard reads has its TOML type
     # `propagate` names TS/JS functions that hand a caught error on, `archives` the files no code runs against
     # (MapHandle.archived); the map reads both.
-    allowed = {'roots', 'intent', 'exclude', 'authority_docs', 'screen_lines', 'check_lines', 'skip_policy', 'ledger',
-               'propagate', 'archives'}
+    allowed = set(FLOWGUARD_KEYS)
     if set(settings) - allowed:
         raise ValueError('unknown [tool.flowguard] keys: ' + ', '.join(sorted(set(settings) - allowed)))
     cfg = Config(root, [root / value for value in settings.get('roots', [])],

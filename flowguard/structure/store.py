@@ -186,26 +186,77 @@ def connect(path: Path) -> sqlite3.Connection:
 
 
 class UnreadableConfig(ValueError):
-    """Bytes of a pyproject.toml (`project_config(data=)`) that are no UTF-8 text or no TOML: its text is what is wrong
-    in the decoder's or the parser's own words (`does not parse: Invalid statement (at line 4, column 1)`)."""
+    """A pyproject.toml FlowGuard cannot read: bytes of `project_config(data=)` that are no UTF-8 text or no TOML, or
+    either file's `tool` table, tool section or [tool.flowguard] key of another TOML type than FlowGuard reads
+    (`FLOWGUARD_KEYS`). Its text is what is wrong, in the decoder's or the parser's own words (`does not parse: Invalid
+    statement (at line 4, column 1)`) or naming the key and the type found (`sets tool.flowguard.exclude to an
+    integer (not an array of strings)`; the project's own file says `pyproject.toml sets ...`)."""
+
+
+_HOLDS = {'a table': lambda value: type(value) is dict, 'a string': lambda value: type(value) is str,
+          'an integer': lambda value: type(value) is int,
+          'an array of strings': lambda value: type(value) is list and all(type(item) is str for item in value)}
+# The keys [tool.flowguard] takes and the TOML type of each; their readers check what a value of that type may be
+# (`load_config`: positive line counts, a skip policy's names, the ledger's keys; `archived`, `propagate_names`).
+FLOWGUARD_KEYS = {'roots': 'an array of strings', 'intent': 'a string', 'exclude': 'an array of strings',
+                  'authority_docs': 'an array of strings', 'screen_lines': 'an integer', 'check_lines': 'an integer',
+                  'skip_policy': 'a string', 'ledger': 'a table', 'propagate': 'an array of strings',
+                  'archives': 'an array of strings'}
+
+
+def _toml_type(value) -> str:
+    """The TOML type of a value tomllib read, as a line names it (`an integer`, `a table`)."""
+    import datetime
+    return {bool: 'a boolean', int: 'an integer', float: 'a float', str: 'a string', list: 'an array', dict: 'a table',
+            datetime.datetime: 'a date-time', datetime.date: 'a date', datetime.time: 'a time'}[type(value)]
+
+
+def _wrong_type(document: dict, section: str) -> str:
+    """What of a parsed pyproject.toml has another TOML type than FlowGuard reads, the first in the file's order: its
+    `tool` table, the table `tool.<section>`, and for [tool.flowguard] each key of FLOWGUARD_KEYS it holds (`sets
+    tool.flowguard.exclude to an integer (not an array of strings)`: the block's line names the key and the type found,
+    the parentheses are its detail; an array with an item that is no string is `an array holding an integer`); ''
+    when each has its type."""
+    tool = document.get('tool', {})
+    found = [('tool', tool, 'a table')]
+    if type(tool) is dict:
+        settings = tool.get(section, {})
+        found.append((f'tool.{section}', settings, 'a table'))
+        if section == 'flowguard' and type(settings) is dict:
+            found += [(f'tool.flowguard.{key}', value, FLOWGUARD_KEYS[key]) for key, value in settings.items()
+                      if key in FLOWGUARD_KEYS]
+    for key, value, expected in found:
+        if not _HOLDS[expected](value):
+            kind = _toml_type(value)
+            if expected == 'an array of strings' and type(value) is list:
+                kind = 'an array holding ' + _toml_type(next(item for item in value if type(item) is not str))
+            return f'sets {key} to {kind} (not {expected})'
+    return ''
 
 
 def project_config(root: Path, *, section='flowguard', data=None) -> dict:
     """Read a tool section from the project's existing TOML, or from `data`, the bytes of a pyproject.toml (as a
     baseline commit holds it; b'' for none); damaged inputs are errors: bytes of `data` that do not decode or parse
-    raise UnreadableConfig for either cause."""
+    raise UnreadableConfig for either cause, and either file whose `tool` table, tool section or [tool.flowguard] key
+    has another TOML type than FlowGuard reads (`_wrong_type`) raises UnreadableConfig naming the key and the type
+    found. A TOML error of the project's own file is tomllib's, as pytest also reports it."""
     import tomllib
     if data is not None:
         try:
-            return tomllib.loads(data.decode('utf-8-sig')).get('tool', {}).get(section, {})
+            document = tomllib.loads(data.decode('utf-8-sig'))
         except UnicodeDecodeError as error:
             raise UnreadableConfig(f'is no UTF-8 text: {error}') from error
         except tomllib.TOMLDecodeError as error:
             raise UnreadableConfig(f'does not parse: {error}') from error
-    path = Path(root) / 'pyproject.toml'
-    if not path.exists() and not path.is_symlink():
-        return {}
-    return tomllib.loads(path.read_text(encoding='utf-8-sig')).get('tool', {}).get(section, {})
+        subject = ''
+    else:
+        path = Path(root) / 'pyproject.toml'
+        if not path.exists() and not path.is_symlink():
+            return {}
+        document, subject = tomllib.loads(path.read_text(encoding='utf-8-sig')), 'pyproject.toml '
+    if problem := _wrong_type(document, section):
+        raise UnreadableConfig(subject + problem)
+    return document.get('tool', {}).get(section, {})
 
 
 def reader_digest():

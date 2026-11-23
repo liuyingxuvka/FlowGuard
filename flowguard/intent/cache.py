@@ -526,32 +526,51 @@ def save_last(con, payload):
     put_meta(con, _last_key(payload['scope']), json.dumps(payload, ensure_ascii=False, sort_keys=True))
 
 
-def stamp_start(con, scope, stamp, run):
+def stamp_start(con, scope, stamp, run, waits):
     """Note in the slot `scope` that a run of it (kind `run`) started at `stamp`, before it has any lines (vitest's
-    preparation). The run's own `save_last` replaces the note; a run that never reports (killed, timed out) leaves it,
-    beside the lines of the slot's earlier run, which stay. A slot without an earlier run gets the note alone."""
+    preparation), with `waits`, the (path, seconds) waits of its preparation for the map cache's write lock that passed
+    CACHE_NOTICE (`start_waits` reads them for the run's report). The run's own `save_last` replaces the note; a run
+    that never reports (killed, timed out) leaves it, beside the lines of the slot's earlier run, which stay. A slot
+    without an earlier run gets the note alone."""
     from flowguard import __version__
     _write_transaction(con)
     row = con.execute('SELECT v FROM meta WHERE k = ?', (_last_key(scope),)).fetchone()
     earlier = json.loads(row[0]) if row else dict(scope=scope, version=__version__, run=run, stamp=None, baseline=None,
                                                     baseline_kind=None, title=None, seconds=None, lines=[], ignored=0,
                                                     compared=[], pytest=None)
-    put_meta(con, _last_key(scope), json.dumps(dict(earlier, started=stamp), ensure_ascii=False, sort_keys=True))
+    put_meta(con, _last_key(scope), json.dumps(dict(earlier, started=stamp, waits=[list(wait) for wait in waits]),
+                                               ensure_ascii=False, sort_keys=True))
 
 
 def keep_last(cfg, payload=None, *, started=None):
-    """`save_last` (or, with `started` = (scope, stamp, run), `stamp_start`) for a run that holds no map connection of
-    its own (`check`, the vitest preparation and report)."""
+    """`save_last` (or, with `started` = (scope, stamp, run, since), `stamp_start`) for a run that holds no map
+    connection of its own (`check`, the vitest preparation and report). A start note keeps this process's waits for
+    the cache's write lock from `LOCK_WAITS[since]` on (`since`: how many it held when the run began), the wait of this
+    note for the lock among them: its slot is written by that package's runs alone, under the write lock, so two
+    packages' runs of one change each keep their own."""
     import sqlite3
-    from flowguard.map.common import cache_dir
-    cache_dir(cfg.root)
+    from flowguard.map import common
+    common.cache_dir(cfg.root)
     with closing(sqlite3.connect(cfg.cache / 'map.sqlite', timeout=CACHE_TIMEOUT)) as con:
         con.execute('CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT)')
         with con:
             if started is not None:
-                stamp_start(con, *started)
+                scope, stamp, run, since = started
+                _write_transaction(con)         # the note's own wait for the lock is one of the run's
+                stamp_start(con, scope, stamp, run, [(cfg.rel(path), seconds) for path, seconds in common.LOCK_WAITS[since:]])
             else:
                 save_last(con, payload)
+
+
+def start_waits(cfg, scope):
+    """The waits for the map cache's write lock that the start note of slot `scope` keeps (`stamp_start`): its run's
+    preparation's, as (path, seconds) pairs, read without building the map. () when the slot holds no start note (a
+    record of a finished run has no waits): a report whose package names another slot than its preparation's (a
+    config whose `root` is another folder) finds none of its own there."""
+    with _read_only(cfg.cache / 'map.sqlite') as con:
+        row = con.execute('SELECT v FROM meta WHERE k = ?', (_last_key(scope),)).fetchone()
+    note = json.loads(row[0]) if row else {}
+    return tuple(tuple(wait) for wait in note['waits']) if 'waits' in note else ()
 
 
 def _package_present(cfg, scope):

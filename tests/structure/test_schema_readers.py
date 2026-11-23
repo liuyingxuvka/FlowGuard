@@ -242,7 +242,12 @@ def test_schema_gaps_follow_rebuilds_skip_archives_and_compare_each_description_
             ('client/prisma/schema.prisma', 'backend/prisma/schema.prisma', 'items', ('note',), ('colour',)),
             ('docs/releases/2026/setup.sql', 'backend/prisma/schema.prisma', 'items', ('name', 'note'), ()),
         ], found
+    # archives of another TOML type is refused when the map reads [tool.flowguard] (`store.project_config`, round A
+    # of 5.1), the key and the type found named; an empty pattern is what `archived` itself refuses
     (tmp_path / 'pyproject.toml').write_text('[tool.flowguard]\narchives = "docs"\n', encoding='utf-8')
+    with pytest.raises(ValueError, match=r'^pyproject\.toml sets tool\.flowguard\.archives to a string \(not an array of strings\)$'):
+        build(tmp_path, tmp_path / 'map.sqlite', workers=1)
+    (tmp_path / 'pyproject.toml').write_text('[tool.flowguard]\narchives = ["/"]\n', encoding='utf-8')
     with closing(build(tmp_path, tmp_path / 'map.sqlite', workers=1)) as graph:
         with pytest.raises(ValueError, match='archives must be a list of path patterns'):
             graph.schema_gaps()

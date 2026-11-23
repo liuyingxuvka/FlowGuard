@@ -12,6 +12,7 @@ from flowguard.intent.engine import Engine
 from flowguard.intent.health import Issue
 from flowguard.intent.loader import load
 from flowguard.intent.signals import Line
+from flowguard.map import common
 from flowguard.structure.store import connect
 from tests.intent_engine.test_plugin import run
 from tests.intent_engine import _cli_fixture
@@ -298,8 +299,8 @@ def test_a_vitest_run_that_never_reported_says_so_above_its_packages_earlier_lin
     _package(tmp_path, 'api')
     cfg = load_config(tmp_path)
     cache.keep_last(cfg, _slot('vitest:web', 10.0, [RED]))
-    cache.keep_last(cfg, started=('vitest:web', 15.0, 'vitest'))
-    cache.keep_last(cfg, started=('vitest:api', 12.0, 'vitest'))         # api has no earlier run
+    cache.keep_last(cfg, started=('vitest:web', 15.0, 'vitest', len(common.LOCK_WAITS)))
+    cache.keep_last(cfg, started=('vitest:api', 12.0, 'vitest', len(common.LOCK_WAITS)))         # api has no earlier run
     assert cli.main(['--root', str(tmp_path), 'show', '--last']) == 0
     at = lambda stamp: time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(stamp))
     assert capsys.readouterr().out.splitlines() == [
