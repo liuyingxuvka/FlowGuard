@@ -127,7 +127,11 @@ def _allowed(text):
 
 
 def test_flowguard_43_adds_no_configuration_key_that_421_refuses():
+    from flowguard.intent.config import load_config
+    from flowguard.structure.store import FLOWGUARD_KEYS
     old = _git(ROOT, 'show', f'{RELEASE}:flowguard/intent/config.py').decode('utf-8')
     now = (ROOT / 'flowguard/intent/config.py').read_text(encoding='utf-8')
-    assert _allowed(now) == _allowed(old) == {'roots', 'intent', 'exclude', 'authority_docs', 'screen_lines',
+    # 5.1 keeps the keys load_config accepts in the table of their TOML types, store.FLOWGUARD_KEYS
+    assert 'allowed = set(FLOWGUARD_KEYS)' in now and load_config.__module__ == 'flowguard.intent.config'
+    assert set(FLOWGUARD_KEYS) == _allowed(old) == {'roots', 'intent', 'exclude', 'authority_docs', 'screen_lines',
                                               'check_lines', 'skip_policy', 'ledger', 'propagate', 'archives'}
