@@ -177,13 +177,23 @@ def on_every_path(function, found, suppresses):
     return reached(function.body)
 
 
+def anywhere(function, found):
+    """Whether `function` (an ast def) holds a node that `found` accepts on any path, in a nested def, lambda or
+    comprehension too: where `on_every_path` says no, whether the node is there at all."""
+    return any(found(node) for node in ast.walk(function) if node is not function)
+
+
+def calls(node, name):
+    """Whether `node` is a call of `name` (`name(...)` or `x.name(...)`). A call under another name (an import
+    alias) is not one of `name`."""
+    callee = node.func if isinstance(node, ast.Call) else None
+    return isinstance(callee, ast.Name) and callee.id == name or isinstance(callee, ast.Attribute) and callee.attr == name
+
+
 def call_on_every_path(function, name, suppresses):
-    """Whether `function` (an ast def) calls `name` (`name(...)` or `x.name(...)`) where the call runs whenever the
-    function returns (`on_every_path`). A call under another name (an import alias) is not one of `name`."""
-    def calls(node):
-        callee = node.func if isinstance(node, ast.Call) else None
-        return isinstance(callee, ast.Name) and callee.id == name or isinstance(callee, ast.Attribute) and callee.attr == name
-    return on_every_path(function, calls, suppresses)
+    """Whether `function` (an ast def) calls `name` (`calls`) where the call runs whenever the function returns
+    (`on_every_path`)."""
+    return on_every_path(function, lambda node: calls(node, name), suppresses)
 
 
 def assigns(node, line, field):
@@ -197,19 +207,27 @@ def assigns(node, line, field):
                for target in targets for part in ast.walk(target))
 
 
-def may_suppress(lines, names, held):
+NEVER_SUPPRESS = frozenset({'open'})     # calls whose context manager never suppresses, the project's code aside
+
+
+def may_suppress(lines, names, held, never):
     """The question `on_every_path` asks of a with item's context manager (an ast expression): whether it may suppress
-    an error of its block, as the map's handlers read the project's production code. A call on one of `lines` (where
-    the map has a `contextlib.suppress(...)` call, under any name), a call or a name of one of `names` (a class whose
+    an error of its block, as the map's handlers read the project's production code. A call is read as not
+    suppressing only where the reader sees that it never does: `open(...)` (NEVER_SUPPRESS) or a call whose name
+    `never` accepts (the project's own classes whose `__exit__` never returns a true value and `@contextmanager`
+    generators that hold no quiet handler, as the caller reads them). Any other call may suppress: one on one of
+    `lines` (where the map has a `contextlib.suppress(...)` call, under any name), one of `names` (a class whose
     `__exit__` may return a true value, `exit_may_suppress`, or a function holding a handler that can end without
-    raising or a suppress, which a `@contextmanager` generator that swallows the error at its yield is), and, where
-    `held` (the project has such a context manager), any other expression (`with self._guard:`): the object it
-    holds may be one. Any other call (`open(...)`, `lock.acquire_timeout()`) is read as not suppressing."""
+    raising or a suppress, which a `@contextmanager` generator that swallows the error at its yield is), a
+    `contextlib.ExitStack()`, which suppresses whatever a context manager entered on it suppresses, and any call the
+    reader cannot see into (a library's, `lock.acquire_timeout()`, or a function that returns a context manager). Any
+    other expression (`with lock:`, `with self._guard:`) may suppress where `held` (the project has such a class or
+    keeps a suppress object outside a with): the object it holds may be one."""
     def suppresses(expression):
         if isinstance(expression, ast.Call):
             callee = expression.func
-            return expression.lineno in lines or (callee.id if isinstance(callee, ast.Name) else
-                                                  callee.attr if isinstance(callee, ast.Attribute) else None) in names
+            name = callee.id if isinstance(callee, ast.Name) else callee.attr if isinstance(callee, ast.Attribute) else None
+            return expression.lineno in lines or name in names or not (name in NEVER_SUPPRESS or name and never(name))
         return held
     return suppresses
 

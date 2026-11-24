@@ -3373,7 +3373,9 @@ def test_the_block_line_of_writes_moved_to_a_helper_keeps_what_moved_where_with_
     `impact: assignProjectManager's wr...eMember, which it calls (member-helpers.ts:1); other callers of react...1
     reader of ProjectMember -> ...`, so the line agents read no longer said what moved where. That clause stays whole;
     the other callers and the counts give way first, then the fields are counted, the step's field kept by name
-    (the first fix printed `writes of 2 ProjectMember fields`, while the step named ProjectMember.projectId). `show
+    (the first fix printed `writes of 2 ProjectMember fields`, while the step named ProjectMember.projectId). With
+    these names no count brings the line within 200 characters, so its names and the callers count stay and only the
+    counts go (FM2 open 1: the second fix printed `writes of ProjectMember.projectId and 1 more` for nothing). `show
     --last` keeps every word."""
     helper = {'src/member-helpers.ts': MEMBER_HELPER,
               'src/invite.ts': "import { reactivateOrCreateMember } from './member-helpers';\nimport { prisma } from './db';\n\n"
@@ -3384,9 +3386,9 @@ def test_the_block_line_of_writes_moved_to_a_helper_keeps_what_moved_where_with_
     _write(tmp_path, {'src/members.ts': _members_ts('await reactivateOrCreateMember(tx, projectId, userId);',
                                                     "import { reactivateOrCreateMember } from './member-helpers';\n")})
     code, text = _flowguard(tmp_path, 'check', '--static', '--base', 'HEAD')
-    assert code == 0 and "impact: assignProjectManager's writes of ProjectMember.projectId and 1 more moved to " \
-        'reactivateOrCreateMember, which it calls (member-helpers.ts:1); ... -> check them for this change only (python ' \
-        '-m flowguard show ProjectMember.projectId)' in text.splitlines(), text
+    assert code == 0 and "impact: assignProjectManager's writes of ProjectMember.projectId, ProjectMember.userId moved to " \
+        'reactivateOrCreateMember, which it calls (member-helpers.ts:1); other callers of reactivateOrCreateMember: 1; ... ' \
+        '-> check them for this change only (python -m flowguard show ProjectMember.projectId)' in text.splitlines(), text
     code, text = _flowguard(tmp_path, 'show', '--last')
     assert "impact: assignProjectManager's writes of ProjectMember.projectId, ProjectMember.userId moved to " \
         'reactivateOrCreateMember, which it calls (src/member-helpers.ts:1); other callers of reactivateOrCreateMember: ' \
@@ -3432,7 +3434,7 @@ def test_writes_moved_to_a_helper_called_only_under_a_condition_keep_a_line_for_
     separate writer lines when the mutation moved across a condition. A call that runs whenever the function returns
     (a statement of its body or of a with block, after a guard that raises) gives one line, and its block line, with
     PEMEL's names, says what moved where; a call under an if, after an early return or in a loop gives the two 5.0.1
-    lines."""
+    lines, and the caller's line names the helper it calls only under a condition (PTWF-V125, FM2 open 5)."""
     path = 'src/pemel_service/library/model_preferences.py'
     _commit(tmp_path, {'pyproject.toml': '[project]\nname = "pemel"\nversion = "0"\n', path: PEMEL_PREFERENCES})
     moved = ("set_default_model's writes of ModelPreferences.default_model, ModelPreferences.default_source moved to "
@@ -3445,13 +3447,15 @@ def test_writes_moved_to_a_helper_called_only_under_a_condition_keep_a_line_for_
         assert [line.text for line in _impact(tmp_path)[0].lines] == [moved], call
     _write(tmp_path, {path: _pemel_moved('    _apply_default_model(preferences, model, source)')})
     code, text = _flowguard(tmp_path, 'check', '--static', '--base', 'HEAD')
-    assert code == 0 and "impact: set_default_model's writes of ModelPreferences.default_model and 1 more moved to " \
-        '_apply_default_model, which it calls (model_preferences.py:10); ... -> check them for this change only (python ' \
-        '-m flowguard show ModelPreferences.default_model)' in text.splitlines(), text
+    assert code == 0 and "impact: set_default_model's writes of ModelPreferences.default_model, " \
+        'ModelPreferences.default_source moved to _apply_default_model, which it calls (model_preferences.py:10); other ' \
+        'callers of _apply_default_model: 1; ... -> check them for this change only (python -m flowguard show ' \
+        'ModelPreferences.default_model)' in text.splitlines(), text
     apart = ['_apply_default_model now writes ModelPreferences.default_model, ModelPreferences.default_source; 0 other '
              'writers, 1 reader (untyped reads not counted)',
-             'set_default_model no longer writes ModelPreferences.default_model, ModelPreferences.default_source; 1 other '
-             'writer, 1 reader (untyped reads not counted)']
+             'set_default_model no longer writes ModelPreferences.default_model, ModelPreferences.default_source; '
+             f'_apply_default_model ({path}:10), which it calls only under a condition, writes them; 1 other writer, 1 '
+             'reader (untyped reads not counted)']
     for call in ('    if source == "library":\n        _apply_default_model(preferences, model, source)',
                  '    if source != "library":\n        return\n    _apply_default_model(preferences, model, source)',
                  '    for _ in range(1):\n        _apply_default_model(preferences, model, source)',
@@ -3465,7 +3469,8 @@ def test_writes_moved_into_a_helper_a_typescript_function_calls_only_on_some_pat
     """PEMEL17-18 for JS/TS: the call in Planning Tool's own shape, in the `prisma.$transaction(async (tx) => ...)`
     callback where the write was, still gives one line; under an if, a ternary, `&&`, after an early return in the
     callback, in a loop or in a callback the write was not in (`forEach`), the function and the helper keep a line
-    each."""
+    each, and the function's line names the helper it calls only under a condition or in a callback (PTWF-V125, FM2
+    open 5)."""
     _commit(tmp_path, {**MOVED_BASE, 'src/member-helpers.ts': '// helpers\n'})
     imports = "import { reactivateOrCreateMember } from './member-helpers';\n"
     call = 'await reactivateOrCreateMember(tx, projectId, userId);'
@@ -3473,19 +3478,20 @@ def test_writes_moved_into_a_helper_a_typescript_function_calls_only_on_some_pat
     [line] = _impact(tmp_path)[0].lines
     assert "assignProjectManager's writes of ProjectMember.projectId, ProjectMember.userId moved to reactivateOrCreateMember" \
         in line.text, line.text
-    apart = ['assignProjectManager no longer writes ProjectMember.projectId, ProjectMember.userId; 1 other writer, 1 reader '
-             'of ProjectMember',
+    apart = ['assignProjectManager no longer writes ProjectMember.projectId, ProjectMember.userId; reactivateOrCreateMember '
+             '(src/member-helpers.ts:1), which it calls {}, writes them; 1 other writer, 1 reader of ProjectMember',
              'reactivateOrCreateMember now writes ProjectMember.active, ProjectMember.projectId, ProjectMember.userId; 1 other '
              'writer, 1 reader of ProjectMember']
-    for body in (f'if (deps.reactivate) {{\n      {call}\n    }}',
-                 f'deps.reactivate ? {call[6:-1]} : null;',
-                 f'deps.reactivate && {call[6:]}',
-                 f'if (!deps.reactivate) return;\n    {call}',
-                 f'for (const id of [userId]) {{\n      await reactivateOrCreateMember(tx, projectId, id);\n    }}',
-                 '[userId].forEach((id) => reactivateOrCreateMember(tx, projectId, id));',
-                 f'try {{\n      {call}\n    }} catch (error) {{\n      throw error;\n    }}'):
+    for body, where in ((f'if (deps.reactivate) {{\n      {call}\n    }}', 'only under a condition'),
+                        (f'deps.reactivate ? {call[6:-1]} : null;', 'only under a condition'),
+                        (f'deps.reactivate && {call[6:]}', 'only under a condition'),
+                        (f'if (!deps.reactivate) return;\n    {call}', 'only under a condition'),
+                        (f'for (const id of [userId]) {{\n      await reactivateOrCreateMember(tx, projectId, id);\n    }}',
+                         'only under a condition'),
+                        ('[userId].forEach((id) => reactivateOrCreateMember(tx, projectId, id));', 'in a callback'),
+                        (f'try {{\n      {call}\n    }} catch (error) {{\n      throw error;\n    }}', 'only under a condition')):
         _write(tmp_path, {'src/members.ts': _members_ts(body, imports)})
-        assert sorted(line.text for line in _impact(tmp_path)[0].lines) == apart, body
+        assert sorted(line.text for line in _impact(tmp_path)[0].lines) == [apart[0].format(where), apart[1]], body
 
 
 PT_MEMBER_SCHEMA = '''model ProjectMember {
@@ -3526,9 +3532,10 @@ def test_the_moved_line_of_planning_tool_keeps_a_dropped_field_a_new_write_and_a
     """5.1 review (FM open 0, 1): the first fix kept `assignProjectManager's writes of ... moved to
     reactivateOrCreateMember` whole but printed each other clause of the line as `...`: `no longer writes
     ProjectMember.active`, `now writes ProjectMember.role` and `now deletes ProjectMember (members.ts:6)` were gone, a
-    delete left a bare place, and the step named a field the line no longer named. Each clause stays, at least as a
-    count; only the other callers and the counts give way; the line is longer than 200 characters where these names
-    leave no room. `show --last` keeps every word."""
+    delete left a bare place, and the step named a field the line no longer named. Each clause stays; only the other
+    callers and the counts give way; the line is longer than 200 characters where these names leave no room, and as no
+    count would bring it within them, its names and the callers count stay (FM2 open 1: the second fix printed `no
+    longer writes 1 field` and `writes of 2 fields` there). `show --last` keeps every word."""
     helper = 'export async function reactivateOrCreateMember(tx: any, projectId: number, userId: number) {\n' \
              '  await tx.projectMember.create({ data: { projectId, userId } });\n}\n'
     _commit(tmp_path, {'prisma/schema.prisma': PT_MEMBER_SCHEMA, 'src/db.ts': 'export const prisma: any = {};\n',
@@ -3540,17 +3547,16 @@ def test_the_moved_line_of_planning_tool_keeps_a_dropped_field_a_new_write_and_a
     role = "await tx.projectMember.updateMany({ where: { projectId }, data: { role: 'MANAGER' } });"
     manager = "await tx.projectMember.updateMany({ where: { projectId }, data: { active: true, role: 'MANAGER' } });"
     step = ' -> check them for this change only (python -m flowguard show ProjectMember.{})'
-    moved = "writes of {} moved to reactivateOrCreateMember, which it calls (member-helpers.ts:1)"
+    moved = ('writes of ProjectMember.projectId, ProjectMember.userId moved to reactivateOrCreateMember, which it calls '
+             '(member-helpers.ts:1); other callers of reactivateOrCreateMember: 1')
     for body, shown, field in (
-            (call, f"assignProjectManager's {moved.format('ProjectMember.projectId and 1 more')}; no longer writes 1 field; ...",
-             'projectId'),
-            (f'{call}\n    {manager}', f"assignProjectManager now writes ProjectMember.role; its {moved.format('2 fields')}; ...",
-             'role'),
-            (f'{delete}\n    {call}', f"assignProjectManager's {moved.format('ProjectMember.projectId and 1 more')}; no longer "
-                                     'writes 1 field; now deletes ProjectMember (members.ts:6); ...', 'projectId'),
-            (f'{delete}\n    {call}\n    {role}', f"assignProjectManager now writes ProjectMember.role; its "
-                                                 f"{moved.format('2 fields')}; no longer writes 1 field; now deletes "
-                                                 'ProjectMember (members.ts:6); ...', 'role')):
+            (call, f"assignProjectManager's {moved}; no longer writes ProjectMember.active; ...", 'projectId'),
+            (f'{call}\n    {manager}', f"assignProjectManager now writes ProjectMember.role; its {moved}; ...", 'role'),
+            (f'{delete}\n    {call}', f"assignProjectManager's {moved}; no longer writes ProjectMember.active; now deletes "
+                                     'ProjectMember (members.ts:6); ...', 'projectId'),
+            (f'{delete}\n    {call}\n    {role}', f"assignProjectManager now writes ProjectMember.role; its {moved}; no longer "
+                                                 'writes ProjectMember.active; now deletes ProjectMember (members.ts:6); ...',
+             'role')):
         _write(tmp_path, {'src/members.ts': _pt_members(body, imports)})
         code, text = _flowguard(tmp_path, 'check', '--static', '--base', 'HEAD')
         assert code == 0 and f'impact: {shown}{step.format(field)}' in text.splitlines(), text
@@ -3564,7 +3570,8 @@ def test_the_moved_line_of_planning_tool_keeps_a_dropped_field_a_new_write_and_a
 def test_the_moved_line_of_pemel_studio_keeps_a_dropped_field_and_a_new_write_in_the_block(tmp_path):
     """5.1 review (FM open 0): with PEMEL Studio's names the block line of set_default_model's moved writes printed
     `no longer writes ModelPreferences.revision_note` as `...`, and a new write as `set_default_model ...`, whose step
-    still named ModelPreferences.revision_note. Both clauses stay, the step's field by name."""
+    still named ModelPreferences.revision_note. Both clauses stay, the step's field by name, and as no count would bring
+    the line within 200 characters, every name (FM2 open 1: the second fix printed `no longer writes 1 field`)."""
     path = 'src/pemel_service/library/model_preferences.py'
     noted = PEMEL_PREFERENCES.replace('    default_source: str = ""\n', '    default_source: str = ""\n    revision_note: str = ""\n')
     _commit(tmp_path, {'pyproject.toml': '[project]\nname = "pemel"\nversion = "0"\n',
@@ -3574,17 +3581,41 @@ def test_the_moved_line_of_pemel_studio_keeps_a_dropped_field_and_a_new_write_in
         '    default_source: str = ""\n', '    default_source: str = ""\n    revision_note: str = ""\n')
     _write(tmp_path, {path: moved})
     code, text = _flowguard(tmp_path, 'check', '--static', '--base', 'HEAD')
-    assert code == 0 and "impact: set_default_model's writes of ModelPreferences.default_model and 1 more moved to " \
-        '_apply_default_model, which it calls (model_preferences.py:11); no longer writes 1 field; ... -> check them for ' \
-        'this change only (python -m flowguard show ModelPreferences.default_model)' in text.splitlines(), text
+    assert code == 0 and "impact: set_default_model's writes of ModelPreferences.default_model, " \
+        'ModelPreferences.default_source moved to _apply_default_model, which it calls (model_preferences.py:11); other ' \
+        'callers of _apply_default_model: 1; no longer writes ModelPreferences.revision_note; ... -> check them for this ' \
+        'change only (python -m flowguard show ModelPreferences.default_model)' in text.splitlines(), text
     _commit(tmp_path, {path: noted})
     _write(tmp_path, {path: moved.replace('    _apply_default_model(preferences, model, source)\n',
                                           '    _apply_default_model(preferences, model, source)\n'
                                           '    preferences.revision_note = "set"\n')})
     code, text = _flowguard(tmp_path, 'check', '--static', '--base', 'HEAD')
-    assert code == 0 and 'impact: set_default_model now writes ModelPreferences.revision_note; its writes of 2 fields ' \
-        'moved to _apply_default_model, which it calls (model_preferences.py:11); ... -> check them for this change only ' \
+    assert code == 0 and 'impact: set_default_model now writes ModelPreferences.revision_note; its writes of ' \
+        'ModelPreferences.default_model, ModelPreferences.default_source moved to _apply_default_model, which it calls ' \
+        '(model_preferences.py:11); other callers of _apply_default_model: 1; ... -> check them for this change only ' \
         '(python -m flowguard show ModelPreferences.revision_note)' in text.splitlines(), text
+
+
+def test_the_block_line_of_writes_moved_to_two_helpers_keeps_both_moved_clauses(tmp_path):
+    """5.1 review (FM2 open 2): no test pinned a block line with two `moved to` clauses once the second fix rewrote the
+    cut. With PEMEL's names set_default_model's writes moved into two helpers: both clauses stay whole, each with its
+    place, the callers list becomes a count, and only the counts go."""
+    path = 'src/pemel_service/library/model_preferences.py'
+    _commit(tmp_path, {'pyproject.toml': '[project]\nname = "pemel"\nversion = "0"\n', path: PEMEL_PREFERENCES})
+    _write(tmp_path, {path: PEMEL_PREFERENCES.replace(
+        'def set_default_model(preferences: ModelPreferences, model: str, source: str):\n'
+        '    preferences.default_model = model\n    preferences.default_source = source\n',
+        'def _apply_default_model(preferences: ModelPreferences, model: str):\n    preferences.default_model = model\n\n\n'
+        'def _apply_default_source(preferences: ModelPreferences, source: str):\n    preferences.default_source = source\n\n\n'
+        'def set_default_model(preferences: ModelPreferences, model: str, source: str):\n'
+        '    _apply_default_model(preferences, model)\n    _apply_default_source(preferences, source)\n\n\n'
+        'def import_default_model(preferences: ModelPreferences, model: str):\n    _apply_default_model(preferences, model)\n')})
+    code, text = _flowguard(tmp_path, 'check', '--static', '--base', 'HEAD')
+    assert code == 0 and text.splitlines()[1:] == [
+        "impact: set_default_model's writes of ModelPreferences.default_model moved to _apply_default_model, which it "
+        'calls (model_preferences.py:10); other callers of _apply_default_model: 1; its writes of '
+        'ModelPreferences.default_source moved to _apply_default_source, which it calls (model_preferences.py:14); ... -> '
+        'check them for this change only (python -m flowguard show ModelPreferences.default_model)'], text
 
 
 def test_writes_moved_into_a_helper_that_writes_them_only_on_some_paths_keep_a_line_for_each_function(tmp_path):
@@ -3592,13 +3623,15 @@ def test_writes_moved_into_a_helper_that_writes_them_only_on_some_paths_keep_a_l
     helper wrote the fields only `if source == "library":`, and the line still read as a relocation,
     `set_default_model's writes of ... moved to _apply_default_model`: set_default_model's writes had become
     conditional. A write merges only where the helper's own write of the field runs on every path of the helper, by
-    the same path query as the call."""
+    the same path query as the call; where it does not, the caller's line names the helper that writes the fields only
+    under a condition (PTWF-V125, FM2 open 5)."""
     path = 'src/pemel_service/library/model_preferences.py'
     _commit(tmp_path, {'pyproject.toml': '[project]\nname = "pemel"\nversion = "0"\n', path: PEMEL_PREFERENCES})
     apart = ['_apply_default_model now writes ModelPreferences.default_model, ModelPreferences.default_source; 0 other '
              'writers, 1 reader (untyped reads not counted)',
-             'set_default_model no longer writes ModelPreferences.default_model, ModelPreferences.default_source; 1 other '
-             'writer, 1 reader (untyped reads not counted)']
+             'set_default_model no longer writes ModelPreferences.default_model, ModelPreferences.default_source; it calls '
+             f'_apply_default_model ({path}:10), which writes them only under a condition; 1 other writer, 1 reader '
+             '(untyped reads not counted)']
     writes = '    preferences.default_model = model\n    preferences.default_source = source\n'
     for helper, lines in (
             (writes, 1),
@@ -3619,8 +3652,9 @@ def test_writes_moved_into_a_helper_that_writes_them_only_on_some_paths_keep_a_l
             assert found == [apart[0].replace('1 reader', '2 readers'),
                              "set_default_model's writes of ModelPreferences.default_model moved to "
                              f'_apply_default_model, which it calls ({path}:10); other callers of _apply_default_model: '
-                             'import_default_model; no longer writes ModelPreferences.default_source; 0 other writers, 2 '
-                             'readers (untyped reads not counted)'], found
+                             'import_default_model; no longer writes ModelPreferences.default_source; it calls '
+                             f'_apply_default_model ({path}:10), which writes them only under a condition; 0 other '
+                             'writers, 2 readers (untyped reads not counted)'], found
         else:
             assert len(found) == 1 and 'moved to _apply_default_model' in found[0], (helper, found)
     # Planning Tool's shape: the helper creates the member only when it found none to reactivate
@@ -3629,16 +3663,123 @@ def test_writes_moved_into_a_helper_that_writes_them_only_on_some_paths_keep_a_l
     members = _members_ts('await reactivateOrCreateMember(tx, projectId, userId);', imports)
     for body, merged in (('  await tx.projectMember.create({ data: { projectId, userId, active: true } });', True),
                          ('  if (await tx.projectMember.count({ where: { projectId, userId } })) return;\n'
-                          '  await tx.projectMember.create({ data: { projectId, userId, active: true } });', False),
+                          '  await tx.projectMember.create({ data: { projectId, userId, active: true } });',
+                          'only under a condition'),
                          ('  if (userId) {\n    await tx.projectMember.create({ data: { projectId, userId, active: true } });\n  }',
-                          False),
+                          'only under a condition'),
                          ('  await Promise.all([1].map(() => tx.projectMember.create({ data: { projectId, userId, active: true '
-                          '} })));', False)):
+                          '} })));', 'in a callback')):
         helper = f'export async function reactivateOrCreateMember(tx: any, projectId: number, userId: number) {{\n{body}\n}}\n'
         _write(tmp_path, {'src/member-helpers.ts': helper, 'src/members.ts': members})
         found = [line.text for line in _impact(tmp_path)[0].lines]
-        assert any('moved to reactivateOrCreateMember' in text for text in found) is merged, (body, found)
-        assert len(found) == (1 if merged else 2), (body, found)
+        assert any('moved to reactivateOrCreateMember' in text for text in found) is (merged is True), (body, found)
+        assert len(found) == (1 if merged is True else 2), (body, found)
+        if merged is not True:
+            assert any(text.startswith('assignProjectManager no longer writes ProjectMember.projectId, ProjectMember.userId; '
+                                       'it calls reactivateOrCreateMember (src/member-helpers.ts:1), which writes them '
+                                       f'{merged}; 1 other writer') for text in found), found
+
+
+PT_MEMBERSHIP_SCHEMA = '''model ProjectMember {
+  id          Int    @id @default(autoincrement())
+  projectId   Int
+  userId      Int
+  status      String
+  createdById Int
+}
+'''
+
+
+def _pt_membership(spread):
+    """Planning Tool's helper (backend/src/utils/project-membership.ts): it creates the member only when it finds none,
+    and reactivates one it finds inactive; `spread` is what its create's data spreads."""
+    return f'''import {{ requireMasterDataWritable }} from './guards';
+
+export async function reactivateOrCreateMember(tx: any, identity: {{ projectId: number; userId: number }}, actorId: number) {{
+  requireMasterDataWritable();
+  const membership = {{ projectId: identity.projectId, userId: identity.userId }};
+  const row = await tx.projectMember.findFirst({{ where: membership }});
+  if (!row) {{
+    await tx.projectMember.create({{ data: {{ ...{spread}, status: 'ACTIVE', createdById: actorId }} }});
+  }} else if (row.status !== 'ACTIVE') {{
+    await tx.projectMember.update({{ where: {{ id: row.id }}, data: {{ status: 'ACTIVE' }} }});
+  }}
+}}
+'''
+
+
+def _pt_assign(body, imports=''):
+    return f'''{imports}import {{ prisma }} from '../db';
+
+export async function assignProjectManager(projectId: number, userId: number, actorId: number) {{
+  await prisma.$transaction(async (tx) => {{
+    await tx.projectMember.updateMany({{ where: {{ projectId }}, data: {{ status: 'INACTIVE' }} }});
+    {body}
+  }});
+}}
+
+export async function listMembers(projectId: number) {{
+  return prisma.projectMember.findMany({{ where: {{ projectId }} }});
+}}
+'''
+
+
+def test_a_kept_writer_line_names_the_helper_that_writes_its_fields_only_under_a_condition(tmp_path):
+    """5.1 review (FM2 open 5, PTWF-V125, PEMEL17-18): Planning Tool's own helper creates a member only when it finds
+    none (`if (!row) { await tx.projectMember.create(...) } else if (row.status !== 'ACTIVE') { ... update ... }`), so
+    the 5.0.1 lines stay, as PEMEL asked where the mutation moved across a condition; but the caller's line said
+    `assignProjectManager no longer writes ProjectMember.projectId, ProjectMember.userId; 1 other writer, ...`, and
+    Planning Tool's V1-25 note was that the delegation was not visible. The line now names the helper it calls, its
+    place, and how: `it calls G (place), which writes them only under a condition`, or `G (place), which it calls
+    only under a condition, writes them` when the call is the conditional part. In the block that clause stays as the
+    moved one does; `show --last` keeps the counts too. A helper whose write names no field (a spread of a
+    parameter: `ProjectMember.?`) is not one that writes them, and the line stays as in 5.0.1."""
+    helper = 'backend/src/utils/project-membership.ts'
+    imports = "import { reactivateOrCreateMember } from '../utils/project-membership';\n"
+    call = 'await reactivateOrCreateMember(tx, { projectId, userId }, actorId);'
+    own = _pt_assign("await tx.projectMember.create({ data: { projectId, userId, status: 'ACTIVE', createdById: actorId } });")
+    _commit(tmp_path, {'prisma/schema.prisma': PT_MEMBERSHIP_SCHEMA, 'backend/src/db.ts': 'export const prisma: any = {};\n',
+                       'backend/src/utils/guards.ts': 'export function requireMasterDataWritable() {}\n',
+                       helper: _pt_membership('membership'), 'backend/src/services/members.ts': own})
+    step = ' -> check them for this change only (python -m flowguard show ProjectMember.projectId)'
+    for body, said, at in ((call, 'it calls reactivateOrCreateMember ({}:3), which writes them only under a condition', 7),
+                           (f'if (userId) {{\n      {call}\n    }}',
+                            'reactivateOrCreateMember ({}:3), which it calls only under a condition, writes them', 8)):
+        _write(tmp_path, {'backend/src/services/members.ts': _pt_assign(body, imports)})
+        [line] = _impact(tmp_path)[0].lines
+        assert line.text == ('assignProjectManager no longer writes ProjectMember.projectId, ProjectMember.userId; '
+                             f'{said.format(helper)}; 1 other writer, 2 readers of ProjectMember'), line.text
+        assert line.places[1:] == (f'{helper}:3',) and 'moved to' not in line.text, line.places
+        assert f'assignProjectManager calls reactivateOrCreateMember at backend/src/services/members.ts:{at}' in line.detail
+        code, text = _flowguard(tmp_path, 'check', '--static', '--base', 'HEAD')
+        assert code == 0 and 'impact: assignProjectManager no longer writes ProjectMember.projectId, ' \
+            f'ProjectMember.userId; {said.format("project-membership.ts")}; ...{step}' in text.splitlines(), text
+        code, text = _flowguard(tmp_path, 'show', '--last')
+        assert f'impact: assignProjectManager no longer writes ProjectMember.projectId, ProjectMember.userId; ' \
+            f'{said.format(helper)}; 1 other writer, 2 readers of ProjectMember{step}' in text, text
+    # the helper's create spreads its parameter: it writes ProjectMember.? (fields not visible), none of the fields
+    _commit(tmp_path, {helper: _pt_membership('identity'), 'backend/src/services/members.ts': own})
+    _write(tmp_path, {'backend/src/services/members.ts': _pt_assign(call, imports)})
+    [line] = _impact(tmp_path)[0].lines
+    assert line.text == ('assignProjectManager no longer writes ProjectMember.projectId, ProjectMember.userId; 0 other '
+                         'writers, 2 readers of ProjectMember'), line.text
+    # PEMEL's names: the call under an if, and the helper's write under one
+    path = 'src/pemel_service/library/model_preferences.py'
+    _commit(tmp_path, {'pyproject.toml': '[project]\nname = "pemel"\nversion = "0"\n', path: PEMEL_PREFERENCES})
+    writes = '    preferences.default_model = model\n    preferences.default_source = source\n'
+    for call, helper_body, said in (
+            ('    if source == "library":\n        _apply_default_model(preferences, model, source)', writes,
+             '_apply_default_model ({}:10), which it calls only under a condition, writes them'),
+            ('    _apply_default_model(preferences, model, source)',
+             '    if source == "library":\n        preferences.default_model = model\n'
+             '        preferences.default_source = source\n',
+             'it calls _apply_default_model ({}:10), which writes them only under a condition')):
+        _write(tmp_path, {path: _pemel_moved(call).replace(writes, helper_body, 1)})
+        code, text = _flowguard(tmp_path, 'check', '--static', '--base', 'HEAD')
+        assert code == 0 and 'impact: set_default_model no longer writes ModelPreferences.default_model, ' \
+            f'ModelPreferences.default_source; {said.format("model_preferences.py")}; ... -> check them for this change ' \
+            'only (python -m flowguard show ModelPreferences.default_model)' in text.splitlines(), text
+        assert text.count('impact: ') == 2 and 'impact: _apply_default_model now writes ModelPreferences.' in text, text
 
 
 def test_a_call_a_python_with_may_suppress_keeps_a_line_for_each_function(tmp_path):
@@ -3646,7 +3787,10 @@ def test_a_call_a_python_with_may_suppress_keeps_a_line_for_each_function(tmp_pa
     `moved to` line, though a ValueError of check skips the call and set_default_model returns. A call in or after a
     with whose context manager may suppress, as the map's handlers read them (contextlib.suppress under any name, a
     class whose __exit__ may return true, a function holding a handler that can end without raising, and then any
-    context manager a name holds), keeps the two 5.0.1 lines; `with open(...)` still merges."""
+    context manager a name holds), keeps the two 5.0.1 lines; `with open(...)` still merges. So does (FM2 open 3) a
+    `contextlib.ExitStack()`, which suppresses what is entered on it, and any call whose context manager the reader
+    cannot see never to suppress (a library's, a function that returns one); the project's own class whose
+    `__exit__` never returns true and a `@contextmanager` without a quiet handler still merge."""
     path = 'src/pemel_service/library/model_preferences.py'
     _commit(tmp_path, {'pyproject.toml': '[project]\nname = "pemel"\nversion = "0"\n', path: PEMEL_PREFERENCES})
     call = '_apply_default_model(preferences, model, source)'
@@ -3674,15 +3818,38 @@ def logged():
 
 
 GUARD = Quiet()
+
+
+def make_guard():
+    return GUARD
+
+
+class Session:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return None
+
+
+@contextlib.contextmanager
+def scope():
+    yield
 '''
     for body, merged in ((f'    with open("log", "a"):\n        {call}', True),
+                         (f'    with Session():\n        check(model)\n        {call}', True),
+                         (f'    with scope():\n        check(model)\n        {call}', True),
+                         (f'    with contextlib.ExitStack() as stack:\n        stack.enter_context(contextlib.suppress('
+                          f'ValueError))\n        check(model)\n        {call}', False),
+                         (f'    with make_guard():\n        check(model)\n    {call}', False),
+                         (f'    with threading.Lock():\n        check(model)\n        {call}', False),
                          (f'    with contextlib.suppress(ValueError):\n        check(model)\n        {call}', False),
                          (f'    with quiet(ValueError):\n        check(model)\n        {call}', False),
                          (f'    with contextlib.suppress(ValueError):\n        check(model)\n    {call}', False),
                          (f'    with Quiet():\n        check(model)\n        {call}', False),
                          (f'    with logged():\n        check(model)\n        {call}', False),
                          (f'    with GUARD:\n        check(model)\n        {call}', False)):
-        source = 'import contextlib\nfrom contextlib import suppress as quiet\n' + _pemel_moved(body) + helpers
+        source = 'import contextlib\nimport threading\nfrom contextlib import suppress as quiet\n' + _pemel_moved(body) + helpers
         _write(tmp_path, {path: source})
         found = [line.text for line in _impact(tmp_path)[0].lines]
         assert any('moved to _apply_default_model' in text for text in found) is merged, (body, found)

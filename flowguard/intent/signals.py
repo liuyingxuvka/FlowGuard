@@ -339,11 +339,12 @@ def render_block(lines, *, title, everything=False, files=()):
     line summing every other such line up, and one `+N more` for the changed and impact lines left out. One
     line keeps at most WIDTH (200) characters besides its paths as far as its words allow (`_cap`: the middle of its
     text gives way, never its subject, places or step; a line of copies that take different parameters gives way by
-    whole return types, then parameter lists, `_cap_parameters`; an impact line of writes moved to a helper by its
-    other callers and counts, then by counting its field lists, `_cap_moved`), and is longer where they do not: a
-    copies line whose step alone passes WIDTH keeps its words, and those two lines are longer than WIDTH where what
-    they keep is. It names at most three places; a place's path is its file name (the shortest unique end of the path
-    where another path has that name, of the block or of the repository's file list `files`, read once per run).
+    whole return types, then parameter lists, `_cap_parameters`; an impact line of writes moved to a helper, or
+    written by one only under a condition, by its other callers and counts, then by counting its field lists, and
+    by its counts alone where no form fits, `_cap_moved`), and is longer where they do not: a copies line whose step
+    alone passes WIDTH keeps its words, and those two lines are longer than WIDTH where what they keep is. It names
+    at most three places; a place's path is its file name (the shortest unique end of the path where another path
+    has that name, of the block or of the repository's file list `files`, read once per run).
     `everything` (`--all`): every line, uncut."""
     lines = sorted(lines, key=lambda line: KINDS.index(line.kind))
     names = _short_paths((path for line in lines for path in map(_path_of, line.places) if path), files)
@@ -536,16 +537,17 @@ def _cap(said, paths=(), places=()):
     a same-name line's `on ...:`), down to 36 characters, then the other stretches, then that input further. A
     changed line keeps the words between its values: `(inputs) was X, now Y; k/n inputs differ`, and between its
     inputs and the keys that changed: `(inputs) now adds K=V (3 other keys equal); k/n inputs differ`. An impact line of
-    writes moved to a helper keeps what moved where (`_cap_moved`). A line that would still be longer than WIDTH with
-    every stretch cut as far as it goes keeps its words (a copies line, whose step names who decides and the route that
-    records it): cutting would leave it neither within WIDTH nor readable. A line of copies that take different
+    writes moved to a helper, or of a helper it calls that writes them only under a condition, keeps what went where
+    (`_cap_moved`). A line that would still be longer than WIDTH with every stretch cut as far as it goes keeps its
+    words (a copies line, whose step names who decides and the route that records it): cutting would leave it neither
+    within WIDTH nor readable. A line of copies that take different
     parameters whose signatures `_signatures` reads is never cut inside one (`_cap_parameters`); one it cannot read (a
     copy its places leave unknown, a return type that names another copy) gives way in its middle as other lines do."""
     def width(text):
         return _width(text, (*places, *paths))
     if width(said) <= WIDTH:
         return said
-    if said.startswith('impact: ') and any(kind == 'moved' for kind, _, _ in
+    if said.startswith('impact: ') and any(kind in ('moved', 'via') for kind, _, _ in
                                            _clauses(said.rpartition(' -> ')[0][len('impact: '):])):
         return _cap_moved(said, width)
     if (signatures := _signatures(said, places)) is not None:
@@ -599,47 +601,65 @@ def _give(pieces, rank, least, excess):
 
 
 def _cap_moved(said, width):
-    """An impact line of writes moved to a helper (`owners.field_impact`; its clauses, joined by '; ', read by
-    `_clauses`) within WIDTH as far as what it says allows (PTWF-V125, PEMEL17-18, 5.1 review). Each `F's writes of
-    FIELDS moved to G, which it calls (place)` stays, and so does every other clause of what the function changed:
-    `F now writes`, `no longer writes` and `writes M.? where it wrote`, each at least as a count, and `now deletes M
-    (place)` whole. Only the other callers of G and the writer and reader counts give way: each callers list becomes a
-    count first, the longest first (`other callers of G: 2`), then the counts go and then the callers counts, and
-    `...` at the end says that something went. Then the field lists are counted, the longest first and the moved
-    ones last, each where that is shorter (`no longer writes 1 field`, `writes of 2 fields moved to G`); a list that
-    holds the field of the step's `show NAME` keeps that one (`writes of ProjectMember.projectId and 1 more moved to
-    G`), so the step names a field the line names. A line still longer than WIDTH then is longer: with Planning
-    Tool's and PEMEL's names the kept clauses and the step alone are. `show --last` keeps the whole line."""
+    """An impact line of writes moved to a helper, or of writes a helper it calls makes only under a condition
+    (`owners.field_impact`; its clauses, joined by '; ', read by `_clauses`), in its least shortened form within WIDTH
+    (PTWF-V125, PEMEL17-18, 5.1 review). Each `F's writes of FIELDS moved to G, which it calls (place)`, each `it calls
+    G (place), which writes them only under a condition` (or `in a callback`, and `G (place), which it calls only
+    under a condition, writes them`) and every other clause of what the function changed stay: `F now writes`, `no
+    longer writes` and `writes M.? where it wrote`, each at least as a count, and `now deletes M (place)` whole. What
+    gives way, in this order and only while the line is longer than WIDTH: each list of G's other callers becomes a
+    count, the longest first (`other callers of G: 2`); then the writer and reader counts go, then the callers counts,
+    and `...` at the end says that something went; then the field lists are counted, the longest first and those of
+    the moved and conditional clauses last, each where that is shorter (`no longer writes 1 field`, `writes of 2
+    fields moved to G`); a list that holds the field of the step's `show NAME` keeps that one (`writes of
+    ProjectMember.projectId and 1 more moved to G`), so the step names a field the line names. Once the line fits,
+    what now fits comes back: the callers counts, then the writer and reader counts. Where no form fits WIDTH (with
+    Planning Tool's and PEMEL's names the kept clauses and the step alone pass it), counting names would buy nothing:
+    the line keeps every field name and the callers counts and drops only the writer and reader counts, as `_cap`
+    keeps a line's words. `show --last` keeps the whole line."""
     body, arrow, step = said.rpartition(' -> ')
     named = re.search(r'python -m flowguard show (\S+?)\)?\Z', step)
     shown = named[1] if named else None
     clauses = [[kind, parts, text] for kind, parts, text in _clauses(body[len('impact: '):])]
-    went = False
 
-    def line():
+    def line(clauses):
+        went = any(kind in ('callers', 'counts') and not text for kind, _, text in clauses)
         return 'impact: ' + '; '.join([text for _, _, text in clauses if text] + ['...'] * went) + arrow + step
 
     def longest(kinds):
         """The indexes of the clauses of `kinds`, the longest first, as long as the line is longer than WIDTH."""
         for index in sorted(range(len(clauses)), key=lambda index: -len(clauses[index][2])):
-            if clauses[index][0] in kinds and width(line()) > WIDTH:
+            if clauses[index][0] in kinds and width(line(clauses)) > WIDTH:
                 yield index
     for index in longest(('callers',)):
         head, names, more = clauses[index][1]
         clauses[index][2] = f'{head}{len(names.split(", ")) + int(more or 0)}'
-    for kind in ('counts', 'callers'):
-        for index in longest((kind,)):
-            clauses[index][2], went = '', True
-    for kinds in (('change', 'hidden'), ('moved',)):
+    gone = {}
+    for index in longest(('counts',)):
+        gone[index], clauses[index][2] = clauses[index][2], ''
+    named_form = line(clauses)              # every field name and the callers counts kept
+    for index in longest(('callers',)):
+        gone[index], clauses[index][2] = clauses[index][2], ''
+    for kinds in (('change', 'hidden'), ('moved', 'via')):
         for index in longest(kinds):
             kind, (head, model, fields, tail), text = clauses[index]
-            counted = head + _fields_counted(fields, shown, model) + (' (fields not visible)' if kind == 'hidden' else tail)
-            clauses[index][2] = min(text, counted, key=len)
-    return line()
+            if fields != 'them':
+                counted = head + _fields_counted(fields, shown, model) + (' (fields not visible)' if kind == 'hidden' else tail)
+                clauses[index][2] = min(text, counted, key=len)
+    if width(line(clauses)) > WIDTH:
+        return named_form
+    for index in sorted(gone, key=lambda index: clauses[index][0] != 'callers'):
+        clauses[index][2] = gone[index]
+        if width(line(clauses)) > WIDTH:
+            clauses[index][2] = ''
+    return line(clauses)
 
 
-# the clauses of `owners.field_impact`'s impact line that `_cap_moved` reads, by their words
+# the clauses of `owners.field_impact`'s impact line that `_cap_moved` reads, by their words; of each that names
+# fields a count may stand for, (head, model, fields, tail)
 _CLAUSES = (('moved', re.compile(r"((?:\S+'s|its) writes of )()(.+?)( moved to \S+, which it calls \(.*\))\Z")),
+            ('via', re.compile(r'(it calls \S+ \(.*?\), which writes )()(.+?)( only under a condition| in a callback)\Z')),
+            ('via', re.compile(r'(\S+ \(.*?\), which it calls (?:only under a condition|in a callback), writes )()(.+)()\Z')),
             ('callers', re.compile(r'(other callers of \S+: )(.+?)(?: and (\d+) more)?\Z')),
             ('counts', re.compile(r'\d+ other writers?\b.*\Z')),
             ('hidden', re.compile(r'((?:\S+ )?writes (\S+)\.\? where it wrote )([^()]+?)( \(fields not visible\b.*\))\Z')),

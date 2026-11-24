@@ -154,7 +154,7 @@ def test_handler_query_uses_all_paths_instead_of_any_raise(body, always_raises):
 def test_a_call_on_every_path_is_one_no_branch_return_or_nested_scope_can_skip(body, always):
     """PEMEL17-18: writes moved into a helper are one line only where the call runs whenever the function returns."""
     function = ast.parse('async def f(self, p, q, s, rows, lock):\n' + ''.join(f'    {line}\n' for line in body.splitlines())).body[0]
-    assert call_on_every_path(function, '_apply', may_suppress(set(), set(), False)) is always
+    assert call_on_every_path(function, '_apply', may_suppress(set(), set(), False, lambda name: False)) is always
 
 
 SUPPRESSING = '''import contextlib
@@ -178,14 +178,26 @@ def f(p, lock, guard):
     ('with mod.logged():\n        _apply(p)', set(), {'logged'}, False, False),
     ('with guard:\n        _apply(p)', set(), {'Quiet'}, True, False),
     ('with self.guard:\n        _apply(p)', set(), set(), True, False),
-    # a context manager the map does not read as suppressing runs its block, and its own expression runs always
+    # 5.1 review (FM2 open 3): an ExitStack suppresses what a context manager entered on it suppresses, and a call the
+    # reader cannot see into (a library's, a function that returns a context manager) may return one that suppresses
+    ('with contextlib.ExitStack() as stack:\n        stack.enter_context(contextlib.suppress(ValueError))\n'
+     '        check(p)\n        _apply(p)', set(), set(), False, False),
+    ('with contextlib.AsyncExitStack() as stack:\n        _apply(p)', set(), set(), False, False),
+    ('with lock.acquire_timeout(5):\n        _apply(p)', set(), set(), False, False),
+    ('with make_guard():\n        check(p)\n    _apply(p)', set(), set(), False, False),
+    # a context manager the reader sees never suppresses runs its block, and its own expression runs always: open, and
+    # what `never` accepts (the project's own class with an `__exit__` that never returns true, a @contextmanager
+    # generator without a quiet handler)
     ('with open(p):\n        _apply(p)', {9}, {'Quiet'}, True, True), ('with lock:\n        _apply(p)', set(), set(), False, True),
+    ('with Session():\n        _apply(p)', set(), set(), False, True),
+    ('with self.scope():\n        _apply(p)', set(), set(), False, True),
     ('with contextlib.suppress(_apply(p)):\n        pass', {6}, set(), False, True),
     ('_apply(p)\n    with contextlib.suppress(ValueError):\n        check(p)', {7}, set(), False, True),
 ])
 def test_a_call_in_or_after_a_with_that_may_suppress_is_not_on_every_path(body, lines, names, held, always):
     function = ast.parse(SUPPRESSING.replace('BODY', body)).body[2]
-    assert call_on_every_path(function, '_apply', may_suppress(lines, names, held)) is always
+    never = {'Session', 'scope'}.__contains__
+    assert call_on_every_path(function, '_apply', may_suppress(lines, names, held, never)) is always
 
 
 def test_a_write_on_every_path_is_an_assignment_to_its_field_on_its_line_by_the_same_path_query():
@@ -193,7 +205,7 @@ def test_a_write_on_every_path_is_an_assignment_to_its_field_on_its_line_by_the_
     the row's line to that field) and judged by the same path query as the call."""
     function = ast.parse('def g(p, s):\n    p.a = 1\n    if s:\n        p.b = 2\n    p.c, p.d = 3, 4\n'
                          '    p["e"] = 5\n    q = p.a\n').body[0]
-    never = may_suppress(set(), set(), False)
+    never = may_suppress(set(), set(), False, lambda name: False)
     assert [on_every_path(function, lambda node, line=line, field=field: assigns(node, line, field), never)
             for line, field in ((2, 'a'), (4, 'b'), (5, 'd'), (6, 'e'), (7, 'a'), (2, 'b'))] == \
         [True, False, True, True, False, False]

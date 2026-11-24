@@ -211,17 +211,9 @@ def call_on_every_path(source, tree, function, name, lines=None):
     (`do { if (s) continue; helper(tx); } while (s)`). A throw ends on an error path, not a return. A callback (its
     body) is counted, not judged: whether the function it is passed to calls it is not read."""
     first, last = function
-    fewest, stack = None, [tree.root_node]
-    while stack:
-        node = stack.pop()
-        if node.end_point.row + 1 < first or node.start_point.row + 1 > last:
-            continue
-        stack.extend(node.named_children)
-        callee = node.child_by_field_name('function') if node.type == 'call_expression' else None
-        if callee is None or (lines is not None and node.start_point.row + 1 not in lines):
-            continue
-        spelled = callee.child_by_field_name('property') if callee.type == 'member_expression' else callee
-        if spelled is None or text(spelled, source) != name or _optional(node, source):
+    fewest = None
+    for node in _calls(source, tree, function, name, lines):
+        if _optional(node, source):
             continue
         crossed, child, item = 0, node, node.parent
         while item is not None:
@@ -250,6 +242,30 @@ def call_on_every_path(source, tree, function, name, lines=None):
                 break
             child, item = item, item.parent
     return fewest
+
+
+def _calls(source, tree, function, name, lines):
+    """The calls of `name` (`name(...)`, `x.name(...)`, `x?.name(...)`) in the text of the lines `function` (first,
+    last) of a parsed JS/TS file, each one that starts on a line of `lines` when given."""
+    first, last = function
+    stack = [tree.root_node]
+    while stack:
+        node = stack.pop()
+        if node.end_point.row + 1 < first or node.start_point.row + 1 > last:
+            continue
+        stack.extend(node.named_children)
+        callee = node.child_by_field_name('function') if node.type == 'call_expression' else None
+        if callee is None or (lines is not None and node.start_point.row + 1 not in lines):
+            continue
+        spelled = callee.child_by_field_name('property') if callee.type == 'member_expression' else callee
+        if spelled is not None and text(spelled, source) == name:
+            yield node
+
+
+def calls_in(source, tree, function, name, lines=None):
+    """Whether the function whose text spans the lines `function` calls `name` (`_calls`) on any path: where
+    `call_on_every_path` gives None, whether the call is there at all."""
+    return next(_calls(source, tree, function, name, lines), None) is not None
 
 
 def named_scope(scope):

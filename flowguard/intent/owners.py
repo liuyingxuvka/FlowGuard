@@ -1436,6 +1436,8 @@ def loosened(change, index):
 
 
 CALLERS_NAMED = 3           # other callers of a helper a moved-writes line names; more are counted
+# how an impact line says a helper's write of a field, or the call of it, does not run on every path (`_moved_writes`)
+CONDITIONAL = {'condition': 'only under a condition', 'callback': 'in a callback'}
 
 
 def field_impact(change, index):
@@ -1462,7 +1464,12 @@ def field_impact(change, index):
     (assignments.ts:9)`. A call the map does not resolve, a call or a write under a condition, and one the path
     queries cannot place (`_Paths`: a function the current text does not hold by the map's name and line, a language
     other than Python and JS/TS, a write that is no assignment or Prisma call) link nothing: the two functions keep a
-    line each, as in 5.0.1. The block cuts the moved line by its own rule (`signals._cap_moved`)."""
+    line each, as in 5.0.1. Where the call or the write is there but runs only on some paths (PTWF-V125: the
+    delegation was not visible), the `no longer writes` line names that function and how, `it calls
+    reactivateOrCreateMember (project-membership.ts:3), which writes them only under a condition` or `_apply
+    (model.py:7), which it calls only under a condition, writes them` (`in a callback` where it sits in more anonymous
+    callbacks than the baseline's write), and the detail gives the call. The block cuts these lines by their own rule
+    (`signals._cap_moved`)."""
     from .health import _test_files, deleted_model, unseen_write, written_field, writers
     from .signals import Line
     found = Findings()
@@ -1497,7 +1504,7 @@ def field_impact(change, index):
         added, removed = sorted(written.keys() - before.keys()), sorted(before.keys() - written.keys())
         if added or removed:
             changes[function] = added, removed
-    moves, calls = _moved_writes(graph, changes, now, then, unseen, every)
+    moves, delegated, calls = _moved_writes(graph, changes, now, then, unseen, every)
     movers, given = {}, {}
     for function, moved in moves.items():
         for callee, keys in moved:
@@ -1558,23 +1565,28 @@ def field_impact(change, index):
         qual = function.partition(':')[2] or function
         here = f'{row["file"]}:{qual}'
         said, places, detail = [], [here], []
+
+        def called(callee):
+            """(name, place) of `callee`, and the detail lines of the calls of it: a JS/TS call edge holds the call's
+            line; a Python one its caller's def line, and a call `_imported_member_calls` resolved has no edge, so
+            the call is then named without a place."""
+            name, file, line = node(callee)
+            sites = sorted({f'{file}:{line}' for src, file, line in graph.con.execute(
+                "SELECT src, file, line FROM edge WHERE kind = 'calls' AND dst = ? AND prov != 'guessed'", (callee,))
+                if file and named(src) == function}) if row.get('language', 'python') != 'python' else []
+            return name, f'{file}:{line}' if file else callee, \
+                [f'{qual} calls {name} at {site}' for site in sites] or [f'{qual} calls {name}']
         if added:
             said.append(f'{qual} now writes {", ".join(added)}')
         for callee, keys in moved:
-            name, file, line = node(callee)
-            at = f'{file}:{line}' if file else callee
+            name, at, calling_at = called(callee)
             calling = sorted(caller for caller in calls[1].get(callee, ()) if caller not in (function, callee))
             listed = ', '.join(node(caller)[0] for caller in calling[:CALLERS_NAMED]) \
                 + (f' and {len(calling) - CALLERS_NAMED} more' if len(calling) > CALLERS_NAMED else '')
             said.append((f"{qual}'s" if not said else 'its') + f' writes of {", ".join(keys)} moved to {name}, which it '
                         f'calls ({at})' + (f'; other callers of {name}: {listed}' if listed else ''))
             places.append(at)
-            # A JS/TS call edge holds the call's line; a Python one its caller's def line, and a call
-            # `_imported_member_calls` resolved has no edge: the call is then named without a place.
-            sites = sorted({f'{file}:{line}' for src, file, line in graph.con.execute(
-                "SELECT src, file, line FROM edge WHERE kind = 'calls' AND dst = ? AND prov != 'guessed'", (callee,))
-                if file and named(src) == function}) if row.get('language', 'python') != 'python' else []
-            detail += [f'{qual} calls {name} at {site}' for site in sites] or [f'{qual} calls {name}']
+            detail += calling_at
             if callee in absorbed:
                 detail.append(f'{name} now writes {", ".join(changes[callee][0])}')
             detail += [f'other caller of {name}: {caller}' for caller in calling[:10]] if calling else \
@@ -1586,6 +1598,14 @@ def field_impact(change, index):
                         + ' (fields not visible' + (f': {unclear["reason"]}' if unclear.get('reason') else '') + ')')
         if gone:
             said.append(('' if said else f'{qual} ') + f'no longer writes {", ".join(gone)}')
+        for callee, keys, (part, how) in delegated.get(function, ()):
+            # PTWF-V125: a helper it calls writes those fields now, but only on some paths (PEMEL17-18: no move)
+            name, at, calling_at = called(callee)
+            them, where = 'them' if keys == gone else ', '.join(keys), CONDITIONAL[how]
+            said.append(f'{name} ({at}), which it calls {where}, writes {them}' if part == 'call'
+                        else f'it calls {name} ({at}), which writes {them} {where}')
+            places.append(at)
+            detail += calling_at
         for gone_from in sorted({key.rpartition('.')[0] for key in removed} & deleted.get(function, {}).keys()
                                 - deleted_then.get(function, {}).keys()):
             at = f'{deleted[function][gone_from]["file"]}:{deleted[function][gone_from]["line"]}'
@@ -1604,18 +1624,22 @@ def field_impact(change, index):
 
 
 def _moved_writes(graph, changes, now, then, unseen, every):
-    """({function: [(callee, [field])]}, (down, up)): of each function this change made stop writing fields itself, the
-    fields a function it calls through a call the map resolved (`MapHandle.resolved_calls`, its anonymous callbacks'
-    calls its own: `named`) writes now, each field to the first such callee by id, where that call runs whenever the
-    function returns (`_Paths.call`), the callee's write of the field (one of its rows in `every`) runs whenever the
-    callee returns (`_Paths.write`, the same path query at the write's place), and the two sit in no more anonymous
-    callbacks together than the field's write did at the baseline (`prisma.$transaction(async (tx) => ...)` around
-    both, in the function or in the callee). A call or a write under a condition, or one `_Paths` cannot place in the
-    current text, moves nothing: the function and the callee keep a line each (PEMEL17-18). A field of a model the
-    function still writes with data whose fields are not visible is none (`unseen`: it may still write it). `down` and
-    `up` are the resolved calls by named function, read only when some function stopped writing a field."""
+    """({function: [(callee, [field])]}, {function: [(callee, [field], (part, how))]}, (down, up)): of each function
+    this change made stop writing fields itself, the fields a function it calls through a call the map resolved
+    (`MapHandle.resolved_calls`, its anonymous callbacks' calls its own: `named`) writes now, each field to the first
+    such callee by id, where that call runs whenever the function returns (`_Paths.call`), the callee's write of the
+    field (one of its rows in `every`) runs whenever the callee returns (`_Paths.write`, the same path query at the
+    write's place), and the two sit in no more anonymous callbacks together than the field's write did at the
+    baseline (`prisma.$transaction(async (tx) => ...)` around both, in the function or in the callee). A call or a
+    write under a condition, or one `_Paths` cannot place in the current text, moves nothing: the function and the
+    callee keep a line each (PEMEL17-18). Of the fields that moved nowhere, the second map names the first callee by
+    id that writes the field where the path queries found the call or the write but not on every path (`found_call`,
+    `found_write`): `part` is 'call' or 'write', `how` 'condition' or, where it sits in more anonymous callbacks than
+    the baseline's write, 'callback' (PTWF-V125: the line names that delegation). A field of a model the function
+    still writes with data whose fields are not visible is none (`unseen`: it may still write it). `down` and `up` are
+    the resolved calls by named function, read only when some function stopped writing a field."""
     if not any(removed for _, removed in changes.values()):
-        return {}, ({}, {})
+        return {}, {}, ({}, {})
     down, up, through = {}, {}, {}
     for src, targets in graph.resolved_calls()[0].items():
         for target in targets:
@@ -1624,20 +1648,40 @@ def _moved_writes(graph, changes, now, then, unseen, every):
                 down.setdefault(caller, set()).add(callee)
                 up.setdefault(callee, set()).add(caller)
                 through.setdefault((caller, callee), set()).add(src)
-    moves, paths = {}, _Paths(graph)
+    moves, maybe, paths = {}, {}, _Paths(graph)
     for function, (_, removed) in changes.items():
         left = [key for key in removed if key.rpartition('.')[0] not in unseen.get(function, {})]
+        some = maybe.setdefault(function, {})
         for callee in sorted(down.get(function, ())):
             if not (taken := [key for key in left if key in now.get(callee, {})]):
                 continue
             if (reach := paths.call(function, callee, through[function, callee])) is None:
+                if paths.found_call(function, callee, through[function, callee]):
+                    for key in taken:
+                        some.setdefault(key, (callee, ('call', 'condition')))
                 continue
             inside = {key: paths.write(callee, every[callee][key]) for key in taken}
+            for key in taken:
+                if inside[key] is None:
+                    if paths.found_write(callee, every[callee][key]):
+                        some.setdefault(key, (callee, ('write', 'condition')))
+                elif reach + inside[key] > _callbacks(then[function][key]):
+                    some.setdefault(key, (callee, ('call' if reach > _callbacks(then[function][key]) else 'write',
+                                                   'callback')))
             if taken := [key for key in taken if inside[key] is not None
                          and reach + inside[key] <= _callbacks(then[function][key])]:
                 moves.setdefault(function, []).append((callee, taken))
                 left = [key for key in left if key not in taken]
-    return moves, (down, up)
+    delegated = {}
+    for function, some in maybe.items():
+        moved = {key for _, keys in moves.get(function, ()) for key in keys}
+        grouped = {}
+        for key, (callee, how) in some.items():
+            if key not in moved:
+                grouped.setdefault((callee, how), []).append(key)
+        if grouped:
+            delegated[function] = [(callee, sorted(keys), how) for (callee, how), keys in sorted(grouped.items())]
+    return moves, delegated, (down, up)
 
 
 def _callbacks(row):
@@ -1648,12 +1692,12 @@ def _callbacks(row):
 class _Paths:
     """The path queries `_moved_writes` asks of the current text: whether a call (`call`) or a write (`write`) runs
     whenever its function returns, Python's through `query.on_every_path` and JS/TS's through
-    `ecma.call_on_every_path`. Each file is parsed once. Where the map has no such function, its def is not found by
-    name and the map's line, or its language is neither, no answer is established (None) and the two 5.0.1 lines
-    stay."""
+    `ecma.call_on_every_path`, and where it does not, whether it is there on some path (`found_call`, `found_write`).
+    Each file is parsed once. Where the map has no such function, its def is not found by name and the map's line, or
+    its language is neither, no answer is established (None, False) and the two 5.0.1 lines stay."""
 
     def __init__(self, graph):
-        self.graph, self.trees = graph, {}
+        self.graph, self.trees, self.seen = graph, {}, {}
 
     def tree(self, file, language):
         """The parse of `file`'s current text, once: Python's syntax tree, JS/TS's `(source, tree)`."""
@@ -1682,14 +1726,18 @@ class _Paths:
         return None if definition is None else (node, language, definition)
 
     @cached_property
+    def tests(self):
+        from .health import _test_files
+        return _test_files(self.graph)
+
+    @cached_property
     def handlers(self):
         """(rows, names, held) of the map's handlers in production code (a test's are none) that can end without
         raising: their rows, the names of the classes whose `__exit__` may return a true value and of the functions
         holding such a handler or a suppress (a `@contextmanager` generator that swallows the error at its yield is
         one), and whether a name may hold a context manager that suppresses: there is such a class, or a
         `contextlib.suppress(...)` made elsewhere than as a with item."""
-        from .health import _test_files
-        tests = _test_files(self.graph)
+        tests = self.tests
         rows = [row for row in self.graph.handlers(language='python') if row['file'] not in tests
                 and row['kind'] in ('except', 'finally', 'suppress', 'exit_method') and row['non_raising']]
         names = {row['node'].partition(':')[2].removesuffix('.__aexit__').removesuffix('.__exit__').rpartition('.')[2]
@@ -1700,12 +1748,37 @@ class _Paths:
         return rows, names, any(row['kind'] == 'exit_method' or row['kind'] == 'suppress' and row['line'] not in made[row['file']]
                                 for row in rows)
 
+    def never(self, name):
+        """Whether the reader sees that the context manager a call of `name` gives never suppresses an error of a
+        with block (`query.may_suppress` reads a call of one of `handlers`' names as suppressing first): production
+        code defines `name`, and each such definition is a Python class with its own `__exit__` or `__aexit__` or a def
+        decorated with `contextmanager` or `asynccontextmanager`. A class whose `__exit__` it inherits, a def that
+        returns a context manager and a name production code does not define (a library's) are not seen."""
+        if name not in self.seen:
+            rows = [tuple(row) for row in self.graph.con.execute(
+                "SELECT id, qual, kind, file FROM node WHERE short = ? AND kind IN ('class', 'function', 'method')",
+                (name,)) if row[3] not in self.tests]
+
+            def seen(ident, qual, kind):
+                if kind == 'class':
+                    module = ident.partition(':')[0]
+                    return self.graph.con.execute('SELECT 1 FROM node WHERE id IN (?, ?)', (
+                        f'{module}:{qual}.__exit__', f'{module}:{qual}.__aexit__')).fetchone() is not None
+                found = self.parsed(ident)
+                return found is not None and found[1] == 'python' and any(
+                    ast.unparse(item.func if isinstance(item, ast.Call) else item).rpartition('.')[2]
+                    in ('contextmanager', 'asynccontextmanager') for item in found[2].decorator_list)
+            self.seen[name] = bool(rows) and all(seen(ident, qual, kind) for ident, qual, kind, _ in rows)
+        return self.seen[name]
+
     def suppresses(self, file):
         """The `query.may_suppress` test of a Python with item's context manager in `file`: the lines of the
-        `contextlib.suppress(...)` calls `handlers` holds there, its names and whether a name may hold one."""
+        `contextlib.suppress(...)` calls `handlers` holds there, its names, whether a name may hold one, and the
+        calls the reader sees never suppress (`never`)."""
         from flowguard.structure.query import may_suppress
         rows, names, held = self.handlers
-        return may_suppress({row['line'] for row in rows if row['kind'] == 'suppress' and row['file'] == file}, names, held)
+        return may_suppress({row['line'] for row in rows if row['kind'] == 'suppress' and row['file'] == file}, names,
+                            held, self.never)
 
     def call(self, function, callee, sources):
         """The fewest anonymous callbacks a call of `callee` in `function` sits in where it runs whenever `function`
@@ -1721,12 +1794,45 @@ class _Paths:
         (node, language, parsed), name = found, target['qual'].rpartition('.')[2]
         if language == 'python':
             return 0 if call_on_every_path(parsed, name, self.suppresses(node['file'])) else None
+        return ecma.call_on_every_path(*parsed, (node['line'], node['end_line']), name, self.lines(callee, sources))
+
+    def lines(self, callee, sources):
+        """The lines of the map's JS/TS call edges from `sources` to `callee`, or None (anywhere in the function) when
+        one of `sources` has none: a call `_imported_member_calls` resolved."""
         edges = {}
         for src, line in self.graph.con.execute(
                 "SELECT src, line FROM edge WHERE kind = 'calls' AND dst = ? AND prov != 'guessed'", (callee,)):
             edges.setdefault(src, set()).add(line)
-        lines = None if any(src not in edges for src in sources) else {line for src in sources for line in edges[src]}
-        return ecma.call_on_every_path(*parsed, (node['line'], node['end_line']), name, lines)
+        return None if any(src not in edges for src in sources) else {line for src in sources for line in edges[src]}
+
+    def found_call(self, function, callee, sources):
+        """Whether the current text of `function` holds the call of `callee` that `call` reads, on any path (in Python
+        in a nested def, lambda or comprehension too): where `call` gives None, whether the call is there but runs
+        only on some paths, or is not placed at all (None from `parsed`, a call not spelled with the callee's
+        name)."""
+        from flowguard.structure.query import anywhere, calls
+        from flowguard.structure.readers import ecma
+        target, found = self.graph.node(callee), self.parsed(function)
+        if target is None or found is None:
+            return False
+        (node, language, parsed), name = found, target['qual'].rpartition('.')[2]
+        if language == 'python':
+            return anywhere(parsed, lambda item: calls(item, name))
+        return ecma.calls_in(*parsed, (node['line'], node['end_line']), name, self.lines(callee, sources))
+
+    def found_write(self, function, rows):
+        """Whether the current text of `function` holds one of the writes `rows` at the place `write` reads it, on any
+        path: where `write` gives None, whether the write is there but runs only on some paths."""
+        from flowguard.structure.query import anywhere, assigns
+        from flowguard.structure.readers import ecma
+        if (found := self.parsed(function)) is None:
+            return False
+        node, language, parsed = found
+        return any(language == 'python' and row['method'] == 'assign'
+                   and anywhere(parsed, lambda item, row=row: assigns(item, row['line'], row['field']))
+                   or language != 'python' and row['how'] == 'prisma'
+                   and ecma.calls_in(*parsed, (node['line'], node['end_line']), row['method'], {row['call_line']})
+                   for row in rows)
 
     def write(self, function, rows):
         """The fewest anonymous callbacks a write of one field by `function` (its `rows`, `MapHandle.writes`) sits in

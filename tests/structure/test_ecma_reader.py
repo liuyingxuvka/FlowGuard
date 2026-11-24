@@ -233,3 +233,19 @@ def test_a_call_on_every_path_crosses_no_branch_or_named_function_and_counts_its
     # a callback on the function's own line is still a callback
     source, tree = parse(b'export const f = (items: any[]) => items.forEach((item) => helper(item));\n', 'typescript')
     assert call_on_every_path(source, tree, (1, 1), 'helper') == 1
+
+
+def test_a_call_found_on_some_paths_only_is_one_the_text_holds_where_the_path_query_gives_none():
+    """5.1 review (FM2 open 5, PTWF-V125): where `call_on_every_path` gives None, `calls_in` says whether the call is
+    there at all (under an if, optional, in a callback), so an impact line can say that a helper writes a field only
+    under a condition, and nothing where the call is not there."""
+    from flowguard.structure.readers.common import parse
+    from flowguard.structure.readers.ecma import call_on_every_path, calls_in
+    text = (b'export async function g(tx: any, s: any) {\n  if (!s) {\n    await tx.projectMember.create({ data: s });\n'
+            b'  }\n  svc?.helper(1);\n  other(2);\n}\n')
+    source, tree = parse(text, 'typescript')
+    assert [call_on_every_path(source, tree, (1, 7), name) for name in ('create', 'helper', 'other', 'missing')] == \
+        [None, None, 0, None]
+    assert [calls_in(source, tree, (1, 7), name) for name in ('create', 'helper', 'other', 'missing')] == \
+        [True, True, True, False]
+    assert [calls_in(source, tree, (1, 7), 'create', lines) for lines in ({3}, {5}, None)] == [True, False, True]
