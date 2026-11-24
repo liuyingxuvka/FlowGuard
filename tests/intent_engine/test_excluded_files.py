@@ -461,14 +461,15 @@ def test_a_baseline_authority_docs_that_cannot_be_read_leaves_a_document_source_
     # baseline's `[tool] flowguard = "x"` pytest ended in `AttributeError: 'str' object has no attribute 'get'` and
     # check --static exited 1, `authority_docs = 5` gave `TypeError: 'int' object is not iterable`, a conflict marker
     # `tomllib.TOMLDecodeError` (check --static: `flowguard: Invalid statement (at line 4, column 1)`, naming no file),
-    # and a string was read one character at a time (a `before`). Whether this change broke such a source is not
-    # known: rules.toml's entry is one not compared line and the intent rule citing the document is grey, each with
-    # the file's text and what is wrong now; pytest's summary and exit, and check --static's, are as for any not
-    # compared item.
+    # and a string was read one character at a time (a `before`). The baseline's document holds the words and this
+    # task takes them out, so whether this change broke such a source is not known: rules.toml's entry is one not
+    # compared line and the intent rule citing the document is grey, each with the file's text and what is wrong now;
+    # pytest's summary and exit, and check --static's, are as for any not compared item. (A document without the words
+    # at the baseline failed there whatever authority_docs held: the next test.)
     (tmp_path / 'pyproject.toml').write_bytes(PROJECT + b'\n' + AUTHORITY[kind])
     root = _commit(tmp_path, {
         'pytest.ini': '[pytest]\npythonpath = .\naddopts = -p flowguard.intent.plugin\n',
-        'AGENTS.md': '# Agents\n\nAdd numbers.\n',
+        'AGENTS.md': '# Agents\n\nAdd numbers exactly.\n',
         '.flowguard/rules.toml': '[rule.exact-add]\ntext = "add is exact"\nsource = \'doc AGENTS.md "Add numbers exactly."\'\n',
         'tests/intent/add.py': "from flowguard.intent import rule\n\n\n@rule('DOC', decides='sum doc', fields={'a': int}, "
                                "source='doc AGENTS.md \"Add numbers exactly.\"')\ndef DOC(a):\n    return a >= 0\n",
@@ -476,6 +477,7 @@ def test_a_baseline_authority_docs_that_cannot_be_read_leaves_a_document_source_
                                           'def test_flowguard_intent(request):\n    from flowguard.intent.plugin import sentinel\n'
                                           '    sentinel(request.config)\n', **CORE})
     (root / 'pyproject.toml').write_bytes(PROJECT + b'\n[tool.flowguard]\nauthority_docs = ["AGENTS.md"]\n')    # repaired
+    (root / 'AGENTS.md').write_text('# Agents\n\nAdd numbers.\n', encoding='utf-8')         # the words go
     assert _flowguard(root, 'new-task').returncode == 0
     now = 'AGENTS.md does not contain "Add numbers exactly." -> quote the document exactly'
     result = _pytest(root)
@@ -503,6 +505,88 @@ def test_a_baseline_authority_docs_that_cannot_be_read_leaves_a_document_source_
     assert [line for line in shown if line.startswith('not compared: ')][0].startswith(
         'not compared: ' + ('2 items: source rule.exact-add and the files' if kind in ('tool', 'toml') else
                             f'source rule.exact-add ({_head(CAUSE[kind])}) -> not a failure')), shown
+
+
+FIXTURE_DOC = {
+    'pytest.ini': '[pytest]\npythonpath = .\naddopts = -p flowguard.intent.plugin\n',
+    'AGENTS.md': '# Agents\n\nAdd numbers.\n',
+    '.flowguard/rules.toml': '[rule.exact-add]\ntext = "add is exact"\nsource = \'doc AGENTS.md "Add numbers exactly."\'\n',
+    'tests/intent/add.py': "from flowguard.intent import rule\n\n\n@rule('DOC', decides='sum doc', fields={'a': int}, "
+                           "source='doc AGENTS.md \"Add numbers exactly.\"')\ndef DOC(a):\n    return a >= 0\n",
+    'tests/test_flowguard_intent.py': '"""Fail when declared FlowGuard intent was not collected."""\n'
+                                      'def test_flowguard_intent(request):\n    from flowguard.intent.plugin import sentinel\n'
+                                      '    sentinel(request.config)\n', **CORE}
+
+
+@pytest.mark.parametrize('kind', ['ok', *AUTHORITY])
+def test_a_document_without_the_words_at_the_baseline_is_before_whatever_its_authority_docs_held(tmp_path, kind):
+    # Round A of 5.1, FD3 open 0: a source's document was judged at the baseline by that commit's authority_docs
+    # before its bytes, so a baseline pyproject.toml that cannot be read for them (an integer, a conflict marker, ...)
+    # left a source whose words the baseline's AGENTS.md never held `not compared ... whether this change broke it is
+    # not known` in every normal run. It failed at the task start whatever authority_docs held: exactly `before`, as
+    # with a readable baseline (`ok`), for the rules.toml entry and for the intent rule citing the document alike. The
+    # files this change takes out of the map stay not compared where [tool.flowguard] itself cannot be read.
+    (tmp_path / 'pyproject.toml').write_bytes(PROJECT + b'\n' + (
+        b'[tool.flowguard]\nauthority_docs = ["AGENTS.md"]\nscreen_lines = 40\n' if kind == 'ok' else AUTHORITY[kind]))
+    root = _commit(tmp_path, FIXTURE_DOC)
+    (root / 'pyproject.toml').write_bytes(PROJECT + b'\n[tool.flowguard]\nauthority_docs = ["AGENTS.md"]\n')
+    assert _flowguard(root, 'new-task').returncode == 0
+    mapped = kind in ('tool', 'toml')         # [tool.flowguard] itself cannot be read: exclude's reader cannot either
+    model = 'DOC[rules] (model only: bind the actual code home)'
+    entry = ('before: source rule.exact-add at rules.toml:rule.exact-add was broken at task start -> leave it unless '
+             'your task is about it')
+    intent = 'before: source DOC at add.py:4 was broken at task start -> leave it unless your task is about it'
+
+    def lines(result, *prefixes):
+        text = display_text(result)
+        assert result.returncode == 0 and 'Traceback' not in text and 'whether this change broke' not in text, text
+        return [line for line in text.splitlines() if line.startswith(prefixes)]
+
+    result = _pytest(root)
+    assert '2 passed, 1 unverified' in result.stdout, result.stdout
+    assert lines(result, 'red: ', 'before: ', 'not compared: ') == [
+        'not compared: 2 items: DOC[rules] and the files this change takes out of the map (model only: bind the actual '
+        f'code home, or {_head(CAUSE[kind])}) -> not a failure' if mapped else f'not compared: {model} -> not a failure']
+    assert lines(_flowguard(root, 'check', '--static'), 'red: ', 'before: ', 'not compared: ') == (
+        [f'not compared: the files this change takes out of the map ({_head(CAUSE[kind])}) -> not a failure']
+        if mapped else [])
+    excluded = ['not compared: the files this change takes out of the map -> not a failure'] if mapped else []
+    assert lines(_flowguard(root, 'check', '--static', '--all'), 'red: ', 'before: ', 'not compared: ') == [
+        entry, *excluded]
+    assert lines(_flowguard(root, 'check', '--all'), 'red: ', 'before: ', 'not compared: ') == [
+        intent, entry, 'not compared: DOC[rules] -> not a failure', *excluded]
+
+
+@pytest.mark.parametrize('document, problem', [
+    (None, 'AGENTS.md is gone -> restore it, or cite the document that holds the words'),
+    (b'# Agents\n\nAdd numbers caf\xe9.\n', "AGENTS.md is no UTF-8 or UTF-16 text: 'utf-8' codec can't decode byte 0xe9 "
+     'in position 25: invalid continuation byte -> save it as UTF-8, or as UTF-16 with its byte order mark'),
+    (b'# Agents\n\nAdd numbers.\n', 'AGENTS.md does not contain "Add numbers exactly." -> quote the document exactly'),
+], ids=['gone', 'latin-1', 'other words'])
+def test_what_a_commit_s_document_tells_is_judged_before_its_authority_docs(tmp_path, document, problem):
+    # FD3 open 0: at a commit whose pyproject.toml cannot be read for authority_docs, a document gone there, no text
+    # there or without the words there is that source's problem there (what the commit already tells); only a document
+    # holding the words leaves its state there not known (UnreadableConfig reaches the caller). Now the listing is
+    # still named first.
+    from flowguard.intent import sources
+    from flowguard.structure.store import UnreadableConfig
+    source = sources.parse('doc AGENTS.md "Add numbers exactly."', strict=True)
+    (tmp_path / 'pyproject.toml').write_bytes(PROJECT + b'\n[tool.flowguard]\nauthority_docs = 5\n')
+    if document is not None:
+        (tmp_path / 'AGENTS.md').write_bytes(document)
+    root = _commit(tmp_path, {'README.md': 'x\n'})
+    base = _git(root, 'rev-parse', 'HEAD').strip()
+    (root / 'AGENTS.md').write_text('# Agents\n\nAdd numbers exactly.\n', encoding='utf-8')
+    _commit(root, message='the words')
+    held = _git(root, 'rev-parse', 'HEAD').strip()
+    (root / 'pyproject.toml').write_bytes(PROJECT + b'\n[tool.flowguard]\nauthority_docs = ["docs/*.md"]\n')
+    cfg = load_config(root)
+    assert sources.catalog_authority(source, cfg, None, revision=base) == (False, problem)
+    with pytest.raises(UnreadableConfig, match='^baseline pyproject.toml: tool.flowguard.authority_docs is an integer'):
+        sources.catalog_authority(source, cfg, None, revision=held)
+    assert sources.catalog_authority(source, cfg, None) == (False, 'AGENTS.md is not in authority_docs -> list it in '
+                                                            '[tool.flowguard] authority_docs of pyproject.toml, or cite '
+                                                            'a listed document')
 
 
 def test_a_rule_whose_earlier_commit_holds_an_unreadable_authority_docs_is_provisional(tmp_path):

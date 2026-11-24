@@ -269,16 +269,11 @@ def provisional(src, cfg, intent_file):
     if parent.returncode:
         return True
     revision = parent.stdout.decode().strip()
-    old_doc = git_blob(cfg.root, revision, src.path)
-    decoded = document_text(src.path, old_doc)[0] if old_doc is not None else None
-    if decoded is None or not quote_matches(decoded[0], src.quote):      # no such words then, readable or not
-        return True
     from flowguard.structure.store import UnreadableConfig
-    try:
-        allowed = _listed_docs(cfg, git_blob(cfg.root, revision, 'pyproject.toml'))
+    try:        # judged as every source at a commit (`_doc_problem`): no such words then, readable or not, first
+        return _doc_problem(cfg, src.path, src.quote, _legacy_match, revision) is not None
     except UnreadableConfig:
-        return True         # whether the document was listed then is not known, as without that commit
-    return not any(fnmatch.fnmatch(src.path, pattern) for pattern in allowed)
+        return True     # the words were there; whether the document was listed then is not known, as without it
 
 
 def _listed_docs(cfg, raw):
@@ -627,13 +622,25 @@ def _picked_problem(rid, quote, picked, offer):
 
 
 def _doc_problem(cfg, path, quote, matches, revision):
-    """(what is wrong, the step) of a cited document now or at a commit, or None."""
+    """(what is wrong, the step) of a cited document now or at a commit, or None. At a commit (`revision`) the
+    document's bytes there are judged first: one gone there, no text there or without the words there failed at that
+    commit whatever its authority_docs held, so that commit's authority_docs is read only for a document holding the
+    words, and a pyproject.toml there that cannot be read for them raises UnreadableConfig (`_authority_docs`): the
+    source's state there is not known. Now an unlisted document is named first."""
     if not path or path.startswith('/') or '\\' in path or any(part in ('', '.', '..') for part in path.split('/')):
         return f'doc {path} is not a path relative to the repository', 'cite a document of this repository by its path'
+    held = _words_problem(path, _bytes_at(cfg, revision, path), quote, matches)
+    if revision is not None and held is not None:
+        return held
     if not any(fnmatch.fnmatch(path, pattern) for pattern in _authority_docs(cfg, revision)):
         return (f'{path} is not in authority_docs',
                 'list it in [tool.flowguard] authority_docs of pyproject.toml, or cite a listed document')
-    raw = _bytes_at(cfg, revision, path)
+    return held
+
+
+def _words_problem(path, raw, quote, matches):
+    """(what is wrong, the step) of a document's bytes `raw` (None: it is not there) that should hold `quote`, or
+    None when they hold it."""
     if raw is None:
         return f'{path} is gone', 'restore it, or cite the document that holds the words'
     if problem := document_text(path, raw)[1]:          # UTF-16 with its BOM is read; Latin-1 is named (Z-6)
@@ -759,7 +766,8 @@ def source_state(engine, declaration, confirmed=None, quote=None, *, gone_red=Tr
     one makes it red (D27). Without a baseline nothing is compared (D13): a strict source is grey, and the intent
     forms keep their 4.2.1 colours, a gone quote red where `gone_red` (rules and flows; 4.2.1 left the source of states
     and structure rules grey) and the rest grey. A citation the change kept whose state at the baseline is not known,
-    as that commit's pyproject.toml cannot be read for it, is grey with both texts (`unknown_at_baseline`)."""
+    as that commit's document holds its words but its pyproject.toml cannot be read for authority_docs (`_doc_problem`),
+    is grey with both texts (`unknown_at_baseline`)."""
     cfg = engine.m.cfg
     src = parse(declaration.source)
     valid, reason = authority(src, confirmed, cfg, engine.archive, quote)
@@ -786,7 +794,8 @@ def source_state(engine, declaration, confirmed=None, quote=None, *, gone_red=Tr
 
 def unknown_at_baseline(reason, error):
     """The reason of a source that does not hold now (`reason`, `what -> step`) whose state at the baseline is not
-    known, as the baseline's pyproject.toml cannot be read for it (`_authority_docs`: the UnreadableConfig `error`):
+    known, as the baseline's document holds its words but the baseline's pyproject.toml cannot be read for
+    authority_docs (`_doc_problem`, `_authority_docs`: the UnreadableConfig `error`):
     not compared there, so neither red nor before, as a source without a baseline is grey (D13). The block sums it up
     by the file's text, as the map checks' line of that file (`not compared: 2 items: source rule.exact-add and the
     files this change takes out of the map (baseline pyproject.toml: tool.flowguard is a string)`); `show --last` adds
@@ -1034,9 +1043,10 @@ def findings(cfg, graph, change):
     source finding is new (fresh, so red) unless the same source of the same entry already failed at the baseline,
     judged with that commit's archive, documents and authority_docs (design 4.7: a request stored in this task that
     supersedes or retires the cited one makes it new, D27); without a baseline none is new (D13). A source whose state
-    at the baseline is not known, as that commit's pyproject.toml cannot be read for it (`unknown_at_baseline`), is
-    one not compared line instead, never red nor before. What the change loosened in the two files
-    (`catalog_loosened`, also when it deleted them) are lines of their kind."""
+    at the baseline is not known, as that commit's document holds its words but its pyproject.toml cannot be read for
+    authority_docs (`_doc_problem`, `unknown_at_baseline`), is one not compared line instead, never red nor before.
+    What the change loosened in the two files (`catalog_loosened`, also when it deleted them) are lines of their
+    kind."""
     from flowguard.structure.store import UnreadableConfig
     from .owners import Findings
     from .signals import not_compared

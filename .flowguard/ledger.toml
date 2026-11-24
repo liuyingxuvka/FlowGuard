@@ -667,7 +667,7 @@ rule = "旧账"
 
 ["flowguard/intent/sources.py:findings:UnreadableConfig"]
 count = 1
-reason = "A catalog source that does not hold now, whose state at the baseline is not known because the baseline's pyproject.toml cannot be read for its authority_docs (it does not decode or parse, or that key, its table or tool has another TOML type), is one not compared line with the file's text and what is wrong now, never red nor before: whether this change broke it is not known, as without a baseline, and the other findings still run (R85)."
+reason = "A catalog source that does not hold now, whose state at the baseline is not known because the baseline's document holds its words but the baseline's pyproject.toml cannot be read for its authority_docs (it does not decode or parse, or that key, its table or tool has another TOML type), is one not compared line with the file's text and what is wrong now, never red nor before: whether this change broke it is not known, as without a baseline, and the other findings still run (R85)."
 rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
 ["flowguard/intent/sources.py:_load:(tomllib.TOMLDecodeError, UnicodeDecodeError)"]
@@ -677,7 +677,7 @@ rule = { file = "AGENTS.md", text = "One route per function: when a step fails, 
 
 ["flowguard/intent/sources.py:provisional:UnreadableConfig"]
 count = 1
-reason = "When the pyproject.toml of the commit before a rule's commit cannot be read for its authority_docs (it does not decode or parse, or that key has another TOML type), whether the document was listed then is not known, and the rule's document source is provisional (green*), as it is for every other earlier state FlowGuard does not know (no Git, no parent commit)."
+reason = "When the document of the commit before a rule's commit holds the rule's words but that commit's pyproject.toml cannot be read for its authority_docs (it does not decode or parse, or that key has another TOML type), whether the document was listed then is not known, and the rule's document source is provisional (green*), as it is for every other earlier state FlowGuard does not know (no Git, no parent commit)."
 rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
 ["flowguard/intent/sources.py:_request_problem:ValueError"]
@@ -687,7 +687,7 @@ rule = { file = "AGENTS.md", text = "One route per function: when a step fails, 
 
 ["flowguard/intent/sources.py:source_state:UnreadableConfig"]
 count = 1
-reason = "An intent source this change kept that does not hold now, whose state at the baseline is not known because the baseline's pyproject.toml cannot be read for its authority_docs, is grey with the file's text and what is wrong now, never red nor before: whether this change broke it is not known, as without a baseline, and pytest's outcome stays its own (R85)."
+reason = "An intent source this change kept that does not hold now, whose state at the baseline is not known because the baseline's document holds its words but the baseline's pyproject.toml cannot be read for its authority_docs, is grey with the file's text and what is wrong now, never red nor before: whether this change broke it is not known, as without a baseline, and pytest's outcome stays its own (R85)."
 rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
 ["flowguard/intent/vitest.py:_held_plan:FileNotFoundError"]

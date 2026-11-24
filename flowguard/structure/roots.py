@@ -38,11 +38,15 @@ def _norm(base: str, value: str) -> str | None:
 
 
 def config_roots(root: Path, files: list[str]) -> list[tuple[str, str]]:
-    """Roots that configuration files declare: [(directory, how)]."""
+    """Roots that configuration files declare: [(directory, how)]. `[tool.flowguard] roots` is read as every reader
+    of [tool.flowguard] reads it (`store.project_config`, which judges only that key): an array of strings, or
+    UnreadableConfig with the file's text; the packaging and pytest tables of each pyproject.toml are read after it."""
+    from .store import project_config
     out = []
+    flowguard = project_config(root, keys=("roots",)) if "pyproject.toml" in files else {}
     top = _toml(root, "pyproject.toml") if "pyproject.toml" in files else {}
-    for value in top.get("tool", {}).get("flowguard", {}).get("roots", []):
-        if (path := _norm("", str(value))) is not None:
+    for value in flowguard.get("roots", []):
+        if (path := _norm("", value)) is not None:
             out.append((path, "[tool.flowguard] roots"))
     for rel in files:
         name = posixpath.basename(rel)

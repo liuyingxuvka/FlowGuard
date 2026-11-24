@@ -124,6 +124,31 @@ def test_project_settings_and_pytest_paths_share_the_existing_toml_reader(tmp_pa
     assert search_paths(cfg) == [tmp_path, tmp_path / 'lib', tmp_path / 'helpers', tmp_path]
 
 
+def test_the_maps_import_roots_read_tool_flowguard_through_its_one_reader(tmp_path):
+    # Round A of 5.1, FD3 open 2: roots.config_roots read `[tool.flowguard] roots` with its own tomllib and `.get`
+    # chain, so called directly `roots = "src"` gave the roots s, r and c and a file that did not parse gave none,
+    # while the CHANGELOG said every reader of [tool.flowguard] reads it through store.project_config. It now does:
+    # only `roots` is judged, of its type or refused with the file's text, as the map build refuses it; the packaging
+    # tables of a package's own pyproject.toml are read as before.
+    import pytest
+    from flowguard.structure import roots
+    from flowguard.structure.store import UnreadableConfig
+    path = tmp_path / 'pyproject.toml'
+    path.write_text('[tool.flowguard]\nroots = ["lib", "../out"]\nscreen_lines = "40"\n', encoding='utf-8')
+    (tmp_path / 'pkg').mkdir()
+    (tmp_path / 'pkg/pyproject.toml').write_text('[tool.setuptools.packages.find]\nwhere = ["src"]\n', encoding='utf-8')
+    assert roots.config_roots(tmp_path, ['pyproject.toml', 'pkg/pyproject.toml']) == [
+        ('lib', '[tool.flowguard] roots'), ('pkg/src', 'pkg/pyproject.toml (package directory src)')]
+    for text, words in (('roots = "src"', r'^pyproject\.toml: tool\.flowguard\.roots is a string \(not an array of strings\)$'),
+                        ('roots = ["src", 5]', r'^pyproject\.toml: tool\.flowguard\.roots\[1\] is an integer \(not a string\)$'),
+                        ('[tool]\nflowguard = "x"', r'^pyproject\.toml: tool\.flowguard is a string \(not a table\)$'),
+                        ('[tool.flowguard]\nroots = [', r'^pyproject\.toml does not parse: ')):
+        path.write_text(text if text.startswith('[') else f'[tool.flowguard]\n{text}\n', encoding='utf-8')
+        with pytest.raises(UnreadableConfig, match=words):
+            roots.config_roots(tmp_path, ['pyproject.toml'])
+    assert roots.config_roots(tmp_path, ['pkg/pyproject.toml']) == [('pkg/src', 'pkg/pyproject.toml (package directory src)')]
+
+
 def test_only_an_absent_pyproject_uses_empty_settings(tmp_path, monkeypatch):
     import tomllib
     import pytest
