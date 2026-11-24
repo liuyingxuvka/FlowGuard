@@ -297,15 +297,21 @@ class _Module:
 class _Import:
     """An import binding of the sealed file, read only when a sealed function reads its name: `import X.Y`
     (`member` None; `bound` when it binds X rather than an `as` name) or `from X import member`. `imports`
-    finds a project module's source (`Runtime.imports`); nothing is imported or executed."""
-    __slots__ = ('imports', 'module', 'level', 'member', 'bound')
+    finds a project module's source (`Runtime.imports`); nothing is imported or executed. A `fixed` binding is one
+    the file's own top level reads or may change while it loads (`_scope`): only an immutable literal of it is read."""
+    __slots__ = ('imports', 'module', 'level', 'member', 'bound', 'fixed')
 
     def __init__(self, imports, module, level, member=None, bound=False):
         self.imports, self.module, self.level, self.member, self.bound = imports, module, level, member, bound
+        self.fixed = False
 
     def value(self):
-        """The literal or module namespace the binding reads, or _MISSING when it is no project literal;
-        Refused when loading the module could change the value."""
+        """The literal or module namespace the binding reads, or _MISSING when it is no project literal (or, `fixed`,
+        no immutable one); Refused when loading the module could change the value."""
+        found = self._found()
+        return _MISSING if self.fixed and found is not _MISSING and not _immutable(found) else found
+
+    def _found(self):
         if self.member is None:
             found = self.imports(self.module, 0)
             if found is None:
@@ -438,26 +444,176 @@ def _register(value, spaces):
             _register(item, spaces)
 
 
+def _settled(value):
+    """Whether no statement can change a sealed global in place: a builtin or a whitelisted module's function or
+    class, a number, text, bytes, None, a fold, or a tuple or frozenset of these. A list, dict or set, and a
+    module namespace, can change while the module loads."""
+    return (type(value) is _Fold or _immutable(value) or type(value) is frozenset and all(_immutable(item) for item in value)
+            or isinstance(value, (type, types.BuiltinFunctionType)))
+
+
+def _outer(node):
+    """The parts of a def, lambda or class that run where it stands: its decorators, bases and keywords, defaults
+    and annotations."""
+    if isinstance(node, ast.ClassDef):
+        return [*node.decorator_list, *node.bases, *(keyword.value for keyword in node.keywords)]
+    arguments = node.args
+    return [*getattr(node, 'decorator_list', ()), *arguments.defaults, *filter(None, arguments.kw_defaults),
+            *(argument.annotation for argument in [*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs,
+              *filter(None, [arguments.vararg, arguments.kwarg])] if argument.annotation is not None),
+            *filter(None, [getattr(node, 'returns', None)])]
+
+
+def _parts(nodes):
+    """(now, later): the nodes of top-level code that run when the module loads, and those of the function and
+    lambda bodies it defines, which run when something calls them. A class body runs, and so do a def's or a
+    lambda's decorators, defaults and annotations; a `__main__` block never runs on import."""
+    now, later = [], []
+    todo = [(node, now) for node in nodes]
+    while todo:
+        node, into = todo.pop()
+        if isinstance(node, ast.If) and ast.dump(node.test) == _MAIN:
+            todo.extend((child, into) for child in node.orelse)
+            continue
+        into.append(node)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            todo.extend((child, into) for child in _outer(node))
+            todo.extend((child, later) for child in (node.body if isinstance(node.body, list) else [node.body]))
+        else:
+            todo.extend((child, into) for child in ast.iter_child_nodes(node))
+    return now, later
+
+
+def _binds(node):
+    """The names one top-level statement binds in the module: a class's or def's name, the names it stores or
+    deletes in its own scope (for, with, except and match targets, a walrus, also one in a comprehension), and
+    those of the imports it holds. A nested def, lambda, class or comprehension keeps its locals; a `__main__`
+    block binds nothing on import."""
+    names, todo = set(), [node]
+    while todo:
+        part = todo.pop()
+        if isinstance(part, ast.If) and ast.dump(part.test) == _MAIN:
+            todo.extend(part.orelse)
+            continue
+        if isinstance(part, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+            if not isinstance(part, ast.Lambda):
+                names.add(part.name)
+            todo.extend(_outer(part))
+            continue
+        if isinstance(part, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
+            names.update(p.target.id for p in ast.walk(part) if isinstance(p, ast.NamedExpr))
+            continue
+        if isinstance(part, ast.Name) and not isinstance(part.ctx, ast.Load):
+            names.add(part.id)
+        elif isinstance(part, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)) and part.name:
+            names.add(part.name)
+        elif isinstance(part, ast.MatchMapping) and part.rest:
+            names.add(part.rest)
+        elif isinstance(part, ast.alias):
+            names.add(part.asname or part.name.split('.')[0])
+        todo.extend(ast.iter_child_nodes(part))
+    return names
+
+
+def _read(nodes):
+    return {node.id for node in nodes if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)}
+
+
+def _hooks(now):
+    """The parts of running code that may call code: each call (with the lambdas in it), each decorator, and of a
+    class made from a base, keyword or decorator, its bases and keywords and its methods' bodies, which the base,
+    the metaclass or the decorator may run."""
+    for node in now:
+        if isinstance(node, ast.Call):
+            yield node
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            yield from node.decorator_list
+            if isinstance(node, ast.ClassDef) and (node.bases or node.keywords or node.decorator_list):
+                yield from [*node.bases, *(keyword.value for keyword in node.keywords)]
+                yield from (statement for method in ast.walk(node) if isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef))
+                            for statement in method.body)
+
+
 def _scope(tree, imports=None, *, imported=False):
     """The sealed globals of one module's top level: its literal constants (`ast.literal_eval`, or a `_Fold` of
     literals and constants above it), the whitelisted modules, the import bindings of project modules (`_Import`,
     when `imports` finds their source), its functions and the names nothing may read. A name any function
     declares `global` may be rebound while the program runs and is never a value. Returns (env, functions,
     blocked, namespaces by id, literal constant names). For an `imported` module only its literal constants are
-    read: a star import there hides the ones before it."""
+    read: a star import there hides the ones before it.
+
+    Other top-level code (a class, an `if`, a call, an assignment of a value FlowGuard does not read, a def's
+    decorators, defaults and annotations) makes unavailable the names it binds (`_binds`), and of the names it
+    reads, those whose value could change in place (not `_settled`): where it runs, also a name with no value
+    FlowGuard reads (a function or a class; a builtin the sealed globals lack stays as it is), in a function or
+    lambda body it defines only a list, dict, set or module namespace. A project binding it reads is `fixed`. Code
+    that may run this module's own code (`_hooks` reading one of its defs or classes, or a name whose value may
+    hold one, which running code may also reach) makes every value that could change in place unavailable and
+    fixes every project binding."""
     modules = {'math': types.SimpleNamespace(**{name: value for name, value in _MATH.items()
                if vars(math).get(name) is value}), 'decimal': types.SimpleNamespace(Decimal=Decimal),
                'datetime': types.SimpleNamespace(date=_Date, datetime=_DateTime, timedelta=timedelta)}
     spaces = {id(space): space for space in modules.values()}
     env = _Globals(__builtins__=_BUILTINS, **_BUILTINS)
     functions, blocked, literals = {}, set(), set()
+    code, ours = set(), set()       # the names of this module's defs and classes, and those whose value may hold one
+
+    def effects(nodes, bound, hooks=(), reads=True):
+        """(names to make unavailable, project bindings to fix) for running `nodes`, which bind `bound` in the
+        module; `hooks` are a def's decorators, and `reads` False leaves the names they read (a literal or a fold
+        reads nothing that could change). Keeps `code` and `ours`: what the code binds may hold this module's code
+        once it reads some, and so may what a hook hands it to."""
+        now, later = _parts(nodes)
+        read_now, read_later = _read(now), _read(later)
+        defined = {node.name for node in (*now, *later) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}
+        mine = code | ours | defined
+        handed = set()
+        for hook in (*hooks, *_hooks(now)):
+            read = _read(ast.walk(hook))
+            if read & mine:
+                handed |= read
+        runs = bool(handed or read_now & ours)
+
+        def changeable(name, running):
+            value = env.get(name, _MISSING)
+            if value is _MISSING:
+                return running and (name in functions or name in blocked or name not in vars(builtins))
+            return type(value) is not _Import and not _settled(value)
+        names = {name for name in read_now if changeable(name, True)} | {name for name in read_later if changeable(name, False)}
+        fixed = {name for name in read_now | read_later if type(env.get(name)) is _Import}
+        if not reads:
+            names, fixed = set(), set()
+        if runs:
+            names.update(name for name, value in env.items()
+                         if name != '__builtins__' and type(value) is not _Import and not _settled(value))
+            fixed.update(name for name, value in env.items() if type(value) is _Import)
+        ours.update(name for name in handed if name in blocked or type(env.get(name)) is _Import)
+        if runs or (read_now | read_later) & mine:
+            ours.update(bound - defined)
+        else:
+            ours.difference_update(bound - defined)
+        code.difference_update(bound - defined)
+        code.update(defined & bound)
+        ours.difference_update(code)
+        return names, fixed
+
     for n in tree.body:
-        names, values = set(), {}
+        names, values, fixed = set(), {}, set()
         if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            names, fixed = effects(_outer(n), set(), n.decorator_list)
+            for name in names - {n.name}:
+                functions.pop(name, None)
+                env.pop(name, None)
+                blocked.add(name)
+                literals.discard(name)
+            for name in fixed - names:
+                env[name].fixed = True
             functions[n.name] = n
             env.pop(n.name, None)
             blocked.discard(n.name)
             literals.discard(n.name)
+            code.add(n.name)
+            ours.discard(n.name)
             continue
         if isinstance(n, ast.Import):
             for a in n.names:
@@ -493,24 +649,32 @@ def _scope(tree, imports=None, *, imported=False):
                 if all(isinstance(target, ast.Name) for target in targets) and _foldable(n.value, env):
                     value = _Fold(targets[0].id, n.value, {p.id: env.get(p.id, _MISSING) for p in ast.walk(n.value)
                                                            if isinstance(p, ast.Name)}, blocked, (n.lineno, n.col_offset))
-                else:
-                    names.update(p.id for p in ast.walk(n.value) if isinstance(p, ast.Name))
             for target in targets:
                 if value is not _MISSING and isinstance(target, ast.Name):
                     values[target.id] = value
+            # A literal or a fold reads nothing that could change; it, or a target's subscript or attribute, may
+            # still run this module's code (`BOX + 1`).
+            bound = {p.id for target in targets for p in ast.walk(target) if isinstance(p, ast.Name) and isinstance(p.ctx, ast.Store)}
+            read, fixed = effects([n], bound - set(values), reads=value is _MISSING)
+            names |= read
         else:
-            names = {p.id for p in ast.walk(n) if isinstance(p, ast.Name)}
-            names.update(p.name for p in ast.walk(n) if isinstance(p, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef,
-                                                                       ast.MatchAs, ast.MatchStar, ast.ExceptHandler)) and p.name)
-            names.update(p.rest for p in ast.walk(n) if isinstance(p, ast.MatchMapping) and p.rest)
-            names.update(p.asname or p.name.split('.')[0] for p in ast.walk(n) if isinstance(p, ast.alias))
+            names = _binds(n)
+            read, fixed = effects([n], names)
+            names = names | read
         for name in names:
             functions.pop(name, None)
             env.pop(name, None)
             blocked.add(name)
             literals.discard(name)
+        for name in fixed - names:
+            env[name].fixed = True
         env.update(values)
         blocked.difference_update(values)
+        if isinstance(n, (ast.Import, ast.ImportFrom)):
+            code.difference_update(names)
+            ours.difference_update(names)
+        code.difference_update(values)
+        ours.difference_update(values)
         if isinstance(n, (ast.Assign, ast.AnnAssign)):
             literals.update(values)
     for name in {name for node in ast.walk(tree) if isinstance(node, ast.Global) for name in node.names}:

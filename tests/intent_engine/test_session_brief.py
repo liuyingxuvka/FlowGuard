@@ -180,8 +180,9 @@ def test_red_overflow_is_counted_and_cached_green_is_not_claimed_current(tmp_pat
     result(cfg, messages=[f'wrong case {n}' for n in range(20)])
     cli.screen(cfg)
     lines = capsys.readouterr().out.splitlines()
-    # The brief names no intent rule: the last check's reds are one count, with the command that lists them.
-    assert lines[1:] == ['20 red in the last run: python -m flowguard show --last'], lines
+    # The brief names no intent rule: the intent results' reds are one count, with the command that lists them. No run
+    # made them (5.1: the brief said `20 red in the last run` of results no run had recorded).
+    assert lines[1:] == ['20 red in the intent results: python -m flowguard show --last'], lines
     assert 'No disagreement' not in '\n'.join(lines)
     result(cfg,verdict='ok')
     cli.screen(cfg)
@@ -193,7 +194,7 @@ def test_load_failure_remains_visible_even_without_a_current_rule_id(tmp_path, c
     _, cfg = project(tmp_path)
     result(cfg, rule='__load__',kind='load',messages=['Skipped: declaration missing'])
     assert cli.screen(cfg) == 0
-    assert capsys.readouterr().out.splitlines()[-1] == '1 red in the last run: python -m flowguard show --last'
+    assert capsys.readouterr().out.splitlines()[-1] == '1 red in the intent results: python -m flowguard show --last'
 
 
 def test_only_the_rule_text_is_displayed_never_archive_words_and_archive_bytes_are_unchanged(tmp_path, capsys):
@@ -690,7 +691,7 @@ def test_the_brief_stays_within_eight_lines_with_every_part_present(tmp_path, ca
     assert len(lines) == 8, lines
     assert [line.partition(':')[0] for line in lines[1:5]] == ['rule.r0', 'rule.r1', 'rule.r2', 'rule.r3']
     assert lines[4].endswith('; +5 more: python -m flowguard show rules') and lines[6].endswith('; +2 more: python -m flowguard show rules')
-    assert lines[7] == ('1 red in the last run: python -m flowguard show --last; 1 invalid entries in .flowguard/rules.toml or '
+    assert lines[7] == ('1 red in the intent results: python -m flowguard show --last; 1 invalid entries in .flowguard/rules.toml or '
                         'known.toml: python -m flowguard show rules'), lines
 
 

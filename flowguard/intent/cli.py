@@ -195,29 +195,43 @@ def _known_brief(entry):
 
 def _brief_reds(cfg, data):
     """(reds, failed) the last checks left that no baseline moves, the one source of the brief's counts of them and of
-    the list `show --last` gives: `reds` are intent load errors (the static scan), a failed verification or collection
-    and red intent results, one per message; `failed` the failed tests of pytest's scope as (test id, reading), each
-    reading the outcome of the last run that ran its test, the most recent first (an ordinary failed test is no red)."""
+    the list `show --last` gives. `reds` maps where each was read to its messages, one per message: `files` the load
+    errors the static scan finds in the intent files now, `results` the red intent results of the last complete
+    collection (a load error the scan also finds is counted there, once), `attempt` a failed verification of the
+    last pytest attempt. A run that collected only part of the intent items is no red (`_selected`). `failed` are the
+    failed tests of pytest's scope as (test id, reading), each reading the outcome of the last run that ran its
+    test, the most recent first (an ordinary failed test is no red)."""
     from .deps import test_scope
     summary, attempt = data['summary'], data['attempt'] or {}
-    reds = [f'load {error["file"]}:{error["line"]}: {error["msg"]}' for error in summary['errors']]
-    reds += ['verification: ' + message for message in attempt.get('errors', [])]
-    for result in data['results'].values():
-        for value in result['items'].values():
-            if value.get('kind') == 'load':
-                reds.extend('load: ' + message for message in value.get('red', []))
+    results = [f'load {message}' for result in data['results'].values() for value in result['items'].values()
+               if value.get('kind') == 'load' for message in value.get('red', [])]
     for rid, item in summary['rules'].items():
         result = data['results'].get(rid, {})
         if _rule_colour(item, result) == 'red':        # a red colour has items
             messages = [message for value in result['items'].values() for message in value.get('red', [])]
-            reds.extend(f'{rid}: {message}' for message in messages or ['reported red'])
-    if attempt.get('missing') or (attempt.get('collected') and attempt.get('sentinel') != 'ok'):
-        reds.append('collection incomplete')
+            results.extend(f'{rid}: {message}' for message in messages or ['reported red'])
+    results = list(dict.fromkeys(results))
+    files = [red for red in dict.fromkeys(f'load {error["file"]}:{error["line"]}: {error["msg"]}' for error in summary['errors'])
+             if red not in results]
+    reds = dict(files=files, results=results,
+                attempt=list(dict.fromkeys('verification: ' + message for message in attempt.get('errors', []))))
     in_scope = test_scope(cfg)
     failed = sorted(((test, reading) for test, reading in data['tests'].items()
                      if reading['outcome'] == 'failed' and in_scope(test.partition('::')[0])),
                     key=lambda item: (-item[1]['stamp'], item[0]))
-    return list(dict.fromkeys(reds)), failed
+    return reds, failed
+
+
+def _selected(data):
+    """The fact `show --last` states when the last pytest run stored no intent results (it selected part of the
+    intent items, its sentinel failed or did not run, or its verification failed), '' otherwise: `the last pytest run
+    selected 0 of 3 intent items; the intent results are those of the complete collection at 2026-11-23 12:54:36`."""
+    attempt, collection = data['attempt'] or {}, data['collection'] or {}
+    if not attempt.get('declared') or attempt.get('stamp') == collection.get('stamp'):
+        return ''
+    stored = (f'the intent results are those of the complete collection at {_when(collection["stamp"])}'
+              if collection.get('stamp') else 'no complete collection is recorded')
+    return f'the last pytest run selected {attempt["selected"]} of {attempt["declared"]} intent items; {stored}'
 
 
 def _dirty(cfg):
@@ -279,18 +293,29 @@ def _last_reds(cfg, baseline, runs):
     return before, still
 
 
-def _red_tail(still, runs, reds):
-    """The brief's count of the reds that still stand (`_last_reds`, and the intent results' `reds` of `_brief_reds`,
-    which are pytest's and count with the `repo` slot): `2 red in the last run: python -m flowguard show --last`, naming
-    the runs once a vitest package's holds some (`1 red in the last run of web/`, `3 red in the last runs of
-    check --static and web/`); '' for none."""
-    repo = next((_slot_label(run) for run in runs if run['scope'] == cache.REPO), 'pytest')
-    if reds:
-        still = dict(still, **{repo: still.get(repo, 0) + len(reds)})
-    if not still:
-        return ''
-    where = '' if list(still) == [repo] else f'{"s" * (len(still) > 1)} of {" and ".join(still)}'
-    return f'{sum(still.values())} red in the last run{where}: python -m flowguard show --last'
+def _red_tail(still, runs, reds, collection):
+    """The brief's count of the reds that still stand, by where they come from (`_brief_reds`): the load errors of the
+    intent files, `1 red in the intent files now`; the red intent results, `2 red in the intent results (complete
+    collection at 2026-11-23 12:54:36)`, counted with the `repo` slot's last run when that run made the collection;
+    and the reds of each slot's last run (`_last_reds`) with the last pytest attempt's, `1 red in the last run`,
+    naming the runs once a vitest package's holds some (`1 red in the last run of web/`, `3 red in the last runs of
+    check --static and web/`); one command lists them all, `: python -m flowguard show --last`. '' for none."""
+    last = next((run for run in runs if run['scope'] == cache.REPO), None)
+    repo = _slot_label(last) if last is not None else 'pytest'
+    made = (collection or {}).get('stamp')
+    merged = bool(reds['results']) and made is not None and last is not None and last['stamp'] is not None \
+        and made >= last['stamp']
+    added = len(reds['attempt']) + len(reds['results']) * merged
+    if added:
+        still = dict(still, **{repo: still.get(repo, 0) + added})
+    parts = [f'{len(reds["files"])} red in the intent files now'] if reds['files'] else []
+    if reds['results'] and not merged:
+        parts.append(f'{len(reds["results"])} red in the intent results'
+                     + (f' (complete collection at {_when(made)})' if made is not None else ''))
+    if still:
+        where = '' if list(still) == [repo] else f'{"s" * (len(still) > 1)} of {" and ".join(still)}'
+        parts.append(f'{sum(still.values())} red in the last run{where}')
+    return '; '.join(parts) + ': python -m flowguard show --last' if parts else ''
 
 
 def _failed_tail(failed):
@@ -324,7 +349,7 @@ def _brief(cfg, data, baseline, note='', *, structure=()):
     before, still = _last_reds(cfg, baseline, runs)
     reds, failed = _brief_reds(cfg, data)
     tail = [f'{before} red from the previous task are now before'] if before else []
-    tail += [text for text in (_red_tail(still, runs, reds), _failed_tail(failed)) if text]
+    tail += [text for text in (_red_tail(still, runs, reds, data['collection']), _failed_tail(failed)) if text]
     if found.issues:
         tail.append(f'{len(found.issues)} invalid entries in .flowguard/rules.toml or known.toml: python -m flowguard show rules')
     # The project's copy of the rules may still say what this FlowGuard no longer does.
@@ -533,14 +558,19 @@ def _run_lines(run):
 
 
 def _kept_lines(cfg, data):
-    """What the brief counts besides the runs' own lines (`_brief_reds`), as `show --last` lists it after them: the
-    intent results' reds, and each failed test kept from its last run with its outcome, phase and reason, when it ran
-    and whether the last pytest run selected it (a test that run did not select is not known to pass now)."""
+    """What the brief counts besides the runs' own lines (`_brief_reds`), as `show --last` lists it after them: whether
+    the last pytest run stored the intent results (`_selected`), the reds by where they come from, and each failed
+    test kept from its last run with its outcome, phase and reason, when it ran and whether the last pytest run
+    selected it (a test that run did not select is not known to pass now)."""
     reds, failed = _brief_reds(cfg, data)
-    lines = []
-    if reds:
-        lines.append('red in the intent results and the last pytest attempt (the brief counts these):')
-        lines.extend('    ' + red for red in reds)
+    made = (data['collection'] or {}).get('stamp')
+    lines = [fact for fact in [_selected(data)] if fact]
+    for key, where in (('files', 'red in the intent files now'),
+                       ('results', 'red in the intent results' + (f' of the complete collection at {_when(made)}' if made else '')),
+                       ('attempt', 'red in the last pytest attempt')):
+        if reds[key]:
+            lines.append(where + ' (the brief counts these):')
+            lines.extend('    ' + red for red in reds[key])
     if failed:
         last = (data['attempt'] or {}).get('stamp')
         lines.append('tests that failed when last run and have not run since (the brief counts these):')

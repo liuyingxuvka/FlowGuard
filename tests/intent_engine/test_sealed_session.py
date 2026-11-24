@@ -1053,3 +1053,30 @@ def test_copies_that_declare_other_types_keep_a_line_at_each_comment_that_names_
     assert [line for line in last(tmp_path).splitlines() if line.startswith('red: ')] == [
         f'red: comment policy.py:{line}: same anchor DAYS has conflicting return types (bool at policy.py:first, int at '
         'policy.py:second) -> correct this flowguard comment' for line in (1, 5)], last(tmp_path)
+
+
+@pytest.mark.parametrize('top', ['', 'from dataclasses import dataclass\n\n\n@dataclass\nclass Row:\n    n: int = 0\n\n\n',
+                                 'PUBLIC_LABELS = frozenset({FIT_ACCURACY_LABEL, "Other"})\n\n\n'])
+def test_a_dataclass_or_a_computed_constant_beside_a_copy_leaves_its_builtins_and_texts_compared(tmp_path, top):
+    # PEMELPM-13 and 14: beside a dataclass or a frozenset of labels, 5.0.1 said `0 red, 1 changed, 1 not compared:
+    # CUSTOMER_FIT_LABEL (... customer_fit_label uses unavailable binding int)`; the plain module gave the red.
+    _project(tmp_path, 'FIT_ACCURACY_LABEL = "Fit"\n' + top + '# flowguard: same CUSTOMER_FIT_LABEL ref\n'
+             'def customer_fit_label(accuracy):\n    return FIT_ACCURACY_LABEL if accuracy >= 0.9 else str(int(accuracy * 100)) + "%"\n', '''
+        from policy import customer_fit_label
+        from presentation import fit_label
+        def test_labels():
+            assert customer_fit_label(0.95) == "Fit"
+            assert fit_label(0.5) == "50%"
+            assert fit_label(0.85) in ("Fit", "85%")
+    ''')
+    presentation = tmp_path / 'presentation.py'
+    presentation.write_text('# flowguard: same CUSTOMER_FIT_LABEL\ndef fit_label(accuracy):\n'
+                            '    return "Fit" if accuracy >= 0.9 else str(int(accuracy * 100)) + "%"\n')
+    _git(tmp_path, 'add', 'presentation.py')
+    _git(tmp_path, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'equal copies')
+    presentation.write_text(presentation.read_text().replace('>= 0.9', '>= 0.8'))
+    result = _run(tmp_path)
+    assert result.returncode == 1, _text(result)
+    lines = block(result)
+    assert ': 1 red, 1 changed;' in lines[0] and not any('not compared' in line for line in lines), lines
+    assert any('CUSTOMER_FIT_LABEL' in line for line in _lines(tmp_path, 'red')), last(tmp_path)

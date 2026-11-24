@@ -413,6 +413,72 @@ def test_a_constant_that_does_not_fold_stays_not_compared_with_why(constants, re
     assert sealed(source, 'answer', [1], {}) == {'status': 'unavailable', 'reason': reason}
 
 
+# PEMELPM-13 and 14 (5.1): a class, an `if` or a computed constant at the top level made every name it read
+# unavailable, so one `@dataclass class Row: n: int = 0` took `int` from each function of its module, and
+# `PUBLIC = frozenset({FIT, "Other"})` took FIT. Reading a builtin, a number or a text cannot change it.
+PARSE = 'def parse(x):\n    return int(str(x)) + 1\n'
+
+
+@pytest.mark.parametrize('top', [
+    'from dataclasses import dataclass\n\n@dataclass\nclass Row:\n    n: int = 0\n',
+    'class Base:\n    pass\n\nclass Row(Base):\n    n: int = 0\n',
+    'class Msg:\n    body: object = None\n',
+    "if __name__ == '__main__':\n    print(str(1))\n",
+    'TABLE = {"a": 1}\nfrom dataclasses import dataclass\n\n@dataclass\nclass Row:\n    n: int = 0\n',
+])
+def test_top_level_code_that_reads_a_builtin_leaves_it_to_every_function(top):
+    assert sealed(top + PARSE, 'parse', ['4'], {}) == {'status': 'ok', 'value': 5}
+    if 'TABLE' in top:          # an imported decorator is no code of this module: the dict stays readable
+        assert sealed(top + 'def get(k):\n    return TABLE[k]\n', 'get', ['a'], {}) == {'status': 'ok', 'value': 1}
+    if 'object' in top:         # a builtin the sealed globals lack is refused by its own name
+        assert sealed(top + 'def kind(x):\n    return isinstance(x, object)\n', 'kind', [1], {}) == {
+            'status': 'unavailable', 'reason': 'uses object'}
+
+
+@pytest.mark.parametrize('constant', ["PUBLIC = frozenset({FIT, 'Other'})", "PUBLIC = (FIT, 'Other')", "NAMES = sorted([FIT, 'B'])"])
+def test_a_constant_computed_from_a_text_leaves_the_text_to_every_function(constant):
+    source = f"FIT = 'Fit'\n{constant}\n\ndef label(x):\n    return FIT if x else 'none'\n"
+    assert sealed(source, 'label', [1], {}) == {'status': 'ok', 'value': 'Fit'}
+
+
+def test_a_name_local_to_a_method_no_longer_hides_the_module_constant():
+    source = 'x = 1\nclass Row:\n    def total(self):\n        x = 2\n        return x\ndef answer(n):\n    return n + x\n'
+    assert sealed(source, 'answer', [1], {}) == {'status': 'ok', 'value': 2}
+
+
+@pytest.mark.parametrize('source, reason', [
+    # This module's own code that runs while it loads may append to a list: it is not [] once the module has loaded.
+    ('REG = []\ndef register(f):\n    REG.append(f)\n    return f\n@register\ndef a():\n    return 1\n', 'REG'),
+    ('REG = []\ndef register(f):\n    REG.append(f)\n    return f\ndef a():\n    return 1\nregister(a)\n', 'REG'),
+    ('REG = []\ndef add():\n    REG.append(1)\nclass Row:\n    add()\n', 'REG'),
+    ('REG = []\nclass Plugin:\n    def __init_subclass__(cls):\n        add()\ndef add():\n    REG.append(1)\n'
+     'class Fit(Plugin):\n    pass\n', 'REG'),
+    ('class Box:\n    def __add__(self, other):\n        add(other)\n        return self\nBOX = Box()\nREG = []\n'
+     'def add(x):\n    REG.append(x)\nTOTAL = BOX + 1\n', 'REG'),
+    ('REG = []\nNAMES = list(map(lambda n: REG.append(n), [1]))\n', 'REG'),
+    ('REG = {"a": 1}\nREG.update(b=2)\n', 'REG'),
+    ('REG = [1]\nfor REG in ([1, 2],):\n    pass\n', 'REG'),
+    ('REG = [1]\ndef reset():\n    global REG\n    REG = [1, 2]\n', 'REG'),
+])
+def test_code_that_may_change_a_list_while_the_module_loads_leaves_it_unavailable(source, reason):
+    assert sealed(source + 'def count():\n    return len(REG)\n', 'count', [], {}) == {
+        'status': 'unavailable', 'reason': 'uses unavailable binding ' + reason}
+
+
+@pytest.mark.parametrize('policy, value', [
+    # A literal of another module stays readable when this module's code runs while it loads; a namespace does not.
+    ('from shop.settings import GRACE_DAYS\ndef register(f):\n    return f\n@register\ndef hook():\n    pass\n'
+     'def allows(days): return days <= GRACE_DAYS\n', {'status': 'ok', 'value': True}),
+    ('import shop.settings as config\ndef register(f):\n    return f\n@register\ndef hook():\n    pass\n'
+     'def allows(days): return days <= config.GRACE_DAYS\n', {'status': 'unavailable', 'reason': 'uses attribute GRACE_DAYS'}),
+    ('import shop.settings as config\nclass Row:\n    days: int = config.GRACE_DAYS\n'
+     'def allows(days): return days <= config.GRACE_DAYS\n', {'status': 'unavailable', 'reason': 'uses attribute GRACE_DAYS'}),
+])
+def test_a_project_binding_running_code_reads_or_may_change_is_read_only_as_a_literal(tmp_path, policy, value):
+    runtime, source, imports = _project_settings(tmp_path, 'GRACE_DAYS = 3\n', policy)
+    assert sealed(source, 'allows', [3], {}, imports) == value
+
+
 # The old module constants a previous-code proof reads (`Runtime._constants`, `history._historical_home`) fold with
 # the same bounded walker and the same reasons; they once ran `eval`, so 10 ** 10 ** 10 never finished there.
 @pytest.mark.parametrize('constant', [

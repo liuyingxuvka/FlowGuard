@@ -2423,8 +2423,10 @@ def _verify(session, exitstatus):
             save_structure(con, state.observations.structure)
         if not missing and state.sentinel == 'ok' and not state.session_errors:
             _meta(con, 'intent_collection', attempt)
-            if not model.deep:
-                con.execute("DELETE FROM result WHERE item LIKE '%:live]'")
+            # A complete collection's results are all the intent results there are: an item no longer declared (a
+            # file's `::load` once it loads, a moved home's, `:live]` outside --deep) is no current result.
+            con.executemany('DELETE FROM result WHERE item=?', [(item,) for (item,) in con.execute('SELECT item FROM result').fetchall()
+                                                                if item not in declared])
             for item, result in state.results.items():
                 con.execute('INSERT OR REPLACE INTO result VALUES(?,?,?,?,?)', (item, result['rule'], result['verdict'], _json(result), state.started))
             from .deps import Now, record

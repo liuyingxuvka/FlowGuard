@@ -16,7 +16,7 @@ from flowguard.map import common
 from flowguard.structure.store import connect
 from tests.intent_engine.test_plugin import run
 from tests.intent_engine import _cli_fixture
-from tests.intent_engine.test_static_check import _commit, _static, _write
+from tests.intent_engine.test_static_check import _commit, _git, _static, _write
 
 
 def test_the_last_run_round_trips_through_the_cache_meta_and_is_none_before_any_run(tmp_path):
@@ -388,3 +388,93 @@ def test_show_last_carries_pytests_own_outcome_beside_the_agreement_counts(tmp_p
     assert _cli_fixture.last(tmp_path).splitlines()[1] == 'pytest: exit 1, 1 failed, 1 error'
     assert run(tmp_path, '--maxfail=2').returncode == 1
     assert _cli_fixture.last(tmp_path).splitlines()[1] == 'pytest: exit 1, 1 failed, 1 error, stopped early (--maxfail=2)'
+
+
+def _window(root, *, expect='False', days=4):
+    """PEMEL Studio's afternoon shape (PEMELPM-9 to 12): rule WINDOW (days <= 3) bound to app/orders.py:accept, one
+    literal row, an ordinary test of accept and one that reads no project code."""
+    _commit(root, {
+        'pyproject.toml': '[tool.pytest.ini_options]\npythonpath = ["src"]\n\n[tool.flowguard]\nauthority_docs = ["policy.txt"]\n',
+        'policy.txt': 'At most three days.\n', 'src/app/__init__.py': '',
+        'src/app/orders.py': f'# flowguard: same ACCEPT ref\ndef accept(days: int) -> bool:\n    return days <= {days}\n',
+        'tests/test_orders.py': 'from app.orders import accept\n\n\ndef test_accept():\n    assert accept(2)\n',
+        'tests/test_other.py': 'def test_other():\n    assert 1 + 1 == 2\n',
+        'tests/test_flowguard_intent.py': 'def test_flowguard_intent(request):\n    from flowguard.intent.plugin import sentinel\n'
+                                          '    sentinel(request.config)\n',
+        'tests/intent/window.py': f'''
+            from flowguard.intent import rule, row
+
+            EXPECTED = False
+
+
+            @rule("WINDOW", decides="acceptance window", fields={{"days": int}},
+                  source='doc policy.txt "At most three days."', anchor="ACCEPT")
+            def WINDOW(days):
+                return days <= 3
+
+
+            WINDOW.rows(row(days=4, expect={expect}, why="the fourth day was incorrectly accepted"))
+        '''})
+
+
+def _tail(root, capsys):
+    """The brief's lines after its first, as new-task prints them after the last commit."""
+    capsys.readouterr()
+    assert cli.screen(load_config(root)) in (0, 1)
+    return capsys.readouterr().out.splitlines()[1:]
+
+
+def _at(root):
+    stamp = cache.read(load_config(root))['collection']['stamp']
+    return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(stamp))
+
+
+def test_a_load_error_counts_once_and_a_fixed_file_leaves_no_red_after_the_next_complete_collection(tmp_path, capsys):
+    # PEMELPM-9: the static scan's `load tests/intent/window.py:12: ...` and the load row's `load: ...` were two reds
+    # (5.0.1 `2 still red`), and the `::load` row stayed red after the file loaded: no green run cleared it.
+    _window(tmp_path, expect='EXPECTED', days=3)
+    assert _tail(tmp_path, capsys) == ['1 red in the intent files now: python -m flowguard show --last']
+    assert run(tmp_path).returncode == 1
+    assert _tail(tmp_path, capsys) == ['1 red in the last run: python -m flowguard show --last']
+    assert _cli_fixture.last(tmp_path).splitlines()[-2:] == [
+        f'red in the intent results of the complete collection at {_at(tmp_path)} (the brief counts these):',
+        '    load tests/intent/window.py:12: row expect must be a literal']
+    _commit(tmp_path, {'tests/intent/window.py': (tmp_path / 'tests/intent/window.py').read_text().replace(
+        'expect=EXPECTED', 'expect=False')}, 'literal row')
+    assert run(tmp_path).returncode == 0
+    assert _tail(tmp_path, capsys) == []
+
+
+def test_a_moved_home_leaves_no_red_of_its_old_target(tmp_path, capsys):
+    # PEMELPM-10: after `git mv` of the rule's home and a fix, a green full run left the old home's two red items:
+    # 5.0.1 said `3 still red` and `show WINDOW` printed `app.orders.accept: 1 of 6 cells disagree ...`.
+    _window(tmp_path)
+    assert run(tmp_path).returncode == 1
+    assert _tail(tmp_path, capsys) == ['2 red in the last run: python -m flowguard show --last']
+    _git(tmp_path, 'mv', 'src/app/orders.py', 'src/app/policy.py')
+    _commit(tmp_path, {'src/app/policy.py': '# flowguard: same ACCEPT ref\ndef accept(days: int) -> bool:\n    return days <= 3\n',
+                       'tests/test_orders.py': 'from app.policy import accept\n\n\ndef test_accept():\n    assert accept(2)\n'},
+            'move the window')
+    assert run(tmp_path).returncode == 0
+    assert _tail(tmp_path, capsys) == []
+    capsys.readouterr()
+    assert cli.main(['--root', str(tmp_path), 'show', 'WINDOW']) == 0
+    shown = capsys.readouterr().out
+    assert 'app.orders.accept' not in shown and 'app.policy:accept' in shown, shown
+
+
+def test_a_run_that_selects_no_intent_item_keeps_the_count_and_says_whose_results_it_counts(tmp_path, capsys):
+    # PEMELPM-11 and 12: `pytest tests/test_other.py` added `collection incomplete` as a red (3 became 4), and the
+    # candidate called the intent results' reds `4 red in the last run` although that run's block said `0 red`.
+    _window(tmp_path)
+    assert run(tmp_path).returncode == 1
+    assert run(tmp_path, 'tests/test_other.py').returncode == 0
+    at = _at(tmp_path)
+    assert _tail(tmp_path, capsys) == [f'2 red in the intent results (complete collection at {at}): python -m flowguard show --last']
+    shown = _cli_fixture.last(tmp_path).splitlines()
+    assert shown[2:] == [
+        shown[2], f'the last pytest run selected 0 of 3 intent items; the intent results are those of the complete collection at {at}',
+        f'red in the intent results of the complete collection at {at} (the brief counts these):',
+        '    WINDOW: app.orders.accept: 1 of 6 cells disagree; smallest days=4 -> rule False, code True',
+        '    WINDOW: app.orders.accept: 1 of 1 rows disagree; smallest days=4 -> rule False, code True (row L12)'], shown
+    assert shown[2].endswith(': 0 red; ' + shown[2].rpartition('; ')[2]), shown
