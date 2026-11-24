@@ -26,6 +26,14 @@
 
 建议从 `new-task` 的提示直接提供只读预览，显示生成块的具体差异和执行 `init` 会触及的文件。用同一个仅第 7 条不同的 npm 项目验收，预览应明确新增的选择记录说明和接线影响，凭运行前后的文件散列和比较基线核对只读性。托管会话提供的同名技能仍指向 `read`、`change`、`map` 和 `release`。该发布标签随附的技能指向 `new-task`、项目测试及 `show`。升级提示可同时指向同一标签的随附技能，便于核对当前引擎对应的指引。
 
+### v5.1.0 精确模型查询先显示了同名测试 getter
+
+应用组 G86 在基线 `a590483510d9` 用 `python -m flowguard show EmployeeCentralLink` 核对人员关联。`v3-86-preflight-EmployeeCentralLink.log` 的首项是测试替身里的 `get employeeCentralLink()`，接下来才是两份 Prisma 声明、SQL 表和读写计数。尾行提示 `--full` 会增加 5,194 行，其中 5,193 行只是词匹配。模型证据都存在，但开头和下一步提示会把维护者引向测试替身和大量宽泛匹配。
+
+`g86-flowguard-show-repro.log` 在独立 Git 目录用正式 v5.1.0 复现。Prisma 定义 `model SampleLink { id String @id }` 并映射表名 `sample_links`。`tests/links.test.ts` 的 `fixtures` 对象有 `get sampleLink() { return { id: 'fixture' }; }`。查询 `SampleLink` 先显示 getter，查询 `sample_links` 先显示模型。`show tests/links.test.ts:fixtures.sampleLink` 准确定位 getter。即使显式查询 `show prisma/schema.prisma:SampleLink`，当前输出仍在模型前显示测试 getter。发布源码 `flowguard/intent/cli.py:1362` 给模型事实较高排序值，但 `:1442` 先输出单列的少量同名函数视图，绕过该排序。整个对照只读取源码和工具本地缓存。
+
+建议让精确 Prisma 模型或 SQL 表匹配优先显示声明、映射和读写计数，再分组列出同名源码符号。显式限定 schema 路径时，首屏只显示该 schema 中的精确声明及相关结构事实。上述夹具可同时核对裸模型名、映射表名、限定 schema、限定 getter 四种查询。普通词匹配继续可在 `--full` 中展开，并与精确匹配分开计数。
+
 ## 让两个包的验证可以独立运行
 
 此前同时运行前后端检查，遇到一次缓存锁竞争，未取得测试结果。当前做法是串行。这避免了此次冲突，多个包每组必须等两套检查累加。另有多个代理共享同一工作区，所有检查也集中交给一个代理，以避免混用最后一次运行结果。
