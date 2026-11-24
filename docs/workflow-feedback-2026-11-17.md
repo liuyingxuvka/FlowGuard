@@ -190,6 +190,14 @@ V1-25 遇到同一诊断在跨文件委派上的情形。应用基线 `c8fe0305c
 
 这类影响提示值得保留。若能静态确认同一标识从更新改为删除，可补上实际删除的调用位置，并将成功后按该标识重新读取的消费者排到检查清单前面。可执行的验收应同时覆盖仍存活的目标、已删目标以及调用身份未知的情况。排序只帮助定位检查，并保留各读者、未确认来源和原来的通过条件。
 
+### G82 核对写入参数经过辅助函数后的字段
+
+`v3-82-flowguard-backend-v2-show.log` 列出 14 条 `Assignment` 字段不再写入的 impact。复核源码发现，Prisma 的写入仍在原调用位置，原 `data` 改由 `withAssignmentUpdatedAt` 返回。该函数展开原对象，只在 `updatedAt` 缺失时补一个新时间。AST 和辅助函数测试核对了 20 个普通写入入口以及两个只改外键的入口。`v3-82-backend-full-v2.log` 的 6,379 个通过用例包括这项核对，另有 9 个旧参数或快照断言失败。同轮 FlowGuard 报 `0 red`。
+
+修正旧断言后，`v3-82-backend-final.log` 的 428 个文件、6,388 例全部通过，FlowGuard 报 `0 red, 6 before, 2 known, 20 impact, 31 not compared`。`v3-82-flowguard-backend-final-show.log` 仍列出同样的 14 条 `Assignment` 写入提示。
+
+建议从可定位的单层调用和对象展开开始，显示 `data` 的哪些字段原样传入 Prisma、哪些由辅助函数补充，以及哪些无法解析。后者应显示为待核实，确认字段确已删除时继续报告。最小对照可用只补时间戳、真正丢掉一个字段及返回形状未知三种实现。涉及 Prisma 的 `@updatedAt` 时，可另附具体数据库方言的 schema 声明与已有离线断言，帮助核对隐式更新边界，真实库写入和时间精度仍由实际证据确认。
+
 ## V1-22 提前显示已经完成的静态检查详情
 
 2026-11-18。应用基线为 `edc46e3`。`v1-22-frontend-full-1.log` 在生成的 `flowguard.static.test.mjs` 执行约 6.33 秒后，已经打印失败标记 `× FlowGuard check --static`。观察整轮运行已持续 145 秒以上时，控制台仍未显示可操作的 red 详情；当时运行尚未结束，不能据此报告完整测试或 FlowGuard 已通过。维护过程中读取活动观察目录的 `static.json`，已经能看到三条具体账目诊断及其检查指引。生成的静态用例在收到这些 red 后抛出的提示是 `FlowGuard: 3 red, see the FlowGuard block at the end`。
