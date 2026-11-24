@@ -141,6 +141,8 @@ class Model:
         self.deep = False
         self.rules, self.states, self.flows = {}, {}, {}
         self.anchor_index = None
+        # the text of the error that stopped the map build this load needed for its rules' flowguard comments (`load`)
+        self.map_error = None
         self.scenario_issues = {}
         self.errors, self.files = [], []
         self.file_of, self.kinds, self.superseded_by = {}, {}, {}
@@ -396,12 +398,22 @@ def load(cfg: Config | None = None, root: Path | None = None, *, anchor_index: o
     if needs_anchors:
         from contextlib import closing
         from ..structure import build
-        from .anchors import collect
+        from flowguard.map.common import MapError
+        from flowguard.structure.store import UnreadableConfig
+        from .anchors import Index, collect
         if anchor_index is not None:
             model.anchor_index = anchor_index
         else:
-            with closing(build(cfg.root, roots=cfg.roots, store_path=map_path)) as graph:
-                model.anchor_index = collect(graph)
+            try:
+                with closing(build(cfg.root, roots=cfg.roots, store_path=map_path)) as graph:
+                    model.anchor_index = collect(graph)
+            except (MapError, UnreadableConfig) as error:
+                # The map cannot be built (a reader whose extra is not installed, Git, the cache, a pyproject.toml its
+                # import roots read): no comment is read, so each rule's binding of one is not run, with this text
+                # (`Engine.anchor_errors`), and a pytest session gives it as its map checks' red line (R85); check and
+                # show build the map themselves and stop with it (exit 2).
+                model.map_error = str(error)
+                model.anchor_index = Index(())
         for rule in model.rules.values():
             for name in rule.anchors:
                 candidates = model.anchor_index.named(name, 'sensor')

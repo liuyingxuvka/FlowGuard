@@ -575,8 +575,8 @@ def test_a_moved_line_takes_its_least_shortened_form_that_fits_and_gets_back_wha
                        'readers of P', 'P.a', 'src/m.py:7', 'src/m.py:12') == (
         "impact: f's writes of P.a moved to g, which it calls (m.py:7); its writes of P.b moved to h, which it calls "
         f'(m.py:12); other callers of h: 1; ... -> {step.format("P.a")}', 198)
-    # a helper the path queries did not see write the fields (or be called) every time is named whole; a list it
-    # names is counted last, as a moved one is
+    # a helper the path queries did not see write the fields (or be called) every time is named whole with what it
+    # writes (`them`, or the one field it names), while the function's own list is counted, keeping the step's field
     unseen = ' where FlowGuard did not see the {} run every time'
     assert _moved_said(f'f no longer writes P.a, P.b; it calls g (src/m.py:7), which writes them{unseen.format("writes")}; '
                        '1 other writer, 3 readers of P', 'P.a', 'src/m.py:7') == (
@@ -741,18 +741,22 @@ def test_same_name_copies_are_worded_for_the_43_lines_without_choosing_a_copy():
          'leave it unless your task is about it')]
 
 
-def test_an_old_rule_finding_is_before_with_the_rules_own_step_where_its_files_are_touched():
+def test_an_old_rule_finding_is_before_with_the_before_step_and_its_own_step_in_its_detail_where_its_files_are_touched():
     """Review of 5.1 (FT3 open 0): a rule's red that is its anchor's copies taking the different parameters they took at
     the task start is old (`Engine.anchor_errors`): its line is before, reads on after a colon as the copies' before line
-    does, keeps the rule's own step, and is touched where the rule's file or a copy's file is."""
+    does, and is touched where the rule's file or a copy's file is.
+    Review of 5.1 (FT4 nit 0, R99, R101): its line ended with the rule's own step, `-> inspect rule scope_rule.py:3 and
+    correct its source, ...`, beside `-> leave it unless your task is about it` on the copies' line: one old fact with
+    two steps, one of which asks the agent to correct a rule for a fact his task did not touch. It ends with
+    BEFORE_STEP as every before line does; the rule's step stays first in its detail, as a copies line keeps its own."""
     what = ('same anchor PROJECT_SCOPE: scope.py:can_view(user, project) and scope.py:visible_projects(user, projects) '
             'take different parameters')
     step = 'inspect rule scope_rule.py:3 and correct its source, binding or regression rows'
     issue = signals.finding('rule', 'rule:SCOPE', 'rule SCOPE', [what], step, places=('scope_rule.py:3', 'scope.py:can_view'),
                             files=('tests/intent/scope_rule.py', 'scope.py'), detail=[step], fresh=False)
     lines, _ = signals.deliver([issue], touched_functions=(), touched_files={'scope.py'})
-    assert [(line.kind, line.text, line.step) for line in lines] == [
-        ('before', f'rule SCOPE was broken at task start: {what}', step)], lines
+    assert [(line.kind, line.text, line.step, line.detail) for line in lines] == [
+        ('before', f'rule SCOPE was broken at task start: {what}', 'leave it unless your task is about it', (step,))], lines
     assert signals.deliver([issue], touched_functions=(), touched_files={'other.py'})[0] == []
     assert [line.kind for line in signals.deliver([issue], touched_functions=(), touched_files=(), everything=True)[0]] == [
         'before']

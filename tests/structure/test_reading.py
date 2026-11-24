@@ -149,6 +149,49 @@ def test_the_maps_import_roots_read_tool_flowguard_through_its_one_reader(tmp_pa
     assert roots.config_roots(tmp_path, ['pkg/pyproject.toml']) == [('pkg/src', 'pkg/pyproject.toml (package directory src)')]
 
 
+def test_a_packages_own_pyproject_is_read_by_the_same_reader_and_refused_naming_it(tmp_path):
+    # Review of 5.1 (FD4 nit 0, R85): roots._toml read a package's own pyproject.toml with its own tomllib and `.get`
+    # chains, catching only OSError and TOMLDecodeError: Latin-1 bytes escaped as a bare UnicodeDecodeError naming no
+    # file, `[tool] setuptools = "x"` as `AttributeError: 'str' object has no attribute 'get'`, and a file that did not
+    # parse was read as empty, its roots silently missing. Each pyproject.toml's packaging and pytest tables are read
+    # by `store.project_config(path=)`, which judges each table and key config_roots reads and names the file.
+    import pytest
+    from flowguard.structure import roots
+    from flowguard.structure.store import UnreadableConfig
+    package = tmp_path / 'pkg/pyproject.toml'
+    package.parent.mkdir()
+    for raw, words in (
+            (b'# caf\xe9\n[project]\n', r"^pkg/pyproject\.toml is no UTF-8 text: 'utf-8' codec can't decode byte 0xe9"),
+            (b'[project]\n<<<<<<< HEAD\n', r'^pkg/pyproject\.toml does not parse: Invalid statement'),
+            (b'[tool]\nsetuptools = "x"\n', r'^pkg/pyproject\.toml: tool\.setuptools is a string \(not a table\)$'),
+            (b'tool = 5\n', r'^pkg/pyproject\.toml: tool is an integer \(not a table\)$'),
+            (b'[tool.setuptools]\npackage-dir = "src"\n',
+             r'^pkg/pyproject\.toml: tool\.setuptools\.package-dir is a string \(not a table\)$'),
+            (b'[tool.setuptools.packages]\nfind = "src"\n',
+             r'^pkg/pyproject\.toml: tool\.setuptools\.packages\.find is a string \(not a table\)$'),
+            (b'[tool.setuptools.packages.find]\nwhere = "src"\n',
+             r'^pkg/pyproject\.toml: tool\.setuptools\.packages\.find\.where is a string \(not an array of strings\)$'),
+            (b'[tool.poetry]\npackages = 5\n', r'^pkg/pyproject\.toml: tool\.poetry\.packages is an integer \(not an array\)$'),
+            (b'[tool.pytest]\nini_options = "x"\n',
+             r'^pkg/pyproject\.toml: tool\.pytest\.ini_options is a string \(not a table\)$'),
+            (b'[tool.pytest.ini_options]\npythonpath = 5\n',
+             r'^pkg/pyproject\.toml: tool\.pytest\.ini_options\.pythonpath is an integer \(not a string or an array\)$')):
+        package.write_bytes(raw)
+        with pytest.raises(UnreadableConfig, match=words):
+            roots.config_roots(tmp_path, ['pkg/pyproject.toml'])
+    # what each reads of its type gives its roots as before; a value config_roots does not read is not judged
+    for raw, found in (
+            (b'[tool.setuptools]\npackages = ["pkg"]\npackage-dir = {"" = "lib"}\n', [('pkg/lib', 'pkg/pyproject.toml (package directory lib)')]),
+            (b'[tool.poetry]\npackages = [{include = "x", from = "src"}, "loose"]\nname = 5\n',
+             [('pkg/src', 'pkg/pyproject.toml (package directory src)')]),
+            (b'[tool.pytest.ini_options]\npythonpath = "a b"\naddopts = 5\n',
+             [('pkg', 'pkg/pyproject.toml (package root)'), ('pkg/a', 'pytest pythonpath in pkg/pyproject.toml'),
+              ('pkg/b', 'pytest pythonpath in pkg/pyproject.toml')]),
+            (b'[tool.ruff]\nline-length = "x"\n', [('pkg', 'pkg/pyproject.toml (package root)')])):
+        package.write_bytes(raw)
+        assert roots.config_roots(tmp_path, ['pkg/pyproject.toml']) == found, raw
+
+
 def test_only_an_absent_pyproject_uses_empty_settings(tmp_path, monkeypatch):
     import tomllib
     import pytest

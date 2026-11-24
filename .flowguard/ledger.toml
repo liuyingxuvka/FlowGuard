@@ -530,6 +530,11 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
+["flowguard/intent/loader.py:load:(MapError, UnreadableConfig)"]
+count = 1
+reason = "When the map a load needs to read its rules' flowguard comments cannot be built (a reader whose optional extra is not installed, Git, the cache, a pyproject.toml its import roots read), it keeps the error's text in Model.map_error and an empty index; each rule's binding of a comment is then not run with that reason, never an anchor gone, a pytest session gives the text as the one red map checks line with exit 1 while the project's tests run (R85), and check and show build the map themselves and stop with it, exit 2."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
 ["flowguard/intent/owners.py:Change.newly_excluded:UnreadableConfig"]
 count = 1
 reason = "A baseline pyproject.toml whose bytes do not decode or parse, or whose tool table, [tool.flowguard] or exclude, the one key this reads there, has another TOML type than FlowGuard reads, leaves unknown which files this change takes out of the map: it becomes one not compared line with the file's text, the decoder's or parser's own words or the key and the type found, the baseline's own problem that the change may repair (R99), and every other map check still runs, as for a baseline .py file that does not parse."
@@ -570,6 +575,11 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
+["flowguard/intent/plugin.py:Observations.__init__:(MapError, UnreadableConfig)"]
+count = 1
+reason = "When the flowguard comments cannot be read at session start because the map's import roots cannot be (a pyproject.toml they read whose bytes are no UTF-8 text or no TOML, or a table of another type, or a map a removed spelling needs that cannot be built), it keeps the error's text in map_error and an empty index; the session compares no function, report gives the text as the one red map checks line with exit 1, and the project's tests run with pytest's own summary (R85)."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
 ["flowguard/intent/plugin.py:Observations._bind_module:(ValueError, TypeError, sites.NotMutable)"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
@@ -582,7 +592,7 @@ rule = "旧账"
 
 ["flowguard/intent/plugin.py:Observations._map:MapError"]
 count = 1
-reason = "When the session's map cannot be built (a reader whose optional extra is not installed, Git, the cache), it keeps the error's text in map_error and returns None; the session compares only the functions a flowguard comment names and report gives the text as one red map checks line with exit 1, so the project's tests run and pytest's own summary stays (R85)."
+reason = "When the session's map cannot be built (a reader whose optional extra is not installed, Git, the cache, a pyproject.toml its import roots read), it keeps the error's text in map_error and returns None; the session compares only the functions a flowguard comment names and report gives the text as one red map checks line with exit 1, so the project's tests run and pytest's own summary stays (R85)."
 rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
 ["flowguard/intent/plugin.py:Observations._rule_signals:PredicateError"]
@@ -871,11 +881,6 @@ reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；�
 rule = "旧账"
 
 ["flowguard/structure/readers/registry.py:available:PackageNotFoundError"]
-count = 1
-reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
-rule = "旧账"
-
-["flowguard/structure/roots.py:_toml:(OSError, tomllib.TOMLDecodeError)"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"

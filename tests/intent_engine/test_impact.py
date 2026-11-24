@@ -3796,6 +3796,26 @@ def test_a_kept_writer_line_names_the_helper_that_writes_its_fields_only_under_a
             f'ModelPreferences.default_source; {said.format("model_preferences.py")}; ... -> check them for this change ' \
             'only (python -m flowguard show ModelPreferences.default_model)' in text.splitlines(), text
         assert text.count('impact: ') == 2 and 'impact: _apply_default_model now writes ModelPreferences.' in text, text
+    # Review of 5.1 (FM4 nit 3): one field is `it`, never `them` (`which writes them where FlowGuard did not see the
+    # write run every time`)
+    one = PEMEL_PREFERENCES.replace('    default_source: str = ""\n', '').replace(
+        '    preferences.default_source = source\n', '')
+    _commit(tmp_path, {path: one})
+    for call, helper_body, said in (
+            ('    if source == "library":\n        _apply_default_model(preferences, model, source)',
+             '    preferences.default_model = model\n',
+             f'_apply_default_model ({path}:9), which it calls {CALL_UNSEEN}, writes it'),
+            ('    _apply_default_model(preferences, model, source)',
+             '    if source == "library":\n        preferences.default_model = model\n',
+             f'it calls _apply_default_model ({path}:9), which writes it {WRITES_UNSEEN.replace("writes run", "write run")}')):
+        helper = ('def _apply_default_model(preferences: ModelPreferences, model: str, source: str):\n' + helper_body
+                  + '\n\ndef set_default_model(preferences: ModelPreferences, model: str, source: str):\n' + call + '\n')
+        _write(tmp_path, {path: one.replace('def set_default_model(preferences: ModelPreferences, model: str, source: str):\n'
+                                            '    preferences.default_model = model\n', helper)})
+        lines = [line.text for line in _impact(tmp_path)[0].lines]
+        assert [text for text in lines if text.startswith('set_default_model ')] == [
+            f'set_default_model no longer writes ModelPreferences.default_model; {said}; 1 other writer, 1 reader '
+            '(untyped reads not counted)'], lines
 
 
 def test_a_call_a_python_with_may_suppress_keeps_a_line_for_each_function(tmp_path):

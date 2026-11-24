@@ -264,9 +264,19 @@ class Session:
                 self.results[owner]['own_contract'] = self.engine.contract_summary(rule, parts=parts)
 
     def get_map(self):
+        """The session's map, built once. A pyproject.toml the build reads for import roots that cannot be read (a
+        package's own below the root, or a table of the project's own that `load_config` does not read:
+        `roots.config_roots`) stops the build as any other map error does, a MapError with the file's text, which the
+        session routes as one (`Observations._map`, `report`): pytest's own summary and exit, then the map checks' red
+        line (R85)."""
         if self.map is None:
             from flowguard.structure import build
-            self.map = build(self.cfg.root, roots=self.cfg.roots)
+            from flowguard.structure.store import UnreadableConfig
+            from ..map.common import MapError
+            try:
+                self.map = build(self.cfg.root, roots=self.cfg.roots)
+            except UnreadableConfig as error:
+                raise MapError(str(error)) from error
         return self.map
 
     def ledger(self):
@@ -625,6 +635,7 @@ class Observations:
                               _imported_changes, _read_through, _same_binding, changed_reads)
         from ..map.common import MapError, git_files, git_renames, git_run, read_source
         from ..structure.readers.registry import language_for
+        from ..structure.store import UnreadableConfig
         self.state, self.cfg = state, state.cfg
         self.requested_base = state.config.getoption('--flowguard-base', default=None)
         self.comparison_requested = bool(self.requested_base)
@@ -642,7 +653,21 @@ class Observations:
         self.runtime = state.runtime = Runtime(self.cfg.root, baseline)
         if self.requested_base and self.runtime._baseline_error:
             raise pytest.UsageError(self.runtime._baseline_error)
-        self.index = state.model.anchor_index or differences._source_index(self.cfg.root, state.get_map)
+        # The flowguard comments: the model's index, else read without the map (`differences._source_index`), which
+        # names their modules by the map's import roots. Where those roots cannot be read (a pyproject.toml they read,
+        # `roots.config_roots`), or the map the loader needed could not be built (`Model.map_error`), none is read:
+        # the session compares no function, and the map checks' red line gives the error's text (`report`, R85), while
+        # its tests run as they would without FlowGuard.
+        self.map_error = state.model.map_error      # the text of a MapError that stopped the map checks: no second build
+        self.map_missed = []        # what the session could not compare without its map (`_map`)
+        if self.map_error is None:
+            try:
+                self.index = state.model.anchor_index or differences._source_index(self.cfg.root, state.get_map)
+            except (MapError, UnreadableConfig) as error:
+                self.map_error = str(error)
+        if self.map_error is not None:
+            self.index = anchors.Index(())
+            self.map_missed.append('the flowguard comments were not read, so no function one names was compared')
         state.model.anchor_index = self.index
         self.renamed = {}       # a moved file's baseline version is at its old path
         self.unparsed = {}      # {changed file: why its baseline version does not parse}, each comparison's reason there
@@ -681,8 +706,6 @@ class Observations:
         self.changed, self.records, self.grey = bool(self.files), [], []
         self.metadata, self.bound, self.event_codes, self.payload = {}, {}, {}, None
         self.structure = None
-        self.map_error = None       # the text of a MapError that stopped the map checks (`_map`, `report`): no second build
-        self.map_missed = []        # what the session could not compare without its map (`_map`)
         self.old_copies = set()     # the same names whose copies this change leaves as they were (`_compare`)
         self.old_parameters = None  # the same names whose copies took their different parameters at the task start
                                     # (`_parameters_then`)
@@ -831,16 +854,20 @@ class Observations:
 
     def _map(self):
         """The session's map, or None when it cannot be built (a reader whose extra is not installed, Git, the
-        cache): the session then compares only the functions a flowguard comment names, and the map checks' red line
-        gives the error's text (`report`, R85). Its tests run as they would without FlowGuard."""
+        cache, a pyproject.toml its import roots read) or could not be read when the session began (`map_error`, not
+        built again): the session then compares only the functions a flowguard comment names, and the map checks' red
+        line gives the error's text (`report`, R85). Its tests run as they would without FlowGuard."""
         from ..map.common import MapError
-        try:
-            return self.state.get_map()
-        except MapError as error:
-            self.map_error = str(error)
-            self.map_missed.append('the functions this change edits that no flowguard comment names, and the files that '
-                                   'import a constant it changes, were not compared')
-            return None
+        if self.map_error is None:
+            try:
+                return self.state.get_map()
+            except MapError as error:
+                self.map_error = str(error)
+        missed = ('the functions this change edits that no flowguard comment names, and the files that import a constant '
+                  'it changes, were not compared')
+        if missed not in self.map_missed:
+            self.map_missed.append(missed)
+        return None
 
     def _module(self, module):
         import types

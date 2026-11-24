@@ -1472,8 +1472,8 @@ def field_impact(change, index):
     a `with` not seen never to suppress, is no conditional call): `it calls reactivateOrCreateMember
     (project-membership.ts:3), which writes them where FlowGuard did not see the writes run every time` or `_apply
     (model.py:7), which it calls where FlowGuard did not see the call run every time, writes them` (UNSEEN; `in a
-    callback` where it sits in more anonymous callbacks than the baseline's write), `them` only where those are every
-    field the line names, the fields by name otherwise; the detail gives the call. The block cuts these lines by their
+    callback` where it sits in more anonymous callbacks than the baseline's write), `them` (`it` for one field) only
+    where those are every field the line names, the fields by name otherwise; the detail gives the call. The block cuts these lines by their
     own rule (`signals._cap_moved`)."""
     from .health import _test_files, deleted_model, unseen_write, written_field, writers
     from .signals import Line
@@ -1605,9 +1605,10 @@ def field_impact(change, index):
             said.append(('' if said else f'{qual} ') + f'no longer writes {", ".join(gone)}')
         for callee, keys, (part, how) in delegated.get(function, ()):
             # PTWF-V125: a helper it calls writes those fields now, where the path queries did not place the call or
-            # the write on every path (PEMEL17-18: no move); `them` only where they are every field the line names
+            # the write on every path (PEMEL17-18: no move); `them` (`it` for one) only where they are every field the
+            # line names
             name, at, calling_at = called(callee)
-            them = 'them' if keys == gone == removed and not added else ', '.join(keys)
+            them = ('them' if len(keys) > 1 else 'it') if keys == gone == removed and not added else ', '.join(keys)
             where = UNSEEN[how].format('the call' if part == 'call' else 'the writes' if len(keys) > 1 else 'the write')
             said.append(f'{name} ({at}), which it calls {where}, writes {them}' if part == 'call'
                         else f'it calls {name} ({at}), which writes {them} {where}')

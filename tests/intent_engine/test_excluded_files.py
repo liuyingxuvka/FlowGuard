@@ -176,6 +176,78 @@ def test_a_changed_python_file_beside_it_still_runs_the_tests(tmp_path):
             'constant it changes, were not compared') in last, last
 
 
+UNREADABLE_ROOTS = [
+    ('pkg/pyproject.toml', b'# caf\xe9\n[project]\nname = "pkg"\nversion = "0"\n',
+     "pkg/pyproject.toml is no UTF-8 text: 'utf-8' codec can't decode byte 0xe9 in position 5: invalid continuation byte"),
+    ('pkg/pyproject.toml', b'[project]\nname = "pkg"\n<<<<<<< HEAD\n',
+     'pkg/pyproject.toml does not parse: Invalid statement (at line 3, column 1)'),
+    ('pkg/pyproject.toml', b'[project]\nname = "pkg"\n[tool]\nsetuptools = "x"\n',
+     'pkg/pyproject.toml: tool.setuptools is a string (not a table)'),
+    ('pkg/pyproject.toml', b'[tool.pytest]\nini_options = "x"\n',
+     'pkg/pyproject.toml: tool.pytest.ini_options is a string (not a table)'),
+    ('pyproject.toml', PYPROJECT.format(flowguard='[tool.setuptools]\npackage-dir = "src"\n').encode(),
+     'pyproject.toml: tool.setuptools.package-dir is a string (not a table)'),
+]
+
+
+@pytest.mark.parametrize('name, raw, words', UNREADABLE_ROOTS)
+def test_a_pyproject_the_import_roots_cannot_read_is_one_red_line_after_pytests_summary(tmp_path, name, raw, words):
+    # Review of 5.1 (FD4 nit 0, R85): a package's own pyproject.toml below the root, read for the map's import roots by
+    # roots._toml, ended pytest in INTERNALERROR (`UnicodeDecodeError: 'utf-8' codec can't decode byte 0xe9`, exit 3,
+    # no test run, or `AttributeError: 'str' object has no attribute 'get'` from `[tool] setuptools = "x"`), and check
+    # --static said `flowguard: 'utf-8' codec can't decode byte 0xe9 ...` naming no file, or printed a traceback; a
+    # file that did not parse was read as empty. It is read by the reader every pyproject.toml has
+    # (`store.project_config`), refused with the file and the reason: pytest's own summary and exit, then the map
+    # checks' red line, as for a reader that cannot run; check --static exits 2 with that text. A table of the
+    # project's own pyproject.toml that load_config does not read (`tool.setuptools`) is judged so too.
+    files = {'pyproject.toml': PYPROJECT.format(flowguard=''), **CORE}
+    _write(tmp_path, {path: text for path, text in files.items() if path != name})
+    (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / name).write_bytes(raw)
+    root = _commit(tmp_path)
+    red = f'red: map checks: {words} -> correct this error and rerun the tests'
+    for changed in (False, True):
+        if changed:
+            (root / 'app/core.py').write_text('def total(a, b):\n    return b + a\n', encoding='utf-8')
+        result = _pytest(root)
+        text = display_text(result)
+        assert result.returncode == 1 and '1 passed' in text, text
+        assert 'INTERNALERROR' not in text and 'Traceback' not in text, text
+        assert [line for line in text.splitlines() if line.startswith('red: ')] == [red], text
+        assert text.index('1 passed') < text.index('red: map checks')
+    last = _flowguard(root, 'show', '--last').stdout
+    assert '    the flowguard comments were not read, so no function one names was compared' in last, last
+    static = _flowguard(root, 'check', '--static')
+    assert (static.returncode, static.stdout, static.stderr) == (2, '', f'flowguard: {words}\n'), static
+
+
+def test_a_rule_bound_to_a_comment_is_not_run_where_the_map_cannot_be_built(tmp_path):
+    # The same where an intent rule is bound to a flowguard comment: its loader builds the map when pytest collects
+    # it, and 5.0.1 and 5.1's earlier rounds stopped there (INTERNALERROR, exit 1, no test run), for a reader that
+    # cannot run too. The tests run; the rule's bindings are not run, never `anchor gone`, and the map checks say why.
+    name, raw, words = UNREADABLE_ROOTS[0]
+    rule = ('from flowguard.intent import rule\n\n\n@rule("TOTAL", decides="a sum", fields={"a": int, "b": int}, '
+            'source="assumed: test", anchor="TOTAL")\ndef TOTAL(a, b):\n    return a + b\n')
+    sentinel = ('def test_flowguard_intent(request):\n    from flowguard.intent.plugin import sentinel\n'
+                '    sentinel(request.config)\n')
+    _write(tmp_path, {'pyproject.toml': PYPROJECT.format(flowguard=''), **CORE, 'tests/intent/total.py': rule,
+                      'tests/test_flowguard_intent.py': sentinel,
+                      'app/core.py': '# flowguard: same TOTAL\ndef total(a: int, b: int) -> int:\n    return a + b\n'})
+    (tmp_path / 'pkg').mkdir()
+    (tmp_path / name).write_bytes(raw)
+    root = _commit(tmp_path)
+    result = _pytest(root)
+    text = display_text(result)
+    assert result.returncode == 1 and '2 passed, 3 unverified' in text, text
+    assert 'INTERNALERROR' not in text and 'Traceback' not in text and 'anchor gone' not in text, text
+    assert [line for line in text.splitlines() if line.startswith('red: ')] == [
+        f'red: map checks: {words} -> correct this error and rerun the tests'], text
+    last = _flowguard(root, 'show', '--last').stdout
+    assert 'not compared: TOTAL[anchor.TOTAL:cells] -> not a failure' in last and 'anchor gone' not in last, last
+    shown = _flowguard(root, 'check')
+    assert (shown.returncode, shown.stderr) == (2, f'flowguard: {words}\n'), shown
+
+
 def _loosened(root, base='HEAD'):
     cfg = load_config(root)
     with closing(build(root, roots=cfg.roots)) as graph:

@@ -910,8 +910,12 @@ def test_a_rule_bound_to_copies_that_take_different_parameters_follows_their_tas
     # Review of 5.1 (FT3 open 0, R99): with the copies and the rule at the task start, a change that appends a helper to
     # their file printed `red: rule SCOPE: same anchor PROJECT_SCOPE: ...` beside `before: same PROJECT_SCOPE disagreed
     # at task start: ...`, and the rule's four intent items failed: one fact red and before in one run. The rule's line
-    # takes the comments' finding's freshness: before with the rule's own step there, red where this change adds a
-    # parameter, in check --static, pytest and check alike.
+    # takes the comments' finding's freshness: before there, red where this change adds a parameter, in check --static,
+    # pytest and check alike.
+    # Review of 5.1 (FT4 nit 0, R99, R101): that before line ended with the rule's red step, `-> inspect rule
+    # decisions.py:2 and correct its source, binding or regression rows`, beside the copies' `-> leave it unless your
+    # task is about it`: an old fact with a step that asks the agent to correct the rule. It ends as every before line
+    # does; the rule's step stays first in show --last's detail.
     from tests.intent_engine._cli_fixture import main
 
     def flowguard(*arguments):
@@ -930,7 +934,8 @@ def test_a_rule_bound_to_copies_that_take_different_parameters_follows_their_tas
     copies = ('same anchor PROJECT_SCOPE: policy.py:can_view(user, project): bool and policy.py:visible_projects(user, '
               'projects): list take different parameters')
     step = 'inspect rule decisions.py:2 and correct its source, binding or regression rows'
-    rule_before = f'before: rule SCOPE was broken at task start: {copies.replace("(user, project): bool", "").replace("(user, projects): list", "")} -> {step}'
+    leave = 'leave it unless your task is about it'
+    rule_before = f'before: rule SCOPE was broken at task start: {copies} -> {leave}'
     same_before = ('before: same PROJECT_SCOPE disagreed at task start: policy.py:can_view(user, project): bool and '
                    'policy.py:visible_projects(user, projects): list take different parameters -> leave it unless your task '
                    'is about it')
@@ -939,24 +944,33 @@ def test_a_rule_bound_to_copies_that_take_different_parameters_follows_their_tas
               '--picked "TEXT", then update rule tests/intent/decisions.py:2')
     # nothing touched: no line, and no intent item fails
     assert runs() == ([(0, [])] * 3, ['3 passed, 4 unverified'])
-    # a helper appended to the copies' file leaves them as they were: before in every run, the rule's own step on its line
+    # a helper appended to the copies' file leaves them as they were: before in every run, the rule's own step in its
+    # detail
     policy.write_text(policy.read_text(encoding='utf-8') + '\n\ndef helper():\n    return 1\n', encoding='utf-8')
     assert runs() == ([(0, [same_before]), (0, [rule_before, same_before]), (0, [rule_before, same_before])],
                       ['3 passed, 4 unverified'])
-    assert detail in last(tmp_path).splitlines(), last(tmp_path)
+    shown = last(tmp_path).splitlines()
+    at = shown.index(rule_before)
+    assert shown[at + 1:at + 3] == ['    ' + step.replace('rule decisions.py', 'rule tests/intent/decisions.py'), detail], shown
     # --all states both in full
-    assert flowguard('check', '--all') == (0, [f'before: rule SCOPE was broken at task start: {copies} -> {step}', same_before])
+    assert flowguard('check', '--all') == (0, [rule_before, same_before])
     # an edit of the rule's file alone touches the rule's line, not the copies'
     policy.write_text(textwrap.dedent(TYPED_SCOPE).lstrip(), encoding='utf-8')
     rule_file = tmp_path / 'tests/intent/decisions.py'
     rule_file.write_text(rule_file.read_text(encoding='utf-8') + '# a note\n', encoding='utf-8')
     assert runs()[0][1:] == [(0, [rule_before])] * 2
-    # a rule red for another reason states that alone, never also the copies' fact as before
-    rule_file.write_text(rule_file.read_text(encoding='utf-8') + "SCOPE.rows(row(user=1, project=1, expect=False, "
+    # a rule red for another reason that leaves its declaration as it was (a source this change edits) states that
+    # alone, never also the copies' fact as before
+    rule_file.write_text(textwrap.dedent(SCOPE_RULE).lstrip().replace('three days', 'four days'), encoding='utf-8')
+    assert runs()[0][1:] == [(1, ['red: rule SCOPE: doc quote gone: policy.txt -> update the rule from the original'])] * 2
+    # Review of 5.1 (FT4 open): a row this change adds was never checked on those copies, so the anchor's fact is the
+    # rule's red too, after the row's own red (5.1's fourth round counted only the row's red, and said the rule was
+    # broken at task start where the row agreed with the rule)
+    rule_file.write_text(textwrap.dedent(SCOPE_RULE).lstrip() + "SCOPE.rows(row(user=1, project=1, expect=False, "
                          "why='one org'))\n", encoding='utf-8')
-    assert runs()[0][1:] == [(1, ['red: rule SCOPE: self: SCOPE says T on its own row L7 "one org" (row expects F) -> '
-                                  'correct regression rows or rule decisions.py:2 so the rule and its regression rows '
-                                  'agree'])] * 2
+    assert runs()[0][1:] == [(1, ['red: rule SCOPE: self: SCOPE says T on its own row L6 "one org" (row expects F) '
+                                  '(+1 more) -> correct regression rows or rule decisions.py:2 so the rule and its '
+                                  'regression rows agree'])] * 2
     rule_file.write_text(textwrap.dedent(SCOPE_RULE).lstrip(), encoding='utf-8')
     # a change that adds a parameter makes the copies this change's: red in every run, the rule with its own step
     policy.write_text(policy.read_text(encoding='utf-8').replace('projects: list)', 'projects: list, strict: bool = False)'),
@@ -968,6 +982,59 @@ def test_a_rule_bound_to_copies_that_take_different_parameters_follows_their_tas
     # show --last names the rule's file by its whole path
     assert [line for line in last(tmp_path).splitlines() if line.startswith('red: rule')] == [
         red.replace('rule decisions.py:2', 'rule tests/intent/decisions.py:2')], last(tmp_path)
+
+
+@pytest.mark.parametrize('shape', ['newrule', 'rebind', 'newrow'])
+def test_a_rule_this_change_writes_rebinds_or_gives_rows_on_copies_that_took_different_parameters_is_red(
+        tmp_path, capsys, shape):
+    # Review of 5.1 (FT4 open, worse than 5.0.1): with the copies committed at the task start, a rule this change writes
+    # on their anchor, rebinds to it from another anchor, or gives a regression row, was `before: rule SCOPE was broken
+    # at task start: same anchor PROJECT_SCOPE: ...` in pytest and check, its items unverified, exit 0: a rule that was
+    # never checked on those copies said to be broken at the task start. The copies being old is not enough: the rule is
+    # old only where the baseline declares it as now (its anchors, fields, decision and rows), else red, as in 5.0.1.
+    from tests.intent_engine._cli_fixture import main
+
+    def flowguard(*arguments):
+        code = main(['--root', str(tmp_path), *arguments], cwd=tmp_path)
+        return code, [line for line in capsys.readouterr().out.splitlines() if line.startswith(('red: ', 'before: '))]
+
+    def runs():
+        """(exit, red and before lines) of pytest and check, with pytest's own summary line."""
+        result = _run(tmp_path)
+        summary = [line.partition(' in ')[0] for line in _text(result).splitlines() if ' passed' in line]
+        return [(result.returncode, [line for line in block(result) if line.startswith(('red: ', 'before: '))]),
+                flowguard('check')], summary[-1:]
+    one = '\n# flowguard: same ONE\ndef one(user: int, project: int) -> bool:\n    return project == user\n'
+    _project(tmp_path, TYPED_SCOPE + one, SCOPE_TEST.replace('from scope', 'from policy'),
+             rule=SCOPE_RULE.replace("anchor='PROJECT_SCOPE'", "anchor='ONE'") if shape == 'rebind' else SCOPE_RULE)
+    rule_file = tmp_path / 'tests/intent/decisions.py'
+    written = rule_file.read_text(encoding='utf-8')
+    if shape == 'newrule':          # no rule at the task start
+        _git(tmp_path, 'rm', '-q', 'tests/intent/decisions.py')
+        _git(tmp_path, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'no rule')
+    assert flowguard('new-task')[0] == 0
+    assert flowguard('check', '--static') == (0, [])
+    if shape == 'newrule':
+        rule_file.parent.mkdir(exist_ok=True)
+        rule_file.write_text(written, encoding='utf-8')
+    elif shape == 'rebind':
+        rule_file.write_text(written.replace("anchor='ONE'", "anchor='PROJECT_SCOPE'"), encoding='utf-8')
+    else:                           # a row the rule and the code would both satisfy
+        rule_file.write_text(written + "SCOPE.rows(row(user=1, project=1, expect=True, why='same org'))\n", encoding='utf-8')
+    red = ('red: rule SCOPE: same anchor PROJECT_SCOPE: policy.py:can_view(user, project): bool and '
+           'policy.py:visible_projects(user, projects): list take different parameters -> inspect rule decisions.py:2 and '
+           'correct its source, binding or regression rows')
+    assert runs() == ([(1, [red])] * 2, ['4 failed, 3 passed']), shape
+    assert flowguard('check', '--static') == (0, [])
+    # committed, the next task starts with the rule as it is: before, as the rule the task start held is
+    _git(tmp_path, 'add', '.')
+    _git(tmp_path, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'the rule')
+    assert flowguard('new-task')[0] == 0
+    assert runs() == ([(0, [])] * 2, ['3 passed, 4 unverified']), shape
+    rule_file.write_text(rule_file.read_text(encoding='utf-8') + '# a note\n', encoding='utf-8')
+    assert runs()[0] == [(0, [red.replace('red: rule SCOPE:', 'before: rule SCOPE was broken at task start:').replace(
+        'inspect rule decisions.py:2 and correct its source, binding or regression rows',
+        'leave it unless your task is about it')])] * 2, shape
 
 
 def test_copies_that_declare_other_types_keep_a_line_at_each_comment_that_names_the_difference(tmp_path):

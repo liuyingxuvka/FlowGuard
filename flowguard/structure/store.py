@@ -187,8 +187,9 @@ def connect(path: Path) -> sqlite3.Connection:
 
 class UnreadableConfig(ValueError):
     """A pyproject.toml FlowGuard cannot read: its bytes are no UTF-8 text or no TOML, or its `tool` table, tool
-    section or a [tool.flowguard] key a reader reads has another TOML type than FlowGuard reads (`FLOWGUARD_KEYS`). Its
-    text names the file, the project's own `pyproject.toml` or a baseline commit's `baseline pyproject.toml`
+    section or a key a reader reads has another TOML type than FlowGuard reads (`FLOWGUARD_KEYS` of [tool.flowguard],
+    the reader's own of another section). Its text names the file, the project's own `pyproject.toml`, a package's own
+    below it (`pkg/pyproject.toml`, `project_config(path=)`) or a baseline commit's `baseline pyproject.toml`
     (`project_config(data=)`), and what is wrong in the decoder's or the parser's own words (`baseline pyproject.toml
     does not parse: Invalid statement (at line 4, column 1)`) or as the key and the type found, the type it needs in
     parentheses (`baseline pyproject.toml: tool.flowguard.exclude is an integer (not an array of strings)`): the block's
@@ -196,8 +197,10 @@ class UnreadableConfig(ValueError):
 
 
 _HOLDS = {'a table': lambda value: type(value) is dict, 'a string': lambda value: type(value) is str,
-          'an integer': lambda value: type(value) is int,
-          'an array of strings': lambda value: type(value) is list and all(type(item) is str for item in value)}
+          'an integer': lambda value: type(value) is int, 'an array': lambda value: type(value) is list,
+          'an array of strings': lambda value: type(value) is list and all(type(item) is str for item in value),
+          'a string or an array': lambda value: type(value) in (str, list)}
+_ABSENT = object()      # a dotted key the file does not hold (`_wrong_type`)
 # The keys [tool.flowguard] takes and the TOML type of each; their readers check what a value of that type may be
 # (`load_config`: positive line counts, a skip policy's names, the ledger's keys; `archived`, `propagate_names`).
 FLOWGUARD_KEYS = {'roots': 'an array of strings', 'intent': 'a string', 'exclude': 'an array of strings',
@@ -217,7 +220,9 @@ def _wrong_type(document: dict, section: str, keys) -> str:
     """What of a parsed pyproject.toml has another TOML type than FlowGuard reads, the first in the file's order: its
     `tool` table, the table `tool.<section>`, and for [tool.flowguard] each of `keys` (keys of FLOWGUARD_KEYS) it
     holds: `tool.flowguard.exclude is an integer (not an array of strings)`, an array's item that is no string by its
-    position, `tool.flowguard.exclude[1] is an integer (not a string)`; '' when each has its type."""
+    position, `tool.flowguard.exclude[1] is an integer (not a string)`; for another section `keys` maps each dotted key
+    its reader reads to the type it reads (`{'ini_options': 'a table', 'ini_options.pythonpath': 'a string or an
+    array'}`), judged in that order where every table above it is a table; '' when each has its type."""
     tool = document.get('tool', {})
     found = [('tool', tool, 'a table')]
     if type(tool) is dict:
@@ -226,6 +231,13 @@ def _wrong_type(document: dict, section: str, keys) -> str:
         if section == 'flowguard' and type(settings) is dict:
             found += [(f'tool.flowguard.{key}', value, FLOWGUARD_KEYS[key]) for key, value in settings.items()
                       if key in keys]
+        elif type(settings) is dict and isinstance(keys, dict):
+            for key, expected in keys.items():
+                value, parts = settings, key.split('.')
+                for part in parts:
+                    value = value.get(part, _ABSENT) if type(value) is dict else _ABSENT
+                if value is not _ABSENT:
+                    found.append((f'tool.{section}.{key}', value, expected))
     for key, value, expected in found:
         if not _HOLDS[expected](value):
             if expected == 'an array of strings' and type(value) is list:
@@ -235,19 +247,21 @@ def _wrong_type(document: dict, section: str, keys) -> str:
     return ''
 
 
-def project_config(root: Path, *, section='flowguard', data=None, keys=None) -> dict:
-    """Read a tool section from the project's existing TOML, or from `data`, the bytes of a pyproject.toml as a
-    baseline commit holds it (b'' for none). What a reader reads must be readable and of its type, nothing else: its
-    `tool` table and tool section, and of [tool.flowguard] the `keys` it reads (every key of FLOWGUARD_KEYS when None,
-    as `load_config` reads the section; a reader of the baseline names its own, `Change.newly_excluded` `exclude`), of
-    which the section it returns holds only those. Bytes that do not decode or parse, or a value of another type
-    (`_wrong_type`), raise UnreadableConfig, whose text names the file (`pyproject.toml`, or `baseline pyproject.toml`
-    for `data`) with what is wrong; a key the reader does not read is not judged, so a wrong one there never stops it.
-    A file that cannot be opened raises its OSError."""
+def project_config(root: Path, *, section='flowguard', data=None, keys=None, path='pyproject.toml') -> dict:
+    """Read a tool section from the project's existing TOML (`path`, relative to `root`: its own pyproject.toml, or a
+    package's own below it, `pkg/pyproject.toml`, as the map's import roots read it, `roots.config_roots`), or from
+    `data`, the bytes of a pyproject.toml as a baseline commit holds it (b'' for none). What a reader reads must be
+    readable and of its type, nothing else: its `tool` table and tool section, and of [tool.flowguard] the `keys` it
+    reads (every key of FLOWGUARD_KEYS when None, as `load_config` reads the section; a reader of the baseline names
+    its own, `Change.newly_excluded` `exclude`), of another section the dotted keys `keys` maps to their types
+    (`_wrong_type`); the section it returns holds only those keys (of a dotted key, its first part). Bytes that do not
+    decode or parse, or a value of another type, raise UnreadableConfig, whose text names the file (`path`, or
+    `baseline pyproject.toml` for `data`) with what is wrong; a key the reader does not read is not judged, so a wrong
+    one there never stops it. A file that cannot be opened raises its OSError."""
     import tomllib
     subject = 'baseline pyproject.toml'
     if data is None:
-        path, subject = Path(root) / 'pyproject.toml', 'pyproject.toml'
+        subject, path = path, Path(root) / path
         if not path.exists() and not path.is_symlink():
             return {}
     try:
@@ -256,10 +270,12 @@ def project_config(root: Path, *, section='flowguard', data=None, keys=None) -> 
         raise UnreadableConfig(f'{subject} is no UTF-8 text: {error}') from error
     except tomllib.TOMLDecodeError as error:
         raise UnreadableConfig(f'{subject} does not parse: {error}') from error
-    if problem := _wrong_type(document, section, FLOWGUARD_KEYS if keys is None else keys):
+    judged = keys if keys is not None else FLOWGUARD_KEYS if section == 'flowguard' else {}
+    if problem := _wrong_type(document, section, judged):
         raise UnreadableConfig(f'{subject}: {problem}')
     settings = document.get('tool', {}).get(section, {})
-    return settings if keys is None else {key: value for key, value in settings.items() if key in keys}
+    read = None if keys is None else {key.partition('.')[0] for key in keys}
+    return settings if read is None else {key: value for key, value in settings.items() if key in read}
 
 
 def reader_digest():

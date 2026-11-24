@@ -11,7 +11,6 @@ from __future__ import annotations
 import ast
 import configparser
 import posixpath
-import tomllib
 from pathlib import Path
 
 from flowguard.map.inventory import python_roots
@@ -21,11 +20,22 @@ PATH_FUNCS = {"abspath", "realpath", "normpath", "str", "fspath", "Path", "PureP
               "expanduser"}
 
 
-def _toml(root: Path, rel: str) -> dict:
-    try:
-        return tomllib.loads((root / rel).read_text(encoding="utf-8-sig"))
-    except (OSError, tomllib.TOMLDecodeError):
-        return {}
+# What config_roots reads of a pyproject.toml's packaging and pytest tables: each dotted key under `tool.<section>` with
+# the TOML type it reads there, which `store.project_config` judges.
+PACKAGING = {"setuptools": {"packages.find": "a table", "packages.find.where": "an array of strings",
+                            "package-dir": "a table"},
+             "poetry": {"packages": "an array"},
+             "pytest": {"ini_options": "a table", "ini_options.pythonpath": "a string or an array"}}
+
+
+def _tool(root: Path, rel: str) -> dict:
+    """{section: its table} of PACKAGING's sections in the pyproject.toml `rel` (the project's own or a package's below
+    it), read as every reader of a pyproject.toml reads one (`store.project_config(path=)`): bytes that are no UTF-8
+    text or no TOML, or a table or key of PACKAGING of another type, raise UnreadableConfig naming `rel` with what is
+    wrong (`pkg/pyproject.toml: tool.setuptools is a string (not a table)`), never a traceback of the `.get` chain or a
+    file read as empty; a file that cannot be opened raises its OSError."""
+    from .store import project_config
+    return {section: project_config(root, section=section, keys=keys, path=rel) for section, keys in PACKAGING.items()}
 
 
 def _norm(base: str, value: str) -> str | None:
@@ -40,11 +50,12 @@ def _norm(base: str, value: str) -> str | None:
 def config_roots(root: Path, files: list[str]) -> list[tuple[str, str]]:
     """Roots that configuration files declare: [(directory, how)]. `[tool.flowguard] roots` is read as every reader
     of [tool.flowguard] reads it (`store.project_config`, which judges only that key): an array of strings, or
-    UnreadableConfig with the file's text; the packaging and pytest tables of each pyproject.toml are read after it."""
+    UnreadableConfig with the file's text; the packaging and pytest tables of each pyproject.toml, the project's own
+    and each package's below it, are read after it by the same reader (`_tool`), which refuses one it cannot read
+    with that file's text too."""
     from .store import project_config
     out = []
     flowguard = project_config(root, keys=("roots",)) if "pyproject.toml" in files else {}
-    top = _toml(root, "pyproject.toml") if "pyproject.toml" in files else {}
     for value in flowguard.get("roots", []):
         if (path := _norm("", value)) is not None:
             out.append((path, "[tool.flowguard] roots"))
@@ -54,8 +65,7 @@ def config_roots(root: Path, files: list[str]) -> list[tuple[str, str]]:
             continue
         base = posixpath.dirname(rel)
         if name == "pyproject.toml":
-            data = top if rel == "pyproject.toml" else _toml(root, rel)
-            tool = data.get("tool", {})
+            tool = _tool(root, rel)
             where = tool.get("setuptools", {}).get("packages", {})
             where = where.get("find", {}).get("where", []) if isinstance(where, dict) else []
             dirs = list(where) + list(tool.get("setuptools", {}).get("package-dir", {}).values())

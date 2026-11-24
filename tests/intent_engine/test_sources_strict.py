@@ -661,7 +661,7 @@ LATIN_REQUEST = 'Loans last three däys.\n'.encode('latin-1')     # 5.0.1's `req
 UNREADABLE = ("{rid}: .flowguard/requests/{rid}.md is no UTF-8 or UTF-16 text: 'utf-8' codec can't decode byte 0xe4 in "
               "position 18: invalid continuation byte")
 REREAD = 'store his original message again as UTF-8 text: python -m flowguard req add FILE --id R<n> --supersedes {rid}'
-REREAD_CHOICE = ('store his reply and the options again as UTF-8 text: python -m flowguard req add REPLY --id R<n> '
+REREAD_CHOICE = ('store his reply and the options you offered as text: python -m flowguard req add REPLY --id R<n> '
                  '--offer FILE --picked "TEXT" --supersedes {rid}')
 
 

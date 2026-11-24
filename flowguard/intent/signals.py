@@ -81,10 +81,6 @@ COPIES = 'copies'
 # fix, only a design matter; copies say how they resemble and who decides (COPIES); a table no code FlowGuard reads
 # creates rows of may be filled elsewhere, and `fix it` would ask for a creation path no one asked for (PTWF-V116a).
 OWN_STEP = ('writers', COPIES, 'uncreated')
-# The family whose before line states its finding's own step in place of BEFORE_STEP: a rule is before only where its
-# anchor's copies took the different parameters they take now at the task start (`Engine.anchor_errors`), and its step
-# names the rule's place (`rule_steps`), beside the comments' own before line of those copies.
-OWN_BEFORE_STEP = ('rule',)
 # The steps of known lines say what is known and who decides (R101): FlowGuard orders no question to the owner; the
 # agent decides when to raise one.
 KNOWN_STEPS = {'leave': 'left as it is on purpose; yours to change only if your task is about it',
@@ -163,9 +159,9 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
     always: a known entry naming its finding gives a `known` line when the change also touches the entry's sites
     (else nothing: `known` needs the entry's sites touched, `before` no entry), naming the finding's places this
     change touches with their count (`_finding_places`), an ignore entry alone counts it,
-    and without an entry it is `before`, whose step is BEFORE_STEP but in the families OWN_BEFORE_STEP names (a rule's
-    own step). An ignore entry covers only a family that may be ignored, and an entry
-    of another act beside it keeps the member shown. Fields several files write without an agreement (family 'writers')
+    and without an entry it is `before`, whose step is BEFORE_STEP, a finding's own step in its detail (a rule's
+    finding begins its detail with its `rule_steps`, a copies line adds it). An ignore entry covers only a family that
+    may be ignored, and an entry of another act beside it keeps the member shown. Fields several files write without an agreement (family 'writers')
     have no line of their own except with `everything`. A known entry whose finding belongs to a family that ran
     (`ran`: a family whose checks judged the whole project, or a finding name whose own check ran, as a pytest
     session's sealed comparison of the copies of one same name) and is not among the findings is `known fixed?`
@@ -256,8 +252,7 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
                     lines.append(Line('before', issue.name, function,
                                       f'{issue.subject} {verb}{colon}{what}' if many else
                                       f'{issue.subject} at {place} {verb}' if place else f'{issue.subject} {verb}',
-                                      step if issue.family in OWN_BEFORE_STEP else BEFORE_STEP, held,
-                                      issue.detail + ((step,) if copies else ())))
+                                      BEFORE_STEP, held, issue.detail + ((step,) if copies else ())))
     for entry in entries:
         if entry.id in said:
             continue
@@ -620,8 +615,9 @@ def _cap_moved(said, width):
     """An impact line of writes moved to a helper, or of writes a helper it calls makes where the path queries did not
     see them or the call run every time (`owners.field_impact`; its clauses, joined by '; ', read by `_clauses`),
     within WIDTH (PTWF-V125, PEMEL17-18, 5.1 review). Each `F's writes of FIELDS moved to G, which it calls (place)`,
-    each `it calls G (place), which writes them where FlowGuard did not see the writes run every time` (or `in a
-    callback`, and `G (place), which it calls where FlowGuard did not see the call run every time, writes them`) and
+    each `it calls G (place), which writes them where FlowGuard did not see the writes run every time` (`it` for one
+    field; or `in a callback`, and `G (place), which it calls where FlowGuard did not see the call run every time,
+    writes them`) and
     every other clause of what the function changed stay: `F now writes`, `no longer writes` and `writes M.? where it
     wrote`, each at least as a count, and `now deletes M (place)` whole. What gives way, in this order and only while
     the line is longer than WIDTH: each list of G's other callers becomes a count, the longest first (`other callers
@@ -662,7 +658,7 @@ def _cap_moved(said, width):
     for kinds in (('change', 'hidden'), ('moved', 'via')):
         for index in longest(kinds):
             kind, (head, model, fields, tail), text = clauses[index]
-            if fields != 'them':
+            if fields not in ('them', 'it'):
                 counted = head + _fields_counted(fields, shown, model) + (' (fields not visible)' if kind == 'hidden' else tail)
                 clauses[index][2] = min(text, counted, key=len)
     if width(line(clauses)) > WIDTH:

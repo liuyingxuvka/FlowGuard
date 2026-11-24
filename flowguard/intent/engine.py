@@ -210,6 +210,8 @@ class Engine:
         # The same names whose copies took their different parameters at the session's task start, a callable the
         # pytest plugin sets (`Observations._parameters_then`); None, as outside a session: no group is old.
         self.parameters_then = None
+        # The working tree's intent declarations as the static scan reads them, once (`_declared_then`).
+        self._declared_now = None
 
     def child_nodes(self, rule):
         nodes = set()
@@ -1033,17 +1035,43 @@ class Engine:
                     footprints[0].edges.update(other.edges)
                     footprints[0].call_lines.update(other.call_lines)
 
-    def anchor_errors(self, home):
-        """(red, judged): the problems of the anchor `home` binds as the rule states them (`Issue.stated`), the rule's
-        own step after them (`signals.rule_steps`), and the result keys of its copies that take different parameters
-        (code 'parameters'). That red takes the comments' finding's freshness (`signals.parameters_finding`, R99):
-        where the copies took these parameters at the task start (`parameters_then`) it is old, so it is no red here
-        but the result's `anchor_before` (with the copies' `files`), which the rule's line states as before beside the
-        comments' before line; this change's, or without a baseline, it is red. Either holds for the baseline it was
-        judged with (`source_baseline`, as a source's, `_judged`). Any other problem of the anchor (its roles,
-        units or return types, a gone anchor) is red as it is."""
+    def _declared_then(self, rule):
+        """Whether rule `rule` is declared at the session's baseline as it is now: the static scan of the baseline's
+        intent files (`sources._declarations_at`, held per commit) and of the working tree's (read once per engine)
+        give its id the same anchors, direct anchors, fields, decision, `total` and regression rows, rows compared by
+        what they hold, without their line numbers or order. A rule the baseline lacks, or that a scan cannot name
+        (no literal id), is not."""
+        from .cache import scan
+        from .sources import _declarations_at
+        if self.baseline is None:
+            return False
+        if self._declared_now is None:
+            self._declared_now = scan(self.m.cfg)['rules']
+        def declared(item):
+            rows = sorted(repr(sorted((key, value) for key, value in row.items() if key != 'line'))
+                          for row in item.get('row_records', ()))
+            return [item.get(key) for key in ('anchors', 'direct_anchors', 'fields', 'decides', 'total')] + [rows]
+        then = _declarations_at(self.m.cfg, self.baseline).get(rule.id)
+        now = self._declared_now.get(rule.id)
+        return then is not None and now is not None and declared(then) == declared(now)
+
+    def anchor_errors(self, rule, home):
+        """(red, judged): the problems of the anchor `home` of rule `rule` binds as the rule states them
+        (`Issue.stated`), the rule's own step after them (`signals.rule_steps`), and the result keys of its copies that
+        take different parameters (code 'parameters'). That red takes the comments' finding's freshness
+        (`signals.parameters_finding`, R99) where the rule is old too: where the copies took these parameters at the
+        task start (`parameters_then`) and the rule is declared there as it is now (`_declared_then`: its anchors,
+        fields, decision and rows), it is old, so it is no red here but the result's `anchor_before` (with the copies'
+        `files`), which the rule's line states as before beside the comments' before line. A rule this change writes,
+        binds to that anchor or gives other rows was never checked on those copies, so it is red, as it is where the
+        copies are this change's, or without a baseline. Either holds for the baseline it was judged with
+        (`source_baseline`, as a source's, `_judged`). Any other problem of the anchor (its roles, units or return
+        types, a gone anchor) is red as it is. Where the loader could not build the map to read the comments
+        (`Model.map_error`), no anchor is known, gone or not: the result's `unread`, the binding not run."""
         if not isinstance(home, _AnchorBinding):
             return [], {}
+        if home.anchor is None and self.m.map_error is not None:
+            return [], dict(unread='not run: the map could not be built')
         if home.anchor is None:
             return [f'anchor gone: {home.name}'], {}
         from ..structure.readers.registry import language_for
@@ -1057,6 +1085,8 @@ class Engine:
         parameters = [issue for issue in issues if issue.code == 'parameters']
         old = self.parameters_then() if parameters and self.parameters_then is not None else frozenset()
         before = [issue for issue in parameters if issue.name in old]
+        if before and not self._declared_then(rule):
+            before = []
         judged = dict(source_baseline=self.baseline) if parameters and self.baseline is not None else {}
         if before:
             judged.update(anchor_before=list(dict.fromkeys(issue.stated for issue in before)),
@@ -1064,18 +1094,18 @@ class Engine:
         return list(dict.fromkeys(issue.stated for issue in issues if issue not in before)), judged
 
     def _anchor_result(self, kind, red, judged, **keys):
-        """The result of a home whose anchor has a problem (`anchor_errors`): red with its reds; else, where the only
-        problem is copies that took their different parameters at the task start, grey, since the rule did not run on
-        them, its `anchor_before` the rule's before line."""
+        """The result of a home whose anchor has a problem (`anchor_errors`): red with its reds; else grey, since the
+        rule did not run there: where the only problem is copies that took their different parameters at the task
+        start, its `anchor_before` the rule's before line; where the map could not be built, its `unread` reason."""
         if red:
             return dict(kind=kind, verdict='red', red=red, grey=[], info=[], **keys, **judged)
-        return dict(kind=kind, verdict='grey', red=[], info=[], **keys, **judged,
-                    grey=['not run: its anchor\'s copies take different parameters, as at task start'])
+        reason = judged.pop('unread', None) or 'not run: its anchor\'s copies take different parameters, as at task start'
+        return dict(kind=kind, verdict='grey', red=[], info=[], **keys, **judged, grey=[reason])
 
     def run_home(self, rule, home, part: str) -> dict:
         t0 = time.perf_counter()
-        errors, judged = self.anchor_errors(home)
-        if errors or judged.get('anchor_before'):
+        errors, judged = self.anchor_errors(rule, home)
+        if errors or judged.get('anchor_before') or judged.get('unread'):
             return self._anchor_result(part, errors, judged)
         fn, sites, gone = self.home_sites(home.target)
         if gone:
@@ -1373,8 +1403,8 @@ class Engine:
 
     def run_live(self, rule, home) -> dict:
         t0 = time.perf_counter()
-        errors, judged = self.anchor_errors(home)
-        if errors or judged.get('anchor_before'):
+        errors, judged = self.anchor_errors(rule, home)
+        if errors or judged.get('anchor_before') or judged.get('unread'):
             return self._anchor_result('live', errors, judged, k=0, n=0)
         if isinstance(home, _AnchorBinding) and home.anchor is not None and home.anchor.fields:
             return dict(kind='live', verdict='grey', red=[], info=[], k=0, n=0, sites=[], mutants=0,

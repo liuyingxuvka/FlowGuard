@@ -63,7 +63,7 @@ FlowGuard 5.0 删除了 4.2 的注释写法（`sensor NAME`、`owner NAME`、`ow
 
 ## 规则与兜底理由
 
-`tests/intent/` 中的规则独立写出预期，并注明出处。主人的原话用 `python -m flowguard req add <file|-> --id R1` 逐字节保存一次；FlowGuard 拿引文和文本比对，所以 `req add` 拒收既非 UTF-8 也非 UTF-16 文本的字节，什么都不存。文档出处要引用 `authority_docs` 所列文件中的原句，不能把 AI 方案存成主人原话。
+`tests/intent/` 中的规则独立写出预期，并注明出处。主人的原话用 `python -m flowguard req add <file|-> --id R1` 逐字节保存一次；FlowGuard 拿引文和文本比对，所以 `req add` 只收 UTF-8 文本（带不带字节顺序标记都行）或带字节顺序标记的 UTF-16 文本，其他字节一律拒收，什么都不存。文档出处要引用 `authority_docs` 所列文件中的原句，不能把 AI 方案存成主人原话。
 
 主人从你给出的选项中选了一个，这也是他的原始选择。把他的回答连同选项一起存下：`python -m flowguard req add reply.md --id R2 --offer options.md --picked "A. Keep one version"`。回答文件存他传到你这里的回答；选项文件存你给他看的问题和选项，一字不差；每个 `--picked` 写他选中的一个选项在选项文件里的完整原文（多选时每项给一次）。他只是点选、没有打字时加 `--selected`：回答文件存的就是界面为他的点选返回的内容，不是他的话。选项作为 AI 的话存在 `.flowguard/requests/offers/`，绝不算他的原话。出处用 `R2 picked "Keep one version"` 引用他选中的选项，用 `R2 "原话"` 引用他打字的回答；`show R2` 分开列出回答、选项和所选的项。
 
@@ -81,7 +81,7 @@ FlowGuard 5.0 删除了 4.2 的注释写法（`sensor NAME`、`owner NAME`、`ow
 
 `python -m flowguard check --static` 不跑测试；它也检查规则和 known 条目引用的出处，这些出处不必等长测试跑完，`python -m flowguard show rules` 说明每条出处是否成立。加 `--all` 查看完整结构清单。`python -m flowguard check` 跑受影响的规则和测试。已有深查和有限 flow 保持冻结，不属于上面的日常接入步骤。
 
-基础安装读取 Python。TS/JS、Prisma、SQL 及冻结的 C/C++/C# 读取器使用 `flowguard[languages]`。Vitest 的 ESM 项目支持执行观察；Jest 只做静态检查。测试结束后的封闭比较跑不了的函数记为 `not compared`，并写明原因；任务起点的版本会把某次调用的参数当成别的参数时（比如在最前面插入了必填参数），这次调用也记为 `not compared`，在末尾加一个带默认值的参数则照常比较。参数不同的同名副本只报一行红，写明每个副本的参数和声明的返回类型：先确认它们是不是同一个决定的副本。JS/TS 副本，或参数带值类型注解的 Python 副本，在 `check --static` 里就是这一行红（pytest 和 vitest 也一样）；没有注解的 Python 副本在 pytest 运行它们时比较。每个副本都与任务起点时是同一个副本的，记为 `before`：同一个文件（或它的 Git 改名）、同一个函数名，带着这个名字的标记，参数名和参数对应也相同，不论改动还改了这些文件里的什么；在标记上加 `ref` 不会让副本变成新的。其他改动都报红，比如新增或改名了一个参数、在另一个函数上写了标记、函数改了名、文件不经 Git 移动；没有基线时也报红。绑定到它们锚点的规则按同样的判断给出。Python 副本可以写明参数名的对应（`same NAME(days=overdue_days)`）；TS/JS 注释不写参数，TS/JS 副本按位置比较。测试输入上的一致不能证明业务答案正确。
+基础安装读取 Python。TS/JS、Prisma、SQL 及冻结的 C/C++/C# 读取器使用 `flowguard[languages]`。Vitest 的 ESM 项目支持执行观察；Jest 只做静态检查。测试结束后的封闭比较跑不了的函数记为 `not compared`，并写明原因；任务起点的版本会把某次调用的参数当成别的参数时（比如在最前面插入了必填参数），这次调用也记为 `not compared`，在末尾加一个带默认值的参数则照常比较。参数不同的同名副本只报一行红，写明每个副本的参数和声明的返回类型：先确认它们是不是同一个决定的副本。JS/TS 副本，或参数带值类型注解的 Python 副本，在 `check --static` 里就是这一行红（pytest 和 vitest 也一样）；没有注解的 Python 副本在 pytest 运行它们时比较。每个副本都与任务起点时是同一个副本的，记为 `before`：同一个文件（或它的 Git 改名）、同一个函数名，带着这个名字的标记，参数名和参数对应也相同，不论改动还改了这些文件里的什么；在标记上加 `ref` 不会让副本变成新的。其他改动都报红，比如新增或改名了一个参数、在另一个函数上写了标记、函数改了名、文件不经 Git 移动；没有基线时也报红。绑定到它们锚点的规则，若任务起点声明它的方式和现在一样（锚点、字段、决定和回归行都相同），按同样的判断给出，它的 before 行和其他 before 行一样结尾；本次改动新写的、改绑到这个锚点的或给了别的回归行的规则从没在这些副本上检查过，所以报红。Python 副本可以写明参数名的对应（`same NAME(days=overdue_days)`）；TS/JS 注释不写参数，TS/JS 副本按位置比较。测试输入上的一致不能证明业务答案正确。
 
 保存在仓库里的 SQL 文件（比如手工安装的数据库升级包）描述它所创建的表，并与 Prisma schema 比较；只修改表的文件不描述任何表。有意保留过时的描述时，指定它某个文件里的一张表来记录：`python -m flowguard known add columns:prisma/migrations/~prisma/schema.prisma --site prisma/migrations/20240101_init/migration.sql:central_employees --act leave --why TEXT`。
 

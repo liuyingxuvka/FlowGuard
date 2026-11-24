@@ -192,8 +192,10 @@ CHOICE_STEP = ('store his reply with the options you offered: python -m flowguar
 # stored again, which supersedes it. The block keeps the fact whole beside such a step (`signals._cap`).
 REREAD_STEP = ('store his original message again as UTF-8 text: python -m flowguard req add FILE --id R<n> '
                '--supersedes {rid}')
-REREAD_CHOICE_STEP = ('store his reply and the options again as UTF-8 text: python -m flowguard req add REPLY --id R<n> '
-                      '--offer FILE --picked "TEXT" --supersedes {rid}')
+# Of a choice, the options are the agent's (R105); `as text` keeps the line within the block's WIDTH for a short rule
+# name, so its cut keeps `is no UTF-8 or UTF-16 text` (`req add` takes UTF-8, or UTF-16 with a byte order mark).
+REREAD_CHOICE_STEP = ('store his reply and the options you offered as text: python -m flowguard req add REPLY '
+                      '--id R<n> --offer FILE --picked "TEXT" --supersedes {rid}')
 
 
 def _unreadable(rid, raw, choice, path=None):
