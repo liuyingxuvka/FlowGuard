@@ -469,3 +469,9 @@ G84 提供了反向一对多关系的授权对照。`v3-84-review-red.log` 有 7
 `v3-74-person-delete-authority-flowguard-first.log` 把应用库人员硬删除列为基线已有的 `before`，并打印 `delete:backend/src/services/employee.service.ts:hardDelete:Employee`。实际将完整 ID 传给 `python -m flowguard show`，得到 `not on the map` 和 27,998 条普通词匹配，未取到对应的诊断详情。
 
 建议 `show` 先在已有运行记录中按完整发现 ID 查找，显示原分类、基线、源码位置和可用的依赖证据。删除诊断可以指出直接解析到的清理调用，或标明通过引用登记表的路径尚无法判定。最小对照用一个已报告的完整 ID、一个在当前记录中不存在的发现 ID 和一个普通符号名，核对准确诊断、无记录提示及既有符号查询。保留原始发现和摘要分类，未知的清理路径仍待核实。
+
+G100 用正式 v5.1.0 在应用基线 `55f0506` 复现。`v3-100-backend-first-show.log` 的 `before` 详情只列删除位置和 `delete:backend/src/services/application-employee-deletion.ts:removeEmployeeAndDependents:Employee`。`v3-100-delete-finding-show.log` 对完整 ID 返回 `not on the map` 和 30,065 条词匹配。`v3-100-static-all-review.log` 报 `0 red, 416 before, 5 known`，其中这条仍只有摘要。
+
+发布源码 `health.deletes` 已算出受限制的子表和调用解析方式。`signals.deliver` 生成有位置的 `before` 时丢掉了这段原因，留下的 `Issue.detail` 仅含操作位置。建议在详细记录保留已算出的子表和外键依据、名称解析的局限及分析对应的修订，允许维护者按完整发现 ID 只读提取，紧凑摘要继续标为 `before`。用同一组约束对照已有删除和新加删除，核对两种分类均显示其依赖依据。
+
+该次删除通过登记表按运行时模型名选择委托，实际覆盖仍需另外核对。`employee-reference-registry.test.ts` 的一项静态断言逐项对照 39 个迁移后物理外键（迁移前 42 个，移走 9 个，新增 6 个）。独立替身会拒绝已移走的表和列，用例核对保留引用的计数和清理参数，并检查实际命令的人员删除只返回 ID。`v3-100-backend-confirmed.log` 的 6,742 例通过，FlowGuard 仍显示 `0 red, 1 before, 7 not compared`。这些是签入的结构和离线执行证据，实际库的外键行为仍待验证。
