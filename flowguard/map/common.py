@@ -242,6 +242,9 @@ def decode_text(data: bytes) -> tuple[str, bytes, str]:
     return data.decode("utf-8"), b"", "utf-8"
 
 
+NO_TEXT = "is no UTF-8 or UTF-16 text"     # what `document_text` says of bytes `decode_text` cannot read
+
+
 def document_text(name: str, data: bytes) -> tuple[tuple[str, bytes, str] | None, str]:
     """((text, bom, encoding), '') of a project document FlowGuard compares text from or writes back (AGENTS.md and
     CLAUDE.md for the brief and init, a document a rule's source quotes, the file of a ledger entry's rule), read by
@@ -251,7 +254,7 @@ def document_text(name: str, data: bytes) -> tuple[tuple[str, bytes, str] | None
     try:
         return decode_text(data), ""
     except UnicodeDecodeError as error:
-        return None, f"{name} is no UTF-8 or UTF-16 text: {error}"
+        return None, f"{name} {NO_TEXT}: {error}"
 
 
 

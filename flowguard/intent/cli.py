@@ -2153,10 +2153,11 @@ def _check(cfg, *, everything=False, deep=False, base=None, reports=None, own=No
 
 def _owner_rules_unverified(cfg, data):
     """check --all: a rule quoting the owner's words that stays grey is red (D7), one finding per rule. Nothing exempts
-    one: the ledger's [unverified] section, which did, was removed in 5.0."""
+    one: the ledger's [unverified] section, which did, was removed in 5.0. Its step restores observability, except for
+    a rule grey because a record it cites is no text (`sources.unreadable_reason`): that source's own fact and step."""
     from .api import IntentError
     from .signals import ascii_text, finding
-    from .sources import cited, parse
+    from .sources import cited, parse, unreadable_reason
     issues = []
     for rid, item in data['summary']['rules'].items():
         result = data['results'].get(rid, {})
@@ -2173,12 +2174,16 @@ def _owner_rules_unverified(cfg, data):
         if source.kind not in ('owner', 'request', 'picked'):
             continue
         reasons = [ascii_text(message) for value in result.get('items', {}).values() for message in value.get('grey', ())]
+        if unreadable := unreadable_reason(reasons):
+            lead, _, step = unreadable.rpartition(' -> ')
+        else:
+            lead = reasons[0].partition(' -> ')[0] if reasons else 'no results yet'
+            step = 'restore observability so the rule is checked again'
         # The line names no way to silence it (design 4.7): the grey reasons, with their own steps, are its detail.
         issues.append(finding('rule', f'unverified:{rid}', f'rule {rid}',
                               [("cites the owner's pick among the agent's options" if source.kind == 'picked' else
                                 'cites original words from the owner') + f' ({source.rids[0]}), but is now grey (unverified): '
-                               + (reasons[0].partition(' -> ')[0] if reasons else 'no results yet')],
-                              'restore observability so the rule is checked again', detail=reasons))
+                               + lead], step, detail=reasons))
     return issues
 
 
@@ -3103,6 +3108,11 @@ def _input_bytes(name):
     return sys.stdin.buffer.read() if name == '-' else Path(name).read_bytes()
 
 
+def _input_name(name):
+    """How a refusal names a file argument (`-`: stdin)."""
+    return 'stdin' if name == '-' else name
+
+
 def requests(cfg, options):
     if options.operation == 'add' and options.offer is None and (options.picked or options.selected):
         raise MapError('choice_offer_missing: --picked and --selected record the owner\'s pick among options you '
@@ -3115,7 +3125,8 @@ def requests(cfg, options):
             raise MapError('choice_offer_stdin: the reply and the offer cannot both come from stdin; pass the offer '
                            'as a file')
         item = store_choice(cfg.root, _input_bytes(options.file), _input_bytes(options.offer), options.picked,
-                            identifier=options.identifier, selected=options.selected, supersedes=options.supersedes)
+                            identifier=options.identifier, selected=options.selected, supersedes=options.supersedes,
+                            name=_input_name(options.file), offer_name=_input_name(options.offer))
         # A selected answer is what the interface returned for his pick, no reply of his.
         reply = 'the answer selected' if item['reply'] == 'selected' else "the owner's reply"
         print(f'stored {item["id"]} (choice: {reply} {item["bytes"]} bytes, the agent\'s options '
@@ -3126,7 +3137,8 @@ def requests(cfg, options):
                 + (f' or \'{item["id"]} "<his exact words>"\'' if item['reply'] == 'typed' else ''))
     elif options.operation == 'add':
         raw = _input_bytes(options.file)
-        item = store_request(cfg.root, raw, identifier=options.identifier, supersedes=options.supersedes)
+        item = store_request(cfg.root, raw, identifier=options.identifier, supersedes=options.supersedes,
+                             name=_input_name(options.file))
         print(f'stored {item["id"]} ({item["kind"]}, sha {item["sha256"][:12]}, {item["bytes"]} bytes)')
         from .differences import display
         display(f'if these words set a continuing rule, add it to .flowguard/rules.toml: [rule.<id>] text = "..." '

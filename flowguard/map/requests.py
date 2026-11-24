@@ -25,10 +25,12 @@ REPLIES = ('typed', 'selected')     # the owner typed his reply, or picked an op
 RETIRE_FIELDS = {'id', 'kind', 'not_owner', 'request_sha256', 'retired'}
 
 
-# flowguard: event REQUEST_STORE(root: Path, raw: bytes, identifier: str | None, supersedes: tuple | list)
-def store_request(root: Path, raw: bytes, *, identifier: str | None = None, supersedes: tuple | list = ()) -> dict:
-    """Store the owner's words `raw` once, byte for byte, as a request record (kind `request`)."""
-    return _store(root, raw, identifier, supersedes)
+# flowguard: event REQUEST_STORE(root: Path, raw: bytes, identifier: str | None, supersedes: tuple | list, name: str)
+def store_request(root: Path, raw: bytes, *, identifier: str | None = None, supersedes: tuple | list = (),
+                  name: str = 'the request') -> dict:
+    """Store the owner's words `raw` once, byte for byte, as a request record (kind `request`); `name` says where they
+    came from (the file `req add` read) in a refusal of bytes that are no text (`_text_problem`)."""
+    return _store(root, raw, identifier, supersedes, name=name)
 
 
 def offer_path(identifier: str) -> Path:
@@ -45,20 +47,21 @@ def _occurrences(text: str, part: str) -> int:
 
 
 def store_choice(root: Path, reply: bytes, offer: bytes, picked: tuple | list, *, identifier: str | None = None,
-                 selected: bool = False, supersedes: tuple | list = ()) -> dict:
+                 selected: bool = False, supersedes: tuple | list = (), name: str = 'the reply',
+                 offer_name: str = 'the offer') -> dict:
     """Store the owner's pick among options the agent offered, once, byte for byte (kind `choice`): `reply` is his
     answer as it reached the agent (with `selected`, the answer an interface returned for a pick he did not type),
     `offer` the exact text the agent showed him, the agent's words, kept apart in `offers/<id>.md`, and `picked` the
     whole text of each option he picked as the offer spells it, each occurring exactly once in it (compared after
     `normalize_newlines`). The mapping from his reply to an option is the agent's statement; it is stored beside the
-    reply, never as his words."""
+    reply, never as his words. A reply or an offer that is no text is refused before anything is written, named by
+    `name` or `offer_name` (`_text_problem`)."""
     if not offer:
         raise MapError('choice_offer_empty: the offer is empty; pass the exact question and options the owner saw, '
                        'byte for byte')
-    shown, problem = document_text('the offer', offer)
-    if problem:
+    if problem := _text_problem(offer_name, offer):
         raise MapError(f'choice_offer_unreadable: {problem}')
-    text = normalize_newlines(shown[0].encode('utf-8')).decode('utf-8')
+    text = normalize_newlines(decode_text(offer)[0].encode('utf-8')).decode('utf-8')
     picked = list(picked)
     if not picked:
         raise MapError('choice_picked_missing: name the option the owner picked with --picked TEXT, its whole text as '
@@ -75,15 +78,28 @@ def store_choice(root: Path, reply: bytes, offer: bytes, picked: tuple | list, *
                            'text of the picked option, as the offer spells it, so that it occurs exactly once')
     fields = dict(offer=dict(sha256=sha256_bytes(offer), bytes=len(offer)), picked=picked,
                   reply='selected' if selected else 'typed')
-    return _store(root, reply, identifier, supersedes, choice=(fields, offer))
+    return _store(root, reply, identifier, supersedes, name=name, choice=(fields, offer))
 
 
-def _store(root, raw, identifier, supersedes, *, choice=None):
+def _text_problem(name, raw):
+    """What is wrong with owner bytes (or a choice's offer) `req add` was given that are no UTF-8 or UTF-16 text, read by
+    the decoder every source reads them with (`document_text`), or ''. FlowGuard cannot know which encoding such bytes
+    were meant in, and the archive keeps the bytes it is given once: `.flowguard/requests/R1.md` holding Latin-1 could
+    never be quoted, so they are refused, naming `name` and the decoder's text."""
+    problem = document_text(name, raw)[1]
+    return problem and (f'{problem}; nothing is stored: FlowGuard compares quotes with text, so it stores only UTF-8 '
+                        'text, or UTF-16 with its byte order mark')
+
+
+def _store(root, raw, identifier, supersedes, *, name, choice=None):
     """Write one record once: the owner's bytes, a choice's offer (`choice` = (its sidecar fields, the offer's bytes)),
-    then the sidecar, each with its first-write receipt; nothing is written when one of them could not be."""
+    then the sidecar, each with its first-write receipt; nothing is written when one of them could not be, nor for
+    bytes that are no text (`_text_problem`, `name` saying where they came from)."""
     root = Path(root).resolve()
     if not raw:
         raise MapError('request_empty: no owner words received; pass a nonempty file or pipe the request text to stdin')
+    if problem := _text_problem(name, raw):
+        raise MapError(f'request_unreadable: {problem}')
     supersedes = list(dict.fromkeys(supersedes))
     validate_request_links(root, [dict(id=value, part=False) for value in supersedes])
     received = datetime.now(timezone.utc).isoformat()

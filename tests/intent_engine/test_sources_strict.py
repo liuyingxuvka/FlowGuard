@@ -657,12 +657,12 @@ def test_a_conflict_side_that_quotes_words_with_the_owner_form_is_judged_and_nam
         assert conflicts == [f'conflict THREE vs FOUR at days=4: F vs T (1 of 6 shared cells) {owners}'], conflicts
 
 
-LATIN_REQUEST = 'Loans last three däys.\n'.encode('latin-1')     # `req add` stores such bytes as it gets them
+LATIN_REQUEST = 'Loans last three däys.\n'.encode('latin-1')     # 5.0.1's `req add` stored such bytes as it got them
 UNREADABLE = ("{rid}: .flowguard/requests/{rid}.md is no UTF-8 or UTF-16 text: 'utf-8' codec can't decode byte 0xe4 in "
               "position 18: invalid continuation byte")
-REREAD = 'store his words again as UTF-8 text: python -m flowguard req add - --id R<n> --supersedes {rid}'
-REREAD_CHOICE = ('store his reply and the options you offered again as UTF-8 text: python -m flowguard req add REPLY '
-                 '--id R<n> --offer FILE --picked "TEXT" --supersedes {rid}')
+REREAD = 'store his original message again as UTF-8 text: python -m flowguard req add FILE --id R<n> --supersedes {rid}'
+REREAD_CHOICE = ('store his reply and the options again as UTF-8 text: python -m flowguard req add REPLY --id R<n> '
+                 '--offer FILE --picked "TEXT" --supersedes {rid}')
 
 
 def test_stored_owner_bytes_that_are_no_text_are_the_problem_of_the_source_that_reads_them(tmp_path):
@@ -670,11 +670,12 @@ def test_stored_owner_bytes_that_are_no_text_are_the_problem_of_the_source_that_
     source that quotes it with a bare `UnicodeDecodeError: 'utf-8' codec can't decode byte 0xe4 ...` naming no file: the
     rule's test in each form (`R1 "words"`, `owner R1` with quote=, the baseline's judgement), and a rules.toml entry's
     `check --static`, `show rules` and the end of a pytest session whose tests passed. It is now that source's problem
-    as any other of a stored record, naming the file and giving the decoder's text, judged as a request not stored."""
-    from flowguard.map.requests import store_choice
+    as any other of a stored record, naming the file and giving the decoder's text, judged as a request not stored.
+    `req add` now refuses such bytes; records an older one stored so stay in the archive (`stored_as_given`)."""
+    from tests.stored_records import stored_as_given
     cfg = _project(tmp_path)
-    store_request(tmp_path, LATIN_REQUEST, identifier='R1')
-    store_choice(tmp_path, 'Drei Tage, bätte.\n'.encode('latin-1'), LOAN_OFFER, ['A. Three days.'], identifier='R2')
+    stored_as_given(tmp_path, 'R1', LATIN_REQUEST)
+    stored_as_given(tmp_path, 'R2', 'Drei Tage, bätte.\n'.encode('latin-1'), offer=LOAN_OFFER, picked=['A. Three days.'])
     archive = sources.shared_archive(tmp_path)
     unreadable = f"{UNREADABLE.format(rid='R1')} -> {REREAD.format(rid='R1')}"
     assert _authority(cfg, 'R1 "three"') == (False, unreadable)
@@ -731,9 +732,10 @@ def test_a_rule_citing_a_request_that_is_no_text_keeps_the_conflict_of_the_other
     (root / 'pyproject.toml').write_text('[project]\nname = "app"\nversion = "0"\n', encoding='utf-8')
     (root / 'tests').mkdir()
     (root / 'tests/test_a.py').write_text('def test_a():\n    assert 2 * 3 == 6\n', encoding='utf-8')
+    from tests.stored_records import stored_as_given
     cfg = load_config(root)
     cli.init(cfg)
-    store_request(root, LATIN_REQUEST, identifier='R1')
+    stored_as_given(root, 'R1', LATIN_REQUEST)
     store_request(root, b'Loans last four days.\n', identifier='R3')
     _commit(root)
     _write(root, {'tests/intent/days.py': QUOTED_RULES.format(three=three, quote=quote, four='R3 "Loans last four days."')})
@@ -776,6 +778,67 @@ def test_a_rule_citing_a_request_that_is_no_text_keeps_the_conflict_of_the_other
     assert '1 passed' in ran.stdout and any(line.startswith('red: source rule.three: ') for line in cli_fixture.block(ran)), ran.stdout
 
 
+UNREADABLE_RULES = '''
+    from flowguard.intent import rule
+
+
+    @rule('THREE', decides='loan days', fields={'days': int}, source='R2 "Drei"')
+    def THREE(days):
+        return days <= 3
+
+
+    @rule('WEEKS', decides='loan weeks', fields={'weeks': int}, source='owner R1', quote='three')
+    def WEEKS(weeks):
+        return weeks <= 3
+'''
+
+
+def test_a_record_that_is_no_text_keeps_its_fact_on_the_block_line_and_its_own_step_in_check_all(tmp_path, capsys):
+    """R105, R101 (5.1 round A): the step of a choice reply that is no text was so long that the block cut the fact out
+    of the middle of its line, `red: rule THREE: R2: .flowgua...uation byte -> store his reply and the options you
+    offered again as UTF-8 text: ...`: pytest and check never said `is no UTF-8 or UTF-16 text`. And check --all gave a
+    rule grey for such a record the step `restore observability so the rule is checked again`, which no observability
+    restores. The block keeps the file and those words whole, the decoder's text giving way, and check --all gives the
+    source's own step. The step stores his original message again, never the stored bytes re-encoded: FlowGuard cannot
+    know which encoding they were meant in."""
+    import subprocess
+    import sys
+    from flowguard.intent import cli, signals
+    from tests.intent_engine import _cli_fixture as cli_fixture
+    from tests.stored_records import stored_as_given
+    root = tmp_path / 'project'
+    root.mkdir()
+    (root / 'pyproject.toml').write_text('[project]\nname = "app"\nversion = "0"\n', encoding='utf-8')
+    (root / 'tests').mkdir()
+    (root / 'tests/test_a.py').write_text('def test_a():\n    assert 2 * 3 == 6\n', encoding='utf-8')
+    cfg = load_config(root)
+    cli.init(cfg)
+    stored_as_given(root, 'R1', LATIN_REQUEST)
+    stored_as_given(root, 'R2', 'Drei Tage, bätte.\n'.encode('latin-1'), offer=LOAN_OFFER, picked=['A. Three days.'])
+    _commit(root)
+    _write(root, {'tests/intent/days.py': UNREADABLE_RULES})
+    capsys.readouterr()
+    reply = ("R2: .flowguard/requests/R2.md is no UTF-8 or UTF-16 text: 'utf-8' codec can't decode byte 0xe4 in "
+             'position 12: invalid continuation byte')
+    request = f"{UNREADABLE.format(rid='R1')} -> {REREAD.format(rid='R1')}"
+    bootstrap = 'import sys; sys.path.insert(0,sys.argv.pop(1)); import pytest; raise SystemExit(pytest.main(sys.argv[1:]))'
+    ran = subprocess.run([sys.executable, '-c', bootstrap, cli_fixture.SOURCE, '-q', '-p', 'no:cacheprovider'],
+                         cwd=root, capture_output=True, text=True, timeout=120)
+    assert ran.returncode == 1, ran.stdout + ran.stderr
+    for lines in (cli_fixture.block(ran), (cli_fixture.check(cfg), cli_fixture.block(capsys.readouterr().out))[1]):
+        three = next(line for line in lines if line.startswith('red: rule THREE: '))
+        assert three.startswith('red: rule THREE: R2: .flowguard/requests/R2.md is no UTF-8 or UTF-16 text: '), lines
+        assert three.endswith(f" -> {REREAD_CHOICE.format(rid='R2')}") and '...' in three, lines
+        assert signals._width(three, ['.flowguard/requests/R2.md']) <= signals.WIDTH, three
+        assert any(line.startswith('not compared: WEEKS[rules] (R1: .flowguard/requests/R1.md is no UTF-8 or UTF-16 text')
+                   for line in lines), lines
+    assert f'    THREE: {reply} -> {REREAD_CHOICE.format(rid="R2")}' in cli_fixture.last(root).splitlines()
+    assert cli_fixture.check(cfg, everything=True) == 1
+    lines = capsys.readouterr().out.splitlines()
+    assert ('red: rule WEEKS: cites original words from the owner (R1), but is now grey (unverified): '
+            + request) in lines, lines
+
+
 def test_check_all_fails_a_grey_rule_that_cites_the_owners_words_through_the_catalog(tmp_path):
     from flowguard.intent.cli import _owner_rules_unverified
     cfg = _project(tmp_path, rules='''
@@ -795,6 +858,16 @@ def test_check_all_fails_a_grey_rule_that_cites_the_owners_words_through_the_cat
     assert [(issue.name, issue.family, issue.fresh) for issue in issues] == [('unverified:LIMIT', 'rule', frozenset({''}))], issues
     assert issues[0].text == ('rule LIMIT: cites original words from the owner (R1), but is now grey (unverified): field days could not '
                               'be read'), issues
+    assert issues[0].step == 'restore observability so the rule is checked again'
+    # A rule grey because a record its source reads is no text: that source's own fact and step, whichever reason
+    # comes first (5.1 round A: `-> restore observability so the rule is checked again`, which no observability does).
+    unreadable = f"{UNREADABLE.format(rid='R1')} -> {REREAD.format(rid='R1')}"
+    data['results']['LIMIT']['items']['cells'] = dict(grey, grey=['field days could not be read', unreadable])
+    issues = _owner_rules_unverified(cfg, data)
+    assert (issues[0].text, issues[0].step) == (
+        'rule LIMIT: cites original words from the owner (R1), but is now grey (unverified): '
+        + UNREADABLE.format(rid='R1'), REREAD.format(rid='R1')), issues
+    assert issues[0].detail == ('field days could not be read', unreadable), issues
 
 
 # ---- R105: words of an option the owner picked (`R106 picked "words"`) ----------------------------------------------

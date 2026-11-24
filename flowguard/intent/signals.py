@@ -7,6 +7,7 @@ import re
 from decimal import Decimal, InvalidOperation
 
 from . import cells as C
+from ..map.common import NO_TEXT
 from .sources import ACTS, SHA
 
 
@@ -552,7 +553,12 @@ def _cap(said, paths=(), places=()):
     words (a copies line, whose step names who decides and the route that records it): cutting would leave it neither
     within WIDTH nor readable. A line of copies that take different
     parameters whose signatures `_signatures` reads is never cut inside one (`_cap_parameters`); one it cannot read (a
-    copy its places leave unknown, a return type that names another copy) gives way in its middle as other lines do."""
+    copy its places leave unknown, a return type that names another copy) gives way in its middle as other lines do.
+    A file said to be no text (`R1: .flowguard/requests/R1.md is no UTF-8 or UTF-16 text: <the decoder's text>`, of a
+    stored record or a document) keeps its path and those words whole, the path not counted toward WIDTH as no path of a
+    line is; the decoder's text gives way."""
+    unreadable = re.findall(r'(\S+) ' + re.escape(NO_TEXT), said)
+    paths = (*paths, *unreadable)
     def width(text):
         return _width(text, (*places, *paths))
     if width(said) <= WIDTH:
@@ -566,7 +572,7 @@ def _cap(said, paths=(), places=()):
     subject, colon, body = body.partition(': ') if ': ' in body[:80] else ('', '', body)
     body, arrow, step = body.rpartition(' -> ') if ' -> ' in body else (body, '', '')
     head = head + ': ' + subject + colon
-    kept = {piece for piece in (*places, *paths) if piece}
+    kept = {piece for piece in (*places, *paths, *(f'{name} {NO_TEXT}' for name in unreadable)) if piece}
     pattern = '(' + '|'.join(re.escape(piece) for piece in sorted(kept, key=len, reverse=True)) + ')' if kept else None
     def stretches(text, rank):
         """[text, rank] of the stretches of `text` between its places (rank None: a place, never cut)."""

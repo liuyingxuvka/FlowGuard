@@ -185,7 +185,8 @@ def test_stored_request_bytes_have_one_decoder_and_a_row_holds_no_words_of_them(
     root = tmp_path / 'project'
     root.mkdir()
     store_request(root, 'Loans last three d\u00e4ys.\r\n'.encode('utf-16'), identifier='R1')
-    store_request(root, 'Loans last four d\u00e4ys.\n'.encode('latin-1'), identifier='R2')
+    from tests.stored_records import stored_as_given
+    stored_as_given(root, 'R2', 'Loans last four d\u00e4ys.\n'.encode('latin-1'))     # as 5.0.1's req add stored it
     archive = Archive(root)
     assert archive.status('R1', 'three d\u00e4ys') == (True, 'owner R1')
     assert archive.status('R1', 'ten days') == (False, 'R1 quote gone -> quote the actual stored words')
@@ -196,8 +197,8 @@ def test_stored_request_bytes_have_one_decoder_and_a_row_holds_no_words_of_them(
         _legacy_match((root / '.flowguard/requests/R2.md').read_bytes(), 'four d\u00e4ys')
     assert archive.status('R2', 'four d\u00e4ys') == (
         False, "R2: .flowguard/requests/R2.md is no UTF-8 or UTF-16 text: 'utf-8' codec can't decode byte 0xe4 in "
-               'position 17: invalid continuation byte -> store his words again as UTF-8 text: python -m flowguard req '
-               'add - --id R<n> --supersedes R2')
+               'position 17: invalid continuation byte -> store his original message again as UTF-8 text: python -m '
+               'flowguard req add FILE --id R<n> --supersedes R2')
     for row in owner_words(root)['rows']:
         assert 'first_line' not in row and 'extra_lines' not in row, row
         assert not any('\ufffd' in str(value) or 'Loans' in str(value) for value in row.values()), row

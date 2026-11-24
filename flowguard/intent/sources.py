@@ -187,10 +187,13 @@ STORE_STEP = "store the owner's words with python -m flowguard req add - --id {r
 # A pick not stored: a plain request under its id would close the choice route there (the archive is write-once).
 CHOICE_STEP = ('store his reply with the options you offered: python -m flowguard req add REPLY --id {rid} --offer FILE '
                '--picked "TEXT"')
-# A record whose bytes are no text FlowGuard reads: the archive keeps them (written once); a new record supersedes it.
-REREAD_STEP = 'store his words again as UTF-8 text: python -m flowguard req add - --id R<n> --supersedes {rid}'
-REREAD_CHOICE_STEP = ('store his reply and the options you offered again as UTF-8 text: python -m flowguard req add '
-                      'REPLY --id R<n> --offer FILE --picked "TEXT" --supersedes {rid}')
+# A record whose bytes are no text FlowGuard reads (an older `req add` stored any bytes): the archive keeps them
+# (written once) and FlowGuard cannot know which encoding they were meant in, so the route is his original message
+# stored again, which supersedes it. The block keeps the fact whole beside such a step (`signals._cap`).
+REREAD_STEP = ('store his original message again as UTF-8 text: python -m flowguard req add FILE --id R<n> '
+               '--supersedes {rid}')
+REREAD_CHOICE_STEP = ('store his reply and the options again as UTF-8 text: python -m flowguard req add REPLY --id R<n> '
+                      '--offer FILE --picked "TEXT" --supersedes {rid}')
 
 
 def _unreadable(rid, raw, choice, path=None):
@@ -202,6 +205,14 @@ def _unreadable(rid, raw, choice, path=None):
     if not problem:
         return None
     return f'{rid}: {problem}', (REREAD_CHOICE_STEP if choice else REREAD_STEP).format(rid=rid)
+
+
+def unreadable_reason(reasons):
+    """The first of `reasons` (`what -> step`, a result's grey reasons) that is a cited record's bytes being no text
+    (`_unreadable`: its step stores his words again), or None: check --all gives a rule grey for it that step
+    (`cli._owner_rules_unverified`), as no restored observability makes such bytes readable."""
+    steps = tuple(step.format(rid='') for step in (REREAD_STEP, REREAD_CHOICE_STEP))
+    return next((reason for reason in reasons if reason.rpartition(' -> ')[2].startswith(steps)), None)
 
 
 _ARCHIVES = {}      # resolved root -> (what its request files are, the Archive read from them)

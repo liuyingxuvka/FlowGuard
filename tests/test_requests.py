@@ -423,6 +423,41 @@ def test_every_choice_refusal_exits_2_with_its_text_and_stores_nothing(tmp_path,
     assert not (root / '.flowguard/requests').exists()
 
 
+NOT_TEXT = ("is no UTF-8 or UTF-16 text: 'utf-8' codec can't decode byte 0xe9 in position 3: invalid continuation byte; "
+            'nothing is stored: FlowGuard compares quotes with text, so it stores only UTF-8 text, or UTF-16 with its '
+            'byte order mark\n')
+
+
+@pytest.mark.parametrize('options, refused', [
+    ((), 'request_unreadable: LATIN'),
+    (('--stdin',), 'request_unreadable: stdin'),
+    (('--offer', 'OFFER', '--picked', PICKED), 'request_unreadable: LATIN'),
+    (('--offer', 'OFFER', '--picked', PICKED, '--selected'), 'request_unreadable: LATIN'),
+    (('--reply', 'UTF8', '--offer', 'LATIN', '--picked', PICKED), 'choice_offer_unreadable: LATIN'),
+])
+def test_req_add_refuses_owner_bytes_that_are_no_text_and_stores_nothing(tmp_path, capsys, monkeypatch, options, refused):
+    """R105, R85 (AGENTS.md: save only the owner's words, byte for byte): 5.0.1's `req add` stored a Latin-1 file as it
+    got it, `stored R1 (request, ...)`, and from then on every source quoting it failed, as FlowGuard cannot know which
+    encoding such bytes were meant in and compares quotes with text. `req add` (plain, from stdin, a choice's reply
+    with --picked or --selected, and its options) refuses bytes that are no UTF-8 or UTF-16 text before anything is
+    written, naming the file and the decoder's text; an offer was refused before, as `the offer`."""
+    import io
+    import sys
+    root = _project(tmp_path / 'project', capsys)
+    named = {'LATIN': tmp_path / 'latin.md', 'UTF8': tmp_path / 'reply.md', 'OFFER': tmp_path / 'offer.md'}
+    named['LATIN'].write_bytes(b'caf\xe9 A\n')
+    named['UTF8'].write_bytes(REPLY)
+    named['OFFER'].write_bytes(OFFER)
+    monkeypatch.setattr(sys, 'stdin', io.TextIOWrapper(io.BytesIO(b'caf\xe9 A\n'), encoding='utf-8'))
+    reply, options = ('-', ()) if options == ('--stdin',) else \
+        (named[options[1]], options[2:]) if options[:1] == ('--reply',) else (named['LATIN'], options)
+    code, output, errors = _call(root, capsys, 'req', 'add', str(reply), '--id', 'R1',
+                                 *[str(named.get(option, option)) for option in options])
+    assert (code, output) == (2, ''), output
+    assert errors == f'flowguard: {refused.replace("LATIN", str(named["LATIN"]))} {NOT_TEXT}', errors
+    assert not (root / '.flowguard/requests').exists()
+
+
 def test_a_choice_id_that_is_stored_is_refused_and_nothing_changes(tmp_path, capsys):
     root = _project(tmp_path / 'project', capsys)
     assert _choice(tmp_path, root, capsys, 'R106', REPLY, OFFER, '--picked', PICKED)[0] == 0
@@ -480,9 +515,10 @@ def test_show_reads_the_stored_bytes_as_the_archive_checks_do_and_names_bytes_it
     code, output, errors = _call(root, capsys, 'show', 'R3')
     assert (code, errors) == (0, '') and output.splitlines()[:2] == ['OWNER R3', 'Keep one version.'], output
     # A reply in Latin-1 is no such text: show names it with the decoder's own words, as for a request, and prints none.
-    assert _choice(tmp_path, root, capsys, 'R4', b'caf\xe9 A\n', OFFER, '--picked', PICKED)[0] == 0
-    (tmp_path / 'r5.md').write_bytes(b'caf\xe9\n')
-    assert _call(root, capsys, 'req', 'add', str(tmp_path / 'r5.md'), '--id', 'R5')[0] == 0
+    # `req add` refuses such bytes now; these records are as an older one stored them.
+    from tests.stored_records import stored_as_given
+    stored_as_given(root, 'R4', b'caf\xe9 A\n', offer=OFFER, picked=[PICKED])
+    stored_as_given(root, 'R5', b'caf\xe9\n')
     for identifier in ('R4', 'R5'):
         code, output, errors = _call(root, capsys, 'show', identifier)
         assert (code, output) == (2, ''), output
