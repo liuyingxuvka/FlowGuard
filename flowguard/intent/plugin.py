@@ -1201,6 +1201,16 @@ class Observations:
                 self.carried.add(self._item_red(result))
             if result.get('before'):
                 self._item_before(item, result)
+        # A rule whose anchor's copies took the different parameters they take now at the task start
+        # (`Engine.anchor_errors`) is before as the comments' finding is, with the rule's own step, where no red of the
+        # rule's stands beside it: one run never says that fact red and before.
+        for result in self.state.results.values():
+            rule = model.rules.get(result.get('rule') or '')
+            if result.get('anchor_before') and rule is not None and \
+                    self.findings.get((f'rule:{rule.id}', ''), dict(old=True)).get('old'):
+                for message in result['anchor_before']:
+                    self._rule_red(rule, message, place=self._site(result['target']) if result.get('target') else None,
+                                   old=True, files=result.get('files', ()))
         self._judged_names()
         syntax = []             # files that cannot be parsed: only they are unverified
         for issue in self.index.issues:
@@ -1334,7 +1344,8 @@ class Observations:
         is touched; the static findings add their own)."""
         from . import signals
         issues = [signals.finding(entry['family'], name, entry['subject'], entry['whats'], entry['step'], function=function,
-                                  places=entry['places'], files=entry['files'], detail=entry['detail'])
+                                  places=entry['places'], files=entry['files'], detail=entry['detail'],
+                                  fresh=not entry.get('old'))
                   for (name, function), entry in self.findings.items()]
         issues += self.copies + self.issues
         touched = {target for target, point in self.points.items() if point.get('changed')}
@@ -1404,11 +1415,13 @@ class Observations:
         from .sources import parse
         return parse(declaration.source)
 
-    def _rule_red(self, rule, what, *, place=None):
+    def _rule_red(self, rule, what, *, place=None, old=False, files=()):
         """A red of rule `rule`: an intent rule's own check, or the code at one of its homes (`place`). One line per
         rule (D30: its member is the rule): the rule's own reds first, then the code's, its step from
         `signals.rule_steps` over every red the engine gave it (a row the rule contradicts is the row's red, not the
-        code's), every step and the owner's words in its detail."""
+        code's), every step and the owner's words in its detail. `old`: the rule's line is before, stating its anchor's
+        copies that took their different parameters at the task start (`Engine.anchor_errors`); it is touched where the
+        change touches the rule's file or one of those copies' `files`."""
         from . import signals
         from .sources import source_text
         model = self.state.model
@@ -1421,8 +1434,9 @@ class Observations:
             what = f'{found[2]} at {place} ({found[1]}' + (f', {found[3]})' if found[3] else ')')
         key = self._found('rule', f'rule:{rule.id}', f'rule {rule.id}', what, None,
                           places=tuple(dict.fromkeys(item for item in (where, place, *sites) if item)),
-                          files=(model.file_of.get(rule.id, ''),))
+                          files=(model.file_of.get(rule.id, ''), *files))
         entry = self.findings[key]
+        entry.setdefault('old', old)
         entry.setdefault('said', []).append(said)
         entry.setdefault('at', []).extend([place] if place and place not in entry['at'] else [])
         # where the code disagrees, else every home (a scenario rule: the places its reds name)
@@ -1735,6 +1749,7 @@ def _finish_collection(session, state):
         state.observations = Observations(state)
     state.engine.call_sites = state.observations.rule_calls
     state.engine.baseline = state.observations.runtime.baseline
+    state.engine.parameters_then = state.observations._parameters_then
     state.source_items = tuple(item for item in session.items if not isinstance(item, IntentItem) and item.name != SENTINEL)
     intent = [item for item in session.items if isinstance(item, IntentItem)]
     # A Flow reads its lower rules' contracts from their items' results, so Flow items run last.

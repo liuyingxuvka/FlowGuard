@@ -741,6 +741,27 @@ def test_same_name_copies_are_worded_for_the_43_lines_without_choosing_a_copy():
          'leave it unless your task is about it')]
 
 
+def test_an_old_rule_finding_is_before_with_the_rules_own_step_where_its_files_are_touched():
+    """Review of 5.1 (FT3 open 0): a rule's red that is its anchor's copies taking the different parameters they took at
+    the task start is old (`Engine.anchor_errors`): its line is before, reads on after a colon as the copies' before line
+    does, keeps the rule's own step, and is touched where the rule's file or a copy's file is."""
+    what = ('same anchor PROJECT_SCOPE: scope.py:can_view(user, project) and scope.py:visible_projects(user, projects) '
+            'take different parameters')
+    step = 'inspect rule scope_rule.py:3 and correct its source, binding or regression rows'
+    issue = signals.finding('rule', 'rule:SCOPE', 'rule SCOPE', [what], step, places=('scope_rule.py:3', 'scope.py:can_view'),
+                            files=('tests/intent/scope_rule.py', 'scope.py'), detail=[step], fresh=False)
+    lines, _ = signals.deliver([issue], touched_functions=(), touched_files={'scope.py'})
+    assert [(line.kind, line.text, line.step) for line in lines] == [
+        ('before', f'rule SCOPE was broken at task start: {what}', step)], lines
+    assert signals.deliver([issue], touched_functions=(), touched_files={'other.py'})[0] == []
+    assert [line.kind for line in signals.deliver([issue], touched_functions=(), touched_files=(), everything=True)[0]] == [
+        'before']
+    # this change's: red, as every rule's red
+    fresh = signals.finding('rule', 'rule:SCOPE', 'rule SCOPE', [what], step, places=('scope_rule.py:3',))
+    assert [(line.kind, line.text, line.step) for line in signals.deliver([fresh], touched_functions=(), touched_files=())[0]] == [
+        ('red', f'rule SCOPE: {what}', step)]
+
+
 def test_four_or_more_same_name_copies_name_three_and_count_the_others_where_they_belong():
     """A line names at most three places: of four or more copies the others are counted in the group of their answer,
     never cut out of a `who returns what` clause (that left another copy's answer pinned on a place); every copy is

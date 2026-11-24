@@ -207,6 +207,9 @@ class Engine:
         self.call_sites = None
         # The session's comparison commit, which a source judged at the baseline reads; set by the pytest plugin.
         self.baseline = None
+        # The same names whose copies took their different parameters at the session's task start, a callable the
+        # pytest plugin sets (`Observations._parameters_then`); None, as outside a session: no group is old.
+        self.parameters_then = None
 
     def child_nodes(self, rule):
         nodes = set()
@@ -876,7 +879,8 @@ class Engine:
     def _judged(self, source, reason):
         """The result keys of a source judged against the session's baseline (`sources.source_state`): `before`, the
         reason of a citation that already failed there (it makes no verdict red), and `source_baseline`, the commit
-        a red or before source was judged with, which `deps.record` keeps so a result is not reused against another."""
+        a red or before source was judged with (also an anchor's parameters, `anchor_errors`), which `deps.record` keeps
+        so a result is not reused against another."""
         keys = dict(before=[reason]) if source == 'before' else {}
         if source in ('red', 'before') and self.baseline is not None:
             keys['source_baseline'] = self.baseline
@@ -1030,25 +1034,49 @@ class Engine:
                     footprints[0].call_lines.update(other.call_lines)
 
     def anchor_errors(self, home):
+        """(red, judged): the problems of the anchor `home` binds as the rule states them (`Issue.stated`), the rule's
+        own step after them (`signals.rule_steps`), and the result keys of its copies that take different parameters
+        (code 'parameters'). That red takes the comments' finding's freshness (`signals.parameters_finding`, R99):
+        where the copies took these parameters at the task start (`parameters_then`) it is old, so it is no red here
+        but the result's `anchor_before` (with the copies' `files`), which the rule's line states as before beside the
+        comments' before line; this change's, or without a baseline, it is red. Either holds for the baseline it was
+        judged with (`source_baseline`, as a source's, `_judged`). Any other problem of the anchor (its roles,
+        units or return types, a gone anchor) is red as it is."""
         if not isinstance(home, _AnchorBinding):
-            return []
+            return [], {}
         if home.anchor is None:
-            return [f'anchor gone: {home.name}']
+            return [f'anchor gone: {home.name}'], {}
         from ..structure.readers.registry import language_for
         if language_for(home.anchor.file) != 'python':
-            return [f'{home.anchor.file}:{home.anchor.qual} is not Python: a rule runs only Python functions']
+            return [f'{home.anchor.file}:{home.anchor.qual} is not Python: a rule runs only Python functions'], {}
         issues = [*home.anchor.issues, *self.m.anchor_index.issues]
         if hasattr(home, 'scenario'):
             issues += list(home.scenario.issues)
         names = {home.name, home.scenario.name} if hasattr(home, 'scenario') else {home.name}
-        # the anchor's problem as the rule states it, the rule's own step after it (`signals.rule_steps`)
-        return list(dict.fromkeys(issue.stated for issue in issues
-                                  if issue.level == 'red' and issue.name in names))
+        issues = [issue for issue in issues if issue.level == 'red' and issue.name in names]
+        parameters = [issue for issue in issues if issue.code == 'parameters']
+        old = self.parameters_then() if parameters and self.parameters_then is not None else frozenset()
+        before = [issue for issue in parameters if issue.name in old]
+        judged = dict(source_baseline=self.baseline) if parameters and self.baseline is not None else {}
+        if before:
+            judged.update(anchor_before=list(dict.fromkeys(issue.stated for issue in before)),
+                          files=sorted({place.rpartition(':')[0] for issue in before for place in issue.places}))
+        return list(dict.fromkeys(issue.stated for issue in issues if issue not in before)), judged
+
+    def _anchor_result(self, kind, red, judged, **keys):
+        """The result of a home whose anchor has a problem (`anchor_errors`): red with its reds; else, where the only
+        problem is copies that took their different parameters at the task start, grey, since the rule did not run on
+        them, its `anchor_before` the rule's before line."""
+        if red:
+            return dict(kind=kind, verdict='red', red=red, grey=[], info=[], **keys, **judged)
+        return dict(kind=kind, verdict='grey', red=[], info=[], **keys, **judged,
+                    grey=['not run: its anchor\'s copies take different parameters, as at task start'])
 
     def run_home(self, rule, home, part: str) -> dict:
         t0 = time.perf_counter()
-        if errors := self.anchor_errors(home):
-            return dict(kind=part, verdict='red', red=errors, grey=[], info=[])
+        errors, judged = self.anchor_errors(home)
+        if errors or judged.get('anchor_before'):
+            return self._anchor_result(part, errors, judged)
         fn, sites, gone = self.home_sites(home.target)
         if gone:
             return dict(kind=part, verdict="red", red=[f"home gone: {home.target} ({gone})"], grey=[], info=[])
@@ -1345,8 +1373,9 @@ class Engine:
 
     def run_live(self, rule, home) -> dict:
         t0 = time.perf_counter()
-        if errors := self.anchor_errors(home):
-            return dict(kind='live', verdict='red', red=errors, grey=[], info=[], k=0, n=0)
+        errors, judged = self.anchor_errors(home)
+        if errors or judged.get('anchor_before'):
+            return self._anchor_result('live', errors, judged, k=0, n=0)
         if isinstance(home, _AnchorBinding) and home.anchor is not None and home.anchor.fields:
             return dict(kind='live', verdict='grey', red=[], info=[], k=0, n=0, sites=[], mutants=0,
                         grey=[f'{home.short}: fields-anchor rules are checked at test-reached calls; surviving-mutation checks require directly callable anchors'])

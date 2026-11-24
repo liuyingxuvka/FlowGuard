@@ -1543,19 +1543,23 @@ def _site(rule, target):
     return f'{home.anchor.file}:{home.anchor.qual}' if home is not None else target
 
 
-def _rule_finding(model, rid, values):
+def _rule_finding(model, rid, values, *, old=False):
     """The one `rule:ID` finding of an intent rule's red results, in the words a pytest session gives the same results
     (`plugin.Observations._rule_red`): the rule's own reds first, then the code's at its homes (the smallest input
-    first), its first step from `signals.rule_steps` over every red, every step and the owner's words in its detail."""
+    first), its first step from `signals.rule_steps` over every red, every step and the owner's words in its detail.
+    `old`: the results' `anchor_before` (`engine.Engine.anchor_errors`), copies of its anchor that took their different
+    parameters at the task start: the finding is old, touched where the change touches the rule's file or a copy's."""
     from .signals import finding, rule_steps
     from .sources import parse, source_text
     rule = model.rules[rid]
     where = _declared_at(model, rid)
     sites = [_site(rule, home.target) for home in rule.homes if not hasattr(home, 'scenario')]
     whats, said, at, places = [], [], [], []
+    files = [model.file_of[rid]] if rid in model.file_of else []
     for value in values:
         place = _site(rule, value['target']) if value.get('target') else None
-        for message in value['red'] or ['reported red']:
+        files.extend(value['files'] if old else ())
+        for message in (value['anchor_before'] if old else value['red']) or ['reported red']:
             what = said_text = str(message)
             counted = re.match(r'(?:\S+: )?(\d+ of \d+ (?:cells|rows) disagree); smallest (.+? -> rule .+?)(?: \((row L\d+)\))?$', what)
             if counted and place:       # the engine's count of one home: its smallest input first, as the code's red reads
@@ -1569,14 +1573,14 @@ def _rule_finding(model, rid, values):
     steps = [step.rstrip('; ') for step in rule_steps(rid, at or sites or [rid + ' binding'], where, said)]
     source = parse(rule.source)
     return finding('rule', f'rule:{rid}', f'rule {rid}', whats, steps[0] if steps else '', places=tuple(dict.fromkeys(places)),
-                   files=[model.file_of[rid]] if rid in model.file_of else [],
-                   detail=[*steps, f'{rid} source: {source_text(source, model.cfg)}'])
+                   files=files, detail=[*steps, f'{rid} source: {source_text(source, model.cfg)}'], fresh=not old)
 
 
 def _cache_findings(cfg, model, data):
     """check's own findings from the intent results it ran or reused (`cache.read`), in the words of a pytest
     session, as (issues, lines): intent load errors, an unfinished verification or collection and a removed rule
-    or row (red, D3, D4); each red intent rule (`_rule_finding`) or other declaration; a cited source that
+    or row (red, D3, D4); each red intent rule (`_rule_finding`) or other declaration, and a rule whose only problem is
+    its anchor's copies that took their different parameters at the task start (before); a cited source that
     already failed at the baseline (before); a failed test of pytest's scope (red); and each grey intent item, or a
     rule without results, not compared."""
     from .deps import test_scope
@@ -1616,6 +1620,8 @@ def _cache_findings(cfg, model, data):
         reds = [value for value in results if value.get('red') or value.get('verdict') == 'red']
         if reds and rid in model.rules:
             own.issues.append(_rule_finding(model, rid, reds))
+        elif rid in model.rules and (olds := [value for value in results if value.get('anchor_before')]):
+            own.issues.append(_rule_finding(model, rid, olds, old=True))     # before, as the copies' comments are
         others = {}
         for value in [] if rid in model.rules else reds:
             kind = kinds.get(value.get('kind'), 'rule')

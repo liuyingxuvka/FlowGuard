@@ -686,8 +686,9 @@ def record(cfg, model, rule, results, graph, now=None, found=None):
     keys = standard_keys(dependencies)
     keys['listing:'] = now('listing:')
     keys.update(('authority:' + rid, now('authority:' + rid)) for rid in authorities)
-    # A source judged against the session's baseline (red or before) holds for that baseline only: a run that
-    # compares with another commit (after new-task, or with another --base) judges it again.
+    # A source judged against the session's baseline (red or before), or a rule's anchor whose copies take different
+    # parameters (`Engine.anchor_errors`), holds for that baseline only: a run that compares with another commit (after
+    # new-task, or with another --base) judges it again.
     keys.update(('baseline:' + commit, 'compared')
                 for commit in sorted({entry['source_baseline'] for entry in entries if 'source_baseline' in entry}))
     return dict(dependencies=keys, reasons=list(dependencies.get('<unresolved>', [])), own_nodes=sorted(nodes),

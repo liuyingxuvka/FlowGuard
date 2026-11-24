@@ -2046,10 +2046,11 @@ def test_a_known_site_is_touched_by_an_edit_of_its_text_and_not_by_an_edit_besid
     assert code == 0 and not [line for line in _block(text) if 'known.' in line], text
     fee.write_text('export function fee(days: number): number {\n  return days * 2;\n}\n', encoding='utf-8', newline='\n')
     # The edited site of the two, then the entry's question; once the copies are compared, the finding the entry
-    # names gives the line: of its two copies the one this change edited, with their count (code-1).
-    known = ('known: known.limit at a.ts:over (1 of 2 sites): which limit is right? -> an open question for the owner, '
+    # names gives the line: of its two copies the one this change edited, with their count (code-1). Both count places
+    # (review of 5.1, FT3 open 3: the entry's own line said `(1 of 2 sites)`, the finding's `(1 of 2 places)`).
+    known = ('known: known.limit at a.ts:over (1 of 2 places): which limit is right? -> an open question for the owner, '
              'not asked yet')
-    compared = known.replace('a.ts:over (1 of 2 sites)', 'a.ts:over (1 of 2 places)')
+    compared = known
     first = root / 'src/a.ts'
     original = first.read_text(encoding='utf-8')
     first.write_text(original + '\n// a note beside the copies\n', encoding='utf-8', newline='\n')

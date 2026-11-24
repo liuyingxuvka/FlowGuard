@@ -1623,5 +1623,5 @@ def test_copies_that_agree_again_make_their_known_entry_known_fixed_in_pytest_an
         assert result.returncode == 0 and block(result)[1:] == expected, (run, result.stdout + result.stderr)
     result, _ = _cli(root, 'check', '--static')
     assert result.returncode == 0 and block(result)[1:] == [
-        'known: known.fee-copies at fees.py:preview_fee (1 of 2 sites): Which daily late fee is right, 2 or 3? -> an open '
+        'known: known.fee-copies at fees.py:preview_fee (1 of 2 places): Which daily late fee is right, 2 or 3? -> an open '
         'question for the owner, not asked yet'], result.stdout

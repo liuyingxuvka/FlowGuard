@@ -219,10 +219,10 @@ def test_a_known_line_names_the_sites_this_change_touches_and_an_ask_entry_s_que
                     resolved=resolved)
     lines, _ = deliver([], touched_functions={'node4'}, touched_files=(), known=[percent])
     assert (lines[0].text, lines[0].places) == (
-        'known.percent-scale at backend/src/services/capacity.service.ts:capacityService.updateCalendarEntry (1 of 12 sites): '
+        'known.percent-scale at backend/src/services/capacity.service.ts:capacityService.updateCalendarEntry (1 of 12 places): '
         'Which scale does the database store for PERCENT rows, 0..1 or 0..100?', (PERCENT_SITES[4],))
     assert signals.render_block(lines, title='FlowGuard').splitlines()[1] == (
-        'known: known.percent-scale at capacity.service.ts:capacityService.updateCalendarEntry (1 of 12 sites): Which scale '
+        'known: known.percent-scale at capacity.service.ts:capacityService.updateCalendarEntry (1 of 12 places): Which scale '
         'does the database store for PERCENT rows, 0..1 or 0..100? -> asked the owner on 2026-11-15; no answer yet')
     # A site whose file the change touches (a Model.field's schema), two touched sites, and --all, which touches none.
     field = Known('scale', ('prisma/schema.prisma:Entry.value', 'src/a.ts:read', 'src/b.ts:write'), 'why', 'leave',
@@ -230,7 +230,7 @@ def test_a_known_line_names_the_sites_this_change_touches_and_an_ask_entry_s_que
                   resolved=((frozenset(), frozenset({'prisma/schema.prisma'})), (frozenset({'a'}), frozenset()),
                             (frozenset({'b'}), frozenset())))
     assert deliver([], touched_functions={'b'}, touched_files={'prisma/schema.prisma'}, known=[field])[0][0].text == \
-        'known.scale at prisma/schema.prisma:Entry.value, src/b.ts:write (2 of 3 sites)'
+        'known.scale at prisma/schema.prisma:Entry.value, src/b.ts:write (2 of 3 places)'
     assert deliver([], touched_functions=(), touched_files=(), known=[field], everything=True)[0][0].text == \
         'known.scale at prisma/schema.prisma:Entry.value, src/a.ts:read, src/b.ts:write'
 

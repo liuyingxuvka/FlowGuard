@@ -66,8 +66,10 @@ FAMILIES = {
 }
 BEFORE_STEP = 'leave it unless your task is about it'
 # What a before line says of an old member, unless its finding says it (`Issue.broken`); else 'was broken at task start'.
-# A structural resemblance breaks nothing.
-BROKEN = {'same': 'disagreed at task start', 'copies': 'differed from its same-named copies at task start'}
+# A structural resemblance breaks nothing. A before line of these families whose text names its places reads on after a
+# colon (`rule SCOPE was broken at task start: same anchor PROJECT_SCOPE: ...`).
+BROKEN = {'same': 'disagreed at task start', 'copies': 'differed from its same-named copies at task start',
+          'rule': 'was broken at task start'}
 IMPACT_STEP = 'fix it, or say why in your report'
 # The family whose members are copies of one another. Its finding's own step says how they resemble and who decides
 # (`health.copies_step`, R101): its impact line states it in place of IMPACT_STEP, and its before line, whose step is
@@ -78,6 +80,10 @@ COPIES = 'copies'
 # fix, only a design matter; copies say how they resemble and who decides (COPIES); a table no code FlowGuard reads
 # creates rows of may be filled elsewhere, and `fix it` would ask for a creation path no one asked for (PTWF-V116a).
 OWN_STEP = ('writers', COPIES, 'uncreated')
+# The family whose before line states its finding's own step in place of BEFORE_STEP: a rule is before only where its
+# anchor's copies took the different parameters they take now at the task start (`Engine.anchor_errors`), and its step
+# names the rule's place (`rule_steps`), beside the comments' own before line of those copies.
+OWN_BEFORE_STEP = ('rule',)
 # The steps of known lines say what is known and who decides (R101): FlowGuard orders no question to the owner; the
 # agent decides when to raise one.
 KNOWN_STEPS = {'leave': 'left as it is on purpose; yours to change only if your task is about it',
@@ -117,11 +123,13 @@ def _asked(entry):
 def _known_sites(entry, touched_functions, touched_files):
     """(text, places) of a known line of `entry` itself: the sites this change touches (`Known.resolved`), with how
     many sites the entry has when it has others (`at capacity.service.ts:capacityService.updateCalendarEntry (1 of
-    12 sites)`); every site when it touches none (`--all`)."""
+    12 places)`), counted as places as the line of the entry's finding counts its places (`_finding_places`) and the
+    block counts what a line leaves out (`_more_places`), so that one entry's line reads alike whichever route gives it
+    in check --static, pytest, `check` and vitest; every site when it touches none (`--all`)."""
     touched = [site for site, (nodes, files) in zip(entry.sites, entry.resolved)
                if nodes & touched_functions or files & touched_files]
     named = touched or list(entry.sites)
-    counted = f' ({len(named)} of {len(entry.sites)} sites)' if len(named) < len(entry.sites) else ''
+    counted = f' ({len(named)} of {len(entry.sites)} places)' if len(named) < len(entry.sites) else ''
     return f'known.{entry.id} at {", ".join(named)}{counted}{_asked(entry)}', tuple(named)
 
 
@@ -154,7 +162,8 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
     always: a known entry naming its finding gives a `known` line when the change also touches the entry's sites
     (else nothing: `known` needs the entry's sites touched, `before` no entry), naming the finding's places this
     change touches with their count (`_finding_places`), an ignore entry alone counts it,
-    and without an entry it is `before`. An ignore entry covers only a family that may be ignored, and an entry
+    and without an entry it is `before`, whose step is BEFORE_STEP but in the families OWN_BEFORE_STEP names (a rule's
+    own step). An ignore entry covers only a family that may be ignored, and an entry
     of another act beside it keeps the member shown. Fields several files write without an agreement (family 'writers')
     have no line of their own except with `everything`. A known entry whose finding belongs to a family that ran
     (`ran`: a family whose checks judged the whole project, or a finding name whose own check ran, as a pytest
@@ -246,7 +255,8 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
                     lines.append(Line('before', issue.name, function,
                                       f'{issue.subject} {verb}{colon}{what}' if many else
                                       f'{issue.subject} at {place} {verb}' if place else f'{issue.subject} {verb}',
-                                      BEFORE_STEP, held, issue.detail + ((step,) if copies else ())))
+                                      step if issue.family in OWN_BEFORE_STEP else BEFORE_STEP, held,
+                                      issue.detail + ((step,) if copies else ())))
     for entry in entries:
         if entry.id in said:
             continue
