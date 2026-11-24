@@ -152,6 +152,34 @@ class MapHandle:
                     return other if self.node(other) else None
         return None
 
+    def defining_class(self, ident: str) -> str | None:
+        """The map's id of the Python class `module:Class` names (a write row's `owner` and `model`, a data agreement's
+        field in its comment's module): itself or the same class spelled by another importable name of its file
+        (`canonical`), else the class an import of that module binds the name to, a package's re-export too (`from
+        app.domain import Project` in app/__init__.py makes `app:Project` the class `app.domain:Project`), followed
+        through at most four imports; None when no class of the map is reached. Read once per id."""
+        held = self._derived.setdefault('defining_class', {})
+        if ident not in held:
+            if 'module_imports' not in self._derived:
+                imports = store.parts(self.con, ('facts.imports',))['facts.imports']
+                self._derived['module_imports'] = {module: imports.get(path) or {} for path, module in
+                                                   self.con.execute('SELECT path, module FROM file')}
+            imports, spelled, found = self._derived['module_imports'], ident, None
+            for _ in range(5):
+                own = self.canonical(spelled)
+                if own is not None:
+                    node = self.node(own)
+                    found = own if node is not None and node['kind'] == 'class' else None
+                    break
+                module, _, qual = spelled.partition(':')
+                head, dot, rest = qual.partition('.')
+                target = imports.get(module, {}).get(head)
+                if not target or (':' not in target and not rest):
+                    break
+                spelled = target + dot + rest if ':' in target else target + ':' + rest
+            held[ident] = found
+        return held[ident]
+
     def nodes(self, kind: str | None = None, module: str | None = None, file: str | None = None, *, language=None) -> list[dict]:
         scoped = [file] if file else [row[0] for row in self.con.execute("SELECT path FROM file WHERE module=?",(module,))] if module else None
         self._mark_query("nodes",language,scoped)
@@ -310,7 +338,8 @@ class MapHandle:
         """Who writes what, statically: Prisma client writes bound to schema models (connect and nested
         writes follow @relation), SQL write statements (TS/JS raw SQL, .sql files and Python string literals,
         recorded for the function holding them), and Python attribute assignments bound to a class. A Python
-        row carries `value` when the assignment or statement spells the written literal. `by_name=True` adds property assignments `obj.f = ...`
+        row carries `value` when the assignment or statement spells the written literal, and one bound to a class its
+        `owner`, the module that class is spelled in (`defining_class` follows it to the class's own module). `by_name=True` adds property assignments `obj.f = ...`
         that only a field name ties to a target (how='name'), but for one a Prisma write row already holds (the same
         file, line, column and field: `data.f = x` whose object a resolved write passes on). `target` is `Model.field`,
         `table.column`, a model or table, or a bare field/column name; rows whose fields are not visible (spread,
@@ -357,7 +386,8 @@ class MapHandle:
                                      model=None if row.get('unresolved') else cls, field=attr, table=None, db_column=None,
                                      nested=False, unclear=False, schema=None, receiver=cls,
                                      reason='attribute assignment matched by field name only' if row.get('unresolved') else '',
-                                     language=kind, **({'value': row['value']} if row.get('literal') else {}),
+                                     language=kind, **({} if row.get('unresolved') else {'owner': owner}),
+                                     **({'value': row['value']} if row.get('literal') else {}),
                                      **({key: row[key] for key in ('value', 'values') if key in row} if row.get('values') else {})))
         if by_name:         # `data.f = x` whose object a resolved Prisma write reads (`tx.project.update({ data })`)
             bound = {(row['file'], row['line'], row.get('column'), row['field'])          # is that write, not a second one

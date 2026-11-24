@@ -423,15 +423,46 @@ def _test_write(graph, row, tests=None):
     return row['file'] in tests or is_test_file(row['file'])
 
 
+def _agreed_class(graph, owner, field=None):
+    """The map's class (`module:Class`) that a data agreement's field (`field`, its own by default: `Class.field` or
+    `Class.*`) names when its comment is in a Python file: the class of that name its module declares or imports, a
+    re-export followed to the class's own module (`MapHandle.defining_class`); None in any other case, and the agreement
+    then holds a write of every class of that name."""
+    if not owner.file.endswith('.py'):
+        return None
+    return graph.defining_class(f'{owner.module}:{(field or owner.name).rpartition(".")[0]}')
+
+
+def _of_class(graph, row, cls):
+    """Whether a data agreement whose field names the class `cls` (`_agreed_class`) holds the write `row` by its class
+    (PEMELPM-318): a Python write bound to another class of the map is not held (an unrelated `tools/build.py`
+    `Project` beside `app/domain.py`'s); every other write of the field is, as its name matches: one that names no
+    class module (JS/TS, SQL, Prisma, a Python write matched by its field name alone), one whose class is not on the map,
+    and any write when `cls` is None."""
+    if cls is None or row.get('how') != 'attribute' or not row.get('owner'):
+        return True
+    found = graph.defining_class(f'{row["owner"]}:{row["model"]}')
+    return found is None or found == cls
+
+
+def _held_writes(graph, owner, rows, field=None):
+    """The writes of `rows` (those of the agreement's field, or of `field`) that a data agreement holds: those of its
+    own class (`_of_class`), never a class-body default, which declares the field (`health.class_default`)."""
+    from .health import class_default
+    cls = _agreed_class(graph, owner, field)
+    return [row for row in rows if not class_default(row) and _of_class(graph, row, cls)]
+
+
 def owner_writes(change, index):
     """The `writer:` finding of each data owner's writers agreement that production code writes outside
-    (`_writer_issue`); a test's own write is a fixture, not held to it (`_test_write`)."""
+    (`_writer_issue`); a test's own write is a fixture, not held to it (`_test_write`), and only its own class's writes
+    are held, never a class-body default (`_held_writes`)."""
     found, written = Findings(ran={'writer'}), None
     tests = {path for (path,) in change.graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
     for owner in (a for a in index.entries if a.kind == 'owner' and a.writers):
         if written is None:
             written = change.graph.writes(by_name=True)        # read once for every owner
-        rows = [row for row in change.graph.writes_to(written, owner.name)
+        rows = [row for row in _held_writes(change.graph, owner, change.graph.writes_to(written, owner.name))
                 if not row.get('unclear') and not _test_write(change.graph, row, tests)]
         outside = [row for row in rows if not _allowed(row, owner.writers)]
         if outside:
@@ -467,11 +498,15 @@ def _writer_issue(change, owner, outside, where):
     if change.baseline and change.baseline_paths():
         before = {}
         # The baseline's writes read once for every agreement (`writes_to` picks this one's field).
-        for row in change.graph.writes_to(change.baseline_writes(by_name=True), owner.name):
+        for row in _held_writes(change.graph, owner, change.graph.writes_to(change.baseline_writes(by_name=True), owner.name)):
             if not row.get('unclear') and not _allowed(row, owner.writers):
                 before.setdefault(row_function(row), Counter())[_write_key(row)] += 1
         fresh = {function for function, rows in now.items()
                  if any(count > before.get(function, Counter())[key] for key, count in Counter(map(_write_key, rows)).items())}
+    # An old member of an agreement this change added broke none at task start (PEMELPM-254): its before line says what
+    # its function did then.
+    broken = '' if not change.baseline or _writers_at_start(change, owner) else \
+        f'already wrote {owner.name} outside this agreement at task start; this change added the agreement'
     names = _writer_names(change.graph, owner)
     step = 'call ' + ' or '.join(names) + ' instead'
     what = f'writes {owner.name} outside ' + ', '.join(names)
@@ -479,8 +514,20 @@ def _writer_issue(change, owner, outside, where):
     return Issue(f'writer:{owner.name}', LINES_ONLY, f'writer {owner.name}',
                  f'{owner.name} is written outside its writers agreement ({where}): ' + '  '.join(place(rows[0]) for _, rows in sorted(now.items())),
                  step, frozenset(now), frozenset(row['file'] for row in outside),
-                 family='writer', subject=f'writers {owner.name}', parts=parts, fresh=frozenset(fresh),
+                 family='writer', subject=f'writers {owner.name}', parts=parts, fresh=frozenset(fresh), broken=broken,
                  detail=(f'agreement: {where}', 'if the owner agrees that a function may write it, add it to that writers agreement'))
+
+
+def _writers_at_start(change, owner):
+    """Whether the flowguard comments at task start held a writers agreement of the field `owner` names: the baseline
+    facts of each file this change alters (`Change.old_part`, a renamed file at its old path), the map's of every
+    other file, as `loosened` reads them. Read once per change."""
+    def compute():
+        paths = change.baseline_paths()
+        rows = [row for path, _, data in change.graph._kinds('anchors') if path not in paths for row in data.get('anchors', ())]
+        rows += [row for path in sorted(paths) for row in change.old_part(path, 'anchors') or ()]
+        return {row['name'].casefold() for row in rows if row['kind'] == 'owner' and row.get('writers')}
+    return owner.name.casefold() in change.held('writers at start', compute)
 
 
 def _call_tree(graph, node, depth=3, up=0, *, fold=named):
@@ -992,13 +1039,17 @@ class _Pairs:
         return self.trees[function]
 
     def triggers(self, owner, written):
-        """The writes of `written` the agreement holds: production code, its `on=` kind, outside `except=`."""
+        """The writes of `written` the agreement holds: production code of its own class, its `on=` kind, outside
+        `except=`, never a class-body default (`_held_writes`)."""
         alone = [item.partition('(')[0] for item in owner.alone]
-        return [row for row in written if self.bound(row) and row['file'] not in self.tests and not is_test_file(row['file'])
+        return [row for row in _held_writes(self.change.graph, owner, written)
+                if self.bound(row) and row['file'] not in self.tests and not is_test_file(row['file'])
                 and (not owner.on or creates(row) == (owner.on == 'create')) and not _allowed(row, alone)]
 
-    def partners(self, rows, value):
-        return [row for row in rows if self.bound(row) and _holds(row, value or None)]
+    def partners(self, owner, target, rows, value):
+        """The writes of `rows` that write the partner `target` (its `=value`) as the agreement names its class
+        (`_held_writes`)."""
+        return [row for row in _held_writes(self.change.graph, owner, rows, target) if self.bound(row) and _holds(row, value or None)]
 
     def misses(self, owner):
         """[(pair, missing, members, unconfirmed, calls)] of each partner some held write misses: the write rows that
@@ -1009,7 +1060,7 @@ class _Pairs:
         for pair in owner.pairs:
             target, _, value = pair.partition('=')
             model, _, column = target.rpartition('.')
-            now = [(row, _pair_function(row)) for row in self.partners(self.writes(model if column == '*' else target), value)]
+            now = [(row, _pair_function(row)) for row in self.partners(owner, target, self.writes(model if column == '*' else target), value)]
             missing, calls, members, unconfirmed = [], {}, {}, {}
             for row in rows:
                 function = _pair_function(row)
@@ -1060,7 +1111,7 @@ def owner_pairs(change, index):
             fresh, detail = set(), []
             if change.baseline:
                 then = pairs.triggers(owner, pairs.writes(owner.name, old=True))
-                then_partners = [(row, guard.current(row)) for row in pairs.partners(pairs.writes(written, old=True), value)]
+                then_partners = [(row, guard.current(row)) for row in pairs.partners(owner, target, pairs.writes(written, old=True), value)]
                 for function, row in members.items():
                     old = [item for item in then if guard.current(item) == function]
                     if not old or all(_held(item, function, pairs.tree_of(function), then_partners)[0] for item in old):
@@ -2675,13 +2726,23 @@ def field_spellings(graph):
 
 
 def _writers_rows(graph, owner):
-    """(every write of a writers agreement's field, also by field name alone; the test fixtures among them; the writes
-    outside its writers that are neither unclear nor a fixture), as `show_lines` lists them."""
+    """(every write of a writers agreement's field that it holds, also by field name alone (`_held_writes`: of its own
+    class, no class-body default); the test fixtures among them; the writes outside its writers that are neither unclear
+    nor a fixture), as `show_lines` lists them."""
     tests = {path for (path,) in graph.con.execute('SELECT path FROM file WHERE is_test = 1')}
-    rows = list(graph.writes(owner.name, by_name=True))
+    rows = _held_writes(graph, owner, graph.writes(owner.name, by_name=True))
     fixtures = [row for row in rows if _test_write(graph, row, tests)]
     outside = [row for row in rows if not row.get('unclear') and not _allowed(row, owner.writers) and row not in fixtures]
     return rows, fixtures, outside
+
+
+def other_class(graph, index, name, row):
+    """What `show NAME` of a data agreement's field says of a write that no agreement of `name` holds by its class
+    (`_of_class`, PEMELPM-318): `another class, tools.build:Project: not held`; '' for any other write."""
+    agreements = [owner for owner in index.named(name) if owner.kind == 'owner' and (owner.writers or owner.pairs)]
+    if not agreements or any(_of_class(graph, row, _agreed_class(graph, owner)) for owner in agreements):
+        return ''
+    return f'another class, {graph.defining_class(row["owner"] + ":" + row["model"])}: not held'
 
 
 def agreement_writes(cfg, graph, index, name):

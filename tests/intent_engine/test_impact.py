@@ -2659,7 +2659,8 @@ def test_show_of_a_field_marks_each_write_in_a_test_its_project_leaves_out_or_ru
     Assignment.fteShare` cuts, said that backend/tests/integration is a suite against real databases; the `writes`
     lines the view does show, `writes Assignment.fteShare backend/tests/integration/dashboard.routes.test.ts:146 (call
     line 141) ensureFixtures (create)`, sat among the production writers with no mark. A write in a test file carries
-    the mark its reach line carries; a write in a test the scope takes, and a production write, carry none."""
+    the mark its reach line carries; a production write carries none. Every write in a test file is also a `test
+    fixture`, as a writers agreement's view calls it (PEMELPM-318: a test double sat among the product's writes)."""
     fixture = ("import { PrismaClient } from '@prisma/client';\nconst prisma = new PrismaClient();\n"
                "async function ensureFixtures() {\n  await prisma.assignment.create({ data: { id: 'a', fteShare: 0.5 } });\n}\n"
                'export const ready = ensureFixtures;\n')
@@ -2669,9 +2670,10 @@ def test_show_of_a_field_marks_each_write_in_a_test_its_project_leaves_out_or_ru
     assert code == 0, text
     assert [line for line in text.splitlines() if line.startswith('writes ')] == [
         'writes Assignment.fteShare backend/src/services/assignment.service.ts:4 assignBatch (create)',
-        'writes Assignment.fteShare backend/tests/integration/dashboard.routes.test.ts:4 ensureFixtures (create) (a suite that '
-        'reaches real databases and services: backend/package.json script "test:integration" runs tests/integration)',
-        'writes Assignment.fteShare backend/tests/unit/fixtures.test.ts:4 unitFixtures (create)'], text
+        'writes Assignment.fteShare backend/tests/integration/dashboard.routes.test.ts:4 ensureFixtures (create) (test fixture; '
+        'a suite that reaches real databases and services: backend/package.json script "test:integration" runs '
+        'tests/integration)',
+        'writes Assignment.fteShare backend/tests/unit/fixtures.test.ts:4 unitFixtures (create) (test fixture)'], text
 
 
 def test_show_of_a_bare_field_name_names_the_prisma_models_that_declare_it(tmp_path):

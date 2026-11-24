@@ -498,6 +498,11 @@ def statements(body: list):
         stack.extend(reversed([s for s in inner if isinstance(s, ast.stmt)]))
 
 
+# Annotations that type a name with no class of fields: a write or read through such a name is untyped, matched by its
+# field name alone (PEMELPM-333: `project: Any` filed `project.dirty = True` under a class named Any).
+UNTYPED = frozenset({'typing:Any', 'typing_extensions:Any', 'builtins:object'})
+
+
 def _type_checking(node) -> bool:
     return isinstance(node, ast.If) and (getattr(node.test, "id", "") == "TYPE_CHECKING"
                                          or getattr(node.test, "attr", "") == "TYPE_CHECKING")
@@ -592,21 +597,32 @@ def syntax_records(tree, module, rel):
     package = module if rel.endswith('__init__.py') else module.rpartition('.')[0]
     aliases = {}
     classes = {n.name for n in tree.body if isinstance(n, ast.ClassDef)}
-    for statement in tree.body:
+    # The imports that type an annotation: the module's own, and those of a top-level `if TYPE_CHECKING:` block, which
+    # bind a name only for the annotations (PEMELPM-317: `project: "LaterProject"` typed no write and no read), in
+    # their order, a later import of a name replacing an earlier one.
+    for statement in [item for top in tree.body
+                      for item in ([top] if not _type_checking(top) else [s for s in top.body if isinstance(s, (ast.Import, ast.ImportFrom))])]:
         if isinstance(statement, ast.ImportFrom):
             origin = _from_target(statement, package)
             aliases.update((name.asname or name.name, origin + ':' + name.name) for name in statement.names if name.name != '*')
         elif isinstance(statement, ast.Import):
             aliases.update((name.asname or name.name.split('.')[0], name.name if name.asname else name.name.split('.')[0]) for name in statement.names)
 
+    def typed_class(annotation):
+        """The class `module:Class` an annotation types its name with; None for one it does not, and for `Any` and
+        `object` (PEMELPM-333), which name no class whose fields a write or read through it could mean."""
+        found = annotation_class(annotation)
+        return None if found in UNTYPED else found
+
     def annotation_class(annotation):
+        """The class an annotation spells, `Any` and `object` too (`typed_class` leaves them out)."""
         if isinstance(annotation, ast.Constant) and isinstance(annotation.value, str):
             try:
                 annotation = ast.parse(annotation.value, mode='eval').body
             except SyntaxError:
                 return None
         if isinstance(annotation, ast.Subscript) and ast.unparse(annotation.value).split('.')[-1] == 'Optional':
-            return annotation_class(annotation.slice)
+            return typed_class(annotation.slice)
         if isinstance(annotation, ast.Name):
             return aliases.get(annotation.id) if ':' in aliases.get(annotation.id, '') else module + ':' + annotation.id if annotation.id in classes else None
         if isinstance(annotation, ast.Attribute):
@@ -616,9 +632,9 @@ def syntax_records(tree, module, rel):
                 return '.'.join([origin, *parts[1:-1]]) + ':' + parts[-1]
         if isinstance(annotation, ast.BinOp) and isinstance(annotation.op, ast.BitOr):
             if isinstance(annotation.left, ast.Constant) and annotation.left.value is None:
-                return annotation_class(annotation.right)
+                return typed_class(annotation.right)
             if isinstance(annotation.right, ast.Constant) and annotation.right.value is None:
-                return annotation_class(annotation.left)
+                return typed_class(annotation.left)
         return None
 
     class Reader(ast.NodeVisitor):
@@ -771,7 +787,7 @@ def syntax_records(tree, module, rel):
             old = self.qual, self.typed, self.bindings, self.reading
             self.qual = old[0] + ('.' if old[0] else '') + node.name
             args = node.args.posonlyargs + node.args.args + node.args.kwonlyargs
-            self.typed = {arg.arg: kind for arg in args if (kind := annotation_class(arg.annotation))}
+            self.typed = {arg.arg: kind for arg in args if (kind := typed_class(arg.annotation))}
             self.bindings = {name:value for name,value in self.bindings.items() if name not in {arg.arg for arg in args}}
             # The enclosing function's or module's reading names, those the parameters hide aside (a class body binds
             # none), and each parameter its annotation types.
@@ -999,12 +1015,12 @@ def syntax_records(tree, module, rel):
             self.declaring = declaring
 
         def visit_AnnAssign(self, node):
-            if isinstance(node.target, ast.Name) and self.cls and self.qual == self.cls and (kind := annotation_class(node.annotation)):
+            if isinstance(node.target, ast.Name) and self.cls and self.qual == self.cls and (kind := typed_class(node.annotation)):
                 # `status: RunStatus` in a class body: the field's declared type (an enum's members are its values)
                 optional = 'None' in ast.unparse(node.annotation) or 'Optional' in ast.unparse(node.annotation)
                 self.add('field_types', node, field=module + ':' + self.cls + '.' + node.target.id, type=kind,
                          **({'optional': True} if optional else {}))
-            if isinstance(node.target, ast.Name) and (kind := annotation_class(node.annotation)):
+            if isinstance(node.target, ast.Name) and (kind := typed_class(node.annotation)):
                 self.typed[node.target.id] = kind
             self.assignment(node, [node.target], node.value)
             if isinstance(node.target, ast.Name) and kind and not self.in_class_body():    # `x: Settings = ...` types x

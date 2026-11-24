@@ -670,15 +670,26 @@ def copies(change, index, *, before=False):
 
 # ---- fields several files write without an owner -------------------------------------------------
 
+def class_default(row):
+    """Whether a write row is a class-body default (`dirty: bool = False`, `dirty: bool = field(default=False)` in the
+    body of `class Project`, a nested class's too): the field's declaration with its starting value, which writes no
+    instance's field. Every writers, together and pair computation leaves it out (PEMELPM-238), and `show` lists it as
+    the declaration it is. A method of the class, `__post_init__` and `__init__` too, writes; so does a method named
+    like its class, and a function named like a class of another module that it writes. Only the Python reader records
+    such a row: its function is the class itself, of its own module (`owner`)."""
+    return row.get('language', 'python') == 'python' and row.get('how') == 'attribute' and bool(row.get('model')) \
+        and row['function'] == row['model'] and row.get('owner') == row['node'].partition(':')[0]
+
+
 def _production_write(row, tests):
     """(holder, field) of a write row of production code, whatever its field; None for a row the writers check leaves
-    out for where it is: a test's, a class-body default, a module's own code, a patch of a module's class, a row of no
-    model or table. `tests` are the map's test files."""
+    out for where it is: a test's, a class-body default (`class_default`), a module's own code, a patch of a module's
+    class, a row of no model or table. `tests` are the map's test files."""
     holder, name = row.get('model') or row.get('table'), row.get('field') or row.get('db_column')
     if row.get('language', 'python') == 'python' and row['how'] == 'attribute' and '.' in str(holder):
         return None             # `module.Class.method = ...` patches a module's class; it writes no data field
     if not holder or row['file'] in tests or is_test_file(row['file']) or row['function'] == '<module>' \
-            or row['function'].rpartition('.')[2] == holder:      # a class-body default declares, it does not write
+            or class_default(row):      # a class-body default declares, it does not write
         return None
     return holder, name
 
@@ -795,7 +806,7 @@ def co_written(change, name, index):
         holder, column = row.get('model') or row.get('table'), row.get('field') or row.get('db_column')
         bound = not row.get('unclear') and not (row.get('how') == 'name' and row.get('language', 'python') != 'python')
         if not bound or not holder or column in ('*', '?', None) or row['file'] in tests or is_test_file(row['file']) \
-                or row['function'] == '<module>':
+                or row['function'] == '<module>' or class_default(row):      # only functions write (PEMELPM-327)
             return None
         return f'{holder}.{column}'
     by_function, places = {}, {}

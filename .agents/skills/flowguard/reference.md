@@ -64,7 +64,7 @@ Use `#` in Python and `//` in TS/JS. These comments normalize to the existing re
 | `flowguard: together A B on=update` | Limit the agreement to update; create is the other supported value. |
 | `flowguard: together A B=value` | The partner must be written with that value; `=true` and `=True`, `=false` and `=False`, `=null` and `=None` are the same value, whichever language writes it. |
 | `flowguard: together A B except=path:function(reason)` | A documented exception; adding one loosens the agreement, which is the owner's decision. |
-| `flowguard: writers A f,g` | Only these functions may write A. |
+| `flowguard: writers A f,g` | Only these functions may write A (a class-body default declares it; in a Python file, A's own class only). |
 
 `together` checks which fields one write holds, and `B=value` one value it writes; a relation of the values under a condition (both fields null when the manager is missing) is a test's job, and no line says it held.
 

@@ -2472,9 +2472,11 @@ def test_a_comment_above_a_function_with_callbacks_does_not_touch_its_structure_
 
 
 def test_a_writers_agreement_on_an_open_writers_problem_leaves_the_writes_outside_it_before(tmp_path):
-    # Without an agreement the field's writers are listed with --all; once one names them (the step of the writers
-    # problem), what writes Job.status outside it was there at the baseline. 4.3 also read a [structure] decision on
-    # the problem here; 5.0 reads none.
+    # Without an agreement the field's writers are listed with --all; once one names some of them (the step of the
+    # writers problem), what writes Job.status outside it was there at the baseline. 4.3 also read a [structure] decision
+    # on the problem here; 5.0 reads none. The class-body default `status = 'new'` declares the field and is no write
+    # outside it (PEMELPM-238): 5.0.1 printed `before: writers Job.status at models.py:Job was broken at task start`, and
+    # said `was broken` of an agreement this change adds (PEMELPM-254).
     _commit(tmp_path, WRITERS)
     # pt-smoke-3: a field without a writers agreement broke none; its before line states what held at task start.
     writers = [f'before: Job.status has no writers agreement and 3 files write it, {name}.py:{name} among them; so at task '
@@ -2482,10 +2484,11 @@ def test_a_writers_agreement_on_an_open_writers_problem_leaves_the_writes_outsid
     code, text = _static(tmp_path, '--all')
     assert code == 0 and _block(text, everything=True) == writers, text
     close = tmp_path / 'shop/close.py'
-    close.write_text('# flowguard: writers Job.status shop/close.py:close,shop/hold.py:hold,shop/reopen.py:reopen\n' + close.read_text())
+    close.write_text('# flowguard: writers Job.status shop/close.py:close,shop/hold.py:hold\n' + close.read_text())
     code, text = _static(tmp_path, '--all')
     assert code == 0 and _block(text, everything=True) == [
-        'before: writers Job.status at models.py:Job was broken at task start -> leave it unless your task is about it'], text
+        'before: writers Job.status at reopen.py:reopen already wrote Job.status outside this agreement at task start; '
+        'this change added the agreement -> leave it unless your task is about it'], text
 
 
 def test_the_session_brief_names_the_heaviest_open_structure_problems_in_one_line(tmp_path):

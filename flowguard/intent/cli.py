@@ -893,22 +893,32 @@ AT_START = ' at the task start'     # a `show Model.field` line of the task-star
 
 def _write_line(row, mark=''):
     """A `show Model.field` line of one write (`MapHandle.writes` row), with what `_test_marks` says of its test file
-    (`mark`) as a `test ... reaches a writer` line says it."""
+    (`mark`) as a `test ... reaches a writer` line says it. A class-body default is the declaration it is
+    (`health.class_default`, PEMELPM-238): `declares Project.dirty app/domain.py:8 Project (default False)`."""
+    from .health import class_default
     where = f'{row["file"]}:{row["line"]}' + (f' (call line {row["call_line"]})' if row['call_line'] != row['line'] else '')
+    if class_default(row):
+        return (f'declares {row["model"]}.{row["field"]} {where} {row["function"]} '
+                f'(default{" " + repr(row["value"]) if "value" in row else ""})' + (f' ({mark})' if mark else ''))
     unclear = f'; unclear: {row["reason"]}' if row['unclear'] else ''
     return (f'writes {row["model"] or row["table"]}.{row["field"] or row["db_column"]} {where} {row["function"]} '
             f'({row["kind"]}{unclear})' + (f' ({mark})' if mark else ''))
 
 
-def _write_lines(cfg, rows):
+def _write_lines(cfg, rows, *, fixtures=False, other=None):
     """`_write_line` of each write, a write in a test file that the project's test scope leaves out, or in a folder its
     scripts run as a suite that reaches real databases and services, marked so (gate-5: Planning Tool's `show
     Assignment.fteShare` listed `writes ... backend/tests/integration/dashboard.routes.test.ts:146 ... ensureFixtures
     (create)` among the production writers, while only the `test ... reaches a writer` lines, which the default view
-    cuts, said that PT's agents may not run that suite)."""
+    cuts, said that PT's agents may not run that suite). `fixtures`: every write in a test file is also marked `test
+    fixture` (the view of a field no agreement names, where a test double of the same class name sat among the product's
+    writes, PEMELPM-318); `other(row)`: the words an agreement's view adds to a write it does not hold, '' for one it
+    holds."""
     from flowguard.map.common import is_test_file
     marks = _test_marks(cfg, sorted({row['file'] for row in rows if is_test_file(row['file'])}))
-    return [_write_line(row, marks.get(row['file'], '')) for row in rows]
+    return [_write_line(row, '; '.join(filter(None, ['test fixture' if fixtures and is_test_file(row['file']) else '',
+                                                     other(row) if other is not None else '', marks.get(row['file'], '')])))
+            for row in rows]
 
 
 def _unknown_model(graph, query):
@@ -1255,14 +1265,18 @@ def show(cfg, query=None, *, full=False, last=False):
         if anchors:
             display('\n'.join(opening))
             print('\n'.join(pointers))
-            from .owners import agreement_writes, declaration_lines, show_lines
+            from .owners import agreement_writes, declaration_lines, other_class, python_read_line, show_lines
             if owned := show_lines(cfg, graph, index, query):     # writes outside its writers, look-alikes
                 display('\n'.join(owned))
             if FIELD_QUERY.fullmatch(query):        # what the map read about the field and who writes it, as the facts
                 agreed = agreement_writes(cfg, graph, index, query)      # branch says; a write listed above once only
+                # another class of the field's class name, which the agreements do not hold (PEMELPM-318), says so; the
+                # Python reads of the field follow its writes, as in the view of a field no agreement names (PEMELPM-310)
                 facts = [*filter(None, [_unknown_model(graph, query)]), *declaration_lines(graph, query),
                          *_write_lines(cfg, [row for row in graph.writes(query)
-                                             if (row['file'], row['line'], row['function'], row['kind']) not in agreed])]
+                                             if (row['file'], row['line'], row['function'], row['kind']) not in agreed],
+                                       other=lambda row: other_class(graph, index, query, row)),
+                         *dict.fromkeys(python_read_line(row, query) for row in graph.field_reads(query))]
                 facts = [line for line in dict.fromkeys(facts) if line not in owned]
                 if facts:
                     display('\n'.join(facts if full else _limit(
@@ -1312,7 +1326,7 @@ def show(cfg, query=None, *, full=False, last=False):
             # In the map's order (file, then line as a number), unclear ones last: each write ranks a little below the
             # one before it, all within (1998, 2000].
             ranked.extend((2000 - bool(row['unclear']) - order / len(written), line)
-                          for order, (row, line) in enumerate(zip(written, _write_lines(cfg, written))))
+                          for order, (row, line) in enumerate(zip(written, _write_lines(cfg, written, fixtures=True))))
             unknown = _unknown_model(graph, name)
             from . import health, owners as checks       # several files write it and nobody owns it: say so first
             change = checks.Change(cfg, graph, None)
