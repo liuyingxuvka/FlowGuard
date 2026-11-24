@@ -26,11 +26,23 @@ from . import cache
 from .config import INIT_MARK, RECORDED_PYTHON, find_root, load_config
 
 
+# The collection test init writes, in the style black and ruff format leave as it is. init accepts a file whose syntax
+# tree (its docstring included, `_sentinel_tree`) is this one's or an earlier release's (`EARLIER_SENTINELS`), so a
+# formatter's rewrite of either passes, and writes it only when the file is missing or holds an earlier tree.
 SENTINEL = '''"""Fail when declared FlowGuard intent was not collected."""
+
+
+def test_flowguard_intent(request):
+    from flowguard.intent.plugin import sentinel
+
+    sentinel(request.config)
+'''
+# The sentinel FlowGuard 2.0 to 5.0.1 wrote; its tree equals SENTINEL's.
+EARLIER_SENTINELS = ('''"""Fail when declared FlowGuard intent was not collected."""
 def test_flowguard_intent(request):
     from flowguard.intent.plugin import sentinel
     sentinel(request.config)
-'''
+''',)
 
 PROJECT_RULES = '''<!-- flowguard:start -->
 ## FlowGuard rules for the project agent
@@ -2971,6 +2983,7 @@ def _legacy_agents(content, rules, newline, languages):
 # own: GitHub runs a bash step under -e, so a merge-base that fails (no origin/main) fails the step instead of
 # giving check an empty --base.
 CI_PYTEST = '''# Merge these steps into the project CI after installing FlowGuard.
+# This step runs the project's whole pytest suite with the FlowGuard plugin; it replaces an existing python -m pytest step. To keep that step, add python -m flowguard check --static instead.
 - uses: actions/checkout@v5
   with:
     fetch-depth: 0
@@ -3056,18 +3069,31 @@ def _stale_rules(cfg):
     return stale, unreadable
 
 
+def _sentinel_tree(path, text):
+    """`ast.dump` of a sentinel's text, its docstring included: init compares syntax trees, never bytes, so the file a
+    formatter rewrote is still the sentinel. A file that does not parse is a test of the project's own, which init
+    names and leaves alone."""
+    import ast
+    try:
+        return ast.dump(ast.parse(text))
+    except SyntaxError as error:
+        raise ValueError(f'{path}: an existing test needs merging with the intent sentinel; it does not parse: {error}') from error
+
+
 def init(cfg):
     pyproject = cfg.root / 'pyproject.toml'
     text = pyproject.read_text(encoding='utf-8') if pyproject.is_file() else ''
     if '[tool.flowguard]' not in text:
         text = text.rstrip() + '\n\n[tool.flowguard]\n'
     sentinel = cfg.root / 'tests/test_flowguard_intent.py'
-    if sentinel.exists() and sentinel.read_text(encoding='utf-8') != SENTINEL:
+    held = _sentinel_tree(sentinel, sentinel.read_text(encoding='utf-8')) if sentinel.exists() else None
+    if held is not None and held not in {_sentinel_tree(sentinel, known) for known in (SENTINEL, *EARLIER_SENTINELS)}:
         raise ValueError(f'{sentinel}: an existing test needs merging with the intent sentinel')
     pyproject.write_text(_register_plugin(cfg, sentinel.parent / 'conftest.py', text), encoding='utf-8')
     cfg.intent.mkdir(parents=True, exist_ok=True)
     sentinel.parent.mkdir(parents=True, exist_ok=True)
-    sentinel.write_text(SENTINEL, encoding='utf-8')
+    if held != _sentinel_tree(sentinel, SENTINEL):
+        sentinel.write_text(SENTINEL, encoding='utf-8')
     from .deps import npm_packages, static_only
     fragment = cfg.root / '.flowguard/ci.yml'
     fragment.parent.mkdir(parents=True, exist_ok=True)
@@ -3081,7 +3107,7 @@ def init(cfg):
     content, notes = _legacy_agents(content, rules, newline, bool(packages))
     content, held = _rules_rewritten(content, rules, newline)
     if not held:
-        content = content.rstrip() + newline + newline + rules
+        content = (content.rstrip() + newline + newline if content.strip() else '') + rules
     agents.write_bytes(bom + content.encode(encoding))
     notes += _legacy_instructions(content)
     claude = cfg.root / 'CLAUDE.md'         # a block there is rewritten too; init writes none into it

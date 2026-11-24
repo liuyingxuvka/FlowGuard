@@ -223,6 +223,7 @@ def test_init_is_idempotent_and_merges_existing_plugin_and_project_rules(tmp_pat
 
 
 PYTHON_CI = '''# Merge these steps into the project CI after installing FlowGuard.
+# This step runs the project's whole pytest suite with the FlowGuard plugin; it replaces an existing python -m pytest step. To keep that step, add python -m flowguard check --static instead.
 - uses: actions/checkout@v5
   with:
     fetch-depth: 0
@@ -285,6 +286,93 @@ def test_init_writes_a_ci_fragment_that_runs_the_checks_the_project_can_run(tmp_
     (web / 'tests').mkdir(exist_ok=True)
     (web / 'tests/test_limit.py').write_text('def test_limit():\n    assert True\n')
     assert cli.init(load_config(web)) == 0 and (web / '.flowguard/ci.yml').read_text() == PYTHON_CI
+
+
+# The sentinel FlowGuard 5.0.1 init wrote, and that file after `ruff format` (0.16.9) or `black` (26.5.1): both add two
+# blank lines after the docstring and one after the inner import (PEMEL Studio, 2026-11-23).
+SENTINEL_501 = '''"""Fail when declared FlowGuard intent was not collected."""
+def test_flowguard_intent(request):
+    from flowguard.intent.plugin import sentinel
+    sentinel(request.config)
+'''
+SENTINEL_FORMATTED = '''"""Fail when declared FlowGuard intent was not collected."""
+
+
+def test_flowguard_intent(request):
+    from flowguard.intent.plugin import sentinel
+
+    sentinel(request.config)
+'''
+RULE_7_501 = ("7. Store the owner's own words once with `python -m flowguard req add - --id R<n>`, never your own text, and "
+              "keep `.flowguard/rules.toml` current, each rule's source quoting those words.")
+
+
+@pytest.mark.parametrize('held', [SENTINEL_FORMATTED, SENTINEL_501, SENTINEL_FORMATTED.replace(
+    'sentinel(request.config)', 'sentinel(request.config)  # noqa: F401')], ids=['formatted', '5.0.1', 'comment'])
+def test_init_rewrites_a_5_0_1_rules_block_beside_a_sentinel_a_formatter_rewrote(tmp_path, capsys, held):
+    # PEMELPM-16: after `ruff format` of the sentinel, init stopped with `an existing test needs merging with the intent
+    # sentinel`, exit 2, and the 5.0.1 rules block the brief calls stale stayed. Syntax trees are compared, not bytes,
+    # and a sentinel whose tree is the current one is kept as the project formatted it.
+    root, cfg = project(tmp_path)
+    (root / 'tests/test_flowguard_intent.py').write_text(held, encoding='utf-8')
+    (root / 'AGENTS.md').write_text('# Project\n\n' + cli.PROJECT_RULES.replace(
+        next(line for line in cli.PROJECT_RULES.splitlines() if line.startswith('7. ')), RULE_7_501), encoding='utf-8')
+    assert cli._stale_rules(cfg) == (['AGENTS.md'], [])
+    assert cli.init(cfg) == 0, capsys.readouterr()
+    assert cli._stale_rules(cfg) == ([], [])
+    assert (root / 'AGENTS.md').read_text(encoding='utf-8') == '# Project\n\n' + cli.PROJECT_RULES
+    assert (root / 'tests/test_flowguard_intent.py').read_text(encoding='utf-8') == held
+    assert ast.dump(ast.parse(cli.SENTINEL)) == ast.dump(ast.parse(SENTINEL_FORMATTED)) and cli.SENTINEL == SENTINEL_FORMATTED
+
+
+@pytest.mark.parametrize('held', [
+    SENTINEL_FORMATTED + '\n\ndef test_more():\n    assert True\n',
+    SENTINEL_FORMATTED.replace('was not collected', 'was collected'),
+    SENTINEL_FORMATTED.replace('(request):', '(request:'),
+], ids=['extra code', 'other docstring', 'no parse'])
+def test_init_still_refuses_a_sentinel_with_other_code(tmp_path, capsys, held):
+    root, cfg = project(tmp_path)
+    (root / 'tests/test_flowguard_intent.py').write_text(held, encoding='utf-8')
+    with pytest.raises(ValueError, match='an existing test needs merging with the intent sentinel'):
+        cli.init(cfg)
+    assert (root / 'tests/test_flowguard_intent.py').read_text(encoding='utf-8') == held
+
+
+def test_init_in_an_empty_repository_starts_agents_md_with_the_block(tmp_path, capsys):
+    # PEMELPM-17: a new AGENTS.md began with two blank lines.
+    root = tmp_path / 'empty'
+    root.mkdir()
+    assert cli.init(load_config(root)) == 0
+    assert (root / 'AGENTS.md').read_text(encoding='utf-8') == cli.PROJECT_RULES
+    assert (root / 'tests/test_flowguard_intent.py').read_text(encoding='utf-8') == cli.SENTINEL
+
+
+def test_init_says_its_ci_step_replaces_the_projects_pytest_step(tmp_path, capsys):
+    # PEMELPM-15: merged as written beside the project's own pytest step, CI ran the suite twice.
+    root, cfg = project(tmp_path)
+    assert cli.init(cfg) == 0
+    fragment = (root / '.flowguard/ci.yml').read_text(encoding='utf-8')
+    assert ("# This step runs the project's whole pytest suite with the FlowGuard plugin; it replaces an existing "
+            "python -m pytest step. To keep that step, add python -m flowguard check --static instead.\n") in fragment
+    assert fragment.endswith('- run: python -m flowguard check --all --deep\n')
+
+
+def test_new_task_in_a_fresh_repository_leaves_git_status_empty(tmp_path, capsys):
+    # Found in the re-check of 5.0.1: new-task made .flowguard/cache through store.connect without its `*` .gitignore,
+    # so `git status --short` showed `?? .flowguard/`, again after the cache was deleted.
+    import shutil
+    from tests._pure_helpers import git
+    root = tmp_path / 'fresh'
+    root.mkdir()
+    (root / 'app.py').write_text('x = 1\n', encoding='utf-8')
+    git(root, 'init', '-q')
+    git(root, 'add', 'app.py')
+    git(root, 'commit', '-q', '-m', 'base')
+    for _ in range(2):
+        assert cli_fixture.main(['--root', str(root), 'new-task']) == 0
+        assert (root / '.flowguard/cache/.gitignore').read_text(encoding='utf-8') == '*\n'
+        assert git(root, 'status', '--short') == b''
+        shutil.rmtree(root / '.flowguard/cache')
 
 
 def test_a_virtual_environment_beside_package_json_holds_no_test_of_the_project(tmp_path):

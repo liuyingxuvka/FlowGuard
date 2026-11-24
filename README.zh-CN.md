@@ -22,6 +22,8 @@ python -m pytest
 
 `init` 接好项目测试，写入 FlowGuard 规则块并生成 CI 片段。`AGENTS.md` 或 `CLAUDE.md` 里的规则块与当前版本写的不同时，简报会指出；再运行一次 `init` 即可改写。Vitest 或 Jest 项目还会生成静态检查测试，说明哪个 npm 脚本会跑它；Vitest 会接上执行侧。接好以后，使用项目平时的测试命令。
 
+CI 片段的这一步带着 FlowGuard 插件跑项目的全部 pytest（`check --all --deep`），用来替换项目已有的 `python -m pytest` 步骤；要保留那一步，就改加 `python -m flowguard check --static`。被 black 或 ruff 重新排版的 sentinel 测试仍算 sentinel：`init` 比较语法树，不比较字节。
+
 `new-task` 记下任务起点。任务中途提交不会移动这个基准；没有基准时，第一次测试也会记下。没有意图规则时，检查输出：
 
 ```text
@@ -69,7 +71,7 @@ FlowGuard 5.0 删除了 4.2 的注释写法（`sensor NAME`、`owner NAME`、`ow
 
 `.flowguard/rules.toml` 存主人现行的规则，每条一行文字，出处逐字引用存下的原话或文档原句。`.flowguard/known.toml` 存还没定论的事和对待方式：`act = "ask"` 是只有主人能答的问题，`leave` 是有意留着不动的问题，`fix` 是改到相关代码时就修的明确错误，`ignore` 是结构检查的误报。`python -m flowguard known add FINDING --act leave --why TEXT` 按上一次运行报出的某个 finding 的位置写入一条（`show --last` 列出每个 finding 的名字）。同名而相似的函数是否必须分开保留（比如不能导入应用的构建脚本），由主人决定：copies 行会说明它们有多相似，并给出 `known add copies:NAME --act ignore --why TEXT`，它记下每一份副本的位置，并让这条发现不再计入简报的数目；`show --last` 另列每份副本的签名、调用者和两者第一处不同的行。`python -m flowguard show rules` 列出两者，`new-task` 的简报会列出其中靠前的几条；`show NAME` 和 `show PATH` 开头先列出与这个名字、文件或文件夹有关的条目、规则和 flowguard 注释约定。
 
-`.flowguard/ledger.toml` 记录能不抛出就结束的异常处理，注明数量、理由和依据的成文规则。`python -m flowguard ledger init` 记录已有处理，`python -m flowguard ledger check` 检查账本。不能登记的形式由发现行说明。
+`.flowguard/ledger.toml` 记录能不抛出就结束的异常处理，注明数量、理由和依据的成文规则。`python -m flowguard ledger init` 记录已有处理，`python -m flowguard ledger check` 检查账本。不能登记的形式由发现行说明。写明具体类型的 `contextlib.suppress(T)` 与 `except T: pass` 一样可以登记；宽泛处理的旧账条目审过后可以加 `reviewed = "为什么可以留"`，账本随后把它算作已审。
 
 可执行的双副本规则示例和上下文注释见[本地参考](./.agents/skills/flowguard/reference.md)。
 

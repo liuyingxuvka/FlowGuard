@@ -21,8 +21,8 @@ import zlib
 from array import array
 from pathlib import Path
 
-from flowguard.map.common import CACHE_TIMEOUT, DEFAULT_IGNORE, MapError, begin_write, content_digest, is_test_file, \
-    matches_any, read_source
+from flowguard.map.common import CACHE_RELDIR, CACHE_TIMEOUT, DEFAULT_IGNORE, MapError, begin_write, cache_dir, \
+    content_digest, is_test_file, matches_any, read_source
 from flowguard.map.discover import _injected_classes, _resolve, _resolve_injected, _scope_imports
 from flowguard.map.inventory import list_files
 from . import analysis as fgs
@@ -160,8 +160,12 @@ def connect(path: Path) -> sqlite3.Connection:
     """SQLite owns serialization and rollback; a failed cache read is never an empty map. A cache that holds the
     schema and its format row opens without a lock; only a new cache, or one an older FlowGuard made without a table,
     index or column of SCHEMA, takes the write lock to add them, so opening the cache never waits for another run's
-    build."""
-    path.parent.mkdir(parents=True, exist_ok=True)
+    build. A project's `.flowguard/cache` is made through `common.cache_dir`, so its `*` .gitignore is there from the
+    first command that opens the map (`new-task` included); any other folder is only made."""
+    if path.parent.parts[-2:] == CACHE_RELDIR.parts:
+        cache_dir(path.parent.parent.parent)
+    else:
+        path.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(path, timeout=CACHE_TIMEOUT)
     try:
         con.execute('PRAGMA journal_mode=DELETE')

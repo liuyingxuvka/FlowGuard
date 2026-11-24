@@ -22,6 +22,8 @@ python -m pytest
 
 `init` connects the project's tests, writes its FlowGuard rules block and adds a CI fragment. When the block in `AGENTS.md` or `CLAUDE.md` differs from the one this version writes, the brief says so; running `init` again rewrites it. For a Vitest or Jest project, it also writes a static check test and reports which npm script runs it; Vitest gets the execution adapter. Use the project's ordinary test command after setup.
 
+The CI fragment's step runs the project's whole pytest suite with the FlowGuard plugin (`check --all --deep`); it replaces an existing `python -m pytest` step. To keep that step, add `python -m flowguard check --static` instead. A sentinel test that black or ruff reformatted is still the sentinel: `init` compares syntax trees, not bytes.
+
 `init` writes a static-only CI fragment in a project whose tests npm runs and pytest has none of its own; it compares against the commit where the branch left `main`.
 
 `new-task` records the task's baseline commit. Commits during the task keep that baseline. A first test run records it too when none exists. Without intent rules, a check prints:
@@ -71,7 +73,7 @@ When the owner picks one of the options you offered, his pick is his original ch
 
 `.flowguard/rules.toml` keeps the owner's current rules, each one line of text with a source that quotes the stored words or a document sentence exactly. `.flowguard/known.toml` keeps what is not settled and how to treat it: `act = "ask"` for a question only the owner can answer, `leave` for a problem left as it is on purpose, `fix` for a plain error to fix when its code changes, `ignore` for a false structure finding. `python -m flowguard known add FINDING --act leave --why TEXT` writes an entry from the places of a finding the last run reported (`show --last` names each finding). Whether same-named functions that resemble each other must stay separate, as a build script that must not import the app, is the owner's decision: a copies line says how they resemble and names `known add copies:NAME --act ignore --why TEXT`, which records every copy's site and takes the finding out of the brief's count; `show --last` adds each copy's signature and callers and the first line where they differ. `python -m flowguard show rules` lists both, and the `new-task` brief shows the first of them; `show NAME` and `show PATH` begin with the entries, rules and flowguard comment agreements that concern that name, file or folder.
 
-`.flowguard/ledger.toml` records exception handlers that can finish without raising, with their count, reason and written rule. `python -m flowguard ledger init` records existing handlers; `python -m flowguard ledger check` checks the ledger. A finding names the forms that cannot be listed.
+`.flowguard/ledger.toml` records exception handlers that can finish without raising, with their count, reason and written rule. `python -m flowguard ledger init` records existing handlers; `python -m flowguard ledger check` checks the ledger. A finding names the forms that cannot be listed. `contextlib.suppress(T)` of named types is listed like `except T: pass`; a legacy entry of a broad handler that was reviewed may say so with `reviewed = "why it may stay"`, and the ledger then counts it as reviewed.
 
 The executable two-copy rule example and supported context annotations are in the [local reference](./.agents/skills/flowguard/reference.md).
 

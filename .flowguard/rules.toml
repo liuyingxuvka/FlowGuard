@@ -40,3 +40,11 @@ source = 'R105 "但实际上这也是人的原始选择，对不对？说实话�
 [rule.session-finish-error]
 text = "FlowGuard's own error at a pytest session's finish is one red line after pytest's own summary; the run still fails, and show --last keeps the whole traceback."
 source = 'R106 picked "A. 在这一个地方兜底：FlowGuard 自己出错时，项目的测试结果照常显示，后面加一行"FlowGuard 内部出错：……"，整次运行仍然算失败，不假装没事；详细报错另外能查。（推荐）"'
+
+[rule.reviewed-legacy-handler]
+text = "The ledger still refuses a new entry for a broad handler (except Exception/BaseException, a warning filter); a legacy entry of one may record that it was reviewed, and the ledger then counts it as reviewed instead of unreviewed."
+source = 'R106 picked "B. 还是不收这种写法，但允许把审过的旧条目标成"已审"，不再一直显示"未审查"。放松最少。（推荐）"'
+
+[rule.named-suppress]
+text = "The ledger lists contextlib.suppress of named, non-broad error types as it lists except T: pass; suppress of Exception or BaseException, or of no named type, stays refused."
+source = 'R106 picked "A. 第二种也收，只要写的是具体的错误类型；"什么错都接住"的写法照样不收。这是放宽，不影响已有的用法。WorldGuard 和 LogicWriting 这两个项目自己规定不许用第二种，它们的规定不变。（推荐）"'

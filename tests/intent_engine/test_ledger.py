@@ -320,6 +320,10 @@ def forms(work):
         work()
     with getattr(cl, 'suppress')(ValueError):
         work()
+    with cl.suppress(OSError, Exception):
+        work()
+    with quiet():
+        work()
     warnings.simplefilter('ignore')
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore')
@@ -354,7 +358,13 @@ class Closing:
 '''
 
 
+# The suppress forms that name their types, under each alias the map resolves: listed as `except T: pass` is (R106, 3A).
+NAMED_SUPPRESS = {'forms.py:forms:suppress(OSError)', 'forms.py:forms:suppress(KeyError)', 'forms.py:forms:suppress(ValueError)'}
+
+
 def test_every_refused_form_is_found_and_none_can_be_listed(tmp_path):
+    # 5.1 (R106, option 3A): a suppress that names its types and none of them broad is no refused form any longer; it
+    # was before. suppress of Exception and a suppress that names no type stay refused.
     write(tmp_path, 'forms.py', FORMS)
     cfg = load_config(tmp_path)
     with closing(build(tmp_path, workers=1)) as graph:
@@ -363,15 +373,23 @@ def test_every_refused_form_is_found_and_none_can_be_listed(tmp_path):
     assert {key: len(items) for key, items in found.items()} == {
         'forms.py:forms:BARE': 1, 'forms.py:forms:BaseException': 1, 'forms.py:forms:(OSError, Exception)': 1,
         'forms.py:forms:suppress(OSError)': 1, 'forms.py:forms:suppress(KeyError)': 1, 'forms.py:forms:suppress(ValueError)': 1,
+        'forms.py:forms:suppress(OSError, Exception)': 1, 'forms.py:forms:suppress()': 1,
         'forms.py:forms:warnings.simplefilter': 1, 'forms.py:forms:warnings.catch_warnings': 1,
         'forms.py:forms:warnings.filterwarnings': 1, 'forms.py:forms:finally exits': 1,
         'forms.py:<module>:pytest.mark.filterwarnings': 1, 'forms.py:test_quiet:finally exits': 1,
         'forms.py:Swallow.__exit__:may return true': 1, 'forms.py:Lambda:__exit__ may return true': 1}
-    assert all(items[0].refused and items[0].language == 'python' for items in found.values())
+    assert all(bool(items[0].refused) == (key not in NAMED_SUPPRESS) and items[0].language == 'python'
+               for key, items in found.items())
+    assert found['forms.py:forms:suppress(OSError, Exception)'][0].refused == (
+        'contextlib.suppress of Exception hides unrelated programming errors together')
+    assert found['forms.py:forms:suppress()'][0].refused == (
+        'contextlib.suppress names no error type, so what it swallows is not visible')
     write(tmp_path, ledger.LEDGER, ledger.HEADER + ''.join(entry(key) for key in found))
     write(tmp_path, 'AGENTS.md', RULE + '\n')
     result = evaluate(tmp_path)
-    assert len(result.red) == len(found) and all(text.startswith('Form cannot be registered: ') for text in texts(result))
+    assert len(result.red) == len(found) - len(NAMED_SUPPRESS)
+    assert all(text.startswith('Form cannot be registered: ') and not any(key in text for key in NAMED_SUPPRESS)
+               for text in texts(result))
 
 
 def test_ledger_init_also_covers_refused_forms_and_round_trips_its_toml(tmp_path):
@@ -379,9 +397,9 @@ def test_ledger_init_also_covers_refused_forms_and_round_trips_its_toml(tmp_path
     for text in ('tab\there "quoted" \\ back', 'delete\x7f and \x01', '中文：键'):
         assert tomllib.loads('key = ' + ledger._quote(text))['key'] == text
     report = init(tmp_path)
-    assert report[0].startswith('FlowGuard fallback ledger created: .flowguard/ledger.toml, 14 legacy entries, 14 handlers (14 forms cannot be newly registered)')
+    assert report[0].startswith('FlowGuard fallback ledger created: .flowguard/ledger.toml, 16 legacy entries, 16 handlers (13 forms cannot be newly registered)')
     data = tomllib.loads((tmp_path / ledger.LEDGER).read_text(encoding='utf-8'))
-    assert len(data) == 14 and all(value['rule'] == ledger.LEGACY_RULE for value in data.values())
+    assert len(data) == 16 and all(value['rule'] == ledger.LEGACY_RULE for value in data.values())
     assert json.loads((tmp_path / '.flowguard/cache' / ledger.INIT_RECORD).read_text(encoding='utf-8'))['legacy'] == {
         key: 1 for key in data}
     assert evaluate(tmp_path).red == []           # Outside Git the init record verifies the legacy entries.
@@ -945,3 +963,148 @@ export async function again() { try { await work(); } catch (error) { throw /* a
         rows = sorted((row['line'], row['ends'], row['non_raising'], row['hands_on'], row['reraise']) for row in graph.handlers())
     assert rows == [(1, 'handed', False, ['next'], False), (2, 'handed', False, ['next'], False),
                     (3, 'handed', False, ['next'], False), (4, 'handed', False, ['throw'], True)], rows
+
+
+# PEMEL Studio (2026-11-23): a Qt slot shows every error in a dialog, since an error that escapes it would leave the
+# event loop; a worker's top level logs what stopped it; a cleanup skips a staging file that is already gone.
+PEMEL_WINDOW = '''import logging
+
+log = logging.getLogger(__name__)
+
+
+class MainWindow:
+    def __init__(self, dialogs, export):
+        self.dialogs = dialogs
+        self.export = export
+
+    def on_export_clicked(self):
+        try:
+            self.export()
+        except Exception as error:
+            self.dialogs.critical("Export failed", str(error))
+
+
+def run_worker(task):
+    try:
+        task()
+    except BaseException:
+        log.exception("worker stopped")
+'''
+PEMEL_STAGING = '''import contextlib
+
+
+def cleanup_staging(path):
+    with contextlib.suppress(FileNotFoundError):
+        path.unlink()
+
+
+def cleanup_plain(path):
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
+'''
+POLICY = 'A Qt slot shows every error in a dialog, so that no error escapes the event loop.'
+SLOT = 'src/pemel/window.py:MainWindow.on_export_clicked:Exception'
+WORKER = 'src/pemel/window.py:run_worker:BaseException'
+REVIEW = 'a Qt slot: every export error is shown in a dialog, so none escapes the event loop'
+
+
+@pytest.fixture
+def pemel(tmp_path):
+    """A committed project whose ledger init recorded a Qt slot's `except Exception` and a worker's `except BaseException`."""
+    root = tmp_path / 'pemel'
+    write(root, 'src/pemel/__init__.py', '')
+    write(root, 'src/pemel/window.py', PEMEL_WINDOW)
+    write(root, 'POLICY.md', '# Policy\n\n' + POLICY + '\n')
+    write(root, 'pyproject.toml', '[tool.pytest.ini_options]\npythonpath = ["src"]\n')
+    git(root, 'init', '-q')
+    init(root)
+    git(root, 'add', '-A')
+    git(root, 'commit', '-qm', 'start the ledger')
+    return root
+
+
+def reviewed(root, key, review):
+    path = root / ledger.LEDGER
+    legacy = '\n'.join(ledger._entry_lines(key, 1, reason=ledger.LEGACY_REASON, rule=ledger.LEGACY_RULE))
+    text = path.read_text(encoding='utf-8')
+    assert legacy in text
+    path.write_text(text.replace(legacy, legacy + '\nreviewed = ' + ledger._quote(review)), encoding='utf-8')
+
+
+def test_a_reviewed_legacy_entry_of_a_qt_slot_is_counted_as_reviewed_and_its_form_stays_refused(pemel):
+    # PEMELPM-6 (R106, option 2B): a reviewed broad handler could only keep `Legacy, unreviewed`, since a reason and a
+    # rule made it red. A legacy entry now says it was reviewed; the form still cannot be newly listed.
+    cfg = load_config(pemel)
+    with closing(build(pemel, workers=1)) as graph:
+        assert [line.split(':')[0] for line in ledger.open_legacy(cfg, graph)[1:-1]] == ['   only logs']
+    reviewed(pemel, SLOT, REVIEW)
+    reviewed(pemel, WORKER, 'a worker thread logs what stopped it, and its task reports the failure to the window')
+    result = evaluate(pemel, head(pemel))
+    assert (result.red, result.legacy, result.reviewed) == ([], 2, 2)
+    assert ledger.summary(result) == ('FlowGuard fallback ledger: 2 entries (2 legacy, 2 of them reviewed), 2 code handlers; '
+                                      '0 red, 0 unverified')
+    with closing(build(pemel, workers=1)) as graph:
+        assert ledger.open_legacy(cfg, graph) == []            # a reviewed handler is no longer listed as unreviewed
+    checked = cli(pemel, 'ledger', 'check')
+    assert checked.returncode == 0 and checked.stdout.splitlines()[-1] == ledger.summary(result), checked.stdout
+    # It stays legacy: the count cannot grow, and a second catch-all in the slot is red.
+    write(pemel, 'src/pemel/window.py', PEMEL_WINDOW.replace('            self.dialogs.critical("Export failed", str(error))\n',
+          '            self.dialogs.critical("Export failed", str(error))\n        try:\n            self.export()\n'
+          '        except Exception:\n            return None\n'))
+    assert texts(evaluate(pemel, head(pemel)))[0].startswith('Form cannot be registered: src/pemel/window.py:14,18 except Exception')
+    write(pemel, 'src/pemel/window.py', PEMEL_WINDOW)
+    # A reason and a rule still cannot list the form; the step names the reviewed legacy entry ledger init allows.
+    path = pemel / ledger.LEDGER
+    text = path.read_text(encoding='utf-8')
+    slot = '\n'.join(ledger._entry_lines(SLOT, 1, reason=ledger.LEGACY_REASON, rule=ledger.LEGACY_RULE)) + '\nreviewed = ' + ledger._quote(REVIEW)
+    path.write_text(text.replace(slot, entry(SLOT, reason=REVIEW, rule=dict(file='POLICY.md', text=POLICY)).strip()), encoding='utf-8')
+    found = evaluate(pemel, head(pemel)).red
+    assert [finding.text for finding in found] == [
+        f'Form cannot be registered: src/pemel/window.py:14 except Exception ({SLOT}): catching Exception hides unrelated '
+        'programming errors together; a ledger entry cannot clear this failure']
+    assert found[0].fix == ('catch specific error types, or re-raise on every path; then remove this ledger entry',
+                            'or, since ledger init recorded it, keep rule = "旧账" and state the review in reviewed = "why it may stay"')
+    # reviewed belongs to a legacy entry only, and says why in at least eight words.
+    path.write_text(text.replace(slot, entry(SLOT, reason=REVIEW, rule=dict(file='POLICY.md', text=POLICY)).strip()
+                                 + '\nreviewed = ' + ledger._quote(REVIEW)), encoding='utf-8')
+    assert texts(evaluate(pemel, head(pemel))) == [
+        f'Fallback ledger entry "{SLOT}": reviewed belongs to a legacy entry (rule = "旧账"); the reason and rule of a listed entry are its review']
+    for review, problem in (('kept on purpose', 'reviewed has 3 words; at least 8 are required: state why this handler may stay'),
+                            (ledger.LEGACY_REASON, 'reviewed repeats a text FlowGuard wrote: state why this handler may stay')):
+        path.write_text(text.replace(slot, slot.replace(ledger._quote(REVIEW), ledger._quote(review))), encoding='utf-8')
+        assert texts(evaluate(pemel, head(pemel))) == [f'Fallback ledger entry "{SLOT}": {problem}']
+
+
+def test_a_named_suppress_is_listed_as_except_pass_is_and_a_broad_or_untyped_one_stays_refused(pemel):
+    # PEMELPM-7 (R106, option 3A): `with contextlib.suppress(FileNotFoundError)` was refused whatever it named, while
+    # the same handler written `except FileNotFoundError: pass` is listed.
+    write(pemel, 'src/pemel/staging.py', PEMEL_STAGING)
+    found = texts(evaluate(pemel, head(pemel)))
+    assert found == ['New unregistered fallback: src/pemel/staging.py:12 except FileNotFoundError can end without raising',
+                     'New unregistered fallback: src/pemel/staging.py:5 suppress(FileNotFoundError) can end without raising']
+    reason = 'removing a staging file that is already gone leaves nothing to clean up, so the call carries on'
+    rule = dict(file='POLICY.md', text=POLICY)
+    add_entry(pemel, entry('src/pemel/staging.py:cleanup_staging:suppress(FileNotFoundError)', reason=reason, rule=rule)
+              + entry('src/pemel/staging.py:cleanup_plain:FileNotFoundError', reason=reason, rule=rule))
+    assert texts(evaluate(pemel, head(pemel))) == []
+    checked = cli(pemel, 'ledger', 'check')
+    assert checked.returncode == 0 and checked.stdout.splitlines()[-1] == (
+        'FlowGuard fallback ledger: 4 entries (2 legacy), 4 code handlers; 0 red, 0 unverified'), checked.stdout
+    # The same count, reason and rule as an except entry: a second one in the function is red until the count says 2.
+    write(pemel, 'src/pemel/staging.py', PEMEL_STAGING.replace('        path.unlink()\n\n\ndef cleanup_plain',
+          '        path.unlink()\n    with contextlib.suppress(FileNotFoundError):\n        path.with_suffix(".tmp").unlink()\n\n\ndef cleanup_plain'))
+    assert texts(evaluate(pemel, head(pemel))) == [
+        'More fallbacks: src/pemel/staging.py:5,7 suppress(FileNotFoundError) now has 2 handlers; the ledger records 1']
+    # suppress of Exception, or of no named type, is refused as except Exception is.
+    for code, caught, refused in (('Exception', 'suppress(Exception)', 'contextlib.suppress of Exception hides unrelated programming errors together'),
+                                  ('OSError, BaseException', 'suppress(OSError, BaseException)', 'contextlib.suppress of BaseException hides unrelated programming errors together'),
+                                  ('*ERRORS', 'suppress(*ERRORS)', 'contextlib.suppress names no error type, so what it swallows is not visible')):
+        write(pemel, 'src/pemel/staging.py', PEMEL_STAGING.replace('suppress(FileNotFoundError)', f'suppress({code})'))
+        write(pemel, ledger.LEDGER, (pemel / ledger.LEDGER).read_text(encoding='utf-8').split('\n["src/pemel/staging.py')[0]
+              + entry(f'src/pemel/staging.py:cleanup_staging:{caught}', reason=reason, rule=rule)
+              + entry('src/pemel/staging.py:cleanup_plain:FileNotFoundError', reason=reason, rule=rule))
+        assert texts(evaluate(pemel, head(pemel))) == [
+            f'Form cannot be registered: src/pemel/staging.py:5 {caught} (src/pemel/staging.py:cleanup_staging:{caught}): '
+            f'{refused}; a ledger entry cannot clear this failure'], caught

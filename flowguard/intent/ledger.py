@@ -10,15 +10,21 @@ is red until it is listed, one fewer or a vanished key is red until the entry is
 what the handler does and why it may stay (at least eight words) and cites a written rule as a file and a
 sentence that file must contain; the sentence is checked on every run.
 
-Bare `except`, `except Exception`/`BaseException`, `contextlib.suppress`, warning filters, an exit from
-`finally` and an `__exit__` that may return true cannot be listed: they are red until the code changes. The one
+`contextlib.suppress(T, ...)` whose types are named and not broad is listed as `except T: pass` is, with the same key
+form (`file:function:suppress(T, ...)`), count, reason and rule (R106, option 3A). Bare `except`, `except
+Exception`/`BaseException`, a `contextlib.suppress` of `Exception`/`BaseException` or of no named type, warning
+filters, an exit from `finally` and an `__exit__` that may return true cannot be listed: they are red until the
+code changes. The one
 exception is the place the owner allowed by his pick of an offered option (`OWNER_ALLOWED`, R106): FlowGuard's own
 pytest session finish, whose `except Exception` reports FlowGuard's internal error after pytest's summary. Its entry
 is listed only while its rule quotes that choice's offered options (`.flowguard/requests/offers/R106.md`) with words of
 the option he picked, as `R106 picked "words"` holds (`sources.catalog_authority`).
 `ledger init` records the existing handlers as legacy (`rule = "旧账"`), which also covers those forms; a
 legacy entry can only shrink, never grow, compared with the ledger at the task's baseline commit and with
-the record `ledger init` kept. Deleting a ledger that the baseline commit still has is red as well.
+the record `ledger init` kept. Deleting a ledger that the baseline commit still has is red as well. A legacy entry
+whose handler was reviewed may say so with `reviewed = "why it may stay"` (at least eight words) beside its count
+(R106, option 2B): it stays legacy, its form stays one that cannot be newly listed, and the ledger counts it as
+reviewed instead of calling it unreviewed (`summary`, `open_legacy`).
 
 Other languages supply handler rows through their map reader with the same fields (`node`, `file`, `line`,
 `kind`, `type`, `non_raising`, and for `except`/`catch` rows `ends`: how the body ends); the language comes from
@@ -34,6 +40,7 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field
+from functools import cache
 import json
 import math
 from pathlib import Path
@@ -53,6 +60,7 @@ _OLD_PLACEHOLDER_REASON = '换成真实的理由：这处做了什么、为什�
 _OLD_PLACEHOLDER_RULE = ('成文规矩所在的文件', '该文件里必须出现的一句话')
 MIN_WORDS = 8
 FIELDS = {'count', 'reason', 'rule'}
+REVIEWED = 'reviewed'       # the optional field of a legacy entry whose handler was reviewed (R106, option 2B)
 # The sections beside the handler entries that FlowGuard 5.0 removed (4.3 announced both), each with what a project does
 # instead. A ledger that still has one gets one red input line for it (`Result.sections`, `section_removed`); what the
 # section holds is never read.
@@ -71,9 +79,10 @@ CJK = re.compile(r'[぀-ヿ㐀-䶿一-鿿豈-﫿가-힯]')
 HEADER = f"""# FlowGuard fallback ledger: each entry records a function's handler that can end without raising; keys are "file:function:caught type".
 # count is this function's number of handlers of this kind; reason states what they do and why they may remain (at least {MIN_WORDS} words);
 # rule points to a written rule: {{ file = "file", text = "an exact sentence that must occur in that file" }}; every test session checks that the sentence remains.
-# New handlers, changed counts, missing code or a missing rule sentence fail pytest. Entries with rule = "{LEGACY_RULE}" are recorded by ledger init and can only decrease.
-# Bare except, except Exception/BaseException, contextlib.suppress, warning filters, return/break/continue in finally,
-# and __exit__ methods that may return a truthy value cannot be newly registered: fix the code.
+# New handlers, changed counts, missing code or a missing rule sentence fail pytest. Entries with rule = "{LEGACY_RULE}" are recorded by ledger init and can only decrease;
+# after a review such an entry may add {REVIEWED} = "why it may stay" (at least {MIN_WORDS} words) and is then counted as reviewed.
+# contextlib.suppress(T) of named types is listed like except T: pass. Bare except, except Exception/BaseException, suppress of Exception/BaseException or of no type,
+# warning filters, return/break/continue in finally, and __exit__ methods that may return a truthy value cannot be newly registered: fix the code.
 """
 # A handler list a project already keeps as a test: string keys "path.py:function:caught" next to an AST
 # handler scan. Recognised by content, never by file name.
@@ -113,6 +122,7 @@ class Result:
     present: bool
     entries: int = 0
     legacy: int = 0
+    reviewed: int = 0   # the legacy entries whose `reviewed` says why their handler may stay
     fallbacks: int = 0
     red: list[Finding] = field(default_factory=list)
     grey: list[str] = field(default_factory=list)
@@ -152,14 +162,23 @@ def _python_refusal(kind, caught):
         if names & BROAD:
             return 'catching ' + ', '.join(sorted(names & BROAD)) + ' hides unrelated programming errors together'
         return ''
-    return {'suppress': 'contextlib.suppress silently swallows errors',
-            'warning_filter': 'a warning filter hides warnings',
+    if kind == 'suppress':
+        # `suppress(T, ...)` as the map reader writes it: listed as `except (T, ...): pass` is (R106, option 3A).
+        arguments = ast.parse(caught, mode='eval').body.args
+        names = {ast.unparse(item) for argument in arguments
+                 for item in (argument.elts if isinstance(argument, ast.Tuple) else [argument])}
+        if not arguments or any(isinstance(argument, ast.Starred) for argument in arguments):
+            return 'contextlib.suppress names no error type, so what it swallows is not visible'
+        if names & BROAD:
+            return 'contextlib.suppress of ' + ', '.join(sorted(names & BROAD)) + ' hides unrelated programming errors together'
+        return ''
+    return {'warning_filter': 'a warning filter hides warnings',
             'finally': 'return/break/continue in finally discards an active error',
             'exit_method': '__exit__ may return a truthy value and swallow errors from the with block'}[kind]
 
 
 FIXES = {'except': 'catch specific error types, or re-raise on every path',
-         'suppress': 'use try/except with specific error types and record the reason, or let the error propagate',
+         'suppress': 'name the specific error types it may swallow and record the reason, or let the error propagate',
          'warning_filter': 'remove the filter; use pytest.warns to assert warnings in tests',
          'finally': 'move return/break/continue outside finally',
          'exit_method': 'make __exit__ return None or False'}
@@ -189,7 +208,7 @@ def fallbacks(cfg, graph):
 
 
 def open_legacy(cfg, graph):
-    """The `--all` lines of legacy entries (rule = "旧账", never reviewed) in production code whose handlers do
+    """The `--all` lines of legacy entries (rule = "旧账" without `reviewed`) in production code whose handlers do
     not hand the error on, by how their bodies end (OPEN_ENDS): an entry counts once, by its most worrying
     handler. A ledger that does not parse lists nothing here; its red lines say why."""
     ledger = path(cfg)
@@ -204,7 +223,7 @@ def open_legacy(cfg, graph):
     groups = {}
     for key, entry in sorted(entries.items()):
         items = found.get(key, [])
-        if not entry.legacy or not items or items[0].file in tests or graph.archived(items[0].file):
+        if not entry.legacy or entry.reviewed or not items or items[0].file in tests or graph.archived(items[0].file):
             continue
         ends = [item.ends for item in items if item.ends in OPEN_ENDS]
         if ends:
@@ -234,6 +253,7 @@ class Entry:
     count: int
     reason: str
     rule: object        # LEGACY_RULE or (file, text)
+    reviewed: str = ''  # a legacy entry's review: why it may stay (REVIEWED); '' when it was not reviewed
 
     @property
     def legacy(self):
@@ -256,7 +276,7 @@ def parse(text):
             red.append(Finding(f"""Fallback ledger item {_quote(key)} is not an entry: the key must be "file:function:caught type" and the value a table""",
                                ('remove it, or write count, reason and rule below ["file:function:caught type"]',)))
             continue
-        problems = [f"""unknown field {name}""" for name in sorted(set(value) - FIELDS)]
+        problems = [f"""unknown field {name}""" for name in sorted(set(value) - FIELDS - {REVIEWED})]
         problems += [f"""missing {name}""" for name in sorted(FIELDS - set(value))]
         count, reason, rule = value.get('count'), value.get('reason'), value.get('rule')
         if 'count' in value and (type(count) is not int or count < 1):
@@ -276,12 +296,22 @@ def parse(text):
                 problems.append('rule must be { file = "file", text = "an exact sentence that must occur in that file" }')
             else:
                 rule = (rule['file'], rule['text'])
+        reviewed = value.get(REVIEWED, '')
+        if REVIEWED in value:
+            if rule != LEGACY_RULE:
+                problems.append(f'{REVIEWED} belongs to a legacy entry (rule = "{LEGACY_RULE}"); the reason and rule of a listed entry are its review')
+            elif not isinstance(reviewed, str):
+                problems.append(f'{REVIEWED} must be a string')
+            elif reviewed.strip() in (LEGACY_REASON, PLACEHOLDER_REASON, _OLD_PLACEHOLDER_REASON):
+                problems.append(f'{REVIEWED} repeats a text FlowGuard wrote: state why this handler may stay')
+            elif words(reviewed) < MIN_WORDS:
+                problems.append(f"""{REVIEWED} has {words(reviewed)} words; at least {MIN_WORDS} are required: state why this handler may stay""")
         if problems:
             red.append(Finding(f"""Fallback ledger entry {_quote(key)}: """ + '; '.join(problems),
                                ('correct this entry following the instructions at the start of ledger.toml',)))
             malformed.add(key)
             continue
-        entries[key] = Entry(key, count, reason, rule)
+        entries[key] = Entry(key, count, reason, rule, reviewed)
     return entries, red, malformed, sorted(sections)
 
 
@@ -390,7 +420,7 @@ def evaluate(cfg, graph, *, baseline=None) -> Result:
         return absent(cfg, baseline)
     entries, red, malformed, sections = parse(ledger.read_text(encoding='utf-8-sig'))
     result = Result(present=True, entries=len(entries), legacy=sum(entry.legacy for entry in entries.values()),
-                    red=red, sections=sections)
+                    reviewed=sum(bool(entry.reviewed) for entry in entries.values()), red=red, sections=sections)
     if malformed is None:
         return result                       # An unreadable ledger is compared with nothing until it is corrected.
     found, unread = fallbacks(cfg, graph)
@@ -399,6 +429,9 @@ def evaluate(cfg, graph, *, baseline=None) -> Result:
     legacy = [entry for entry in entries.values() if entry.legacy]
     notes = []
     reference = _legacy_reference(cfg, baseline, notes) if legacy else {}
+    # What ledger init recorded, read for a listed entry of a form that cannot be listed only (its step names the
+    # legacy route when init recorded the handler).
+    recorded = cache(lambda: (reference if legacy else _legacy_reference(cfg, baseline, [])) or {})
     if reference is None:
         result.grey.append(f"""{len(legacy)} legacy entries are unverified: the baseline contains neither a ledger nor a ledger init record"""
                            + ''.join('; ' + note for note in notes))
@@ -431,7 +464,10 @@ def evaluate(cfg, graph, *, baseline=None) -> Result:
                 red += f'; the owner allowed this handler (OWNER_ALLOWED), but {allowed}'
             elif entry and not entry.legacy:
                 red += '; a ledger entry cannot clear this failure'
-            result.red.append(Finding(red, (FIXES[first.kind] + ('; then remove this ledger entry' if entry else ''),)))
+            fix = [FIXES[first.kind] + ('; then remove this ledger entry' if entry else '')]
+            if entry and not entry.legacy and len(items) <= recorded().get(key, 0):
+                fix.append(f'or, since ledger init recorded it, keep rule = "{LEGACY_RULE}" and state the review in {REVIEWED} = "why it may stay"')
+            result.red.append(Finding(red, tuple(fix)))
             continue
         if entry and not entry.legacy:
             problem = _sentence_problem(cfg, entry.rule, texts)
@@ -474,7 +510,9 @@ def lines(result) -> list[str]:
 
 
 def summary(result) -> str:
-    return (f"""FlowGuard fallback ledger: {result.entries} entries ({result.legacy} legacy), {result.fallbacks} code handlers; {len(result.red) + len(result.sections)} red, {len(result.grey)} unverified""")
+    """The ledger's count line; `N of them reviewed` once a legacy entry says it was reviewed (`reviewed`)."""
+    reviewed = f', {result.reviewed} of them reviewed' if result.reviewed else ''
+    return (f"""FlowGuard fallback ledger: {result.entries} entries ({result.legacy} legacy{reviewed}), {result.fallbacks} code handlers; {len(result.red) + len(result.sections)} red, {len(result.grey)} unverified""")
 
 
 def own_list_tests(cfg, graph):

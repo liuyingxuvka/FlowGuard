@@ -1466,17 +1466,18 @@ def test_the_repository_keeps_its_rules_in_force_each_quoting_stored_owner_words
     found = sources.catalog(cfg)
     assert found.issues == [] and list(found.rules) == ['regression-role', 'current-rules', 'efficient-use', 'english-skill',
                                                         'chinese-conversation', 'no-harm', 'report-open-matters',
-                                                        'upgrade-consent', 'offered-choice', 'session-finish-error']
+                                                        'upgrade-consent', 'offered-choice', 'session-finish-error',
+                                                        'reviewed-legacy-handler', 'named-suppress']
     assert [found.rules[name].source.partition(' ')[0] for name in found.rules] == ['R68', 'R80', 'R75', 'R74', 'R58', 'R85',
-                                                                                     'R95', 'R95', 'R105', 'R106']
+                                                                                     'R95', 'R95', 'R105', 'R106', 'R106', 'R106']
     for rule in found.rules.values():
         assert rule.text.isascii() and sources.catalog_authority(sources.parse(rule.source, strict=True), cfg, None)[0], rule
     assert cli.show(cfg, 'rules') == 0
     lines = capsys.readouterr().out.splitlines()
-    assert lines[0] == 'FlowGuard rules: 10 in .flowguard/rules.toml, 0 known in .flowguard/known.toml, 0 input problems'
+    assert lines[0] == 'FlowGuard rules: 12 in .flowguard/rules.toml, 0 known in .flowguard/known.toml, 0 input problems'
     # the owner's pick of an option the agent offered holds as his pick, never as his words (R105)
-    assert sum(line.startswith('rule.') for line in lines) == 10 and sum(line.endswith('(holds)') for line in lines) == 9
-    assert sum(line.endswith("(holds: the agent's option, the owner's pick)") for line in lines) == 1, lines
+    assert sum(line.startswith('rule.') for line in lines) == 12 and sum(line.endswith('(holds)') for line in lines) == 9
+    assert sum(line.endswith("(holds: the agent's option, the owner's pick)") for line in lines) == 3, lines
 
 
 FEES = {
