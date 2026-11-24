@@ -10,6 +10,16 @@
 
 验收应同时观察速度及结果。热运行命中时减少准备时间。只改共同依赖也必须能复现已有红项。工作区有未提交改动、换基线或换工具版本时，测到正确失效。提速前后用一组本来会报红的用例核对结果。
 
+### v5.1.0 静态检查在构建本地缓存时中止
+
+使用已核对的官方 FlowGuard v5.1.0（修订 `bcc57bd00d38`），在应用提交 `d15a541826b3` 运行 `python -m flowguard check --static --base d15a541826b3748e6b6c65978fa1af62b6cfd01e`。`flowguard-v5.1.0-planning-static.log` 输出 `SQLite cache build failed: too many SQL variables; no partial build was accepted`，本次静态检查未完成。此前 G82 对应代码的后端完整运行在 v5.0.1 下通过 6,388 例，FlowGuard 报 `0 red`。两份结果分别记录各自的运行范围。
+
+`flowguard-v5.1.0-cache-trace.log` 定位到 `flowguard/structure/store.py:719` 的 `_build`，它把整个 `list(snapshot)` 绑定到一次 `SELECT src, dst, kind FROM edge WHERE dst IN (...)`。旧版源码也有这条查询。升级改变工具摘要，原缓存的文件都进入重新解析范围，因而触发了该查询。旧版缓存文件约 617 MiB，已单独保留。本次只读核对在随附的 Python 二进制中看到 `MAX_VARIABLE_NUMBER=32766`，没有打开 SQLite 会话测量实际连接上限。
+
+旧缓存保留在工作目录外。同一应用提交与官方 v5.1.0 使用空缓存重新运行后，`flowguard-v5.1.0-fresh-cache-static.log` 记录退出 0、`0 red; 59.1 s`。随后在不变的 HEAD 执行 `new-task`，`flowguard-v5.1.0-restored-baseline.log` 确认基线仍为 `d15a541826b3`。
+
+复现可固定同一应用提交，分别使用空缓存和已有 v5.0.1 缓存，保持 `backend/.env` 不存在并清除 `DATABASE_URL`、`CENTRAL_DATABASE_URL`。一种可验证的修复是按 SQLite 连接的实际绑定上限分批查询，合并结果并保留原有去重和事务语义。诊断可显示失败阶段和绑定参数数量，继续拒绝不完整缓存。回归应同时覆盖空缓存、超过上限的旧缓存重建，以及未超过上限的增量刷新，并核对完成后的检查结果一致。
+
 ## 让两个包的验证可以独立运行
 
 此前同时运行前后端检查，遇到一次缓存锁竞争，未取得测试结果。当前做法是串行。这避免了此次冲突，多个包每组必须等两套检查累加。另有多个代理共享同一工作区，所有检查也集中交给一个代理，以避免混用最后一次运行结果。
