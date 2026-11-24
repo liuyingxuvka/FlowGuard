@@ -43,7 +43,7 @@ WINDOW.rows(row(days=4, expect=False, why="the fourth day was incorrectly accept
 Run `python -m flowguard init`, then `python -m pytest`. Change only the preview to allow four days: with a test that calls both functions, its real answer disagrees with the independent rule and the other registered copy, and the run ends with:
 
 ```text
-FlowGuard 5.0 (since 6765008): 2 red; 0.4 s
+FlowGuard 5.1 (since 6765008): 2 red; 0.4 s
 red: rule WINDOW: days=4: rule False, code True at orders.py:preview_accept (1 of 6 cells disagree) (+1 more) -> change the code so orders.py:preview_accept follows rule WINDOW
 red: same ACCEPT: on days=4: the reference orders.py:accept returns False, orders.py:preview_accept returns True -> make orders.py:preview_accept agree with the reference
 ```

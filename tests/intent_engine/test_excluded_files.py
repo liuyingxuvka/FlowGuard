@@ -99,7 +99,7 @@ def test_an_excluded_catalogue_edited_after_new_task_is_never_read(tmp_path):
     text = display_text(result)
     assert result.returncode == 0, text
     assert '1 passed' in text and 'Traceback' not in text and 'reader unavailable' not in text, text
-    assert 'FlowGuard 5.0 (since ' in text and ': 0 red;' in text, text
+    assert f'FlowGuard {signals.version()} (since ' in text and ': 0 red;' in text, text
     static = _flowguard(root, 'check', '--static')
     assert static.returncode == 0, static.stdout + static.stderr
     assert 'reader unavailable' not in static.stdout + static.stderr
@@ -145,7 +145,7 @@ def test_an_included_file_whose_reader_is_absent_is_one_red_line_after_pytests_s
     text = display_text(result)
     assert result.returncode == 1, text
     assert '1 passed' in text and 'Traceback' not in text and 'INTERNALERROR' not in text, text
-    assert 'FlowGuard 5.0 (since ' in text and ': 1 red;' in text, text
+    assert f'FlowGuard {signals.version()} (since ' in text and ': 1 red;' in text, text
     reds = [line for line in text.splitlines() if line.startswith('red: ')]
     assert reds == [f'red: map checks: a.ts: typescript reader unavailable: missing tree-sitter -> {STEP}'], text
     assert text.index('1 passed') < text.index('red: map checks')       # the block comes after pytest's summary
@@ -362,7 +362,7 @@ def _repaired_baseline(tmp_path, broken, words):
     assert result.returncode == 0, text
     shown = text.splitlines()
     assert '1 passed' in text and 'Traceback' not in text and not [line for line in shown if line.startswith('red: ')], text
-    assert f'FlowGuard 5.0 (since {sha}): 0 red, 1 loosened, 1 not compared;' in text, text
+    assert f'FlowGuard {signals.version()} (since {sha}): 0 red, 1 loosened, 1 not compared;' in text, text
     said = [line for line in shown if line.startswith('not compared: ')]
     assert loosened in shown and len(said) == 1 and said[0].startswith(subject), text
     last = _flowguard(root, 'show', '--last').stdout.splitlines()
@@ -370,7 +370,7 @@ def _repaired_baseline(tmp_path, broken, words):
     static = _flowguard(root, 'check', '--static')
     shown = display_text(static).splitlines()
     assert static.returncode == 0 and static.stderr == '', static.stdout + static.stderr
-    assert shown[0].startswith(f'FlowGuard 5.0 (since {sha}): 0 red, 1 loosened, 1 not compared;'), shown
+    assert shown[0].startswith(f'FlowGuard {signals.version()} (since {sha}): 0 red, 1 loosened, 1 not compared;'), shown
     assert loosened in shown and shown[-1] == said[0], shown
     return sha, said[0]
 
@@ -437,7 +437,7 @@ def test_a_wrong_baseline_key_that_exclude_s_reader_does_not_read_keeps_the_exac
         shown = display_text(run).splitlines()
         assert run.returncode == 0 and 'Traceback' not in run.stdout + run.stderr, run.stdout + run.stderr
         title = next(line for line in shown if line.startswith('FlowGuard '))
-        assert title.startswith(f'FlowGuard 5.0 (since {sha}): 0 red, 1 loosened;') and loosened in shown, shown
+        assert title.startswith(f'FlowGuard {signals.version()} (since {sha}): 0 red, 1 loosened;') and loosened in shown, shown
         assert not [line for line in shown if line.startswith(('red: ', 'not compared: '))], shown
 
 

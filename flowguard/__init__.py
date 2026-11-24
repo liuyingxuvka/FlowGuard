@@ -1,3 +1,3 @@
 """One decision, one owner; bind the necessary copies to executable intent."""
 
-__version__ = "5.0.1"
+__version__ = "5.1.0"

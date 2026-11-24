@@ -29,7 +29,7 @@ The CI fragment's step runs the project's whole pytest suite with the FlowGuard 
 `new-task` records the task's baseline commit. Commits during the task keep that baseline. A first test run records it too when none exists. Without intent rules, a check prints:
 
 ```text
-FlowGuard 5.0 (since 99f025e): 0 red; 0.2 s
+FlowGuard 5.1 (since 99f025e): 0 red; 0.2 s
 ```
 
 ## Daily use

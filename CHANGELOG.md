@@ -1,6 +1,6 @@
 # Changelog
 
-## v5.1.0 - 2026-11-23 - Field feedback on 5.0.1: the owner's pick among offered options
+## v5.1.0 - 2026-11-24 - Field feedback on 5.0.1: the owner's pick among offered options
 
 A minor release: backward-compatible features and corrections within the 5.0 contract, answering what the agents maintaining Planning Tool (a TypeScript full-stack app) and PEMEL Studio (a Python desktop app) reported on 5.0.1 (R105). Every 5.0.1 saved input keeps its bytes and meaning, and old material needs no migration. `req add` now refuses owner bytes that are no UTF-8 text, or UTF-16 text with its byte order mark, a correction within the contract: only new storage is refused, because no quote can be compared with such bytes. A record 5.0.1 stored so keeps its bytes and is read as before: a source that reads none of its undecodable bytes, such as `owner R1` without a quote, still holds, and each source quoting it names the route to store his original message again. The owner-word archive gains a record kind, `choice`, with its own files and sidecar fields, and sources gain a form, `R<n> picked "words"`; FlowGuard 5.0.x reads a choice's sidecar as invalid (`invalid request sidecar fields`, with its restore advice), so a project requires 5.1 before it stores one. A request stored by 5.0.1 (`R74 "words"` and its sidecar) loads, lists, shows and holds as before; `R104 picked "..."` on such a plain request is refused with its step.
 
