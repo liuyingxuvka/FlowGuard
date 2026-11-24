@@ -885,6 +885,11 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
+["flowguard/structure/roots.py:config_roots:UnreadableConfig"]
+count = 1
+reason = "A pyproject.toml whose packaging or pytest tables FlowGuard cannot read (a cookiecutter template, a test fixture, a conflict marker) declares no import roots to FlowGuard; its package root stays, as for an empty file. The project's own tools judge that file, and the project's [tool.flowguard] table is still refused by load_config with the file named."
+rule = { file = ".flowguard/requests/R85.md", text = "咱们得保证 FlowGuard 不会影响已有软件自身的功能" }
+
 ["flowguard/structure/roots.py:config_roots:(OSError, configparser.Error)"]
 count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"

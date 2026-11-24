@@ -51,9 +51,10 @@ def config_roots(root: Path, files: list[str]) -> list[tuple[str, str]]:
     """Roots that configuration files declare: [(directory, how)]. `[tool.flowguard] roots` is read as every reader
     of [tool.flowguard] reads it (`store.project_config`, which judges only that key): an array of strings, or
     UnreadableConfig with the file's text; the packaging and pytest tables of each pyproject.toml, the project's own
-    and each package's below it, are read after it by the same reader (`_tool`), which refuses one it cannot read
-    with that file's text too."""
-    from .store import project_config
+    and each package's below it, are read after it by the same reader (`_tool`); one it cannot read declares no roots
+    (its package root stays, as for an empty file), since FlowGuard must not stop the project's tests over a file the
+    project's own tools judge (R85)."""
+    from .store import UnreadableConfig, project_config
     out = []
     flowguard = project_config(root, keys=("roots",)) if "pyproject.toml" in files else {}
     for value in flowguard.get("roots", []):
@@ -65,7 +66,13 @@ def config_roots(root: Path, files: list[str]) -> list[tuple[str, str]]:
             continue
         base = posixpath.dirname(rel)
         if name == "pyproject.toml":
-            tool = _tool(root, rel)
+            try:
+                tool = _tool(root, rel)
+            except UnreadableConfig:
+                # a pyproject.toml whose packaging or pytest tables FlowGuard cannot read (a template, a fixture, a
+                # conflict marker) declares no import roots to FlowGuard, as an unreadable setup.cfg below does: the
+                # project's own tools judge that file, and FlowGuard must not stop its tests over it (R85)
+                tool = {}
             where = tool.get("setuptools", {}).get("packages", {})
             where = where.get("find", {}).get("where", []) if isinstance(where, dict) else []
             dirs = list(where) + list(tool.get("setuptools", {}).get("package-dir", {}).values())

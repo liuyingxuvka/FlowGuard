@@ -149,7 +149,7 @@ def test_the_maps_import_roots_read_tool_flowguard_through_its_one_reader(tmp_pa
     assert roots.config_roots(tmp_path, ['pkg/pyproject.toml']) == [('pkg/src', 'pkg/pyproject.toml (package directory src)')]
 
 
-def test_a_packages_own_pyproject_is_read_by_the_same_reader_and_refused_naming_it(tmp_path):
+def test_a_packages_own_pyproject_is_read_by_the_same_reader_and_one_it_cannot_read_declares_no_roots(tmp_path):
     # Review of 5.1 (FD4 nit 0, R85): roots._toml read a package's own pyproject.toml with its own tomllib and `.get`
     # chains, catching only OSError and TOMLDecodeError: Latin-1 bytes escaped as a bare UnicodeDecodeError naming no
     # file, `[tool] setuptools = "x"` as `AttributeError: 'str' object has no attribute 'get'`, and a file that did not
@@ -178,7 +178,12 @@ def test_a_packages_own_pyproject_is_read_by_the_same_reader_and_refused_naming_
              r'^pkg/pyproject\.toml: tool\.pytest\.ini_options\.pythonpath is an integer \(not a string or an array\)$')):
         package.write_bytes(raw)
         with pytest.raises(UnreadableConfig, match=words):
-            roots.config_roots(tmp_path, ['pkg/pyproject.toml'])
+            roots._tool(tmp_path, 'pkg/pyproject.toml')
+        # Review of 5.1 (FX): refusing it stopped every route of a project holding such a file below its root (a
+        # cookiecutter template's pyproject.toml with Jinja lines: check, show and vitest's preparation exit 2, so the
+        # project's own vitest tests did not run, R85). Such a file declares no roots; its package root stays, as for
+        # an empty file.
+        assert roots.config_roots(tmp_path, ['pkg/pyproject.toml']) == [('pkg', 'pkg/pyproject.toml (package root)')], raw
     # what each reads of its type gives its roots as before; a value config_roots does not read is not judged
     for raw, found in (
             (b'[tool.setuptools]\npackages = ["pkg"]\npackage-dir = {"" = "lib"}\n', [('pkg/lib', 'pkg/pyproject.toml (package directory lib)')]),
