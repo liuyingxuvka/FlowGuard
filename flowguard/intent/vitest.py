@@ -727,54 +727,70 @@ def prepare(root, package=None):
     map checks in its block (design 4.7), and a run without a baseline commit (outside Git, before the first commit, a
     recorded task start this repository lacks) compares its same-name copies as pytest does and says in its title
     that nothing was compared with a baseline (D13). A run that is on notes its start in its package's slot of the last
-    runs (`cache.stamp_start`), which its report replaces. vitest shows a successful preparation's stderr nowhere, so
-    the waits of this preparation for the map cache's write lock that passed CACHE_NOTICE (`LOCK_WAITS`, whose
-    stderr line `check --static` and pytest show) are kept in that note, the note's own wait among them, and the
-    report's first line says them: one plan serves every package's run of this change, but only this package's runs
-    write its slot, under the cache's write lock, so of two packages that both waited each says its own wait and one
-    that did not wait says none."""
+    runs (`cache.stamp_start`), which its report replaces; the note names the plan its report reads, which no later
+    preparation removes while the note stands (`cache.keep_last(plan=)`): one plan serves every package's run of
+    this change, and a preparation of another package or of another state of the change removes only plans no run
+    that has not reported reads. vitest shows a successful preparation's stderr nowhere, so the waits of this
+    preparation for the map cache's write lock that passed CACHE_NOTICE (`LOCK_WAITS`, whose stderr line `check
+    --static` and pytest show) are kept in that note, the note's own wait among them, and the report's first line says
+    them: only this package's runs write its slot, under the cache's write lock, so of two packages that both waited
+    each says its own wait and one that did not wait says none."""
     from . import cache
     from .config import load_config
-    from ..map.common import LOCK_WAITS, atomic_write_text, git_common_directory, git_run
+    from ..map.common import LOCK_WAITS, atomic_write_text
     started = time.perf_counter()
     since = len(LOCK_WAITS)             # this run's waits for the cache's write lock are those after these
     cfg = load_config(root)
-    commit = label = kind = None        # the commit compared with, the commit the title names, and its kind
-    if git_common_directory(cfg.root) is not None:
-        # vitest records no baseline: before the first `check --static` (or pytest, or the brief) of a task, HEAD
-        # stands in, and the title says so.
-        label, kind = cache.task_baseline(cfg)
-        if kind != 'missing':
-            found = git_run(cfg.root, 'rev-parse', '-q', '--verify', (label or 'HEAD') + '^{commit}', allowed=(0, 1))
-            commit = label = None if found.returncode else found.stdout.decode().strip()
+    commit, label, kind = _baseline(cfg)
     changed = _changed(cfg, commit) if commit else []
     # Same-name functions are always planned, including runs without a source change.
     key = _key(cfg, commit or label or '', changed, kind or 'none')
     path = cfg.cache / 'vitest' / f'plan-{key}.json'
     # Without a baseline commit no diff names the files a plan has read, so such a plan is made again on every run.
-    if commit is None or not path.is_file():
+    data = _held_plan(path) if commit is not None else None
+    if data is None:
         data = plan(cfg, commit, changed, key)
         data.update(baseline=label, baseline_kind=kind)
         path.parent.mkdir(parents=True, exist_ok=True)
-        for old in path.parent.glob('plan-*.json'):
-            # one current plan; an older one belongs to another change, and another package's preparation of this
-            # change may have removed it first or written this one, which its run reads
-            if old != path:
-                old.unlink(missing_ok=True)
-    else:
-        data = json.loads(path.read_text(encoding='utf-8'))
     on = bool(data['files'] or data['unplanned'] or commit is None or _wired(cfg, package))
     scope = cache.vitest_scope(cfg, package)
-    if on:
-        # The run's report replaces this note; one that never reports (killed, timed out) leaves it, and show --last
-        # says so above the package's earlier lines, never the static test's lines as a finished check.
-        cache.keep_last(cfg, started=(scope, time.time(), 'vitest', since))
+    # The run's report replaces its start note; one that never reports (killed, timed out) leaves it, and show --last
+    # says so above the package's earlier lines, never the static test's lines as a finished check. The note names
+    # this plan, and the same write removes each other plan that no start note names: one that belongs to another
+    # change or state, or to a run that reported; never the plan another package's running report reads.
+    cache.keep_last(cfg, started=(scope, time.time(), 'vitest', since) if on else None, plan=path)
     data['prepare_seconds'] = time.perf_counter() - started
     atomic_write_text(path, json.dumps(data, ensure_ascii=False))
     if not on:
         return dict(status='off', reason='no functions to observe in this change (anchors or changed module-level functions)',
                     seconds=data['prepare_seconds'])
     return dict(status='on', plan=path.as_posix(), adapter=(ADAPTER / 'index.mjs').as_posix(), seconds=data['prepare_seconds'])
+
+
+def _baseline(cfg):
+    """(the commit a vitest run compares with, the commit its title names, and its kind; each None outside Git):
+    vitest records no baseline, so before the first `check --static` (or pytest, or the brief) of a task HEAD stands
+    in, and the title says so (`cache.task_baseline`); a recorded task start this repository lacks is no commit."""
+    from . import cache
+    from ..map.common import git_common_directory, git_run
+    if git_common_directory(cfg.root) is None:
+        return None, None, None
+    label, kind = cache.task_baseline(cfg)
+    if kind == 'missing':
+        return None, label, kind
+    found = git_run(cfg.root, 'rev-parse', '-q', '--verify', (label or 'HEAD') + '^{commit}', allowed=(0, 1))
+    commit = None if found.returncode else found.stdout.decode().strip()
+    return commit, commit, kind
+
+
+def _held_plan(path):
+    """The plan at `path` as JSON, or None when there is none: not made yet, or removed after its preparation (by
+    hand, or by a later preparation once no start note named it, `cache.keep_last(plan=)`), where a preparation makes
+    it and a report says that it is gone."""
+    try:
+        return json.loads(path.read_text(encoding='utf-8'))
+    except FileNotFoundError:
+        return None
 
 
 # ---- init: wire the plugin into the vitest config ---------------------------------------------------
@@ -1502,6 +1518,7 @@ def delivered(result):
 
 
 SESSION = 'report.json'           # in the observations folder: what the session test judged, for the teardown
+PLAN_GONE = "the calls this vitest run recorded"    # not compared when the run's plan is gone (`report`)
 STATIC = 'static.json'            # in the observations folder: the map checks of flowguard.static.test.mjs (signals.last_run)
 STATIC_TEST = 'flowguard.static.test.mjs'       # the static test init writes next to a vitest package.json
 
@@ -1551,7 +1568,9 @@ def report(root, plan_path, observations, package=None, *, in_test=False):
     own: the preparation, the recording, this report and the static test's map checks. `in_test` is the session test
     (session.test.mjs, run after the project's tests): it keeps the observations and saves the block, its status and the
     number of its reds the static test did not already fail on, for the session test and the teardown, which prints the
-    block after vitest's summary instead of judging again."""
+    block after vitest's summary instead of judging again. A plan removed after the preparation (`_held_plan`) leaves
+    this run's calls unjudged: one not compared line says so (PLAN_GONE), beside the map checks of the static test, and
+    the run is as without FlowGuard (R85)."""
     import os
     from . import cache, signals
     from .config import load_config
@@ -1559,14 +1578,20 @@ def report(root, plan_path, observations, package=None, *, in_test=False):
     from ..map.common import git_files, waited_note
     started = time.perf_counter()
     cfg = load_config(root)
-    data = json.loads(Path(plan_path).read_text(encoding='utf-8'))
+    data = _held_plan(Path(plan_path))
     records = _observations(observations)
     recorded = sum(record.get('record_seconds', 0) for record in records)
     static = static_lines(observations)
     # copies the map checks of this run name as taking different parameters: their line is the one red of the group
     named = {line.name.partition(':')[2] for line in static['lines']
              if line.name.startswith('same:') and line.function == signals.PARAMETERS} if static else frozenset()
-    result = judge(cfg, data, [record for record in records if 'id' in record], package, named)
+    if data is None:
+        rel = cfg.rel(Path(plan_path))
+        _, label, kind = _baseline(cfg)
+        result = dict(baseline=label, baseline_kind=kind, baseline_ahead=None, known=[], agreed=set(), delivery=signals.delivery(
+            lines=[signals.not_compared(PLAN_GONE, [f'its plan was removed after its preparation ({rel})'], places=(rel,))]))
+    else:
+        result = judge(cfg, data, [record for record in records if 'id' in record], package, named)
     own, ignored, said = delivered(result)
     if static is None and _wired(cfg, package):
         # D19: the static test is wired but did not report here (a filtered run, or one written by an init before 4.3);

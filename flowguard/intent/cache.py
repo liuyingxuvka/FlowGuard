@@ -526,40 +526,58 @@ def save_last(con, payload):
     put_meta(con, _last_key(payload['scope']), json.dumps(payload, ensure_ascii=False, sort_keys=True))
 
 
-def stamp_start(con, scope, stamp, run, waits):
+def stamp_start(con, scope, stamp, run, waits, plan=None):
     """Note in the slot `scope` that a run of it (kind `run`) started at `stamp`, before it has any lines (vitest's
     preparation), with `waits`, the (path, seconds) waits of its preparation for the map cache's write lock that passed
-    CACHE_NOTICE (`start_waits` reads them for the run's report). The run's own `save_last` replaces the note; a run
-    that never reports (killed, timed out) leaves it, beside the lines of the slot's earlier run, which stay. A slot
-    without an earlier run gets the note alone."""
+    CACHE_NOTICE (`start_waits` reads them for the run's report), and `plan`, the repository path of the plan file its
+    report reads, which no preparation removes while the note stands (`keep_last(plan=)`). The run's own `save_last`
+    replaces the note; a run that never reports (killed, timed out) leaves it, beside the lines of the slot's earlier
+    run, which stay. A slot without an earlier run gets the note alone."""
     from flowguard import __version__
     _write_transaction(con)
     row = con.execute('SELECT v FROM meta WHERE k = ?', (_last_key(scope),)).fetchone()
     earlier = json.loads(row[0]) if row else dict(scope=scope, version=__version__, run=run, stamp=None, baseline=None,
                                                     baseline_kind=None, title=None, seconds=None, lines=[], ignored=0,
                                                     compared=[], pytest=None)
-    put_meta(con, _last_key(scope), json.dumps(dict(earlier, started=stamp, waits=[list(wait) for wait in waits]),
+    put_meta(con, _last_key(scope), json.dumps(dict(earlier, started=stamp, waits=[list(wait) for wait in waits], plan=plan),
                                                ensure_ascii=False, sort_keys=True))
 
 
-def keep_last(cfg, payload=None, *, started=None):
+def _plans_read(con):
+    """The plan files the start notes of every vitest slot name (`stamp_start`): the plans of runs that have not
+    reported, whose reports may still read them. A note of an earlier FlowGuard names none."""
+    rows = con.execute('SELECT v FROM meta WHERE substr(k, 1, ?) = ?', (len(LAST) + 1, LAST + ':')).fetchall()
+    notes = [json.loads(value) for value, in rows]
+    return {note['plan'] for note in notes if 'started' in note and 'plan' in note and note['plan']}
+
+
+def keep_last(cfg, payload=None, *, started=None, plan=None):
     """`save_last` (or, with `started` = (scope, stamp, run, since), `stamp_start`) for a run that holds no map
     connection of its own (`check`, the vitest preparation and report). A start note keeps this process's waits for
     the cache's write lock from `LOCK_WAITS[since]` on (`since`: how many it held when the run began), the wait of this
     note for the lock among them: its slot is written by that package's runs alone, under the write lock, so two
-    packages' runs of one change each keep their own."""
+    packages' runs of one change each keep their own. `plan` is a vitest preparation's plan file, which its start
+    note names (with neither `payload` nor `started`, a preparation whose run is off): in the same write, each other
+    plan of its folder that no start note named before this one is removed (`_plans_read`), so a preparation of
+    another package or of another state of the change never removes the plan a run that has not reported reads, its
+    own package's earlier run's among them (R85)."""
     import sqlite3
     from flowguard.map import common
     common.cache_dir(cfg.root)
     with closing(sqlite3.connect(cfg.cache / 'map.sqlite', timeout=CACHE_TIMEOUT)) as con:
         con.execute('CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT)')
         with con:
+            _write_transaction(con)             # the note's own wait for the lock is one of the run's
+            read = _plans_read(con) if plan is not None else set()     # before this note replaces its slot's
             if started is not None:
                 scope, stamp, run, since = started
-                _write_transaction(con)         # the note's own wait for the lock is one of the run's
-                stamp_start(con, scope, stamp, run, [(cfg.rel(path), seconds) for path, seconds in common.LOCK_WAITS[since:]])
-            else:
+                stamp_start(con, scope, stamp, run, [(cfg.rel(path), seconds) for path, seconds in common.LOCK_WAITS[since:]],
+                            None if plan is None else cfg.rel(plan))
+            elif payload is not None:
                 save_last(con, payload)
+            for old in Path(plan).parent.glob('plan-*.json') if plan is not None else ():
+                if old != Path(plan) and cfg.rel(old) not in read:
+                    old.unlink(missing_ok=True)
 
 
 def start_waits(cfg, scope):

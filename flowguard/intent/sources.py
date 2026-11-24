@@ -273,10 +273,21 @@ def provisional(src, cfg, intent_file):
     decoded = document_text(src.path, old_doc)[0] if old_doc is not None else None
     if decoded is None or not quote_matches(decoded[0], src.quote):      # no such words then, readable or not
         return True
-    import tomllib
-    old_cfg = git_blob(cfg.root, revision, 'pyproject.toml')
-    allowed = tomllib.loads(old_cfg.decode('utf-8-sig')).get('tool', {}).get('flowguard', {}).get('authority_docs', []) if old_cfg else []
+    from flowguard.structure.store import UnreadableConfig
+    try:
+        allowed = _listed_docs(cfg, git_blob(cfg.root, revision, 'pyproject.toml'))
+    except UnreadableConfig:
+        return True         # whether the document was listed then is not known, as without that commit
     return not any(fnmatch.fnmatch(src.path, pattern) for pattern in allowed)
+
+
+def _listed_docs(cfg, raw):
+    """The `authority_docs` patterns of a commit's pyproject.toml bytes (None: it has none), read as the baseline's
+    readers read it (`store.project_config(data=, keys=)`): its `tool` table, [tool.flowguard] and `authority_docs`
+    alone are judged, and bytes that do not decode or parse, or one of these of another type, raise UnreadableConfig
+    with that text; [] when the file or the key is absent."""
+    from flowguard.structure.store import project_config
+    return [] if raw is None else project_config(cfg.root, data=raw, keys=('authority_docs',)).get('authority_docs', [])
 
 
 # ---- the catalog: .flowguard/rules.toml and .flowguard/known.toml (4.3) ------------------------------------
@@ -529,13 +540,11 @@ def _short(words, width=40):
 
 def _authority_docs(cfg, revision):
     """The `authority_docs` patterns of `[tool.flowguard]` in pyproject.toml: the configuration's now, the commit's at
-    `revision` (none when that commit has no pyproject.toml or no such key)."""
+    `revision` (none when that commit has no pyproject.toml or no such key; `_listed_docs`, whose UnreadableConfig
+    reaches the caller that judges a source at that commit: its state there is not known)."""
     if revision is None:
         return list(cfg.authority_docs)
-    raw = _bytes_at(cfg, revision, 'pyproject.toml')
-    if raw is None:
-        return []
-    return tomllib.loads(raw.decode('utf-8-sig')).get('tool', {}).get('flowguard', {}).get('authority_docs', [])
+    return _listed_docs(cfg, _bytes_at(cfg, revision, 'pyproject.toml'))
 
 
 def _added(cfg, revision, rid):
@@ -749,7 +758,8 @@ def source_state(engine, declaration, confirmed=None, quote=None, *, gone_red=Tr
     longer current of the forms `owner` and `doc`; a request stored in this task that supersedes or retires the cited
     one makes it red (D27). Without a baseline nothing is compared (D13): a strict source is grey, and the intent
     forms keep their 4.2.1 colours, a gone quote red where `gone_red` (rules and flows; 4.2.1 left the source of states
-    and structure rules grey) and the rest grey."""
+    and structure rules grey) and the rest grey. A citation the change kept whose state at the baseline is not known,
+    as that commit's pyproject.toml cannot be read for it, is grey with both texts (`unknown_at_baseline`)."""
     cfg = engine.m.cfg
     src = parse(declaration.source)
     valid, reason = authority(src, confirmed, cfg, engine.archive, quote)
@@ -764,10 +774,25 @@ def source_state(engine, declaration, confirmed=None, quote=None, *, gone_red=Tr
         what, step = _problem(src, cfg, engine.archive, baseline=engine.baseline)
         reason = f'{what} -> {step}'
     old = _declarations_at(cfg, engine.baseline).get(declaration.id)
-    same = old is not None and old['source'] == declaration.source and old.get('quote') == quote
-    if same and _problem(src, cfg, engine.archive, revision=engine.baseline, quote=quote) is not None:
-        return 'before', reason
-    return 'red', reason
+    if old is None or old['source'] != declaration.source or old.get('quote') != quote:
+        return 'red', reason
+    from flowguard.structure.store import UnreadableConfig
+    try:
+        failed = _problem(src, cfg, engine.archive, revision=engine.baseline, quote=quote) is not None
+    except UnreadableConfig as error:
+        return 'grey', unknown_at_baseline(reason, error)
+    return ('before' if failed else 'red'), reason
+
+
+def unknown_at_baseline(reason, error):
+    """The reason of a source that does not hold now (`reason`, `what -> step`) whose state at the baseline is not
+    known, as the baseline's pyproject.toml cannot be read for it (`_authority_docs`: the UnreadableConfig `error`):
+    not compared there, so neither red nor before, as a source without a baseline is grey (D13). The block sums it up
+    by the file's text, as the map checks' line of that file (`not compared: 2 items: source rule.exact-add and the
+    files this change takes out of the map (baseline pyproject.toml: tool.flowguard is a string)`); `show --last` adds
+    what is wrong now: `...; whether this change broke it is not known: AGENTS.md does not contain "..." -> quote the
+    document exactly`."""
+    return f'{error}; whether this change broke it is not known: {reason}'
 
 
 # ---- the catalog's findings for the static checks ---------------------------------------------------------------
@@ -1008,9 +1033,13 @@ def findings(cfg, graph, change):
     entry whose source does not hold, and the valid known entries with their sites resolved (`Findings.known`). A
     source finding is new (fresh, so red) unless the same source of the same entry already failed at the baseline,
     judged with that commit's archive, documents and authority_docs (design 4.7: a request stored in this task that
-    supersedes or retires the cited one makes it new, D27); without a baseline none is new (D13). What the change
-    loosened in the two files (`catalog_loosened`, also when it deleted them) are lines of their kind."""
+    supersedes or retires the cited one makes it new, D27); without a baseline none is new (D13). A source whose state
+    at the baseline is not known, as that commit's pyproject.toml cannot be read for it (`unknown_at_baseline`), is
+    one not compared line instead, never red nor before. What the change loosened in the two files
+    (`catalog_loosened`, also when it deleted them) are lines of their kind."""
+    from flowguard.structure.store import UnreadableConfig
     from .owners import Findings
+    from .signals import not_compared
     loosened_lines = catalog_loosened(cfg, change)
     if not catalog_files(cfg):
         return Findings(lines=loosened_lines)
@@ -1031,8 +1060,14 @@ def findings(cfg, graph, change):
             if problem is None:
                 continue
             old = before.get(entry.id)
-            held = (baseline is not None and old is not None and old.source == entry.source
-                    and _problem(source, cfg, archive, revision=baseline) is not None)
+            try:
+                held = (baseline is not None and old is not None and old.source == entry.source
+                        and _problem(source, cfg, archive, revision=baseline) is not None)
+            except UnreadableConfig as error:
+                # its state at the baseline is not known: one not compared line, never red nor before
+                found.lines.append(not_compared(f'source {table}.{entry.id}', [unknown_at_baseline(' -> '.join(problem), error)],
+                                                places=(f'{file}:{table}.{entry.id}',)))
+                continue
             found.issues.append(_source_issue(f'{table}.{entry.id}', file, entry, source, *problem,
                                               fresh=baseline is not None and not held))
     return found

@@ -532,7 +532,7 @@ rule = "旧账"
 
 ["flowguard/intent/owners.py:Change.newly_excluded:UnreadableConfig"]
 count = 1
-reason = "A baseline pyproject.toml whose bytes do not decode or parse, or whose tool table, [tool.flowguard] or one of its keys has another TOML type than FlowGuard reads, leaves unknown which files this change takes out of the map: it becomes one not compared line with the decoder's or parser's own words or the key and the type found, the baseline's own problem that the change may repair (R99), and every other map check still runs, as for a baseline .py file that does not parse."
+reason = "A baseline pyproject.toml whose bytes do not decode or parse, or whose tool table, [tool.flowguard] or exclude, the one key this reads there, has another TOML type than FlowGuard reads, leaves unknown which files this change takes out of the map: it becomes one not compared line with the file's text, the decoder's or parser's own words or the key and the type found, the baseline's own problem that the change may repair (R99), and every other map check still runs, as for a baseline .py file that does not parse."
 rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
 ["flowguard/intent/owners.py:_classes:(ValueError, SyntaxError, OSError)"]
@@ -665,14 +665,34 @@ count = 1
 reason = "旧账，未审：ledger init 记下时代码里已有这处兜底；改到这里时写明它做了什么、为什么可以留，并指向成文规矩"
 rule = "旧账"
 
+["flowguard/intent/sources.py:findings:UnreadableConfig"]
+count = 1
+reason = "A catalog source that does not hold now, whose state at the baseline is not known because the baseline's pyproject.toml cannot be read for its authority_docs (it does not decode or parse, or that key, its table or tool has another TOML type), is one not compared line with the file's text and what is wrong now, never red nor before: whether this change broke it is not known, as without a baseline, and the other findings still run (R85)."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
 ["flowguard/intent/sources.py:_load:(tomllib.TOMLDecodeError, UnicodeDecodeError)"]
 count = 1
 reason = "Reports a rules.toml or known.toml that is not UTF-8 TOML as a red input finding with the parser's own message; the file then counts no rule or known entry, so nothing it holds closes or checks anything."
 rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
+["flowguard/intent/sources.py:provisional:UnreadableConfig"]
+count = 1
+reason = "When the pyproject.toml of the commit before a rule's commit cannot be read for its authority_docs (it does not decode or parse, or that key has another TOML type), whether the document was listed then is not known, and the rule's document source is provisional (green*), as it is for every other earlier state FlowGuard does not know (no Git, no parent commit)."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
 ["flowguard/intent/sources.py:_request_problem:ValueError"]
 count = 1
 reason = "A request sidecar that the baseline commit holds but that is no valid record (the one sidecar validator's ValueError) makes the cited source fail with that error's text and the restore step; its words are then not judged at that commit, so no quote is taken as holding there."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/intent/sources.py:source_state:UnreadableConfig"]
+count = 1
+reason = "An intent source this change kept that does not hold now, whose state at the baseline is not known because the baseline's pyproject.toml cannot be read for its authority_docs, is grey with the file's text and what is wrong now, never red nor before: whether this change broke it is not known, as without a baseline, and pytest's outcome stays its own (R85)."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/intent/vitest.py:_held_plan:FileNotFoundError"]
+count = 1
+reason = "A vitest plan that is not there (not made yet, or removed after its preparation once no start note named it, or by hand) is None: the preparation then makes it, and the report says once that this run's calls were not compared because the plan is gone, so the vitest run is as without FlowGuard (R85), never a FileNotFoundError."
 rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
 ["flowguard/intent/vitest.py:judge:PredicateError"]

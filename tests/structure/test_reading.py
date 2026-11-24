@@ -129,15 +129,17 @@ def test_only_an_absent_pyproject_uses_empty_settings(tmp_path, monkeypatch):
     import pytest
     from pathlib import Path
     from flowguard.intent.config import load_config, search_paths
-    from flowguard.structure.store import project_config
+    from flowguard.structure.store import UnreadableConfig, project_config
     assert project_config(tmp_path) == {}
     cfg = load_config(tmp_path)
     assert search_paths(cfg) == [tmp_path]
     path = tmp_path / 'pyproject.toml'
     path.write_text('[tool.flowguard\n', encoding='utf-8')
+    # a TOML error is refused naming the file (5.1: `pyproject.toml does not parse: ...`, with tomllib's own words)
     for read in (lambda: project_config(tmp_path), lambda: load_config(tmp_path), lambda: search_paths(cfg)):
-        with pytest.raises(tomllib.TOMLDecodeError):
+        with pytest.raises(UnreadableConfig, match=r'^pyproject\.toml does not parse: ') as refused:
             read()
+        assert isinstance(refused.value.__cause__, tomllib.TOMLDecodeError)
     path.write_text('[tool.flowguard]\n', encoding='utf-8')
     original = Path.read_text
     def unreadable(current, *args, **kwargs):

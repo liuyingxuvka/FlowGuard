@@ -3633,6 +3633,53 @@ def test_a_package_whose_preparation_did_not_wait_says_none_when_another_prepare
     assert 'waited' not in second['web'] and 'waited' not in second['api'], second
 
 
+def test_a_later_preparation_never_removes_the_plan_a_running_report_reads(tmp_path, capsys):
+    """Round A of 5.1, FD2 open 2 (R85: a project's vitest run must not fail because of FlowGuard): web's vitest run is
+    in its tests when an edit lands and api's run prepares the new state of the change. api's preparation removed every
+    other plan-*.json, and web's report then stopped with `FileNotFoundError: ... plan-....json` (with real vitest:
+    `FAIL |flowguard| session.test.mjs > FlowGuard execution side`, `Tests 1 failed | 2 passed (3)`, exit 1). A
+    preparation now removes only the plans no start note of a run that has not reported names: web's stays while it
+    runs (also when a second run of web/ prepares that state meanwhile), goes with the next preparation after web
+    reported, and a plan gone anyway (by hand) is one not compared line of the report, which exits 0 and fails no
+    session test."""
+    import sqlite3
+    from contextlib import closing
+    from flowguard.intent import vitest
+    root = _two_packages(tmp_path / 'pt')
+    assert _flowguard(root, 'check', '--static')[0] == 0
+    (root / 'web/src/limit.ts').write_text('export function over(x: number): boolean {\n  return x >= 3;\n}\n',
+                                           encoding='utf-8', newline='\n')
+    web = vitest.prepare(str(root), str(root / 'web'))
+    (root / 'api/src/limit.ts').write_text('export function over(x: number): boolean {\n  return x >= 4;\n}\n',
+                                           encoding='utf-8', newline='\n')      # an edit meanwhile: another state
+    api = vitest.prepare(str(root), str(root / 'api'))
+    assert web['status'] == api['status'] == 'on' and web['plan'] != api['plan'] and Path(web['plan']).is_file(), (web, api)
+    # a second run of web/ meanwhile, of the new state: its note replaces the first run's, whose plan stays
+    assert vitest.prepare(str(root), str(root / 'web'))['plan'] == api['plan'] and Path(web['plan']).is_file()
+    capsys.readouterr()
+    observations = tmp_path / 'obs-web'
+    observations.mkdir()
+    assert vitest.report(str(root), web['plan'], str(observations), str(root / 'web')) == 0
+    shown = capsys.readouterr().out.splitlines()
+    assert ': 0 red; ' in shown[0] and not [line for line in shown if line.startswith('not compared')], shown
+    # web reported, so no run reads its plan now: the next preparation removes it, never api's
+    assert vitest.prepare(str(root), str(root / 'api'))['plan'] == api['plan']
+    assert not Path(web['plan']).exists() and Path(api['plan']).is_file()
+    Path(api['plan']).unlink()          # gone anyway: the run's calls are not compared, said once
+    observations = tmp_path / 'obs-api'
+    observations.mkdir()
+    assert vitest.report(str(root), api['plan'], str(observations), str(root / 'api'), in_test=True) == 0
+    saved = json.loads((observations / vitest.SESSION).read_text(encoding='utf-8'))
+    name = Path(api['plan']).name
+    assert (saved['status'], saved['red']) == (0, 0) and saved['text'].splitlines()[1:] == [
+        'not compared: the calls this vitest run recorded (its plan was removed after its preparation) -> not a failure'], saved
+    assert ': 0 red, 1 not compared; ' in saved['text'].splitlines()[0], saved
+    with closing(sqlite3.connect(root / '.flowguard/cache/map.sqlite')) as con:        # api's slot: its report replaced its note
+        last = json.loads(con.execute('SELECT v FROM meta WHERE k = ?', ('last_lines:vitest:api',)).fetchone()[0])
+    assert 'started' not in last and last['lines'][0]['detail'] == [
+        f'its plan was removed after its preparation (.flowguard/cache/vitest/{name})'], last
+
+
 def test_a_vitest_run_whose_preparation_waited_for_the_cache_says_so_in_its_first_line(vitest_home):
     """Round A of 5.1: vitest shows a successful preparation's stderr nowhere, so its `flowguard: waiting for ...` line
     (which check --static and pytest print) was lost: the run paused before RUN and its title only reported a longer

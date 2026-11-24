@@ -208,11 +208,12 @@ class Change:
         `[tool.flowguard] exclude` (or its pyproject.toml) so that its ignore patterns take a file with a reader out
         of the map (`store.mapped` with the baseline's pyproject.toml and with the current one). Their agreements are
         gone from the map, which `loosened` reports. The module is the name `graph.impact` gives a file the map lacks.
-        Empty without a baseline or when pyproject.toml is as at the baseline. A baseline pyproject.toml whose bytes
-        do not decode or parse, or whose `tool` table, [tool.flowguard] or one of its keys has another TOML type than
-        FlowGuard reads (`store.UnreadableConfig`), leaves those files unknown: no files, and `unknown` holds the one
-        `not compared` line that says so in the decoder's or parser's words or names the key and the type found, as
-        for a baseline .py file that does not parse; otherwise `unknown` is (). Read once."""
+        Empty without a baseline or when pyproject.toml is as at the baseline. Of the baseline's pyproject.toml only
+        what this reads is judged, its `tool` table, [tool.flowguard] and `exclude` (`project_config(keys=)`): bytes
+        that do not decode or parse, or one of these of another TOML type (`store.UnreadableConfig`), leave those files
+        unknown, no files, and `unknown` holds the one `not compared` line that says so in the decoder's or parser's
+        words or names the key and the type found, as for a baseline .py file that does not parse; another key of
+        another type there is not read, and the files are known. Otherwise `unknown` is (). Read once."""
         if not hasattr(self, '_newly_excluded'):
             from flowguard.structure.readers.registry import language_for, module_name
             from flowguard.structure.store import UnreadableConfig, ignored, mapped, project_config
@@ -223,13 +224,11 @@ class Change:
             now = (root / 'pyproject.toml').read_bytes() if (root / 'pyproject.toml').is_file() else None
             if self.baseline and then != now:
                 try:
-                    before = ignored(root, project_config(root, data=then or b''))
+                    before = ignored(root, project_config(root, data=then or b'', keys=('exclude',)))
                 except UnreadableConfig as error:
                     # the baseline's own problem, which this change may repair (R99): which files it takes out of the
                     # map is not known, and every other map check still runs
-                    self._newly_excluded = {}, (not_compared(
-                        EXCLUDED_UNKNOWN, [f'pyproject.toml at the baseline {self.baseline[:7]} {error}'],
-                        places=('pyproject.toml',)),)
+                    self._newly_excluded = {}, (not_compared(EXCLUDED_UNKNOWN, [str(error)], places=('pyproject.toml',)),)
                 else:
                     if before != self._ignore():
                         sources = [path for path in self.graph._baseline_files(self.baseline) if language_for(path)]
