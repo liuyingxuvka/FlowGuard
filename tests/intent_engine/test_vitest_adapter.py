@@ -332,6 +332,12 @@ def test_a_known_entry_this_run_speaks_for_keeps_its_own_line_beside_the_map_che
     fixed = Line('known fixed?', 'known.limit', '', 'known.limit: declarations:Limit no longer found',
                  'the owner has not answered known.limit: if this change settles it, say so in your report')
     assert merged(own, [fixed, static[1]], {'known.limit'}) == [static[1], fixed]
+    # Review of 5.1 (FT2 open 5a): an entry whose finding the map checks give as this change's red speaks in that red's
+    # detail alone; this run's own line for the entry's touched sites said `known` beside it
+    red = Line('red', 'same:LIMIT', 'parameters', 'same LIMIT: a.ts:f(x) and b.ts:g(xs) take different parameters',
+               'check whether these are copies of one decision, then correct the code or the marks', ('a.ts:f', 'b.ts:g'),
+               ('known.limit names this finding; this change added it, so it stays red',))
+    assert merged(own, [red, static[1]], set(), frozenset({'known.limit'})) == [red, static[1]]
 
 
 def test_the_report_title_says_how_far_head_lies_after_the_task_start_as_pytest_does(tmp_path):
@@ -1715,7 +1721,8 @@ def test_typescript_copies_that_take_different_parameters_are_one_red_in_check_s
 def test_typescript_copies_that_take_different_parameters_are_judged_against_the_task_start(vitest_home):
     # Review of 5.1 (FT open 0): after the comments' red and a commit, new-task said `1 red from the previous task are
     # now before`, while check --static and every vitest run after an unrelated edit still printed the red, and the
-    # next brief said `1 red in the last run of api/`. Its red is this change's where the change touches a copy's file.
+    # next brief said `1 red in the last run of api/`. Its red is this change's where the change alters a copy's
+    # parameters or marks, by the baseline's facts of the copies' files.
     root = vitest_home / 'pt-scope-start'
     files = {}
     for package in ('web', 'api'):
@@ -1740,6 +1747,15 @@ def test_typescript_copies_that_take_different_parameters_are_judged_against_the
     """})
     code, text = _vitest(root / 'api', vitest_home)
     assert code == 1 and [line for line in _block(text) if line.startswith('red: ')] == [PT_SCOPE_RED], text
+    # Review of 5.1 (FT2 open 5a): a known entry naming the new copies is in the red's detail; the vitest run printed
+    # its own `known: known.same-project_scope at scope.ts:canView, scope.ts:visibleProjects -> left as it is ...`
+    # beside it, where check --static gave the red alone
+    assert _flowguard(root, 'known', 'add', 'same:PROJECT_SCOPE', '--act', 'leave', '--why', 'two decisions')[0] == 0
+    code, text = _vitest(root / 'api', vitest_home)
+    assert code == 1 and [line for line in _block(text) if line.startswith(('red: ', 'known: '))] == [PT_SCOPE_RED], text
+    code, text = _flowguard(root, 'show', '--last')
+    assert '    known.same-project_scope names this finding; this change added it, so it stays red' in text.splitlines(), text
+    (root / '.flowguard/known.toml').unlink()
     _commit(root, message='the copies')
     _commit(root, {'web/src/limit.ts': 'export function over(x: number): boolean {\n  return x > 4;\n}\n'}, message='unrelated')
     code, brief = _flowguard(root, 'new-task')
@@ -1752,10 +1768,22 @@ def test_typescript_copies_that_take_different_parameters_are_judged_against_the
     assert code == 0 and 'PROJECT_SCOPE' not in text, text
     code, brief = _flowguard(root, 'new-task')
     assert code == 0 and ' red ' not in brief, brief
-    # an edit of a copy's file makes it this change's again
-    (root / 'api/src/scope.ts').write_text(textwrap.dedent(PT_SCOPE).lstrip() + '\n', encoding='utf-8')
+    # Review of 5.1 (FT2 open 4): an edit of a copy's file that leaves the copies' parameters keeps them old, in a run
+    # whose static test reports as in one filtered to the copies' test, where it alone said `before` and the full run red
+    (root / 'api/src/scope.ts').write_text(textwrap.dedent(PT_SCOPE).lstrip() + '\n// a note\n', encoding='utf-8')
+    before = PT_SCOPE_RED.replace('red: same PROJECT_SCOPE: ', 'before: same PROJECT_SCOPE disagreed at task start: ').replace(
+        'check whether these are copies of one decision, then correct the code or the marks', 'leave it unless your task is about it')
+    for filtered in ((), ('tests/scope.test.ts',)):
+        code, text = _vitest(root / 'api', vitest_home, *filtered)
+        assert code == 0 and [line for line in _block(text) if line.startswith(('red: ', 'before: '))] == [before], text
+    code, text = _flowguard(root, 'check', '--static')
+    assert code == 0 and [line for line in text.splitlines() if 'PROJECT_SCOPE' in line] == [before], text
+    # a parameter this change renames makes it this change's
+    (root / 'api/src/scope.ts').write_text(textwrap.dedent(PT_SCOPE).lstrip().replace('projects: Project[]', 'items: Project[]')
+                                           .replace('return projects.filter', 'return items.filter'), encoding='utf-8')
     code, text = _vitest(root / 'api', vitest_home)
-    assert code == 1 and [line for line in _block(text) if line.startswith('red: ')] == [PT_SCOPE_RED], text
+    assert code == 1 and [line for line in _block(text) if line.startswith('red: ')] == [
+        PT_SCOPE_RED.replace('visibleProjects(user, projects)', 'visibleProjects(user, items)')], text
 
 
 def test_a_known_fixed_of_the_map_checks_is_listed_in_a_vitest_run_that_touches_the_entrys_sites(vitest_home):

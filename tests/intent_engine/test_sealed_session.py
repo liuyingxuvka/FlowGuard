@@ -719,6 +719,35 @@ def test_same_name_copies_that_take_different_parameters_are_named_as_such(tmp_p
         'policy.py:visible_projects(user, projects) take different parameters -> leave it unless your task is about it'], _text(result)
 
 
+def test_unannotated_copies_that_take_different_parameters_are_judged_by_their_task_start_facts_in_pytest_and_check(tmp_path):
+    # Review of 5.1 (FT2 open 2): unannotated copies the task start already held, in a file this change edits elsewhere,
+    # were `before` in pytest (its comparison read the task-start signatures) and red in check (its own finding judged
+    # by the touched files): `red: same PROJECT_SCOPE: policy.py:can_view(user, project) and ... take different
+    # parameters`. Both read the baseline's facts now; a mark this change writes makes the group this change's in both,
+    # where pytest said `before` because every copy's signature was the same at the task start.
+    from tests.intent_engine._cli_fixture import main
+    _project(tmp_path, SCOPE + '\n\ndef third(user, projects):\n    return projects\n',
+             SCOPE_TEST.replace('from scope', 'from policy'))
+    policy = tmp_path / 'policy.py'
+    before = ('before: same PROJECT_SCOPE disagreed at task start: policy.py:can_view(user, project) and '
+              'policy.py:visible_projects(user, projects) take different parameters -> leave it unless your task is about it')
+
+    def runs():
+        """The red and before lines of pytest and check, with their exits."""
+        result = _run(tmp_path)
+        code = main(['--root', str(tmp_path), 'check'], cwd=tmp_path)
+        return [(result.returncode, [line for line in block(result) if line.startswith(('red: ', 'before: '))]),
+                (code, [line for line in last(tmp_path).splitlines() if line.startswith(('red: ', 'before: '))])]
+    policy.write_text(policy.read_text(encoding='utf-8') + '\n\ndef helper():\n    return 1\n', encoding='utf-8')
+    assert runs() == [(0, [before])] * 2
+    policy.write_text(policy.read_text(encoding='utf-8').replace('def third', '# flowguard: same PROJECT_SCOPE\ndef third'),
+                      encoding='utf-8')
+    red = ('red: same PROJECT_SCOPE: policy.py:can_view(user, project), policy.py:visible_projects(user, projects) and '
+           'policy.py:third(user, projects) take different parameters -> check whether these are copies of one decision, '
+           'then correct the code or the marks')
+    assert [(code, [line for line in lines if line.startswith('red: ')]) for code, lines in runs()] == [(1, [red])] * 2
+
+
 TYPED_SCOPE = SCOPE.replace('def can_view(user, project):', 'def can_view(user: dict, project: dict) -> bool:').replace(
     'def visible_projects(user, projects):', 'def visible_projects(user: dict, projects: list) -> list:')
 TYPED_RED = ('red: same PROJECT_SCOPE: scope.py:can_view(user, project): bool and scope.py:visible_projects(user, projects): '
@@ -752,9 +781,10 @@ def test_the_comments_red_of_copies_that_take_different_parameters_is_judged_aga
     # Review of 5.1 (FT open 0): the comments' finding of copies that take different parameters is a `same:` finding,
     # which new-task's brief counted as before once its files were clean, while check --static, pytest and check
     # printed it red in every run and the next brief said `1 red in the last run`; a known entry naming it was
-    # accepted and covered nothing. It is judged against the task start as every same-name finding is: red where this
-    # change touches a copy's file, before (no line in a run that touches none) where the copies already took these
-    # parameters at the task start, and red without a baseline.
+    # accepted and covered nothing. It is judged against the task start as every same-name finding is, by the
+    # baseline's facts of the copies' files: red where this change adds or changes a copy's parameters or its mark,
+    # before (no line in a run that touches none of their files) where the copies already took these parameters at the
+    # task start, and red without a baseline.
     from tests.intent_engine._cli_fixture import main
 
     def flowguard(root, *arguments):
@@ -790,6 +820,13 @@ def test_the_comments_red_of_copies_that_take_different_parameters_is_judged_aga
               'scope.py:visible_projects(user, projects): list take different parameters -> leave it unless your task is '
               'about it')
     assert said(flowguard(tmp_path, 'check', '--static', '--all')[1]) == [before]
+    # Review of 5.1 (FT2 open 2 and 4): a change that edits another line of a copy's file leaves the copies as they
+    # were: their finding is before in every run, where it was red in check --static and pytest and in check (whose
+    # own comparison judged by the touched files too, beside pytest's before for unannotated copies)
+    helper = '\n\ndef helper():\n    return 1\n'
+    (tmp_path / 'scope.py').write_text(TYPED_SCOPE.lstrip() + helper, encoding='utf-8')
+    assert runs(tmp_path) == [(0, [before])] * 3
+    (tmp_path / 'scope.py').write_text(TYPED_SCOPE.lstrip(), encoding='utf-8')
     # a known entry naming it is honoured: --all lists the entry, a run that touches none of the copies says nothing
     assert flowguard(tmp_path, 'known', 'add', 'same:PROJECT_SCOPE', '--act', 'leave', '--why', 'two decisions')[0] == 0
     assert said(flowguard(tmp_path, 'check', '--static', '--all')[1]) == [
@@ -799,9 +836,30 @@ def test_the_comments_red_of_copies_that_take_different_parameters_is_judged_aga
     code, brief = flowguard(tmp_path, 'new-task')
     assert 'known.same-project_scope: left as it is: two decisions' in brief and not [
         line for line in brief if ' red ' in f' {line} '], brief
-    # a change that touches a copy's file makes it this change's again
-    (tmp_path / 'scope.py').write_text(TYPED_SCOPE.lstrip() + '\n', encoding='utf-8')
-    assert runs(tmp_path) == [(1, [TYPED_RED])] * 3
+    # the entry speaks for it where the change edits a copy and leaves its parameters: its line names that copy, and
+    # show --last its detail (5.1's second round said `this change added it, so it stays red` and printed it red)
+    (tmp_path / 'scope.py').write_text(TYPED_SCOPE.lstrip() + helper, encoding='utf-8')
+    assert runs(tmp_path) == [(0, [])] * 3
+    (tmp_path / 'scope.py').write_text(TYPED_SCOPE.lstrip().replace("user['org']\n\n", "user['org']  # one org\n\n"),
+                                       encoding='utf-8')
+    known = ('known: known.same-project_scope at scope.py:can_view (1 of 2 places) -> left as it is on purpose; yours to '
+             'change only if your task is about it')
+    assert runs(tmp_path) == [(0, [known])] * 3
+    shown = last(tmp_path).splitlines()
+    assert '    why: two decisions' in shown and not [line for line in shown if 'stays red' in line], shown
+    # a change that alters a copy's parameters makes it this change's: red, the entry in its detail
+    (tmp_path / 'scope.py').write_text(TYPED_SCOPE.lstrip().replace('projects: list', 'items: list').replace(
+        'in projects', 'in items'), encoding='utf-8')
+    assert runs(tmp_path) == [(1, [TYPED_RED.replace('(user, projects)', '(user, items)')])] * 3
+    assert '    known.same-project_scope names this finding; this change added it, so it stays red' in \
+        last(tmp_path).splitlines(), last(tmp_path)
+    # so does a mark this change writes on a third copy
+    third = '\n\n# flowguard: same PROJECT_SCOPE\ndef third(user: dict, projects: list) -> list:\n    return projects\n'
+    (tmp_path / 'scope.py').write_text(TYPED_SCOPE.lstrip() + third, encoding='utf-8')
+    assert said(flowguard(tmp_path, 'check', '--static')[1]) == [
+        'red: same PROJECT_SCOPE: scope.py:can_view(user, project): bool, scope.py:visible_projects(user, projects) and '
+        'scope.py:third(user, projects) take different parameters -> check whether these are copies of one decision, then '
+        'correct the code or the marks']
     # without a baseline (no commit yet) it is red
     root = tmp_path / 'uncommitted'
     root.mkdir()

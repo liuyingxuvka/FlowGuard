@@ -42,6 +42,8 @@ class Findings:
                                                     # (a known entry's `known fixed?`; `families_ran`)
     touched_functions: frozenset = frozenset()      # what this change edits or adds: a finding's member there is
     touched_files: frozenset = frozenset()          # touched (`deliver`); files for a file-level member
+    old_parameters: frozenset = frozenset()         # the same names whose copies took the different parameters they
+                                                    # take now at the baseline (`anchors.parameters_then`)
 
     def extend(self, other):
         self.issues.extend(other.issues)
@@ -50,6 +52,7 @@ class Findings:
         self.ran |= other.ran
         self.touched_functions |= other.touched_functions
         self.touched_files |= other.touched_files
+        self.old_parameters |= other.old_parameters
         for key, value in other.stats.items():
             self.stats[key] = self.stats.get(key, 0) + value
         return self
@@ -246,6 +249,12 @@ class Change:
             self._facts[file] = self.graph._baseline_facts(self.baseline, file, module, is_test_file(file)) \
                 if self.baseline and module else {}
         return self._facts[file]
+
+    def old_anchors(self, file):
+        """The flowguard comments' `anchors` facts of `file` at the baseline (`old_part`), of a file this change renames
+        (`renamed`) at its old path; () where the baseline had none, or no such file."""
+        was = {new: old for old, new in self.renamed().items()}
+        return self.old_part(was.get(file, file), 'anchors') or ()
 
     def old_part(self, file, kind):
         """One kind of `old_facts(file)` (None when absent), read without decoding the file's whole record."""
@@ -1749,7 +1758,9 @@ def static_findings(cfg, graph, index, base=None, *, everything=False, replay=Fa
     children, missing columns and the open structure problems (`health`). `replay` (`check`) also runs copy
     discovery and the changed-alone comparison. `everything` (`--all`) compares every look-alike, not only those this
     change touches. The catalog's findings (`sources.findings`), what the change loosened, the fields it newly
-    writes and the documents that describe code it edits (`docs.findings`) join the same list."""
+    writes and the documents that describe code it edits (`docs.findings`) join the same list. `old_parameters` names
+    the same-name groups whose copies already took their different parameters at the baseline, which every runner's
+    finding of such copies reads (`signals.parameters_finding`)."""
     from . import health, sources
     change = Change(cfg, graph, baseline(cfg, base))
     copies = health.copies(change, index)
@@ -1772,7 +1783,16 @@ def static_findings(cfg, graph, index, base=None, *, everything=False, replay=Fa
     found = families_ran(health.assess(found), index)
     found.ran.add('pair')
     found.touched_functions, found.touched_files = touched_functions(change), frozenset(change.files)
+    found.old_parameters = old_parameters(change, index)
     return found
+
+
+def old_parameters(change, index):
+    """The same names of `index` whose copies took the different parameters they take now at `change`'s baseline
+    (`anchors.parameters_then`, the baseline's comment facts of each copy's file this change touches); none without a
+    baseline. check --static, `check`, a pytest session and a vitest plan read their finding of such copies by it."""
+    from .anchors import parameters_then
+    return parameters_then(index, change.files, change.old_anchors if change.baseline else None)
 
 
 def touched_functions(change):

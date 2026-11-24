@@ -375,7 +375,8 @@ def _sealed_numbers(tree, qual):
     return list({(type(number), number): number for number in [*numbers, *read]}.values())
 
 
-def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no recorded JSON inputs', said=False):
+def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no recorded JSON inputs', said=False,
+                   took=False):
     """The sealed comparison of the copies of one same name (design 4.5), in pytest and in check alike: the copies
     (`points`: anchor, target, file, module, qual of each) run in the closed environment, never imported, on the
     inputs `signals.copy_inputs` makes of the `recorded` ones ({declared name: value}) and the numbers the copies use,
@@ -386,7 +387,9 @@ def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no 
     already differed at the baseline) or None, and `ran` when every copy answered every compared input. `no_inputs`
     says why nothing was compared when no input could be made ('': nothing is said). `said`: the group's flowguard
     comments already show copies that take different parameters (`anchors._index`), whose one red is theirs; an input
-    a copy cannot take is still not run on it, and no line of this comparison says so again."""
+    a copy cannot take is still not run on it, and no line of this comparison says so again. Otherwise such copies are
+    one line, old where they took these parameters at the task start (`took`: `anchors.parameters_then`, by the
+    baseline's facts, as every runner judges their finding), else this change's."""
     import ast
     from types import SimpleNamespace
     from . import cells as C, runtime as R, signals
@@ -463,11 +466,10 @@ def compare_copies(name, points, recorded, source, run, place, *, no_inputs='no 
     fresh, old, _ = signals.copy_partition(spelled(named, signals.value_text), equal, signals.value_text, reference, len(points),
                                           words=signals.copy_says)
     if unfit and not said:
-        # an old matter where every copy took these parameters at the baseline as well (R99), else this change's
-        past = [_signature(source(point, True), point['qual']) if source(point, True) is not None else None for point in points]
+        # an old matter where every copy took these parameters at the baseline as well (R99, `took`), else this change's
         text, step = signals.copies_parameters([(named[point['target']], signatures[point['target']][1]) for point in points])
         line = ('', text, step, {frozenset((named[one], named[other])) for one, other in unfit})
-        if all(before is not None and before[1] == signatures[point['target']][1] for before, point in zip(past, points)):
+        if took:
             old = [line, *old]
         else:
             fresh = [line, *fresh]
@@ -682,6 +684,8 @@ class Observations:
         self.map_error = None       # the text of a MapError that stopped the map checks (`_map`, `report`): no second build
         self.map_missed = []        # what the session could not compare without its map (`_map`)
         self.old_copies = set()     # the same names whose copies this change leaves as they were (`_compare`)
+        self.old_parameters = None  # the same names whose copies took their different parameters at the task start
+                                    # (`_parameters_then`)
         self.event_record = self.capture = None
         self.text = ''
         self.final = None           # FlowGuard's own seconds in the session, taken once after all its work (`_final`)
@@ -1003,7 +1007,8 @@ class Observations:
                     continue
             recorded = [_declared(point, sample['inputs']) for point in points for sample in samples.get(point['target'], {}).values()]
             found = compare_copies(name, points, recorded, source, run, self._place,
-                                   no_inputs='no recorded JSON inputs' if fresh else '', said=name in apart)
+                                   no_inputs='no recorded JSON inputs' if fresh else '', said=name in apart,
+                                   took=name in self._parameters_then())
             self.grey.extend(found.grey)
             if found.issue is not None:
                 self.copies.append(found.issue)
@@ -1199,11 +1204,8 @@ class Observations:
         self._judged_names()
         syntax = []             # files that cannot be parsed: only they are unverified
         for issue in self.index.issues:
-            if issue.level == 'red' and issue.code == 'parameters':     # copies that take different parameters: one line
-                # judged against this session's baseline by the files the change touches, as check --static judges it
-                self.issues.append(signals.parameters_finding(issue.name, signals.ascii_text(issue.message), issue.step,
-                                                              issue.places, baseline=self.runtime.baseline,
-                                                              touched=self.touched, detail=issue.detail))
+            if issue.level == 'red' and issue.code == 'parameters':
+                continue        # copies that take different parameters: one line, judged with the map checks below
             elif issue.level == 'red':
                 place = f'{issue.file}:{issue.line}' if issue.line else issue.file
                 what, step = signals.split_step(signals.ascii_text(issue.message))
@@ -1241,6 +1243,13 @@ class Observations:
             except MapError as error:
                 self.map_error = str(error)
                 found = None
+        # Copies the comments show to take different parameters: one line, old where they took these parameters at
+        # the task start, as check --static judges it (`_parameters_then`)
+        old = self._parameters_then()
+        for issue in self.index.issues:
+            if issue.level == 'red' and issue.code == 'parameters':
+                self.issues.append(signals.parameters_finding(issue.name, signals.ascii_text(issue.message), issue.step,
+                                                              issue.places, old=issue.name in old, detail=issue.detail))
         if self.map_error is not None:
             # The map checks could not read the project (a reader whose extra is not installed, Git, the cache): one red
             # line with the error's text and step (`check --static` exits 2 with it), while the session's other lines,
@@ -1299,6 +1308,25 @@ class Observations:
         # unless the sentinel test already failed on it.
         self.session_red = [line for line in self.lines if line.kind == 'red' and (line.name, line.function) not in self.carried]
         return any(line.kind == 'red' for line in self.lines)
+
+    def _parameters_then(self):
+        """The same names whose copies took the different parameters they take now at this session's baseline
+        (`anchors.parameters_then`, as `owners.old_parameters` judges them for check --static): the comments' finding
+        of such copies and this session's comparison of them are old there (`report`, `compare_copies`). A copy's file
+        this change touches is read at the baseline through the session's map (`owners.Change.old_anchors`), built only
+        then; where the map cannot be built (`_map`, whose red line says why) such a copy's facts are not known and its
+        group is this change's, as without a baseline. Judged once per session."""
+        from . import anchors, owners
+        if self.old_parameters is None:
+            held = []
+            def then(file):
+                if not held:
+                    graph = self._map()
+                    held.append(owners.Change(self.cfg, graph, self.runtime.baseline) if graph is not None else None)
+                return held[0].old_anchors(file) if held[0] is not None else ()
+            self.old_parameters = anchors.parameters_then(self.index, self.touched,
+                                                          then if self.runtime.baseline else None)
+        return self.old_parameters
 
     def delivery(self):
         """What this session gives the block (`signals.delivery`): its own findings, the changed and not compared

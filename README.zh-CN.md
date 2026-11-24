@@ -81,7 +81,7 @@ FlowGuard 5.0 删除了 4.2 的注释写法（`sensor NAME`、`owner NAME`、`ow
 
 `python -m flowguard check --static` 不跑测试；它也检查规则和 known 条目引用的出处，这些出处不必等长测试跑完，`python -m flowguard show rules` 说明每条出处是否成立。加 `--all` 查看完整结构清单。`python -m flowguard check` 跑受影响的规则和测试。已有深查和有限 flow 保持冻结，不属于上面的日常接入步骤。
 
-基础安装读取 Python。TS/JS、Prisma、SQL 及冻结的 C/C++/C# 读取器使用 `flowguard[languages]`。Vitest 的 ESM 项目支持执行观察；Jest 只做静态检查。测试结束后的封闭比较跑不了的函数记为 `not compared`，并写明原因；任务起点的版本会把某次调用的参数当成别的参数时（比如在最前面插入了必填参数），这次调用也记为 `not compared`，在末尾加一个带默认值的参数则照常比较。参数不同的同名副本只报一行红，写明每个副本的参数和声明的返回类型：先确认它们是不是同一个决定的副本。JS/TS 副本，或参数带值类型注解的 Python 副本，在 `check --static` 里就是这一行红（pytest 和 vitest 也一样）；没有注解的 Python 副本在 pytest 运行它们时比较。改动碰到某个副本的文件时报红；任务起点就已经这样接收参数的副本记为 `before`。Python 副本可以写明参数名的对应（`same NAME(days=overdue_days)`）；TS/JS 注释不写参数，TS/JS 副本按位置比较。测试输入上的一致不能证明业务答案正确。
+基础安装读取 Python。TS/JS、Prisma、SQL 及冻结的 C/C++/C# 读取器使用 `flowguard[languages]`。Vitest 的 ESM 项目支持执行观察；Jest 只做静态检查。测试结束后的封闭比较跑不了的函数记为 `not compared`，并写明原因；任务起点的版本会把某次调用的参数当成别的参数时（比如在最前面插入了必填参数），这次调用也记为 `not compared`，在末尾加一个带默认值的参数则照常比较。参数不同的同名副本只报一行红，写明每个副本的参数和声明的返回类型：先确认它们是不是同一个决定的副本。JS/TS 副本，或参数带值类型注解的 Python 副本，在 `check --static` 里就是这一行红（pytest 和 vitest 也一样）；没有注解的 Python 副本在 pytest 运行它们时比较。任务起点时每个副本就已这样接收参数、带着这个名字的标记的，记为 `before`，不论改动还改了这些文件里的什么；否则（改动新增或修改了某个副本的参数、标记或参数对应，或者没有基线）报红。Python 副本可以写明参数名的对应（`same NAME(days=overdue_days)`）；TS/JS 注释不写参数，TS/JS 副本按位置比较。测试输入上的一致不能证明业务答案正确。
 
 保存在仓库里的 SQL 文件（比如手工安装的数据库升级包）描述它所创建的表，并与 Prisma schema 比较；只修改表的文件不描述任何表。有意保留过时的描述时，指定它某个文件里的一张表来记录：`python -m flowguard known add columns:prisma/migrations/~prisma/schema.prisma --site prisma/migrations/20240101_init/migration.sql:central_employees --act leave --why TEXT`。
 

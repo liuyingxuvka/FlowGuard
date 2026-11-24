@@ -1183,6 +1183,34 @@ def _index(entries, problems):
     return index
 
 
+def parameters_then(index, touched, then):
+    """The same names of `index` whose copies take different parameters (by their names, as `_parameters_issue` and
+    `check` find them) and took these parameters at the task start: their finding (`signals.parameters_finding`) is
+    then old (R99), whatever else this change edits in a copy's file. A copy took them where its file is one this
+    change leaves alone (not in `touched`, the files it edits, adds, deletes or renames: the file holds its comment and
+    function as at the baseline), or where the `anchors` facts the map's reader read from that file's baseline bytes
+    (`then(file)`, `owners.Change.old_anchors`: a renamed file's at its old path) hold a `same NAME` comment on the same
+    function with parameters of the same names and the same mapping (`same NAME(days=overdue_days)`). Where this change
+    adds or changes a copy's parameters, its comment or its mapping, the finding is this change's. `then` None: no
+    baseline is known, and no group is old."""
+    if then is None:
+        return frozenset()
+    def spelled(parameters):
+        """The names a copy's parameters take, each with the source parameter it maps (`Parameter.alias`)."""
+        return tuple((item['name'], item['alias']) if isinstance(item, dict) else (item.name, item.alias)
+                     for item in parameters)
+    def took(copy):
+        return copy.file not in touched or any(
+            row['kind'] == 'sensor' and row['name'] == copy.name and row['qual'] == copy.qual
+            and spelled(row['parameters']) == spelled(copy.parameters) for row in then(copy.file))
+    old = set()
+    for name, group in index.by_name.items():
+        copies = [anchor for anchor in group if anchor.kind == 'sensor']
+        if len({tuple(p.name for p in anchor.parameters) for anchor in copies}) > 1 and all(map(took, copies)):
+            old.add(name)
+    return frozenset(old)
+
+
 def collect(graph):
     """Read the single stored source index, including anchored project tests."""
     entries, problems, field_types = [], [], []

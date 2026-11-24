@@ -149,7 +149,8 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
     A member this change added (in `Issue.fresh`) is red when its family can be red, also when a known entry
     names its finding (the entry goes into the line's detail: an entry never silences a new finding); otherwise
     it gets its family's new kind (impact), unless an ignore entry covers it. Every other member counts when this
-    change touches it (its function; for a file-level member, one of the finding's files), and with `everything`
+    change touches it (its function; for a file-level member, one of the finding's files, as for the parameters of
+    same-name copies, PARAMETERS, which their files hold), and with `everything`
     always: a known entry naming its finding gives a `known` line when the change also touches the entry's sites
     (else nothing: `known` needs the entry's sites touched, `before` no entry), naming the finding's places this
     change touches with their count (`_finding_places`), an ignore entry alone counts it,
@@ -225,7 +226,8 @@ def deliver(issues, *, touched_functions, touched_files, known=(), ran=frozenset
                                       step if issue.family in OWN_STEP else IMPACT_STEP, held, issue.detail))
             elif ignoring:
                 ignored.add((issue.name, function))
-            elif shown and (everything or (function in touched_functions if function else bool(issue.files & touched_files))):
+            elif shown and (everything or (function in touched_functions if function and function != PARAMETERS
+                                           else bool(issue.files & touched_files))):
                 for entry in speaking:
                     if everything or entry.nodes & touched_functions or entry.files & touched_files:
                         named, counted = _finding_places(entry, places, touched_functions, touched_files)
@@ -537,7 +539,8 @@ def _cap(said, paths=(), places=()):
     writes moved to a helper keeps what moved where (`_cap_moved`). A line that would still be longer than WIDTH with
     every stretch cut as far as it goes keeps its words (a copies line, whose step names who decides and the route that
     records it): cutting would leave it neither within WIDTH nor readable. A line of copies that take different
-    parameters is never cut inside a signature (`_cap_parameters`)."""
+    parameters whose signatures `_signatures` reads is never cut inside one (`_cap_parameters`); one it cannot read (a
+    copy its places leave unknown, a return type that names another copy) gives way in its middle as other lines do."""
     def width(text):
         return _width(text, (*places, *paths))
     if width(said) <= WIDTH:
@@ -680,7 +683,8 @@ def _signatures(said, places):
     """[head, [place, (parameters), ': return type' or '', joint]..., tail] of a line of copies that take different
     parameters (`copies_parameters`: `red: same NAME: a.ts:f(x): boolean and b.ts:g(xs): X[] take different parameters
     -> step`), each copy at a place of `places` followed by its parameter list (`joint`: the ', ' or ' and ' before the
-    next copy); the tail from the words after the last copy on, its step too. None for any other line, and where
+    next copy), which ends at the parenthesis that closes it (`_closed`: one inside a quoted default is no
+    parenthesis); the tail from the words after the last copy on, its step too. None for any other line, and where
     `places` leave a copy the words name unknown (it would read as part of a return type)."""
     body, arrow, step = said.rpartition(' -> ')
     end = _APART.search(body) if arrow else None
@@ -698,14 +702,10 @@ def _signatures(said, places):
         return None
     parts = [body[:at[0][0]]]
     for number, (start, place) in enumerate(at):
-        opened, depth = start + len(place), 0
-        for index in range(opened, end.start()):
-            depth += {'(': 1, ')': -1}.get(body[index], 0)
-            if not depth:
-                break
-        else:
+        opened = start + len(place)
+        close = _closed(body, opened, end.start())
+        if close is None:
             return None         # no parameter list closes before the next copy
-        close = index + 1
         stop = at[number + 1][0] if number + 1 < len(at) else end.start()
         rest = body[close:stop]
         joint = next((joint for joint in (' and ', ', ') if rest.endswith(joint)), '') if number + 1 < len(at) else ''
@@ -716,11 +716,34 @@ def _signatures(said, places):
     return [*parts, body[end.start():] + arrow + step]
 
 
+def _closed(text, opened, stop):
+    """The end of the parameter list that opens at `text[opened]` (its `(`), before `stop`; None where none closes
+    there. A parenthesis inside a quoted default (`label=')'`, as `ast.unparse` spells a Python one, or a JS/TS
+    string or template) is no parenthesis: a quote opens a string that runs to its next quote of the same kind not
+    escaped by a backslash, as the Python and JS/TS readers' tokens read one."""
+    depth, quote, index = 0, '', opened
+    while index < stop:
+        char = text[index]
+        if quote:
+            if char == '\\':
+                index += 1          # the escaped character is the string's
+            elif char == quote:
+                quote = ''
+        elif char in '\'"`':
+            quote = char
+        elif char in '()':
+            depth += 1 if char == '(' else -1
+            if not depth:
+                return index + 1
+        index += 1
+    return None
+
+
 def _cap_parameters(signatures, width):
-    """A line of copies that take different parameters (`_signatures`) within WIDTH, never cut inside a signature or
-    a return type: the return types give way first, each whole, the longest first, then the parameter lists, all of
-    them; each copy's `path:function` and the words around them stay. Where even that leaves the line longer than WIDTH
-    it is longer. `show --last` keeps the whole line."""
+    """A line of copies that take different parameters (as `_signatures` reads it) within WIDTH, never cut inside a
+    signature or a return type: the return types give way first, each whole, the longest first, then the parameter
+    lists, all of them; each copy's `path:function` and the words around them stay. Where even that leaves the line
+    longer than WIDTH it is longer. `show --last` keeps the whole line."""
     head, *copies, tail = signatures
     def line():
         return head + ''.join(place + parameters + returned + joint for place, parameters, returned, joint in copies) + tail
@@ -1095,19 +1118,21 @@ def copies_parameters(signatures, limit=PLACES):
 PARAMETERS = 'parameters'       # the member of a `same:NAME` finding whose copies take different parameters
 
 
-def parameters_finding(name, what, step, places, *, baseline, touched, detail=()):
+def parameters_finding(name, what, step, places, *, old, detail=()):
     """The `same:NAME` finding of copies that take different parameters (`copies_parameters`) that the flowguard
     comments show (`anchors._index`, an issue of code 'parameters') or `check` finds where no comment does: one member
     (PARAMETERS) naming each copy (`places`, `path:function`), so check --static, pytest, check and vitest give it as
-    one line. It is judged against the task's `baseline` as every same-name finding is (`deliver`): this change's, red,
-    where it touches (`touched`, the files it edits, adds or deletes) a copy's file, which holds the copy's comment,
-    and without a baseline; else the copies took these parameters at the task start and it is old: no line in a run
-    that touches none of them, `before` with --all, and a known entry naming `same:NAME` speaks for it. The brief counts
-    a red of it as before once new-task has moved the baseline past it (`cli._last_reds`). A comparison that runs the
-    copies says nothing more of a group the comments name so."""
+    one line. It is judged against the task start as every same-name finding is (`deliver`), by one route in every
+    runner: `old` is whether the copies took these parameters at the task start (`anchors.parameters_then`, from the
+    baseline's facts of the copies' files, `owners.Findings.old_parameters`). It is this change's, red, where the
+    change adds or changes a copy's parameters or its comment, and without a baseline; else it is old, whatever else the
+    change edits in a copy's file: `before` (or `known` where a known entry naming `same:NAME` speaks for it) in a run
+    that touches a copy's file, no line in one that touches none of them, `before` with --all. The brief counts a red
+    of it as before once new-task has moved the baseline past it (`cli._last_reds`). A comparison that runs the copies
+    says nothing more of a group the comments name so."""
     files = frozenset(place.rpartition(':')[0] for place in places)
     return finding('same', f'same:{name}', f'same {name}', [what], step, function=PARAMETERS, places=places,
-                   files=files, detail=detail, fresh=not baseline or bool(files & frozenset(touched)))
+                   files=files, detail=detail, fresh=not old)
 
 
 def copies_issue(name, fresh, old, *, places, files=()):

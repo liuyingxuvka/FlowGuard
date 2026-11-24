@@ -548,8 +548,12 @@ def plan(cfg, commit, changed, key):
     from ..structure.extract import extract
     from .anchors import collect
     from .config import is_test_rel
+    from .owners import Change, old_parameters
     with closing(build(cfg.root, roots=cfg.roots)) as graph:
         index = collect(graph)
+        # the copies that took their different parameters at the baseline: their line is old (`judge`), as the
+        # static test's is
+        took = sorted(old_parameters(Change(cfg, graph, commit), index))
         owners = {anchor.target for anchor in index.entries if anchor.owner}
         modules = {row['file']: row['module'] for row in graph.nodes(kind='module')}
         wanted = {}                     # id -> (name, anchored, rel, qual, why an unanchored function is planned)
@@ -667,7 +671,7 @@ def plan(cfg, commit, changed, key):
     for point in points:
         files.setdefault(point['file'], dict(points=[]))['points'].append(point)
     return dict(key=key, root=cfg.root.as_posix(), baseline=commit, limit=LIMIT, files=files, unplanned=unplanned,
-                touched=sorted(touched), known=known, inputs=inputs)
+                touched=sorted(touched), known=known, inputs=inputs, old_parameters=took)
 
 
 def _binding_edited(cfg, graph, rel, skip, old_sources, modules):
@@ -1288,7 +1292,10 @@ def judge(cfg, data, records, package=None, named=frozenset()):
     or with the reason its source cannot be sealed, only when this change edits it or writes its mark (R99). `package`
     is the folder of the vitest run: a point in another package cannot be reached by its tests and is not listed as
     unreached. `named` are the same names whose copies this run's map checks already name as taking different
-    parameters (`anchors._index`, `static_lines`): their red is that line alone, and no line of this run says it again."""
+    parameters (`anchors._index`, `static_lines`): their red is that line alone, and no line of this run says it again.
+    Where they do not, copies that take different parameters and answered apart are one line of this run, old where
+    they took these parameters at the task start (the plan's `old_parameters`, `owners.old_parameters`), as the map
+    checks judge them."""
     from . import cache, cells as C, signals
     from .engine import CONFLICT, Engine, PredicateError, outcome_eq
     from .health import LINES_ONLY, Issue
@@ -1404,7 +1411,8 @@ def judge(cfg, data, records, package=None, named=frozenset()):
                                                      + (f': {points[target]["returns"]}' if points[target]['returns'] else ''))
                                                     for target in group])
             line = ('', text, step, {pair for kept in (*fresh, *old) for pair in kept[3] & apart})
-            red = any(kept[3] & apart for kept in fresh)
+            # red where this change made them take different parameters, by the baseline's facts as in every runner
+            red = point['name'] not in data['old_parameters']
             fresh, old = ([(where, said, then, pairs - apart) for where, said, then, pairs in lines if pairs - apart]
                           for lines in (fresh, old))
             if point['name'] not in named:      # else the map checks' line of this run says it
@@ -1539,16 +1547,18 @@ def static_lines(observations):
     return dict(saved, lines=lines)
 
 
-def merged(own, static, said):
+def merged(own, static, said, stated=frozenset()):
     """The block's lines: this run's, then those of the map checks (`static_lines`), each (kind, name, function) once
     and in KINDS order; a known entry this run already speaks for (`said`) keeps this run's line only, except that a
     `known fixed?` of the map checks is always listed (D8) and replaces this run's `known` line of its entry: the map
     checks judged that entry's finding in the whole project and found it gone, while this run's line only says that
-    the change touches the entry's sites (no check of this run judges a family the map checks run)."""
+    the change touches the entry's sites (no check of this run judges a family the map checks run). An entry whose
+    finding a red line of the map checks states (`stated`: this change added it, and the red names the entry in its
+    detail, as `signals.deliver` keeps a new finding red) has no `known` line of this run beside it."""
     from .signals import KINDS
     fixed = {line.name for line in static if line.kind == 'known fixed?'}
     unique = {}
-    for line in [*(line for line in own if not (line.kind == 'known' and line.name in fixed)),
+    for line in [*(line for line in own if not (line.kind == 'known' and line.name in fixed | stated)),
                  *(line for line in static if not (line.kind == 'known' and line.name in said))]:
         unique.setdefault((line.kind, line.name, line.function), line)
     return sorted(unique.values(), key=lambda line: KINDS.index(line.kind))
@@ -1598,7 +1608,10 @@ def report(root, plan_path, observations, package=None, *, in_test=False):
         # the block prints this item on a line of its own (`signals.render_block`)
         rel = cfg.rel((Path(package) if package else cfg.root) / STATIC_TEST)
         own.append(signals.not_compared(rel, [signals.MAP_CHECKS_NOT_RUN], places=(rel,)))
-    lines = merged(own, static['lines'] if static else [], said)
+    # a known entry whose finding the map checks give as this change's red speaks in that red's detail alone
+    reds = {line.name for line in static['lines'] if line.kind == 'red'} if static else set()
+    lines = merged(own, static['lines'] if static else [], said,
+                   frozenset(f'known.{entry.id}' for entry in result['known'] if entry.finding in reds))
     carried = {(line.kind, line.name, line.function) for line in static['lines']} if static else set()
     red = sum(line.kind == 'red' for line in lines)
     mine = sum(line.kind == 'red' and (line.kind, line.name, line.function) not in carried for line in lines)

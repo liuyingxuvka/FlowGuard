@@ -581,6 +581,13 @@ def test_a_line_of_copies_that_take_different_parameters_never_cuts_inside_a_sig
         'red: rule SCOPE: same anchor ORG_UNIT_SCOPE: org-unit.service.ts:orgUnitService.canViewOrgUnit and '
         'org-unit-reference-registry.ts:listVisibleOrgUnitReferences take different parameters -> inspect rule '
         'scope_rule.py:3 and correct its source, binding or regression rows')
+    # Review of 5.1 (FT2 open 1): a parenthesis inside a quoted default (a Python copy's parameters as a comparison
+    # spells them) closes no parameter list; the line was cut in its middle, inside the signature and into `take`
+    for default in ("label=')'", "label='it\\'s )'", 'label="("'):
+        assert said([(service, f'(user, {default}, orgUnit): Promise<boolean>'),
+                     (registry, '(user, orgUnits): Promise<OrgUnitReference[]>')]) == (
+            f'red: same ORG_UNIT_SCOPE: org-unit.service.ts:orgUnitService.canViewOrgUnit(user, {default}, orgUnit) and '
+            f'org-unit-reference-registry.ts:listVisibleOrgUnitReferences(user, orgUnits) {tail}')
     # of more than three copies three are named, the others counted, as before
     assert said([(service, '(user, orgUnit): boolean'), (registry, '(user, orgUnits): OrgUnitReference[]'),
                  (planning, '(orgUnits, user): OrgUnit[]'), ('x/a.ts:f', '(a)'), ('x/b.ts:g', '(b)')], 'before') == (

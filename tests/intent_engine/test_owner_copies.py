@@ -154,6 +154,40 @@ def test_an_output_declaration_keeps_its_colon():
     assert (row['output'], row['output_type'], row['projection'], tuple(row['issues'])) == ('allowed', 'bool', '', ())
 
 
+def test_copies_took_their_different_parameters_at_the_task_start_by_the_baselines_facts():
+    """Review of 5.1 (FT2 open 2 and 4): the finding of copies that take different parameters is old where the copies
+    took these parameters at the task start, whatever else the change edits in their file, and this change's where it
+    adds or changes a copy's parameters, its mark or its mapping; without a baseline none is old. Every runner reads
+    it from `anchors.parameters_then`; a copy's file the change leaves alone is read as now, a touched one at the
+    baseline (`then`)."""
+    source = """
+        # flowguard: same SCOPE
+        def can_view(user, project):
+            return True
+        # flowguard: same SCOPE
+        def visible(user, projects):
+            return projects
+        def third(user, projects):
+            return projects
+    """
+    index = anchors._index([anchors._anchor(row) for row in _facts(source)['anchors']], [])
+    rows = _facts(source)['anchors']
+    def judged(then_source, touched=('policy.py',)):
+        then = _facts(then_source).get('anchors', ())
+        return anchors.parameters_then(index, set(touched), lambda file: then)
+    assert judged(source, touched=()) == {'SCOPE'}                     # a file the change leaves alone
+    assert judged(source + '        x = 1\n') == {'SCOPE'}            # another line of the copies' file
+    assert judged(source.replace('projects):', 'items):')) == set()   # a copy took another parameter there
+    assert judged(source.replace('# flowguard: same SCOPE\n        def visible', 'def visible')) == set()   # no mark
+    assert judged(source.replace('# flowguard: same SCOPE\n        def visible',
+                                 '# flowguard: same SCOPE(user=user, project=projects)\n        def visible')) == set()
+    assert judged('') == set()                                         # a file the change adds
+    assert anchors.parameters_then(index, set(), None) == set()        # no baseline
+    # copies that take the same parameters have no such finding
+    same = anchors._index([anchors._anchor(row) for row in rows if row['qual'] != 'can_view'], [])
+    assert anchors.parameters_then(same, set(), lambda file: rows) == set()
+
+
 def test_parameters_correspond_only_by_name_unless_the_copy_writes_its_mapping(tmp_path):
     source = '''
         # flowguard: same ELIGIBLE ref
