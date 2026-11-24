@@ -13,8 +13,13 @@ import linecache
 import os
 from pathlib import Path
 import sys
+import time
 
 from ..structure.paths import project_code
+
+# How recent an mtime may be for a file status to be no proof of unchanged bytes (`_Finder.source_hash`): FAT's 2 s
+# timestamps and NTFS's update granularity both fall within it.
+RACY_NS = 3_000_000_000
 
 _SDK = Path(__file__).resolve().parent.parent
 
@@ -157,11 +162,16 @@ class _Finder:
 
     def source_hash(self, path):
         """util.source_hash of the file's bytes, read again only when its status (inode, size, mtime, ctime)
-        changed: every preparation checks every loaded project file, and a rule session prepares often."""
+        changed: every preparation checks every loaded project file, and a rule session prepares often. A status
+        taken while the file's mtime was within RACY_NS of the clock is not trusted (git's racily clean entries): a
+        file system whose timestamps are coarser than the time between two saves of the same size (NTFS, FAT) keeps
+        the same status for other bytes, so such a file is read again until its mtime is older than that."""
         stat = path.stat()
         key = stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns
-        if self.hashes.get(path, (None,))[0] != key:
-            self.hashes[path] = key, util.source_hash(path.read_bytes())
+        held = self.hashes.get(path)
+        if held is None or held[0] != key or held[2]:
+            racy = time.time_ns() - stat.st_mtime_ns < RACY_NS
+            self.hashes[path] = key, util.source_hash(path.read_bytes()), racy
         return self.hashes[path][1]
 
     def owns(self, filename):

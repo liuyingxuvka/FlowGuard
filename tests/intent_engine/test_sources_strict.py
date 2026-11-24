@@ -749,9 +749,11 @@ def test_a_rule_citing_a_request_that_is_no_text_keeps_the_conflict_of_the_other
                          cwd=root, capture_output=True, text=True, timeout=120)
     output = ran.stdout + ran.stderr
     assert ran.returncode == 1 and 'UnicodeDecodeError' not in output, output
-    assert [line for line in output.splitlines() if line.startswith('FAILED ')] == [
-        'FAILED tests/intent/days.py::FOUR[rules] - conflict THREE vs FOUR at days=4: ...',
-        'FAILED tests/intent/days.py::THREE[rules] - conflict THREE vs FOUR at days=4:...'], output
+    # pytest cuts its short summary to the terminal's width, which differs between machines: compare its head
+    failed = [line for line in output.splitlines() if line.startswith('FAILED ')]
+    assert [line[:len('FAILED tests/intent/days.py::THREE[rules] - conflict THREE vs FOUR at days=4:')] for line in failed] \
+        == ['FAILED tests/intent/days.py::FOUR[rules] - conflict THREE vs FOUR at days=4: ',
+            'FAILED tests/intent/days.py::THREE[rules] - conflict THREE vs FOUR at days=4:'], output
     assert [line[:22] for line in cli_fixture.block(ran)[1:]] == ['red: rule FOUR: confli', 'red: rule THREE: confl'], output
     shown = cli_fixture.last(root)
     assert f'    FOUR: {conflict}' in shown.splitlines() and f'    THREE: {conflict}' in shown.splitlines(), shown

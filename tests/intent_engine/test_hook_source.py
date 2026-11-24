@@ -362,3 +362,28 @@ def test_a_source_saved_during_the_run_never_changes_a_test_outcome(tmp_path, sa
     else:
         assert lines[1:] == ['not compared: area (source of app/mod.py changed on disk after import) -> not a failure'], \
             lines
+
+
+def test_a_status_taken_while_the_file_was_just_saved_proves_no_unchanged_bytes(tmp_path):
+    # CI on Windows (5.1): a file saved twice within one timestamp tick with the same size kept its status (inode,
+    # size, mtime, ctime), so the cached hash said the imported bytes were still there and FlowGuard read the second
+    # save's text as the imported function. A status taken while the mtime was that recent is not trusted (git's
+    # racily clean entries); an old file's status still is, so a session does not read every file again.
+    import time
+    from types import SimpleNamespace
+    from flowguard.intent import imports
+    status = {}
+
+    class Coarse(type(Path())):
+        def stat(self, **_):     # a file system that keeps the same status for both saves
+            return SimpleNamespace(st_ino=7, st_size=6, st_mtime_ns=status['mtime'], st_ctime_ns=7)
+
+    path = Coarse(tmp_path / 'mod.py')
+    finder = imports._finder
+    for age, again in ((0, True), (3600, False)):
+        status['mtime'] = time.time_ns() - age * 1_000_000_000
+        path.write_bytes(b'x = 1\n')
+        first = finder.source_hash(path)
+        path.write_bytes(b'x = 2\n')
+        assert (finder.source_hash(path) != first) is again, age
+        finder.hashes.pop(path, None)
