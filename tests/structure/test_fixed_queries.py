@@ -1,10 +1,12 @@
 """Only six source queries; no runtime execution or second source scanner."""
 import ast
+from collections import Counter
 
 import pytest
 
 from flowguard.structure import build
-from flowguard.structure.query import assigns, call_on_every_path, handler_outcome, may_suppress, on_every_path
+from flowguard.structure.query import (assigns, bindings, call_on_every_path, handler_outcome, may_suppress,
+                                      on_every_path)
 
 
 def test_config_roots_accept_the_config_objects_absolute_paths(repo, tmp_path):
@@ -154,7 +156,8 @@ def test_handler_query_uses_all_paths_instead_of_any_raise(body, always_raises):
 def test_a_call_on_every_path_is_one_no_branch_return_or_nested_scope_can_skip(body, always):
     """PEMEL17-18: writes moved into a helper are one line only where the call runs whenever the function returns."""
     function = ast.parse('async def f(self, p, q, s, rows, lock):\n' + ''.join(f'    {line}\n' for line in body.splitlines())).body[0]
-    assert call_on_every_path(function, '_apply', may_suppress(set(), set(), False, lambda name: False)) is always
+    assert call_on_every_path(function, '_apply', may_suppress(set(), set(), False, lambda call: False, Counter())) \
+        is always
 
 
 SUPPRESSING = '''import contextlib
@@ -185,19 +188,51 @@ def f(p, lock, guard):
     ('with contextlib.AsyncExitStack() as stack:\n        _apply(p)', set(), set(), False, False),
     ('with lock.acquire_timeout(5):\n        _apply(p)', set(), set(), False, False),
     ('with make_guard():\n        check(p)\n    _apply(p)', set(), set(), False, False),
-    # a context manager the reader sees never suppresses runs its block, and its own expression runs always: open, and
-    # what `never` accepts (the project's own class with an `__exit__` that never returns true, a @contextmanager
-    # generator without a quiet handler)
+    # a context manager the reader sees never suppresses runs its block, and its own expression runs always: the
+    # built-in open, and the calls `never` accepts (the caller's reading of the definition a call reaches: the
+    # project's own class with an `__exit__` that never returns true, a @contextmanager generator without a quiet
+    # handler)
     ('with open(p):\n        _apply(p)', {9}, {'Quiet'}, True, True), ('with lock:\n        _apply(p)', set(), set(), False, True),
     ('with Session():\n        _apply(p)', set(), set(), False, True),
     ('with self.scope():\n        _apply(p)', set(), set(), False, True),
     ('with contextlib.suppress(_apply(p)):\n        pass', {6}, set(), False, True),
     ('_apply(p)\n    with contextlib.suppress(ValueError):\n        check(p)', {7}, set(), False, True),
+    # 5.1 review (FM3 open 1): what reads as never suppressing is what the reader sees. `x.open(...)` is no built-in
+    # open, and `never` judges the call, not a short name a library call shares (`self.session.begin()`)
+    ('with self.store.open(p):\n        _apply(p)', set(), set(), False, False),
+    ('with self.session.begin():\n        _apply(p)', set(), set(), False, False),
 ])
 def test_a_call_in_or_after_a_with_that_may_suppress_is_not_on_every_path(body, lines, names, held, always):
-    function = ast.parse(SUPPRESSING.replace('BODY', body)).body[2]
-    never = {'Session', 'scope'}.__contains__
-    assert call_on_every_path(function, '_apply', may_suppress(lines, names, held, never)) is always
+    tree = ast.parse(SUPPRESSING.replace('BODY', body))
+    never = lambda call: ast.unparse(call.func) in ('Session', 'self.scope')        # noqa: E731
+    assert call_on_every_path(tree.body[2], '_apply', may_suppress(lines, names, held, never, bindings(tree))) is always
+
+
+@pytest.mark.parametrize('module,always', [
+    ('def f(p):\n    with open(p):\n        _apply(p)\n', True),
+    ('def open(p):\n    return p\n\n\ndef f(p):\n    with open(p):\n        _apply(p)\n', False),
+    ('from io import open\n\n\ndef f(p):\n    with open(p):\n        _apply(p)\n', False),
+    ('from os import *\n\n\ndef f(p):\n    with open(p):\n        _apply(p)\n', False),
+    ('def f(p, open):\n    with open(p):\n        _apply(p)\n', False),
+    ('open = None\n\n\ndef f(p):\n    with open(p):\n        _apply(p)\n', False),
+])
+def test_only_the_builtin_open_called_by_its_bare_name_reads_as_never_suppressing(module, always):
+    """5.1 review (FM3 open 1): `open` read as never suppressing by its name alone, a module's own `open` or an
+    imported one too. The built-in is the bare name where the module binds no other `open` and has no star import
+    (`bindings`)."""
+    tree = ast.parse(module)
+    function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'f')
+    assert call_on_every_path(function, '_apply', may_suppress(set(), set(), False, lambda call: False, bindings(tree))) \
+        is always
+
+
+def test_bindings_counts_each_name_a_module_binds_in_any_scope():
+    tree = ast.parse('import os.path\nfrom x import a as b\nfrom y import *\nc = 1\n\n\nclass C:\n    def m(self, d, *e, **f):\n'
+                     '        for g in d:\n            with h() as i:\n                pass\n        try:\n            pass\n'
+                     '        except E as j:\n            del k\n        global c\n        match d:\n'
+                     '            case {"x": l, **m}:\n                pass\n')
+    assert bindings(tree) == Counter({'os': 1, 'b': 1, '*': 1, 'c': 2, 'C': 1, 'm': 2, 'self': 1, 'd': 1, 'e': 1, 'f': 1,
+                                      'g': 1, 'i': 1, 'j': 1, 'k': 1, 'l': 1})
 
 
 def test_a_write_on_every_path_is_an_assignment_to_its_field_on_its_line_by_the_same_path_query():
@@ -205,7 +240,7 @@ def test_a_write_on_every_path_is_an_assignment_to_its_field_on_its_line_by_the_
     the row's line to that field) and judged by the same path query as the call."""
     function = ast.parse('def g(p, s):\n    p.a = 1\n    if s:\n        p.b = 2\n    p.c, p.d = 3, 4\n'
                          '    p["e"] = 5\n    q = p.a\n').body[0]
-    never = may_suppress(set(), set(), False, lambda name: False)
+    never = may_suppress(set(), set(), False, lambda call: False, Counter())
     assert [on_every_path(function, lambda node, line=line, field=field: assigns(node, line, field), never)
             for line, field in ((2, 'a'), (4, 'b'), (5, 'd'), (6, 'e'), (7, 'a'), (2, 'b'))] == \
         [True, False, True, True, False, False]

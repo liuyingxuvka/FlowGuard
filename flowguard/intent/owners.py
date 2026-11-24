@@ -1436,8 +1436,10 @@ def loosened(change, index):
 
 
 CALLERS_NAMED = 3           # other callers of a helper a moved-writes line names; more are counted
-# how an impact line says a helper's write of a field, or the call of it, does not run on every path (`_moved_writes`)
-CONDITIONAL = {'condition': 'only under a condition', 'callback': 'in a callback'}
+# how an impact line says what the path queries found of a helper's write of a field, or of the call of it, where they
+# did not place it on every path (`_moved_writes`): not seen to run every time, or seen in more callbacks; never a
+# condition they did not see
+UNSEEN = {'condition': 'where FlowGuard did not see {} run every time', 'callback': 'in a callback'}
 
 
 def field_impact(change, index):
@@ -1461,15 +1463,18 @@ def field_impact(change, index):
     function's other resolved callers, and that function's own line is left out when every field it newly writes is
     one the caller wrote at the baseline (the detail keeps what it said); otherwise `no longer writes`. A delete of
     such a field's model the function did not have at the baseline is added, `now deletes Assignment
-    (assignments.ts:9)`. A call the map does not resolve, a call or a write under a condition, and one the path
-    queries cannot place (`_Paths`: a function the current text does not hold by the map's name and line, a language
-    other than Python and JS/TS, a write that is no assignment or Prisma call) link nothing: the two functions keep a
-    line each, as in 5.0.1. Where the call or the write is there but runs only on some paths (PTWF-V125: the
-    delegation was not visible), the `no longer writes` line names that function and how, `it calls
-    reactivateOrCreateMember (project-membership.ts:3), which writes them only under a condition` or `_apply
-    (model.py:7), which it calls only under a condition, writes them` (`in a callback` where it sits in more anonymous
-    callbacks than the baseline's write), and the detail gives the call. The block cuts these lines by their own rule
-    (`signals._cap_moved`)."""
+    (assignments.ts:9)`. A call the map does not resolve, a call or a write the path queries do not place on every
+    path, and one they cannot place (`_Paths`: a function the current text does not hold by the map's name and line, a
+    language other than Python and JS/TS, a write that is no assignment or Prisma call) link nothing: the two
+    functions keep a line each, as in 5.0.1. Where the call or the write is there but the path queries did not see it
+    run on every path (PTWF-V125: the delegation was not visible), the `no longer writes` line names that function and
+    what was found, never a condition the reader did not see (5.1 review: a call in both branches of an if, or after
+    a `with` not seen never to suppress, is no conditional call): `it calls reactivateOrCreateMember
+    (project-membership.ts:3), which writes them where FlowGuard did not see the writes run every time` or `_apply
+    (model.py:7), which it calls where FlowGuard did not see the call run every time, writes them` (UNSEEN; `in a
+    callback` where it sits in more anonymous callbacks than the baseline's write), `them` only where those are every
+    field the line names, the fields by name otherwise; the detail gives the call. The block cuts these lines by their
+    own rule (`signals._cap_moved`)."""
     from .health import _test_files, deleted_model, unseen_write, written_field, writers
     from .signals import Line
     found = Findings()
@@ -1599,9 +1604,11 @@ def field_impact(change, index):
         if gone:
             said.append(('' if said else f'{qual} ') + f'no longer writes {", ".join(gone)}')
         for callee, keys, (part, how) in delegated.get(function, ()):
-            # PTWF-V125: a helper it calls writes those fields now, but only on some paths (PEMEL17-18: no move)
+            # PTWF-V125: a helper it calls writes those fields now, where the path queries did not place the call or
+            # the write on every path (PEMEL17-18: no move); `them` only where they are every field the line names
             name, at, calling_at = called(callee)
-            them, where = 'them' if keys == gone else ', '.join(keys), CONDITIONAL[how]
+            them = 'them' if keys == gone == removed and not added else ', '.join(keys)
+            where = UNSEEN[how].format('the call' if part == 'call' else 'the writes' if len(keys) > 1 else 'the write')
             said.append(f'{name} ({at}), which it calls {where}, writes {them}' if part == 'call'
                         else f'it calls {name} ({at}), which writes {them} {where}')
             places.append(at)
@@ -1634,8 +1641,9 @@ def _moved_writes(graph, changes, now, then, unseen, every):
     write under a condition, or one `_Paths` cannot place in the current text, moves nothing: the function and the
     callee keep a line each (PEMEL17-18). Of the fields that moved nowhere, the second map names the first callee by
     id that writes the field where the path queries found the call or the write but not on every path (`found_call`,
-    `found_write`): `part` is 'call' or 'write', `how` 'condition' or, where it sits in more anonymous callbacks than
-    the baseline's write, 'callback' (PTWF-V125: the line names that delegation). A field of a model the function
+    `found_write`): `part` is 'call' or 'write', `how` 'condition' (not seen on every path: under a condition, in a
+    loop, a try or a lambda, or in or after a `with` that may suppress) or, where it sits in more anonymous callbacks
+    than the baseline's write, 'callback' (PTWF-V125: the line names that delegation). A field of a model the function
     still writes with data whose fields are not visible is none (`unseen`: it may still write it). `down` and `up` are
     the resolved calls by named function, read only when some function stopped writing a field."""
     if not any(removed for _, removed in changes.values()):
@@ -1697,7 +1705,7 @@ class _Paths:
     its language is neither, no answer is established (None, False) and the two 5.0.1 lines stay."""
 
     def __init__(self, graph):
-        self.graph, self.trees, self.seen = graph, {}, {}
+        self.graph, self.trees, self.seen, self.bound = graph, {}, {}, {}
 
     def tree(self, file, language):
         """The parse of `file`'s current text, once: Python's syntax tree, JS/TS's `(source, tree)`."""
@@ -1748,37 +1756,103 @@ class _Paths:
         return rows, names, any(row['kind'] == 'exit_method' or row['kind'] == 'suppress' and row['line'] not in made[row['file']]
                                 for row in rows)
 
-    def never(self, name):
-        """Whether the reader sees that the context manager a call of `name` gives never suppresses an error of a
-        with block (`query.may_suppress` reads a call of one of `handlers`' names as suppressing first): production
-        code defines `name`, and each such definition is a Python class with its own `__exit__` or `__aexit__` or a def
-        decorated with `contextmanager` or `asynccontextmanager`. A class whose `__exit__` it inherits, a def that
-        returns a context manager and a name production code does not define (a library's) are not seen."""
+    def never(self, function):
+        """`query.may_suppress`'s test of a with item's call in `function` (its map node; the call is an ast node of its
+        own body): whether the reader sees that the context manager the call gives never suppresses an error of the
+        block. The call reaches, by the definition the map resolves it to (`resolved`), the project's own class with its
+        own `__exit__` or `__aexit__` or a def decorated with `contextmanager` or `asynccontextmanager`, whose name is
+        none of `handlers`' (a quiet one suppresses), and every production definition of that name is one of these
+        (`defined`: a subclass may override a method `self.scope()` reaches). A call the map does not resolve to one
+        definition (a library's, `self.session.begin()` where the project defines a `begin` too), a class whose
+        `__exit__` it inherits and a def that returns a context manager are not seen."""
+        def seen(call):
+            if (target := self.resolved(function, call)) is None:
+                return False
+            node = self.graph.node(target)
+            short = node['qual'].removesuffix('.__init__').rpartition('.')[2]
+            if node['qual'].endswith('.__init__'):
+                node = self.graph.node(target.removesuffix('.__init__'))
+            if node is None or node['file'] in self.tests or short in self.handlers[1] or not self.defined(short):
+                return False
+            return self.exits(node['id']) if node['kind'] == 'class' else self.decorated(node['id'])
+        return seen
+
+    def resolved(self, function, call):
+        """The map's id of the one definition a Python call in `function` (its map node) reaches, or None. The map's
+        call facts give the call's spelling at its line, through the module's imports (`MapHandle.python_calls`:
+        `app.ctx.Session` for `Session()` imported from app.ctx); it names a definition as `module:qual` of the
+        function's own and enclosing scopes or of the module the import names, a class also by its `__init__`, and
+        `self.m` or `cls.m` as a method of the function's class (`MapHandle.canonical`); exactly one of these must be a
+        call the map resolved from `function` (`MapHandle.resolved_calls`). The name the call starts with (not `self`
+        or `cls`) is bound once in its module and the module has no star import (`query.bindings`): where it is bound
+        again, the map does not tell which binding the call reads."""
+        from flowguard.structure.analysis import dotted
+        raw = dotted(call.func) or ast.unparse(call.func)
+        head, bound = raw.partition('.')[0], self.bindings(function['file'])
+        if bound['*'] or head not in ('self', 'cls') and bound[head] != 1:
+            return None
+        spellings = self.spellings.get((function['id'], call.lineno, raw), set())
+        if len(spellings) != 1:
+            return None
+        parts, (module, _, qual) = next(iter(spellings)).split('.'), function['id'].partition(':')
+        if parts[0] in ('self', 'cls'):
+            named = [f'{module}:{function["cls"]}.{parts[1]}'] if len(parts) == 2 and function['cls'] else []
+        elif len(parts) == 1:
+            scopes = qual.split('.')
+            named = [f'{module}:{".".join(scopes[:depth] + parts)}' for depth in range(len(scopes), -1, -1)]
+        else:
+            named = ['.'.join(parts[:cut]) + ':' + '.'.join(parts[cut:]) for cut in range(len(parts) - 1, 0, -1)]
+        found = {self.graph.canonical(name) for name in (*named, *(f'{name}.__init__' for name in named))} - {None}
+        found &= self.graph.resolved_calls()[0].get(function['id'], set())
+        return found.pop() if len(found) == 1 else None
+
+    @cached_property
+    def spellings(self):
+        """{(function, line, text): {spelling}} of the map's Python call facts (`MapHandle.python_calls`)."""
+        found = {}
+        for row in self.graph.python_calls():
+            found.setdefault((row['node'], row['line'], row['text']), set()).add(row['resolved'])
+        return found
+
+    def decorated(self, ident):
+        """Whether the Python def `ident` is decorated with `contextmanager` or `asynccontextmanager`."""
+        found = self.parsed(ident)
+        return found is not None and found[1] == 'python' and any(
+            ast.unparse(item.func if isinstance(item, ast.Call) else item).rpartition('.')[2]
+            in ('contextmanager', 'asynccontextmanager') for item in found[2].decorator_list)
+
+    def defined(self, name):
+        """Whether production code defines `name` and each such definition is a Python class with its own `__exit__`
+        or `__aexit__` or a def decorated with `contextmanager` or `asynccontextmanager` (`decorated`)."""
         if name not in self.seen:
             rows = [tuple(row) for row in self.graph.con.execute(
                 "SELECT id, qual, kind, file FROM node WHERE short = ? AND kind IN ('class', 'function', 'method')",
                 (name,)) if row[3] not in self.tests]
-
-            def seen(ident, qual, kind):
-                if kind == 'class':
-                    module = ident.partition(':')[0]
-                    return self.graph.con.execute('SELECT 1 FROM node WHERE id IN (?, ?)', (
-                        f'{module}:{qual}.__exit__', f'{module}:{qual}.__aexit__')).fetchone() is not None
-                found = self.parsed(ident)
-                return found is not None and found[1] == 'python' and any(
-                    ast.unparse(item.func if isinstance(item, ast.Call) else item).rpartition('.')[2]
-                    in ('contextmanager', 'asynccontextmanager') for item in found[2].decorator_list)
-            self.seen[name] = bool(rows) and all(seen(ident, qual, kind) for ident, qual, kind, _ in rows)
+            self.seen[name] = bool(rows) and all(self.exits(ident) if kind == 'class' else self.decorated(ident)
+                                                 for ident, _, kind, _ in rows)
         return self.seen[name]
 
-    def suppresses(self, file):
-        """The `query.may_suppress` test of a Python with item's context manager in `file`: the lines of the
-        `contextlib.suppress(...)` calls `handlers` holds there, its names, whether a name may hold one, and the
-        calls the reader sees never suppress (`never`)."""
+    def exits(self, ident):
+        """Whether the class `ident` has its own `__exit__` or `__aexit__` (one it inherits is not seen)."""
+        return self.graph.con.execute('SELECT 1 FROM node WHERE id IN (?, ?)', (
+            f'{ident}.__exit__', f'{ident}.__aexit__')).fetchone() is not None
+
+    def suppresses(self, function):
+        """The `query.may_suppress` test of a Python with item's context manager in `function` (its map node): the
+        lines of the `contextlib.suppress(...)` calls `handlers` holds in its file, its names, whether a name may hold
+        one, the calls the reader sees never suppress (`never`) and the names its module binds (`query.bindings`)."""
         from flowguard.structure.query import may_suppress
         rows, names, held = self.handlers
+        file = function['file']
         return may_suppress({row['line'] for row in rows if row['kind'] == 'suppress' and row['file'] == file}, names,
-                            held, self.never)
+                            held, self.never(function), self.bindings(file))
+
+    def bindings(self, file):
+        """`query.bindings` of the Python `file`'s current text, once."""
+        from flowguard.structure.query import bindings
+        if file not in self.bound:
+            self.bound[file] = bindings(self.tree(file, 'python'))
+        return self.bound[file]
 
     def call(self, function, callee, sources):
         """The fewest anonymous callbacks a call of `callee` in `function` sits in where it runs whenever `function`
@@ -1793,7 +1867,7 @@ class _Paths:
             return None
         (node, language, parsed), name = found, target['qual'].rpartition('.')[2]
         if language == 'python':
-            return 0 if call_on_every_path(parsed, name, self.suppresses(node['file'])) else None
+            return 0 if call_on_every_path(parsed, name, self.suppresses(node)) else None
         return ecma.call_on_every_path(*parsed, (node['line'], node['end_line']), name, self.lines(callee, sources))
 
     def lines(self, callee, sources):
@@ -1849,7 +1923,7 @@ class _Paths:
         for row in rows:
             if language == 'python' and row['method'] == 'assign':
                 if on_every_path(parsed, lambda item, row=row: assigns(item, row['line'], row['field']),
-                                 self.suppresses(node['file'])):
+                                 self.suppresses(node)):
                     reached.append(0)
             elif language != 'python' and row['how'] == 'prisma':
                 crossed = ecma.call_on_every_path(*parsed, (node['line'], node['end_line']), row['method'], {row['call_line']})

@@ -3427,6 +3427,12 @@ def _pemel_moved(call):
         '    _apply_default_model(preferences, model, "import")\n')
 
 
+# what a kept writer line says of the helper where the path queries did not see its call, or its writes, run on every
+# path (5.1 review, FM3 open 0: what was found, never a condition the reader did not see)
+CALL_UNSEEN = 'where FlowGuard did not see the call run every time'
+WRITES_UNSEEN = 'where FlowGuard did not see the writes run every time'
+
+
 def test_writes_moved_to_a_helper_called_only_under_a_condition_keep_a_line_for_each_function(tmp_path):
     """PEMEL17-18 (PEMEL Studio, 5.1 review): `if source == "library": _apply_default_model(...)` in place of
     set_default_model's own writes gave one line, `set_default_model's writes of ... moved to _apply_default_model`,
@@ -3434,7 +3440,9 @@ def test_writes_moved_to_a_helper_called_only_under_a_condition_keep_a_line_for_
     separate writer lines when the mutation moved across a condition. A call that runs whenever the function returns
     (a statement of its body or of a with block, after a guard that raises) gives one line, and its block line, with
     PEMEL's names, says what moved where; a call under an if, after an early return or in a loop gives the two 5.0.1
-    lines, and the caller's line names the helper it calls only under a condition (PTWF-V125, FM2 open 5)."""
+    lines, and the caller's line names the helper it calls (PTWF-V125, FM2 open 5) with what the path query found:
+    that it did not see the call run every time. The third fix said `which it calls only under a condition`, a
+    condition the reader had not seen in a try/finally, and in both branches of an if/else none (FM3 open 0)."""
     path = 'src/pemel_service/library/model_preferences.py'
     _commit(tmp_path, {'pyproject.toml': '[project]\nname = "pemel"\nversion = "0"\n', path: PEMEL_PREFERENCES})
     moved = ("set_default_model's writes of ModelPreferences.default_model, ModelPreferences.default_source moved to "
@@ -3454,13 +3462,15 @@ def test_writes_moved_to_a_helper_called_only_under_a_condition_keep_a_line_for_
     apart = ['_apply_default_model now writes ModelPreferences.default_model, ModelPreferences.default_source; 0 other '
              'writers, 1 reader (untyped reads not counted)',
              'set_default_model no longer writes ModelPreferences.default_model, ModelPreferences.default_source; '
-             f'_apply_default_model ({path}:10), which it calls only under a condition, writes them; 1 other writer, 1 '
-             'reader (untyped reads not counted)']
+             f'_apply_default_model ({path}:10), which it calls {CALL_UNSEEN}, writes them; 1 other writer, 1 reader '
+             '(untyped reads not counted)']
     for call in ('    if source == "library":\n        _apply_default_model(preferences, model, source)',
                  '    if source != "library":\n        return\n    _apply_default_model(preferences, model, source)',
                  '    for _ in range(1):\n        _apply_default_model(preferences, model, source)',
                  '    try:\n        _apply_default_model(preferences, model, source)\n    finally:\n        pass',
-                 '    source and _apply_default_model(preferences, model, source)'):
+                 '    source and _apply_default_model(preferences, model, source)',
+                 '    if source:\n        _apply_default_model(preferences, model, source)\n    else:\n'
+                 '        _apply_default_model(preferences, model, "library")'):
         _write(tmp_path, {path: _pemel_moved(call)})
         assert sorted(line.text for line in _impact(tmp_path)[0].lines) == apart, call
 
@@ -3469,7 +3479,8 @@ def test_writes_moved_into_a_helper_a_typescript_function_calls_only_on_some_pat
     """PEMEL17-18 for JS/TS: the call in Planning Tool's own shape, in the `prisma.$transaction(async (tx) => ...)`
     callback where the write was, still gives one line; under an if, a ternary, `&&`, after an early return in the
     callback, in a loop or in a callback the write was not in (`forEach`), the function and the helper keep a line
-    each, and the function's line names the helper it calls only under a condition or in a callback (PTWF-V125, FM2
+    each, and the function's line names the helper it calls where the path query did not see the call run every
+    time or in a callback (PTWF-V125, FM2
     open 5)."""
     _commit(tmp_path, {**MOVED_BASE, 'src/member-helpers.ts': '// helpers\n'})
     imports = "import { reactivateOrCreateMember } from './member-helpers';\n"
@@ -3482,14 +3493,14 @@ def test_writes_moved_into_a_helper_a_typescript_function_calls_only_on_some_pat
              '(src/member-helpers.ts:1), which it calls {}, writes them; 1 other writer, 1 reader of ProjectMember',
              'reactivateOrCreateMember now writes ProjectMember.active, ProjectMember.projectId, ProjectMember.userId; 1 other '
              'writer, 1 reader of ProjectMember']
-    for body, where in ((f'if (deps.reactivate) {{\n      {call}\n    }}', 'only under a condition'),
-                        (f'deps.reactivate ? {call[6:-1]} : null;', 'only under a condition'),
-                        (f'deps.reactivate && {call[6:]}', 'only under a condition'),
-                        (f'if (!deps.reactivate) return;\n    {call}', 'only under a condition'),
+    for body, where in ((f'if (deps.reactivate) {{\n      {call}\n    }}', CALL_UNSEEN),
+                        (f'deps.reactivate ? {call[6:-1]} : null;', CALL_UNSEEN),
+                        (f'deps.reactivate && {call[6:]}', CALL_UNSEEN),
+                        (f'if (!deps.reactivate) return;\n    {call}', CALL_UNSEEN),
                         (f'for (const id of [userId]) {{\n      await reactivateOrCreateMember(tx, projectId, id);\n    }}',
-                         'only under a condition'),
+                         CALL_UNSEEN),
                         ('[userId].forEach((id) => reactivateOrCreateMember(tx, projectId, id));', 'in a callback'),
-                        (f'try {{\n      {call}\n    }} catch (error) {{\n      throw error;\n    }}', 'only under a condition')):
+                        (f'try {{\n      {call}\n    }} catch (error) {{\n      throw error;\n    }}', CALL_UNSEEN)):
         _write(tmp_path, {'src/members.ts': _members_ts(body, imports)})
         assert sorted(line.text for line in _impact(tmp_path)[0].lines) == [apart[0].format(where), apart[1]], body
 
@@ -3623,14 +3634,15 @@ def test_writes_moved_into_a_helper_that_writes_them_only_on_some_paths_keep_a_l
     helper wrote the fields only `if source == "library":`, and the line still read as a relocation,
     `set_default_model's writes of ... moved to _apply_default_model`: set_default_model's writes had become
     conditional. A write merges only where the helper's own write of the field runs on every path of the helper, by
-    the same path query as the call; where it does not, the caller's line names the helper that writes the fields only
-    under a condition (PTWF-V125, FM2 open 5)."""
+    the same path query as the call; where it does not, the caller's line names the helper whose writes of the fields
+    the path query did not see run every time (PTWF-V125, FM2 open 5, FM3 open 0), and names the fields where only
+    some of them did not move (FM3 open 3)."""
     path = 'src/pemel_service/library/model_preferences.py'
     _commit(tmp_path, {'pyproject.toml': '[project]\nname = "pemel"\nversion = "0"\n', path: PEMEL_PREFERENCES})
     apart = ['_apply_default_model now writes ModelPreferences.default_model, ModelPreferences.default_source; 0 other '
              'writers, 1 reader (untyped reads not counted)',
              'set_default_model no longer writes ModelPreferences.default_model, ModelPreferences.default_source; it calls '
-             f'_apply_default_model ({path}:10), which writes them only under a condition; 1 other writer, 1 reader '
+             f'_apply_default_model ({path}:10), which writes them {WRITES_UNSEEN}; 1 other writer, 1 reader '
              '(untyped reads not counted)']
     writes = '    preferences.default_model = model\n    preferences.default_source = source\n'
     for helper, lines in (
@@ -3648,13 +3660,15 @@ def test_writes_moved_into_a_helper_that_writes_them_only_on_some_paths_keep_a_l
         if lines == 2:
             assert found == apart, helper
         elif lines == 3:
-            # the write that runs on every path moved, the other did not, and the helper keeps its own line for it
+            # the write that runs on every path moved, the other did not, and the helper keeps its own line for it;
+            # the caller's line names the field the helper's clause is about (FM3 open 3: `them` read as both)
             assert found == [apart[0].replace('1 reader', '2 readers'),
                              "set_default_model's writes of ModelPreferences.default_model moved to "
                              f'_apply_default_model, which it calls ({path}:10); other callers of _apply_default_model: '
                              'import_default_model; no longer writes ModelPreferences.default_source; it calls '
-                             f'_apply_default_model ({path}:10), which writes them only under a condition; 0 other '
-                             'writers, 2 readers (untyped reads not counted)'], found
+                             f'_apply_default_model ({path}:10), which writes ModelPreferences.default_source where '
+                             'FlowGuard did not see the write run every time; 0 other writers, 2 readers (untyped reads '
+                             'not counted)'], found
         else:
             assert len(found) == 1 and 'moved to _apply_default_model' in found[0], (helper, found)
     # Planning Tool's shape: the helper creates the member only when it found none to reactivate
@@ -3664,9 +3678,9 @@ def test_writes_moved_into_a_helper_that_writes_them_only_on_some_paths_keep_a_l
     for body, merged in (('  await tx.projectMember.create({ data: { projectId, userId, active: true } });', True),
                          ('  if (await tx.projectMember.count({ where: { projectId, userId } })) return;\n'
                           '  await tx.projectMember.create({ data: { projectId, userId, active: true } });',
-                          'only under a condition'),
+                          WRITES_UNSEEN),
                          ('  if (userId) {\n    await tx.projectMember.create({ data: { projectId, userId, active: true } });\n  }',
-                          'only under a condition'),
+                          WRITES_UNSEEN),
                          ('  await Promise.all([1].map(() => tx.projectMember.create({ data: { projectId, userId, active: true '
                           '} })));', 'in a callback')):
         helper = f'export async function reactivateOrCreateMember(tx: any, projectId: number, userId: number) {{\n{body}\n}}\n'
@@ -3730,8 +3744,10 @@ def test_a_kept_writer_line_names_the_helper_that_writes_its_fields_only_under_a
     the 5.0.1 lines stay, as PEMEL asked where the mutation moved across a condition; but the caller's line said
     `assignProjectManager no longer writes ProjectMember.projectId, ProjectMember.userId; 1 other writer, ...`, and
     Planning Tool's V1-25 note was that the delegation was not visible. The line now names the helper it calls, its
-    place, and how: `it calls G (place), which writes them only under a condition`, or `G (place), which it calls
-    only under a condition, writes them` when the call is the conditional part. In the block that clause stays as the
+    place, and what the path queries found: `it calls G (place), which writes them where FlowGuard did not see the
+    writes run every time`, or `G (place), which it calls where FlowGuard did not see the call run every time, writes
+    them` when the call is the part not seen on every path (FM3 open 0: the third fix said `only under a condition`,
+    which the reader had not seen). In the block that clause stays as the
     moved one does; `show --last` keeps the counts too. A helper whose write names no field (a spread of a
     parameter: `ProjectMember.?`) is not one that writes them, and the line stays as in 5.0.1."""
     helper = 'backend/src/utils/project-membership.ts'
@@ -3742,9 +3758,9 @@ def test_a_kept_writer_line_names_the_helper_that_writes_its_fields_only_under_a
                        'backend/src/utils/guards.ts': 'export function requireMasterDataWritable() {}\n',
                        helper: _pt_membership('membership'), 'backend/src/services/members.ts': own})
     step = ' -> check them for this change only (python -m flowguard show ProjectMember.projectId)'
-    for body, said, at in ((call, 'it calls reactivateOrCreateMember ({}:3), which writes them only under a condition', 7),
+    for body, said, at in ((call, f'it calls reactivateOrCreateMember ({{}}:3), which writes them {WRITES_UNSEEN}', 7),
                            (f'if (userId) {{\n      {call}\n    }}',
-                            'reactivateOrCreateMember ({}:3), which it calls only under a condition, writes them', 8)):
+                            f'reactivateOrCreateMember ({{}}:3), which it calls {CALL_UNSEEN}, writes them', 8)):
         _write(tmp_path, {'backend/src/services/members.ts': _pt_assign(body, imports)})
         [line] = _impact(tmp_path)[0].lines
         assert line.text == ('assignProjectManager no longer writes ProjectMember.projectId, ProjectMember.userId; '
@@ -3769,11 +3785,11 @@ def test_a_kept_writer_line_names_the_helper_that_writes_its_fields_only_under_a
     writes = '    preferences.default_model = model\n    preferences.default_source = source\n'
     for call, helper_body, said in (
             ('    if source == "library":\n        _apply_default_model(preferences, model, source)', writes,
-             '_apply_default_model ({}:10), which it calls only under a condition, writes them'),
+             f'_apply_default_model ({{}}:10), which it calls {CALL_UNSEEN}, writes them'),
             ('    _apply_default_model(preferences, model, source)',
              '    if source == "library":\n        preferences.default_model = model\n'
              '        preferences.default_source = source\n',
-             'it calls _apply_default_model ({}:10), which writes them only under a condition')):
+             f'it calls _apply_default_model ({{}}:10), which writes them {WRITES_UNSEEN}')):
         _write(tmp_path, {path: _pemel_moved(call).replace(writes, helper_body, 1)})
         code, text = _flowguard(tmp_path, 'check', '--static', '--base', 'HEAD')
         assert code == 0 and 'impact: set_default_model no longer writes ModelPreferences.default_model, ' \
@@ -3857,6 +3873,95 @@ def scope():
     _write(tmp_path, {path: 'import threading\n' + _pemel_moved(f'    with LOCK:\n        {call}') + '\n\nLOCK = threading.Lock()\n'})
     [line] = _impact(tmp_path)[0].lines
     assert 'moved to _apply_default_model' in line.text, line.text
+
+
+PEMEL_SERVICE = '''import contextlib
+from dataclasses import dataclass
+IMPORTS
+
+@dataclass
+class ModelPreferences:
+    default_model: str = ""
+    default_source: str = ""
+
+
+EXTRA
+class Service:
+    @contextlib.contextmanager
+    def scope(self):
+        yield
+
+    def set_default_model(self, preferences: ModelPreferences, model: str, source: str):
+BODY
+
+def describe(preferences: ModelPreferences):
+    return preferences.default_model
+'''
+PEMEL_DB = '''class Session:
+    def __init__(self, name=""):
+        self.name = name
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return None
+
+
+class Quiet:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return True
+'''
+
+
+def test_only_a_with_the_reader_sees_never_suppress_lets_writes_moved_inside_it_merge(tmp_path):
+    """5.1 review (FM3 open 1): what read as never suppressing was more than the reader saw. Any `x.open(...)` read as
+    the built-in open (`with self.store.open("x"):` merged), and the project's own `@contextmanager begin` made
+    `with self.session.begin():` merge, a library call that shares only its short name. Now the built-in `open` is
+    the bare name where the module binds no other, and a project class or `@contextmanager` is the definition the
+    map resolves the call to (an import, an alias, the module's own name, `self.m` in its class); anything else keeps
+    the two lines."""
+    path = 'src/pemel_service/library/model_preferences.py'
+    db = 'src/pemel_service/library/db.py'
+    writes = 'preferences.default_model = model\npreferences.default_source = source'
+
+    def source(body, imports='', extra=''):
+        return PEMEL_SERVICE.replace('IMPORTS\n', imports).replace('EXTRA\n', extra).replace(
+            'BODY\n', ''.join(f'        {line}\n' for line in body.splitlines()) + '\n')
+    helper = ('def _apply_default_model(preferences: ModelPreferences, model: str, source: str):\n'
+              '    preferences.default_model = model\n    preferences.default_source = source\n\n\n')
+    call = '_apply_default_model(preferences, model, source)'
+    begin = '@contextlib.contextmanager\ndef begin():\n    yield\n\n\n'
+    for number, (body, imports, extra, merged) in enumerate((
+            (f'with open("log", "a"):\n    {call}', '', '', True),
+            (f'with self.store.open("log"):\n    {call}', '', '', False),
+            (f'with open("log", "a"):\n    {call}', '', 'def open(path, mode):\n    return contextlib.ExitStack()\n\n\n',
+             False),
+            (f'with self.session.begin():\n    {call}', '', begin, False),
+            (f'with begin():\n    {call}', '', begin, True),
+            (f'with self.scope():\n    {call}', '', '', True),
+            (f'with Session("x"):\n    {call}', 'from pemel_service.library.db import Session\n', '', True),
+            # the with is asked about twice, its block and what follows it: the answer stays
+            (f'with Session("x"):\n    pass\n{call}', 'from pemel_service.library.db import Session\n', '', True),
+            (f'with db.Session():\n    {call}', 'from pemel_service.library import db\n', '', True),
+            (f'with S():\n    {call}', 'from pemel_service.library.db import Quiet as S\n', '', False),
+            (f'with Session():\n    {call}', 'from pemel_service.library.db import *\n', '', False),
+            # every production definition of the name is one the reader sees never suppress: a subclass may override
+            (f'with Session():\n    {call}', 'from pemel_service.library.db import Session\n', '', 'other'))):
+        root = tmp_path / str(number)
+        other = {'src/pemel_service/other.py': 'from pemel_service.library.db import Quiet\n\n\nclass Session(Quiet):\n'
+                                               '    pass\n'} if merged == 'other' else {}
+        merged = merged is True
+        _commit(root, {'pyproject.toml': '[project]\nname = "pemel"\nversion = "0"\n', db: PEMEL_DB,
+                       path: source(writes, imports, extra), **other})
+        _write(root, {path: source(body, imports, extra + helper)})
+        found = [line.text for line in _impact(root)[0].lines]
+        assert any("set_default_model's writes of ModelPreferences.default_model, ModelPreferences.default_source "
+                   'moved to _apply_default_model' in text for text in found) is merged, (body, imports, found)
+        assert len(found) == (1 if merged else 2), (body, imports, found)
 
 
 def test_a_typescript_call_a_loop_or_label_may_skip_or_a_default_may_not_run_keeps_two_lines(tmp_path):

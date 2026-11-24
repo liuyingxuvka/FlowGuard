@@ -237,8 +237,8 @@ def test_a_call_on_every_path_crosses_no_branch_or_named_function_and_counts_its
 
 def test_a_call_found_on_some_paths_only_is_one_the_text_holds_where_the_path_query_gives_none():
     """5.1 review (FM2 open 5, PTWF-V125): where `call_on_every_path` gives None, `calls_in` says whether the call is
-    there at all (under an if, optional, in a callback), so an impact line can say that a helper writes a field only
-    under a condition, and nothing where the call is not there."""
+    there at all (under an if, optional, in a callback), so an impact line can say that a helper writes a field where
+    FlowGuard did not see the write run every time, and nothing where the call is not there."""
     from flowguard.structure.readers.common import parse
     from flowguard.structure.readers.ecma import call_on_every_path, calls_in
     text = (b'export async function g(tx: any, s: any) {\n  if (!s) {\n    await tx.projectMember.create({ data: s });\n'

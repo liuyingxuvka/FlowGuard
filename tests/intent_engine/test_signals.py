@@ -539,26 +539,28 @@ def test_a_moved_line_takes_its_least_shortened_form_that_fits_and_gets_back_wha
     """5.1 review (FM2 open 0, 2, 5): the second fix let the callers and the counts give way before it counted a
     field list, and never put them back when the count freed the room: `f's writes of P.alpha and 10 more moved to g,
     which it calls (prefs.py:19); ... -> ...` ended 54 characters within WIDTH without `other callers of g: 1`. Now
-    what fits comes back after counting, the callers count first, then the counts; a line with two moved clauses keeps
-    both whole; a line naming a helper that writes the fields only under a condition gives way by the same rule."""
+    what went comes back after counting where it fits, the callers count first, then the counts, then the callers'
+    names (FM3 open 2: the third fix left `other callers of g: 1` where `h` fits as well); a line with two moved
+    clauses keeps both whole; a line naming a helper the path queries did not see write the fields, or be called,
+    every time gives way by the same rule."""
     step = 'check them for this change only (python -m flowguard show {})'
     fields = ', '.join(f'P.{name}' for name in ('alpha', 'beta', 'delta', 'epsilon', 'eta', 'gamma', 'iota', 'kappa',
                                                 'lambda_', 'theta', 'zeta'))
-    # the callers count comes back; the counts do not fit
+    # the callers come back, by name where their names fit; the counts do not fit
     assert _moved_said(f"f's writes of {fields} moved to g, which it calls (src/m.py:7); other callers of g: h; 0 other "
                        'writers, 1 reader (untyped reads not counted)', 'P.alpha', 'src/m.py:7') == (
-        "impact: f's writes of P.alpha and 10 more moved to g, which it calls (m.py:7); other callers of g: 1; ... -> "
+        "impact: f's writes of P.alpha and 10 more moved to g, which it calls (m.py:7); other callers of g: h; ... -> "
         f'{step.format("P.alpha")}', 169)
     # the counts come back too where they fit
     assert _moved_said(f"f's writes of {fields} moved to g, which it calls (src/m.py:7); other callers of g: h; 0 other "
                        'writers, 3 readers of P', 'P.alpha', 'src/m.py:7') == (
-        "impact: f's writes of P.alpha and 10 more moved to g, which it calls (m.py:7); other callers of g: 1; 0 other "
+        "impact: f's writes of P.alpha and 10 more moved to g, which it calls (m.py:7); other callers of g: h; 0 other "
         f'writers, 3 readers of P -> {step.format("P.alpha")}', 197)
-    # a long `no longer writes` list is counted, and the callers count comes back
+    # a long `no longer writes` list is counted, and the callers come back by name
     assert _moved_said("f's writes of P.a moved to g, which it calls (src/m.py:7); other callers of g: h, i, j; no longer "
                        f'writes {fields}; 0 other writers, 3 readers of P', 'P.a', 'src/m.py:7') == (
-        "impact: f's writes of P.a moved to g, which it calls (m.py:7); other callers of g: 3; no longer writes 11 "
-        f'fields; ... -> {step.format("P.a")}', 177)
+        "impact: f's writes of P.a moved to g, which it calls (m.py:7); other callers of g: h, i, j; no longer writes 11 "
+        f'fields; ... -> {step.format("P.a")}', 183)
     # two helpers: both moved clauses stay whole, as do their names where no count brings the line within WIDTH
     shown, width = _moved_said('f now writes Prefs.theme; its writes of Prefs.model moved to _apply, which it calls '
                                '(src/m.py:7); its writes of Prefs.source moved to _apply_the_source_of_the_default_model, '
@@ -573,24 +575,28 @@ def test_a_moved_line_takes_its_least_shortened_form_that_fits_and_gets_back_wha
                        'readers of P', 'P.a', 'src/m.py:7', 'src/m.py:12') == (
         "impact: f's writes of P.a moved to g, which it calls (m.py:7); its writes of P.b moved to h, which it calls "
         f'(m.py:12); other callers of h: 1; ... -> {step.format("P.a")}', 198)
-    # a helper that writes the fields only under a condition (or is called only under one) is named whole; a list it
+    # a helper the path queries did not see write the fields (or be called) every time is named whole; a list it
     # names is counted last, as a moved one is
-    assert _moved_said('f no longer writes P.a, P.b; it calls g (src/m.py:7), which writes them only under a condition; '
+    unseen = ' where FlowGuard did not see the {} run every time'
+    assert _moved_said(f'f no longer writes P.a, P.b; it calls g (src/m.py:7), which writes them{unseen.format("writes")}; '
                        '1 other writer, 3 readers of P', 'P.a', 'src/m.py:7') == (
-        'impact: f no longer writes P.a, P.b; it calls g (m.py:7), which writes them only under a condition; 1 other '
-        f'writer, 3 readers of P -> {step.format("P.a")}', 190)
-    assert _moved_said('f no longer writes P.alpha, P.beta, P.gamma, P.delta, P.epsilon, P.zeta; it calls g (src/m.py:7), '
-                       'which writes P.alpha, P.beta, P.gamma only under a condition; 1 other writer, 3 readers of P',
-                       'P.alpha', 'src/m.py:7') == (
-        'impact: f no longer writes P.alpha and 5 more; it calls g (m.py:7), which writes P.alpha, P.beta, P.gamma only '
-        f'under a condition; ... -> {step.format("P.alpha")}', 197)
+        f'impact: f no longer writes P.a, P.b; it calls g (m.py:7), which writes them{unseen.format("writes")}; ... -> '
+        f'{step.format("P.a")}', 194)
+    assert _moved_said('f no longer writes P.a, P.b, P.c, P.d, P.e, P.f, P.g, P.h, P.i; it calls g (src/m.py:7), which '
+                       f'writes P.b{unseen.format("write")}; 1 other writer, 3 readers of P', 'P.b', 'src/m.py:7') == (
+        f'impact: f no longer writes P.b and 8 more; it calls g (m.py:7), which writes P.b{unseen.format("write")}; ... '
+        f'-> {step.format("P.b")}', 198)
+    assert _moved_said(f'f no longer writes P.a, P.b; g (src/m.py:7), which it calls{unseen.format("call")}, writes them; '
+                       '1 other writer, 3 readers of P', 'P.a', 'src/m.py:7') == (
+        f'impact: f no longer writes P.a, P.b; g (m.py:7), which it calls{unseen.format("call")}, writes them; ... -> '
+        f'{step.format("P.a")}', 193)
     shown, width = _moved_said('set_default_model no longer writes ModelPreferences.default_model, '
-                               'ModelPreferences.default_source; _apply_default_model (src/m.py:7), which it calls only '
-                               'under a condition, writes them; 1 other writer, 1 reader (untyped reads not counted)',
-                               'ModelPreferences.default_model', 'src/m.py:7')
+                               'ModelPreferences.default_source; _apply_default_model (src/m.py:7), which it calls'
+                               f'{unseen.format("call")}, writes them; 1 other writer, 1 reader (untyped reads not '
+                               'counted)', 'ModelPreferences.default_model', 'src/m.py:7')
     assert shown == ('impact: set_default_model no longer writes ModelPreferences.default_model, '
-                     'ModelPreferences.default_source; _apply_default_model (m.py:7), which it calls only under a '
-                     f'condition, writes them; ... -> {step.format("ModelPreferences.default_model")}') \
+                     'ModelPreferences.default_source; _apply_default_model (m.py:7), which it calls'
+                     f'{unseen.format("call")}, writes them; ... -> {step.format("ModelPreferences.default_model")}') \
         and width > signals.WIDTH, shown
 
 

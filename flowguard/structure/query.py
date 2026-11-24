@@ -2,6 +2,7 @@
 import re
 import ast
 import operator
+from collections import Counter
 
 
 class Rows(list):
@@ -207,27 +208,57 @@ def assigns(node, line, field):
                for target in targets for part in ast.walk(target))
 
 
-NEVER_SUPPRESS = frozenset({'open'})     # calls whose context manager never suppresses, the project's code aside
+NEVER_SUPPRESS = frozenset({'open'})     # built-ins whose context manager never suppresses, called by their bare name
 
 
-def may_suppress(lines, names, held, never):
+def bindings(tree):
+    """{name: how often} of the names `tree` (a module's ast) binds, in any of its scopes: a def's or class's name, a
+    target an assignment, for, with, walrus or del binds, a parameter, an import's name, an except's name, a match
+    pattern's capture and a global or nonlocal declaration; '*' counts the star imports, which may bind any name."""
+    found = Counter()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            found[node.name] += 1
+        elif isinstance(node, ast.Name) and not isinstance(node.ctx, ast.Load):
+            found[node.id] += 1
+        elif isinstance(node, ast.arg):
+            found[node.arg] += 1
+        elif isinstance(node, ast.alias):
+            found['*' if node.name == '*' else node.asname or node.name.partition('.')[0]] += 1
+        elif isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)) and node.name:
+            found[node.name] += 1
+        elif isinstance(node, ast.MatchMapping) and node.rest:
+            found[node.rest] += 1
+        elif isinstance(node, (ast.Global, ast.Nonlocal)):
+            found.update(node.names)
+    return found
+
+
+def may_suppress(lines, names, held, never, bound):
     """The question `on_every_path` asks of a with item's context manager (an ast expression): whether it may suppress
     an error of its block, as the map's handlers read the project's production code. A call is read as not
-    suppressing only where the reader sees that it never does: `open(...)` (NEVER_SUPPRESS) or a call whose name
-    `never` accepts (the project's own classes whose `__exit__` never returns a true value and `@contextmanager`
-    generators that hold no quiet handler, as the caller reads them). Any other call may suppress: one on one of
-    `lines` (where the map has a `contextlib.suppress(...)` call, under any name), one of `names` (a class whose
-    `__exit__` may return a true value, `exit_may_suppress`, or a function holding a handler that can end without
-    raising or a suppress, which a `@contextmanager` generator that swallows the error at its yield is), a
-    `contextlib.ExitStack()`, which suppresses whatever a context manager entered on it suppresses, and any call the
-    reader cannot see into (a library's, `lock.acquire_timeout()`, or a function that returns a context manager). Any
-    other expression (`with lock:`, `with self._guard:`) may suppress where `held` (the project has such a class or
-    keeps a suppress object outside a with): the object it holds may be one."""
+    suppressing only where the reader sees that it never does: the built-in `open(...)` (NEVER_SUPPRESS) called by its
+    bare name where the module binds no name of it and has no star import (`bound`, its `bindings`; `x.open(...)` is
+    another function), or a call `never` accepts (the caller's reading of the definition the call reaches: the
+    project's own class whose `__exit__` never returns a true value, its `@contextmanager` generator that holds no
+    quiet handler). Any other call may suppress: one on one of `lines` (where the map has a `contextlib.suppress(...)`
+    call, under any name), one of `names` (a class whose `__exit__` may return a true value, `exit_may_suppress`, or a
+    function holding a handler that can end without raising or a suppress, which a `@contextmanager` generator that
+    swallows the error at its yield is), a `contextlib.ExitStack()`, which suppresses whatever a context manager
+    entered on it suppresses, and any call whose definition the reader does not reach (a library's,
+    `lock.acquire_timeout()`, `self.session.begin()` where the project defines a `begin` too, or a function that
+    returns a context manager). Any other expression (`with lock:`, `with self._guard:`) may suppress where `held`
+    (the project has such a class or keeps a suppress object outside a with): the object it holds may be one; where
+    not, it is read as not suppressing, though it may hold a library's context manager that does."""
     def suppresses(expression):
         if isinstance(expression, ast.Call):
             callee = expression.func
             name = callee.id if isinstance(callee, ast.Name) else callee.attr if isinstance(callee, ast.Attribute) else None
-            return expression.lineno in lines or name in names or not (name in NEVER_SUPPRESS or name and never(name))
+            if expression.lineno in lines or name in names:
+                return True
+            if isinstance(callee, ast.Name) and name in NEVER_SUPPRESS and not bound[name] and not bound['*']:
+                return False
+            return not never(expression)
         return held
     return suppresses
 
