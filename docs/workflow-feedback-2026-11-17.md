@@ -20,6 +20,12 @@
 
 复现可固定同一应用提交，分别使用空缓存和已有 v5.0.1 缓存，保持 `backend/.env` 不存在并清除 `DATABASE_URL`、`CENTRAL_DATABASE_URL`。一种可验证的修复是按 SQLite 连接的实际绑定上限分批查询，合并结果并保留原有去重和事务语义。诊断可显示失败阶段和绑定参数数量，继续拒绝不完整缓存。回归应同时覆盖空缓存、超过上限的旧缓存重建，以及未超过上限的增量刷新，并核对完成后的检查结果一致。
 
+### v5.1.0 升级提示应先给出只读差异
+
+应用基线 `ddcaaba02b19` 的 `v3-84-person-merge-command-new-task.log` 报告 `AGENTS.md holds a FlowGuard rules block that differs from the one FlowGuard 5.1 writes: python -m flowguard init rewrites it`。读取应用中标记的生成块，与发布修订 `bcc57bd00d38` 的 `PROJECT_RULES` 做逐行比较，只有第 7 条不同。新版补充了用 `req add --offer FILE --picked TEXT` 记录选择的办法。`init` 的实际代码还会写项目的 pytest 配置、哨兵、`.flowguard/ci.yml` 及适用的 npm 测试接线。应用保留原有接线，正式 v5.1.0 已通过第 83 组完整的后端 6,411 例和前端 3,641 例，两端 FlowGuard 均为 `0 red`。
+
+建议从 `new-task` 的提示直接提供只读预览，显示生成块的具体差异和执行 `init` 会触及的文件。用同一个仅第 7 条不同的 npm 项目验收，预览应明确新增的选择记录说明和接线影响，凭运行前后的文件散列和比较基线核对只读性。托管会话提供的同名技能仍指向 `read`、`change`、`map` 和 `release`。该发布标签随附的技能指向 `new-task`、项目测试及 `show`。升级提示可同时指向同一标签的随附技能，便于核对当前引擎对应的指引。
+
 ## 让两个包的验证可以独立运行
 
 此前同时运行前后端检查，遇到一次缓存锁竞争，未取得测试结果。当前做法是串行。这避免了此次冲突，多个包每组必须等两套检查累加。另有多个代理共享同一工作区，所有检查也集中交给一个代理，以避免混用最后一次运行结果。
