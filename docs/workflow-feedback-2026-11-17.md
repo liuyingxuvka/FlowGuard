@@ -94,6 +94,12 @@ G80 提供了基线回放的参数错位对照。`v3-80-frontend-full.log` 的 3
 
 这次 50 个语法未验证项还包含 `step1-overlay-consumers.test.tsx` 等文件，同批前端 TypeScript 检查实际 exit 0。建议输出最小错误区域、行列以及可识别的语法类别，供维护者定位解析范围。报告位置和类别即可，解析差异的具体原因仍待核实。
 
+**G94 离线复现。** `v3-94-final-ledger.log` 报告 96 个语法未验证文件（62 个 TS、34 个 TSX）。直接用 FlowGuard 5.1.0 所用的 `tree-sitter` 0.25.2 和 `tree-sitter-typescript` 0.23.2 重现了全部 96 个错误。TypeScript 5.9.3 解析这 96 个原文件时均无语法诊断。仅在内存中将调用的 `<typeof import("m")>` 形状替换为 `<unknown>`，其中 94 个文件的所有解析错误消失。这一对照用于定位触发条件。
+
+最小例 `f<typeof import("m")>();` 在 TS 和 TSX 语法里都产生错误节点。等价对照 `type T = typeof import("m"); f<T>();` 在两种语法中都通过。余下两份文件还分别出现 `type A = import("m").Thing[];` 和 `(props: import("m").Generic<number>) => props` 形状。TypeScript 5.9.3 对有对应声明的三种合成例均可通过编译。
+
+可把这些例子加入语法回归，核对修复后的两个语法都能完整解析，同时保留一个确有语法错误的对照。在依赖修复前，报告可以附上解析器版本和最小错误节点的行列，保留现有的 `unverified` 判断。
+
 ## V1-14 路由恢复需要同次交互结果
 
 `v1-14-frontend-targeted-1.log` 的定向运行实际退出 1。Vitest 在 2.19 秒内跑了 9 例，8 例通过。从正常页面进入一个始终抛错的新页面时，路由边界记了两次错误，用例要求一次。FlowGuard 报 0 red、2 not compared，耗时 27.9 秒。未比较范围列出 `AppShell` 和未纳入此次运行的静态检查入口。故障由真实路由、组件生命周期和日志断言共同复现。修复后同一用例随 `v1-14-frontend-green-1.log` 的 2597 例全部通过，FlowGuard 报 0 red、5 not compared。
