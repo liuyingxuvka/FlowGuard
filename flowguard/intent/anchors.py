@@ -1221,6 +1221,8 @@ def collect(graph):
     locate = _graph_locator(graph, modules)
     # Only the kinds the index reads; assignments only when a declared set needs the value gate.
     for file, error, data in graph._kinds('anchors', 'anchor_issues', 'field_types'):
+        if not (graph.root / file).is_file():
+            continue        # a file deleted since the map read it (during a test run) holds no comment now
         if error and file.endswith('.py'):
             problems.append(Issue('grey', 'source-syntax', error, file))
         for value in data.get('anchors', ()):

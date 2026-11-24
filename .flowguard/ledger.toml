@@ -4,6 +4,7 @@
 # 新增、数量变化、代码消失、那句话找不到，都会让 pytest 失败。rule = "旧账" 的条目由 ledger init 记下，只能减少。
 # 裸 except、except Exception/BaseException、contextlib.suppress、警告过滤、finally 里的 return/break/continue
 # 和可能返回真值的 __exit__ 不能新增登记：改代码。
+# 唯一例外是主人在 R106 选定的 FlowGuard 自己 pytest 收尾处的 except Exception（ledger.OWNER_ALLOWED），它的 rule 引用 R106 的选项原文。
 
 ["flowguard/__main__.py:main:KeyboardInterrupt"]
 count = 1
@@ -625,10 +626,20 @@ count = 1
 reason = "When recording display_unavailable fails after the block could not be shown, it prints that SQLite error's text to stderr; the committed verdict and exit code stay as they are."
 rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
 
+["flowguard/intent/plugin.py:_internal_error:(sqlite3.Error, OSError)"]
+count = 1
+reason = "When show --last cannot keep FlowGuard's internal error at session finish (the cache folder or map.sqlite cannot be written), it prints that error's text to stderr; the block with its red line and the run's non-zero exit stay as they are."
+rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
 ["flowguard/intent/plugin.py:_parse_baseline:(SyntaxError, ValueError)"]
 count = 1
 reason = "A changed file whose version at the baseline commit does not parse (a commit that held a syntax error) gives back no tree and the parser's own words; every comparison that needed that version is then a not compared line with those words, so the session neither stops with INTERNALERROR nor passes it in silence."
 rule = { file = "AGENTS.md", text = "One route per function: when a step fails, the error reaches the caller or is reported with its text" }
+
+["flowguard/intent/plugin.py:finish_verified:Exception"]
+count = 1
+reason = "The one broad handler the owner allowed (R106): when FlowGuard's own verdict at pytest's session finish raises any error, pytest's summary still prints, the block ends with one red line naming the error's type, text and FlowGuard's innermost frame, the run exits non-zero and show --last keeps the whole traceback (R85)."
+rule = { file = ".flowguard/requests/offers/R106.md", text = "A. 在这一个地方兜底：FlowGuard 自己出错时，项目的测试结果照常显示，后面加一行\"FlowGuard 内部出错：……\"，整次运行仍然算失败，不假装没事；详细报错另外能查。（推荐）" }
 
 ["flowguard/intent/plugin.py:pytest_runtest_protocol:Exception"]
 count = 1

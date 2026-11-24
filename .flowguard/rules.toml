@@ -36,3 +36,7 @@ source = 'R95 "就是你需要的过程当中把旧的版本变成新的，要�
 [rule.offered-choice]
 text = "An option the agent offered and the owner picked is the owner's original choice and is recorded too, never attributing the agent's option text to him."
 source = 'R105 "但实际上这也是人的原始选择，对不对？说实话，按我的想法，应该是一样记录的。"'
+
+[rule.session-finish-error]
+text = "FlowGuard's own error at a pytest session's finish is one red line after pytest's own summary; the run still fails, and show --last keeps the whole traceback."
+source = 'R106 picked "A. 在这一个地方兜底：FlowGuard 自己出错时，项目的测试结果照常显示，后面加一行"FlowGuard 内部出错：……"，整次运行仍然算失败，不假装没事；详细报错另外能查。（推荐）"'

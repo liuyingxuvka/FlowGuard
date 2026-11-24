@@ -11,7 +11,11 @@ what the handler does and why it may stay (at least eight words) and cites a wri
 sentence that file must contain; the sentence is checked on every run.
 
 Bare `except`, `except Exception`/`BaseException`, `contextlib.suppress`, warning filters, an exit from
-`finally` and an `__exit__` that may return true cannot be listed: they are red until the code changes.
+`finally` and an `__exit__` that may return true cannot be listed: they are red until the code changes. The one
+exception is the place the owner allowed by his pick of an offered option (`OWNER_ALLOWED`, R106): FlowGuard's own
+pytest session finish, whose `except Exception` reports FlowGuard's internal error after pytest's summary. Its entry
+is listed only while its rule quotes that choice's offered options (`.flowguard/requests/offers/R106.md`) with words of
+the option he picked, as `R106 picked "words"` holds (`sources.catalog_authority`).
 `ledger init` records the existing handlers as legacy (`rule = "旧账"`), which also covers those forms; a
 legacy entry can only shrink, never grow, compared with the ledger at the task's baseline commit and with
 the record `ledger init` kept. Deleting a ledger that the baseline commit still has is red as well.
@@ -60,6 +64,9 @@ REMOVED_SECTIONS = {
 WARNING_FILTERS = {'warnings.simplefilter', 'warnings.filterwarnings', 'warnings.catch_warnings',
                    'pytest.mark.filterwarnings'}
 BROAD = {'Exception', 'BaseException', 'builtins.Exception', 'builtins.BaseException'}
+# The broad handlers the owner allowed by picking an offered option, each by its key and that choice's id: only
+# FlowGuard's own session finish (R106, option 1A); every other broad form stays refused.
+OWNER_ALLOWED = {'flowguard/intent/plugin.py:finish_verified:Exception': 'R106'}
 CJK = re.compile(r'[぀-ヿ㐀-䶿一-鿿豈-﫿가-힯]')
 HEADER = f"""# FlowGuard fallback ledger: each entry records a function's handler that can end without raising; keys are "file:function:caught type".
 # count is this function's number of handlers of this kind; reason states what they do and why they may remain (at least {MIN_WORDS} words);
@@ -300,6 +307,19 @@ def _sentence_problem(cfg, rule, texts):
     return ''
 
 
+def _owner_allowed(cfg, entry):
+    """'' when `entry` is the broad handler the owner allowed (`OWNER_ALLOWED`) and its rule quotes words of the option
+    he picked in that choice, from its offers file; else why it does not."""
+    from flowguard.map.requests import offer_path
+    from . import sources
+    choice = OWNER_ALLOWED[entry.key]
+    relative, sentence = entry.rule
+    if relative != offer_path(choice).as_posix():
+        return f'its rule must quote the options {choice} offered ({offer_path(choice).as_posix()}), where the owner picked it'
+    holds, why = sources.catalog_authority(sources.parse(f'{choice} picked "{sentence}"', strict=True), cfg, None)
+    return '' if holds else why
+
+
 def _entry_lines(key, count, reason=PLACEHOLDER_REASON, rule=None):
     rule = PLACEHOLDER_RULE if rule is None else rule
     shown = _quote(rule) if isinstance(rule, str) else '{ file = ' + _quote(rule['file']) + ', text = ' + _quote(rule['text']) + ' }'
@@ -402,9 +422,14 @@ def evaluate(cfg, graph, *, baseline=None) -> Result:
                                           ('remove this entry from .flowguard/ledger.toml',)))
             continue
         first = items[0]
-        if first.refused and not (entry and entry.legacy and len(items) <= listed):
+        allowed = '' if entry and not entry.legacy and key in OWNER_ALLOWED and first.kind == 'except' else None
+        if allowed is not None:
+            allowed = _owner_allowed(cfg, entry)
+        if first.refused and allowed != '' and not (entry and entry.legacy and len(items) <= listed):
             red = f"""Form cannot be registered: {_where(items)} {_what(first)} ({key}): {first.refused}"""
-            if entry and not entry.legacy:
+            if allowed:
+                red += f'; the owner allowed this handler (OWNER_ALLOWED), but {allowed}'
+            elif entry and not entry.legacy:
                 red += '; a ledger entry cannot clear this failure'
             result.red.append(Finding(red, (FIXES[first.kind] + ('; then remove this ledger entry' if entry else ''),)))
             continue

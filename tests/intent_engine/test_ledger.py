@@ -415,6 +415,47 @@ def test_a_legacy_entry_can_shrink_but_never_grow(shop):
     assert evaluate(shop, baseline).red == []
 
 
+
+OFFER = ('Question 1: may FlowGuard catch every error at its own session finish?\n'
+         'A. Yes, only there: its error is one red line after pytest\'s summary.\n'
+         'B. No: fix each route as it is found.\n')
+FINISH = '''
+def finish_verified(session):
+    try:
+        session.verdict()
+    except Exception as error:
+        session.report(error)
+'''
+
+
+def test_only_the_broad_handler_the_owner_picked_can_be_listed_and_only_with_his_pick(tmp_path):
+    # R106, option 1A: FlowGuard's own session finish may catch Exception; the ledger refused every such form before.
+    from flowguard.map.requests import store_choice
+    write(tmp_path, 'flowguard/intent/plugin.py', FINISH)
+    write(tmp_path, 'AGENTS.md', RULE + '\n')
+    git(tmp_path, 'init', '-q')
+    store_choice(tmp_path, 'A'.encode(), OFFER.encode(), ["A. Yes, only there: its error is one red line after pytest's summary."],
+                 identifier='R106')
+    git(tmp_path, 'add', '-A')
+    git(tmp_path, 'commit', '-qm', 'the owner picked A')
+    key = 'flowguard/intent/plugin.py:finish_verified:Exception'
+    picked = dict(file='.flowguard/requests/offers/R106.md', text="its error is one red line after pytest's summary.")
+    reason = "FlowGuard's own error at the session finish is one red line after pytest's summary, and the run fails"
+    write(tmp_path, ledger.LEDGER, ledger.HEADER + entry(key, reason=reason, rule=picked))
+    assert evaluate(tmp_path).red == []
+    # Words of the option he did not pick, a rule of another file, or the same form anywhere else stay refused.
+    for rule, why in [(dict(picked, text='fix each route as it is found.'), 'is in the options R106 offered, not in one the owner picked'),
+                      (dict(file='AGENTS.md', text=RULE), 'its rule must quote the options R106 offered (.flowguard/requests/offers/R106.md)')]:
+        write(tmp_path, ledger.LEDGER, ledger.HEADER + entry(key, reason=reason, rule=rule))
+        found = texts(evaluate(tmp_path))
+        assert len(found) == 1 and found[0].startswith('Form cannot be registered: flowguard/intent/plugin.py:5 except Exception')
+        assert '; the owner allowed this handler (OWNER_ALLOWED), but ' in found[0] and why in found[0], found
+    write(tmp_path, 'flowguard/intent/plugin.py', FINISH.replace('finish_verified', 'report'))
+    write(tmp_path, ledger.LEDGER, ledger.HEADER + entry(key.replace('finish_verified', 'report'), reason=reason, rule=picked))
+    found = texts(evaluate(tmp_path))
+    assert len(found) == 1 and found[0].endswith('hides unrelated programming errors together; a ledger entry cannot clear this failure')
+
+
 def test_without_a_baseline_or_init_record_legacy_entries_stay_unverified(tmp_path):
     write(tmp_path, 'app.py', LEGACY_CODE)
     init(tmp_path)

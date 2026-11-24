@@ -36,6 +36,21 @@ def changed_since_import(name, filename):
     return not path.is_file() or _finder.source_hash(path) != fingerprint
 
 
+def imported_hash(path):
+    """The util.source_hash of the bytes this finder imported from the file at `path`, or None when it imported no
+    module from that file (a file only read, such as a same-name copy compared sealed, or one another loader read)."""
+    path = _finder.resolved(path)
+    return next((fingerprint for loaded, fingerprint, _, _ in _finder.loaded.values() if loaded == path), None)
+
+
+def loaded_outside(module=None):
+    """{name: (path, loader name)} of the project modules a pytest session found loaded another way than through this
+    finder (`prepare`), or with `module`, whether that module object is one of them."""
+    if module is not None:
+        return any(held is module for _, held, _ in _finder.outside.values())
+    return {name: (path, loader) for name, (path, _, loader) in _finder.outside.items()}
+
+
 def project_path(filename):
     """`filename` as the reports name a file: relative to the project this finder imports for (its root, else the
     pytest host), with forward slashes; the filename itself outside both."""
@@ -120,6 +135,10 @@ class _Finder:
         self.verified, self.verified_for = {}, None
         self.applications = {}
         self.projects, self.hashes, self.paths = {}, {}, {}
+        # Project modules a pytest session found in sys.modules that this finder did not load (a test's
+        # spec_from_file_location, registered in sys.modules): name -> (path, module, loader name). None of their
+        # functions is hooked or compared (`loaded_outside`).
+        self.outside = {}
 
     def project(self, filename, root):
         """project_code(filename, root) for the observers, decided once per process: the source tree is fixed
@@ -314,6 +333,14 @@ def prepare(root, *, host=False):
             continue
         previous = _finder.loaded.get(name)
         if previous is None or previous[0] != path or previous[2] is not module:
+            if _finder.host is not None and root == _finder.host:
+                # A pytest session: the project's own tests loaded this file another way (the Python docs' recipe:
+                # spec_from_file_location, sys.modules[name] = module, exec_module). Their run is theirs (R85); this
+                # module is recorded, and none of its functions is hooked or compared (`loaded_outside`).
+                loader = getattr(getattr(module, '__spec__', None), 'loader', None)
+                _finder.outside[name] = (path, module, type(loader).__name__ if loader is not None else 'no loader')
+                verified[name] = identity
+                continue
             raise ValueError(f'{name} was imported before source verification: {path}; '
                              'start a fresh verification process before importing project code '
                              '(python -m flowguard check --all)')
@@ -359,3 +386,4 @@ def release_root(root):
 def release_host(root):
     if _finder.host == Path(root).resolve():
         _finder.host = None
+        _finder.outside.clear()

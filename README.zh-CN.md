@@ -87,7 +87,7 @@ FlowGuard 5.0 删除了 4.2 的注释写法（`sensor NAME`、`owner NAME`、`ow
 
 列在 `[tool.flowguard] exclude = ["translations/*.ts"]` 里的文件（路径从项目根目录算，`**` 跨文件夹）从不被读取，任务起点的版本也不读，也不需要装它的读取器；一个改动把某个文件加进这个列表时，它原有的每条约定都是一行 `loosened`；任务起点的 pyproject.toml 解析不了，或其中的 `exclude` 类型不对（`exclude = 5`）时，这些文件记为一行 `not compared`。每个读取任务起点 pyproject.toml 的地方只判断它自己读的键，从不抛出回溯：任务起点的 `authority_docs` 读不了时，任务起点的文档里有那句原文的文档来源记为 `not compared`（没有那句原文的，无论 `authority_docs` 写了什么，在任务起点就已不成立，记为 `before`）；当前项目自己的这种文件会带着原文被拒绝，原文里写明文件名。没被排除、读取器又没装的文件会让 `check --static` 带着错误原文退出（退出码 2），在 pytest 里则是 pytest 自己的汇总之后的一行红色 `map checks`。
 
-FlowGuard 只在测试运行里起作用。它从不在测试里把函数再跑一遍；打包、开发服务器和正式运行都不会加载它。运行期间被另一个智能体或某个测试保存过的源文件，其中的函数从此不再记录：它们记为 `not compared`，每个测试都和不带 FlowGuard 时一样运行。同一仓库可以同时有几次运行，比如两个包各自的检查，或 vitest 运行与 `check --static` 并行：每次运行只等另一次运行对缓存的短暂写入，等满 5 秒会在 stderr 说明；vitest 运行则在第一行说明（`waited 9 s for .flowguard/cache/map.sqlite`）。
+FlowGuard 只在测试运行里起作用。它从不在测试里把函数再跑一遍；打包、开发服务器和正式运行都不会加载它。运行期间被另一个智能体或某个测试保存或删除的源文件，其中的函数从此不再记录，运行结束时它的副本也不再比较：它们记为 `not compared`（`its file was deleted during the run`、`its file changed during the run`），每个测试都和不带 FlowGuard 时一样运行。测试按路径加载项目文件（`importlib.util.spec_from_file_location`，再 `sys.modules[name] = module`）时也一样：这个模块的函数从不挂钩，其中改动过的函数记为 `not compared`（`loaded by path as build_manual (SourceFileLoader), not through import`）。FlowGuard 在判定这次运行时如果自己出错，pytest 自己的汇总照常打印，FlowGuard 的输出块最后多一行 `red: session: FlowGuard internal error: KeyError: '...' (flowguard/intent/owners.py:1342 stated_now)`；这次运行算失败，`show --last` 保存完整的堆栈（R106）。同一仓库可以同时有几次运行，比如两个包各自的检查，或 vitest 运行与 `check --static` 并行：每次运行只等另一次运行对缓存的短暂写入，等满 5 秒会在 stderr 说明；vitest 运行则在第一行说明（`waited 9 s for .flowguard/cache/map.sqlite`）。
 
 ## 兼容与仓库
 

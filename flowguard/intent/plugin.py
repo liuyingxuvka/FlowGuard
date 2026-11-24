@@ -109,6 +109,7 @@ class Session:
         self.ordinary_selected, self.early_exit, self.session_errors = set(), [], []
         self.failures = dict(failed=0, error=0)     # pytest's own counts of the session's failed and error reports
         self.pytest_outcome = None                   # `session_outcome`, fixed with the session's verdict (`_verify`)
+        self.internal_block = ''        # the block of FlowGuard's own error when the session has no observations
         self.ordinary_files, self.ordinary_deselected = set(), False
         self.last_test = None
         self.completed = set()
@@ -504,6 +505,32 @@ def _parse_baseline(text):
 _UNREAD = object()      # a default `_signature` does not read: not a constant
 
 
+DELETED_DURING_RUN = 'its file was deleted during the run'
+CHANGED_DURING_RUN = 'its file changed during the run'
+
+
+def run_source(path, digest=''):
+    """(text, '') of a project file at session finish as the session's tests ran it; (None, why) when it no longer
+    holds those bytes: `its file was deleted during the run`, or `its file changed during the run` when its bytes
+    differ from those FlowGuard's import finder loaded (`imports.imported_hash`), or, for a file no test imported (a
+    same-name copy compared sealed), from those the session's index read (`digest`, `content_digest`), and when it
+    no longer parses. A point of such a file is not compared with that reason, never read as it is now (R85)."""
+    from flowguard.map.common import content_digest, read_source
+    from .imports import imported_hash
+    from importlib import util
+    if not path.is_file():
+        return None, DELETED_DURING_RUN
+    data = path.read_bytes()
+    imported = imported_hash(path)
+    if imported is not None and util.source_hash(data) != imported or \
+            imported is None and digest and content_digest(path, data=data) != digest:
+        return None, CHANGED_DURING_RUN
+    text = read_source(path, data=data)
+    if _parse_baseline(text)[0] is None:         # one parser's words for every version it reads
+        return None, CHANGED_DURING_RUN
+    return text, ''
+
+
 def _signature(text, qual):
     """(inspect.Signature, its spelling) of the module-level function or method `qual` of the Python source `text`, read
     from its parameters without running them: a default is its value where it is a constant (`None`, `False`, `3`,
@@ -633,7 +660,7 @@ class Observations:
         from . import anchors, cache, differences
         from .runtime import (Runtime, _binding_facts, _binding_reads, _changed_constants, _dumped, _functions,
                               _imported_changes, _read_through, _same_binding, changed_reads)
-        from ..map.common import MapError, git_files, git_renames, git_run, read_source
+        from ..map.common import MapError, content_digest, git_files, git_renames, git_run, read_source
         from ..structure.readers.registry import language_for
         from ..structure.store import UnreadableConfig
         self.state, self.cfg = state, state.cfg
@@ -670,6 +697,8 @@ class Observations:
             self.map_missed.append('the flowguard comments were not read, so no function one names was compared')
         state.model.anchor_index = self.index
         self.renamed = {}       # a moved file's baseline version is at its old path
+        self.digests = {}       # {changed file: content_digest of the bytes the session read at its start} (`run_source`)
+        self.unhooked = set()   # the points a test could not hook (`_bind_module`), whose grey line already says why
         self.unparsed = {}      # {changed file: why its baseline version does not parse}, each comparison's reason there
         # the project's files, which no shortened path of the block may name: Git's list, else the map's walk
         self.repository = git_files(self.cfg.root)
@@ -736,7 +765,9 @@ class Observations:
             every function and constant of the file counts as changed, and each comparison at the baseline is not
             compared, in the parser's words (`self.unparsed`, `_compare`; an importer's sealed run says them too)."""
             if file not in trees:
-                tree = ast.parse(read_source(self.cfg.root / file))
+                raw = (self.cfg.root / file).read_bytes()
+                self.digests[file] = content_digest(self.cfg.root / file, data=raw)    # its bytes as the session began
+                tree = ast.parse(read_source(self.cfg.root / file, data=raw))
                 if file in self.files:
                     path = self.renamed.get(file, file)
                     old = self.runtime._source(path)
@@ -923,6 +954,7 @@ class Observations:
                 point['original'] = original
             except (ValueError, TypeError, sites.NotMutable) as error:
                 self.grey.append(point['name'] + ': ' + str(error))
+                self.unhooked.add(point['target'])      # its not compared line says why (`_compare` adds none)
 
     def _recorded(self, point, reading):
         self.records.append((reading.index, point, None, [], None))
@@ -947,14 +979,19 @@ class Observations:
         """Only after the session: sources and JSON samples enter the sealed owner."""
         import ast
         from . import runtime as R
-        from ..map.common import read_source
         sources, samples, items = {}, {}, []
         def source(point, old=False):
             key = point['file'], old
             if key not in sources:
                 sources[key] = (None if self.runtime._baseline_error else self.runtime._source(self.renamed.get(key[0], key[0]))) \
-                    if old else read_source(self.cfg.root / key[0])
-            return sources[key]
+                    if old else run_source(self.cfg.root / key[0], getattr(point['anchor'], 'source_digest', '')
+                                           or self.digests.get(key[0], ''))
+            return sources[key] if old else sources[key][0]
+        def lost(point):
+            """Why `point`'s file no longer holds the source the tests ran (`run_source`), '' while it does: its
+            points are not compared."""
+            source(point)
+            return sources[point['file'], False][1]
         def run(point, sample, old=False):
             if old and point['file'] in self.unparsed:      # its baseline does not parse: not compared, in its words
                 return dict(status='unavailable', reason=self.unparsed[point['file']])
@@ -981,6 +1018,12 @@ class Observations:
             # Before/after only for a function that changed; an unchanged copy still joins its group below.
             if not point['changed']:
                 continue
+            line = getattr(point['anchor'], 'target_line', 0) or getattr(point['node'], 'lineno', 0)
+            if lost(point):
+                if target not in self.unhooked:     # a later test's hook said it already: `source of ... changed`
+                    self._unchecked(f'{point["name"]} ({point["file"]}:{line})', [lost(point)], function=target,
+                                    places=(f'{point["file"]}:{line}',))
+                continue
             rows, changes, reasons = [], [], []
             # the recorded calls are replayed at the baseline as calls of the same inputs (`baseline_call`)
             past = _signature(source(point, True), point['qual']) \
@@ -1001,7 +1044,6 @@ class Observations:
                 rows.append((inputs, value(now)))
                 if not equal(old, now):
                     changes.append((inputs, value(old), value(now)))
-            line = getattr(point['anchor'], 'target_line', 0) or getattr(point['node'], 'lineno', 0)
             items.append(dict(name=point['name'], file=point['file'], line=line,
                               unanchored=point['anchor'] is None, status='grey' if reasons else 'ok', complete=not reasons,
                               rows=rows, changed=changes, total=len(calls), reasons=list(dict.fromkeys(reasons))))
@@ -1022,6 +1064,14 @@ class Observations:
         # the groups whose comments show copies that take different parameters: the comments' red says it (`report`)
         apart = {issue.name for issue in self.index.issues if issue.level == 'red' and issue.code == 'parameters'}
         for name, points in groups.items():
+            if len(points) < 2:
+                continue
+            # a copy whose file was deleted or rewritten during the run is not compared; the others still are
+            for point in points:
+                if lost(point):
+                    place = self._place(point['target'])
+                    self._unchecked(f'{point["qual"]} ({place})', [lost(point)], function=point['target'], places=(place,))
+            points = [point for point in points if not lost(point)]
             if len(points) < 2:
                 continue
             # copies as they were at the baseline are an old matter (R99), not this change's: when no test reached
@@ -1045,14 +1095,16 @@ class Observations:
 
     @contextmanager
     def scope(self, item):
-        from .imports import observe_imports
+        from .imports import loaded_outside, observe_imports
         self.runtime.test = item.nodeid
         self.event_codes, self.event_record = {}, None
         with ExitStack() as self.scopes:
             self.bound = {}
             with observe_imports(self.cfg.root, self._module):
                 for name in {point['module'] for point in self.points.values()}:
-                    if (module := sys.modules.get(name)) is not None:
+                    # a module a test loaded by path under the map's name is not the module FlowGuard imported
+                    # (`imports.loaded_outside`): its functions are never hooked, so no reading of it is compared
+                    if (module := sys.modules.get(name)) is not None and not loaded_outside(module):
                         self._module(module)
                 yield
 
@@ -1209,9 +1261,15 @@ class Observations:
         compared items and FlowGuard's own seconds). True when a line is red: FlowGuard fails a run only for red."""
         timing = time.perf_counter()
         from . import signals, sources
+        from .imports import imported_hash, loaded_outside
         self._rule_signals()
         self._flow_signals()
         items = self._compare()
+        # A file a test loaded by path and no test imported: its changed functions were never hooked (`scope`)
+        for name, (path, loader) in sorted(loaded_outside().items()):
+            file = self.cfg.rel(path)
+            if imported_hash(path) is None and any(point['changed'] for point in self.by_file.get(file, ())):
+                self._unchecked(file, [f'loaded by path as {name} ({loader}), not through import'], places=(file,))
         # Only a call due for a comparison is `not compared`: a function that changed itself, or one of two or
         # more same-name copies this change edits or marks (`_compare`). A lone unchanged `same` function has nothing
         # to compare it with.
@@ -2120,16 +2178,20 @@ def _display(session):
     """Print the block as the verdict fixed it (`_final`: its time is FlowGuard's own work in the session). A console
     that cannot take it leaves the committed verdict as it is and records why in the observations."""
     state = session.config._flowguard_intent
-    if state.observations is None or not state.observations.text:
+    text = state.observations.text if state.observations is not None else state.internal_block
+    if not text:
         return
     from .differences import display
     reporter = session.config.pluginmanager.get_plugin('terminalreporter')
     if reporter is not None and reporter._tw.width_of_current_line:
         reporter._tw.line()             # never after the progress line of the last test
-    text = state.observations.text
     try:
         display(text)
     except (OSError, ValueError) as error:
+        if state.observations is None or state.observations.payload is None:    # the block of an internal error
+            print(f'FlowGuard: the verdict is committed; its block could not be shown: {type(error).__name__}: {error}',
+                  file=sys.stderr)
+            return
         state.observations.payload['display_unavailable'] = type(error).__name__
         path = state.cfg.cache / 'map.sqlite'
         if path.is_file():
@@ -2164,13 +2226,78 @@ def _junit_session(session, state):
 
 def finish_verified(session, exitstatus):
     """The session's verdict and its records; then the block's text with its final time (`_final`, already taken where
-    the transaction kept the run for show --last), whose lines junit's flowguard::session case carries."""
+    the transaction kept the run for show --last), whose lines junit's flowguard::session case carries.
+
+    FlowGuard's own error anywhere in this verdict never replaces pytest's outcome (R85): the owner allowed this one
+    broad handler (R106, his pick of option 1A), and only here. The run gives pytest's own summary as usual, then the
+    block with one line, `red: session: FlowGuard internal error: KeyError: 'app/x.py' (flowguard/intent/owners.py:1342
+    stated_now)`, exits non-zero, and keeps the whole traceback for show --last (`_internal_error`). Every other error
+    of FlowGuard keeps its own route."""
     state = session.config._flowguard_intent
-    _verify(session, exitstatus)
-    _final(state)
+    try:
+        _verify(session, exitstatus)
+        _final(state)
+        observed = state.observations
+        if observed is not None and observed.session_red:
+            state.session_red.extend(observed.text.splitlines() or ['red: ' + line.text for line in observed.session_red])
+    except Exception as error:      # R106: FlowGuard's own error, reported with its text after pytest's summary
+        _internal_error(session, state, error)
+
+
+_PACKAGE = Path(__file__).resolve().parents[1]      # FlowGuard's own code, which an internal error's line names
+
+
+def internal_error_line(error):
+    """The red line of FlowGuard's own error at session finish (R106): `session: FlowGuard internal error: TYPE: TEXT
+    (FILE:LINE FUNCTION)`, the place the innermost frame of FlowGuard's own code (else the innermost frame), and the
+    whole traceback as its detail, which show --last prints."""
+    import traceback
+    from .signals import Line
+    frames = traceback.extract_tb(error.__traceback__)
+    own = [frame for frame in frames if Path(frame.filename).resolve().is_relative_to(_PACKAGE)]
+    where = (own or frames)[-1]
+    path = Path(where.filename).resolve()
+    file = path.relative_to(_PACKAGE.parent).as_posix() if path.is_relative_to(_PACKAGE) else where.filename
+    text = f'session: FlowGuard internal error: {type(error).__name__}: {error} ({file}:{where.lineno} {where.name})'
+    detail = tuple(''.join(traceback.format_exception(type(error), error, error.__traceback__)).rstrip().splitlines())
+    return Line('red', 'session:internal error', '', text, '', (), detail)
+
+
+def _internal_error(session, state, error):
+    """What the session gives when FlowGuard's own verdict failed (`finish_verified`, R106): the block, its lines so far
+    and the internal error's red line after pytest's own summary (`Block`), a non-zero exit (a run never passes because
+    FlowGuard broke), junit's flowguard::session case, and show --last with the whole traceback. A cache that cannot
+    take that record is said on stderr with its error's text."""
+    from . import signals
+    from .cache import REPO, save_last
+    from flowguard.map.common import cache_dir
+    line = internal_error_line(error)
+    if session.exitstatus == pytest.ExitCode.OK:
+        session.exitstatus = pytest.ExitCode.TESTS_FAILED
+    state.pytest_outcome = session_outcome(session, state)
     observed = state.observations
-    if observed is not None and observed.session_red:
-        state.session_red.extend(observed.text.splitlines() or ['red: ' + line.text for line in observed.session_red])
+    if observed is not None:
+        observed.lines = [*observed.lines, line]
+        observed.final = _seconds(state)
+        observed.text = observed.block(observed.final)
+        payload = observed.last(observed.final)
+    else:       # the session ended before it could compare anything (its collection did not finish)
+        heading = signals.title([line], baseline=None, kind='HEAD', seconds=state.tool_seconds)
+        state.internal_block = signals.render_block([line], title=heading)
+        payload = signals.last_run([line], 0, scope=REPO, run='pytest', stamp=state.started, baseline=None, kind='HEAD',
+                                   title=heading, seconds=state.tool_seconds, pytest=state.pytest_outcome)
+    # the reds the verdict had found before it failed, then its own error
+    state.session_red.extend(['red: ' + found.text for found in (observed.session_red if observed is not None else ())]
+                             + ['red: ' + line.text])
+    try:
+        cache_dir(state.cfg.root)
+        with closing(sqlite3.connect(state.cfg.cache / 'map.sqlite', timeout=CACHE_TIMEOUT)) as con:
+            con.executescript('CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);\n')
+            with con:
+                save_last(con, payload)
+    except (sqlite3.Error, OSError) as failure:
+        print(f'FlowGuard: show --last could not keep the internal error ({type(error).__name__}): {failure}',
+              file=sys.stderr)
 
 
 def _refused(model, declaration):

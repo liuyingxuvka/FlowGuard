@@ -1336,10 +1336,13 @@ def loosened(change, index):
         return [dict(qual=qual, kind=kind, line=line, raw=store.unpack(raw) if raw else {})
                 for qual, kind, line, raw in graph.con.execute("SELECT qual, kind, line, raw FROM node WHERE file = ? AND kind IN "
                                                                "('function', 'method') ORDER BY nid", (path,))]
-    kinds = graph._kinds('anchors', 'anchor_issues')
+    # The map's paths as this handle read them (`_kinds`); a path the map no longer holds (another run rebuilt the
+    # shared cache) or the disk lost (deleted during a test run) has no current agreements.
+    kinds = [(path, error, data if path in change._modules and (graph.root / path).is_file() else {})
+             for path, error, data in graph._kinds('anchors', 'anchor_issues')]
 
     def stated_now(path, data):
-        return _stated(locate, path, change._modules[path], data.get('anchor_issues', ()), lambda: (
+        return _stated(locate, path, modules.get(path), data.get('anchor_issues', ()), lambda: (
             read_source(graph.root / path), () if path.endswith('.py') else nodes(path)))
     edited = {path: stated_now(path, data) for path, _, data in kinds if path in paths}
     current = {path: [*data.get('anchors', ()), *edited[path][1]] for path, _, data in kinds if path in paths}
