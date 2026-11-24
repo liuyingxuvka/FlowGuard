@@ -222,6 +222,10 @@ V1-25 遇到同一诊断在跨文件委派上的情形。应用基线 `c8fe0305c
 
 建议从可定位的单层调用和对象展开开始，显示 `data` 的哪些字段原样传入 Prisma、哪些由辅助函数补充，以及哪些无法解析。后者应显示为待核实，确认字段确已删除时继续报告。最小对照可用只补时间戳、真正丢掉一个字段及返回形状未知三种实现。涉及 Prisma 的 `@updatedAt` 时，可另附具体数据库方言的 schema 声明与已有离线断言，帮助核对隐式更新边界，真实库写入和时间精度仍由实际证据确认。
 
+v5.1.0 的离线源码夹具补充了委派对照。基线的 `update` 显式写 `SamplePerson.active`、`email` 和 `updatedAt`。委派给同样显式写入的 `commit` 时，`check --static` 提示写入转到该函数。若 `commit` 从固定字段清单筛出有变化的值，用 `Object.fromEntries` 构造 `changes` 后传入 `data: { ...changes, updatedAt }`，检查改报 `update no longer writes SamplePerson.active, SamplePerson.email`。`show SamplePerson.active` 另列该 `commit` 的 `SamplePerson.?`，时间戳仍可直接定位。保留原函数并真正删掉 `active` 的对照也报该字段停止写入。各轮均为 `0 red, 1 impact`。夹具只分析源码。
+
+建议在字段影响项中附上能定位的同模型委派和未解析写入。如果本地固定清单可解析，把受条件过滤的字段列为可能写入，把 `updatedAt` 这样的显式字段列为可确认的写入。来源未知时继续显示待核实，确认移除时继续报告移除。验收可保留显式委派、固定清单过滤、未知构造函数和真正移除四种对照。
+
 ## V1-22 提前显示已经完成的静态检查详情
 
 2026-11-18。应用基线为 `edc46e3`。`v1-22-frontend-full-1.log` 在生成的 `flowguard.static.test.mjs` 执行约 6.33 秒后，已经打印失败标记 `× FlowGuard check --static`。观察整轮运行已持续 145 秒以上时，控制台仍未显示可操作的 red 详情；当时运行尚未结束，不能据此报告完整测试或 FlowGuard 已通过。维护过程中读取活动观察目录的 `static.json`，已经能看到三条具体账目诊断及其检查指引。生成的静态用例在收到这些 red 后抛出的提示是 `FlowGuard: 3 red, see the FlowGuard block at the end`。
