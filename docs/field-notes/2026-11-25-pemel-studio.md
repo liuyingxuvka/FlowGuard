@@ -316,3 +316,20 @@ to build its contract list. The line is correct about registered contracts, but
 sounds as though the directory has no README. Consider wording it as
 `no registered contract` and listing any tracked nearby README as a candidate
 for the agent to read. Keep the marker as the authority for impact reporting.
+
+### Follow-up F: finding the one owner of a fixed explanation
+
+`show calibration_notes` pointed to `run_job` as the only resolved caller.
+That let us remove two obsolete report rules without touching the optimizer.
+`show CalibrationSetupDialog` identified the class and its fields, which helped
+keep the existing choice and readiness fields in place while adding passive
+information icons. Both exact lookups also included dozens of import aliases
+outside the resolved caller list. The default views ended by reporting 618
+and 835 more lines, of which 530 and 718 respectively shared a word.
+
+The import list is produced by `structure/api.py:MapHandle.import_aliases`.
+It looks for overlapping tokens. `intent/cli.py:show` gives those alias rows
+the highest rank alongside exact owners. This reproduces the earlier alias
+ranking issue on ordinary report and form work. When an exact owner is found,
+keep the resolved callers, fields and rules first. Put token-only aliases
+in the word-match section or the full view.
