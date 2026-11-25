@@ -294,3 +294,25 @@ arguments. An explanation distinguishing new optional arguments could direct the
 reader to the context syntax when the old rule deliberately holds them fixed.
 The finite bound grid was checked, with the existing nonlinear exhaustive-proof
 limit reported separately from the passing application tests.
+
+### Follow-up D: checking the installed model code and its package together
+
+The model-code change moved the forward and static-voltage calls to one
+versioned entry point. In the focused run, FlowGuard showed two useful reader
+lists for new adapter fields and pointed to the existing profile contract in
+the engine guide. The lists named the methods that consume the bound execution
+entry point and restart metrics. We checked those readers and the guide's
+one-second input and continuation-state rules before moving on. The passing
+run reported 533 tests, one expected skip, zero red, three impacts and 81
+uncompared observations. The ordinary pytest result still matters. The first
+run had the same three impacts and zero red alongside test failures from old
+fixtures and a package direction violation.
+
+Before the change, `show packaging/` found the source owners and their callers
+but said `described by no text`. A nearby application packaging README already
+explained the release and diagnostic paths. In 5.1.0,
+`intent/docs.py:module_lines` uses explicit about markers and generated regions
+to build its contract list. The line is correct about registered contracts, but
+sounds as though the directory has no README. Consider wording it as
+`no registered contract` and listing any tracked nearby README as a candidate
+for the agent to read. Keep the marker as the authority for impact reporting.
