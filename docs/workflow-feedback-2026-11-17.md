@@ -674,6 +674,12 @@ G162 给出了上述锚点的维护实测。应用基线 `adb1db7` 的 `v3-162-s
 
 建议在现有符号详情中把可解析的模块级中间件注册按方法和字面路径列出，并给直接使用点独立计数。维护者可以凭这一份清单决定哪些端点需要同批的回归验证。第 122 组反馈关注从固定路径找可能抢先匹配的路由。本次从共用函数出发找它覆盖的所有入口。最小对照可用同一导入注册多个 HTTP 方法、一个本地同名方法、一次函数内普通调用和一次动态组合注册。直接注册、普通调用和待核实的动态关系各列实际位置，确认的结果不埋在词匹配后面。
 
+### G163 分开显示已解析的生产和测试调用
+
+应用基线 `ccb36b7c9abd`。正式 v5.1.0 的 `show runStep1ConsistencyChecks` 找到 10 个已解析调用方，默认显示前三个。`v3-163-consistency-show.log` 的裸名 `--full` 输出共 8,989 行，其中 8,982 行只是词匹配。默认调用摘要提供的精确节点 ID 可以直接展开。`v3-163-consistency-show-exact.log` 中，`show typescript/backend/src/services/step1-consistency.service.ts:runStep1ConsistencyChecks --full` 共 7 行，列全了 10 个调用方。按源码核对，其中 1 个是生产的手动 POST 处理器，9 个在同一单元测试文件。已解析调用中没有定时入口，这次查询不能证明不存在未解析的调用路径。
+
+建议在现有符号视图中分别计数生产与测试调用方，优先列全生产组，并突出裸名查询中的精确节点展开提示。继续区分已解析调用、仅同名候选以及普通词匹配。最小对照可用一个手动路由、一个确切定时调用、多个测试和一个未解析的动态调用，核对生产入口是否在默认视图中可见，以及精确展开是否保留各组和证据边界。
+
 ## G135 从符号定位已记录的决策表和场景
 
 应用基线 `bd58116` 上，正式 v5.1.0 的 `show useProjectPermissions` 找到了权限钩子、两处页面调用和部分测试调用，但摘要没有指出已经记录的 `project-lifecycle` 决策表及 `GAP-PL-07` 场景。接着执行 `show project-lifecycle`，结果为 `not on the map`，后面有 11,184 行普通词匹配。见 `v3-135-role-hook-show.log` 和 `v3-135-project-lifecycle-show.log`。该基线两份已提交的决策表 `backend/tests/fixtures/decision-tables/project-lifecycle.decision_table.json` 和 `frontend/tests/fixtures/decision-tables/project-lifecycle.decision_table.json` 都有两条 `MANAGEMENT` 无项目角色的 `GAP-PL-07` 记录，其中 `ui_overview` 为 `true`、`resourceOverviewHttp` 为 `403`。两端具名用例 `fg-project-lifecycle.routes.test.ts` 和 `fg-project-lifecycle.permissions.decision-table.test.ts` 按场景 ID 选取这些记录并分别核对路由和界面。
