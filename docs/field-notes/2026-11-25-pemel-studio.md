@@ -399,3 +399,20 @@ Source check: `intent/cli.py:_input_bytes` reads the binary stdin stream and
 archive. Exact capture followed by explicit source confirmation fits a
 conversation where an owner first accepts an approach and then refines a
 single value.
+
+### Follow-up on the agent skill and the 5.1.0 command list
+
+The available FlowGuard agent skill lists `read`, `change`, `release` and
+`map` as the session commands. The pinned application environment reports
+`5.1.0`. Running `python -m flowguard read --help` exits 2 and prints
+`read was removed in 1.0 -> python -m flowguard show "words"`. The 5.1.0
+help lists `show`, `check`, `init`, `new-task`, `ledger`, `req`,
+`docs` and `known`. The explicit refusal was useful and the project's
+generated rules gave the current workflow.
+
+The mappings are in `intent/cli.py:EARLIER_COMMANDS`. The dispatcher
+raises `Removed` before running a retired command. Update the separately
+distributed agent skill from the same command and rules source so a new
+session can begin with `new-task` and use `show` directly. Include the
+skill entrypoint in release checks because upgrading the Python package
+alone can leave the agent instructions at an earlier version.
