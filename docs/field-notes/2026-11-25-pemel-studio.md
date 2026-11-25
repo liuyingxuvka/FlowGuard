@@ -333,3 +333,22 @@ the highest rank alongside exact owners. This reproduces the earlier alias
 ranking issue on ordinary report and form work. When an exact owner is found,
 keep the resolved callers, fields and rules first. Put token-only aliases
 in the word-match section or the full view.
+
+### Follow-up E: show an interrupted Python validation as unfinished
+
+The first full pytest process stopped when its environment was restored. Its
+log ended before the pytest counts and before FlowGuard's final block. Our
+detached retry wrote a separate start and exit receipt and kept verbose test
+names. It finished in 945.98 seconds with 2,952 passing tests, 57 failures,
+11 setup errors, one expected skip and two unverified intent cells. The
+FlowGuard block had zero red and its own outcome still reported the pytest
+failure. The separate verdicts helped us keep the ordinary test failures
+visible while correcting the retired fixtures.
+
+In 5.1.0, `intent/plugin.py:pytest_sessionfinish` runs the Python verdict
+transaction and `Block.pytest_sessionfinish` prints it at the end.
+`intent/cache.py:stamp_start` already supports a start marker that survives
+a killed Vitest run beside the earlier completed receipt. Reuse that mechanism
+for pytest. Then `show --last` can distinguish the last completed verdict
+from a later Python run that started and never reported, without treating
+process disappearance as a successful test or a verified failure.
