@@ -555,3 +555,11 @@ G110 补充了字段共写候选的实际例子。`v3-110-backend-show-first.log
 当时的 `ProposalListPage.handleFinalizeProposal` 用组件 ref 里的 Map 保存未确认的命令。同一实例接着操作可以取出原命令。重新挂载创建了新的 ref，发送路径随即生成新 UUID。G69 和 G70 跟踪的是服务端重复调用、回执和写入次数。这里额外需要确认客户端记录的值能否跨过组件实例更换，以及账号变化后值是否仍属于当前请求。
 
 建议让维护者在现有具名工作流用例上登记初次请求、响应未确认、组件重新挂载和再次请求，并为同账号与不同账号分别指定不透明请求字段应相同或不同。报告显示各步骤及等值断言是否实际执行，只需展示比较关系，无需保存 UUID 原值。可解析的本地 ref、生存范围和明确的账号绑定可附上源码位置。动态存储、未观测的会话变化、只运行首个请求等情况标为未验证，继续保留原有静态与行为比较。最小对照覆盖同账号重试、切换账号和只执行第一次请求三种情况，由具名用例验证界面行为和 HTTP 边界。
+
+## G128 在写入方详情中识别 Prisma 查询条件
+
+应用提交 `fd84ea6` 上，正式 v5.1.0 的 `show CentralProject.lifecycleStatusCode` 把 `linked-project-list.ts:94` 的 `buildProjectListQuery (assign)` 列在 `outside writers`，并建议调用 `writeCompanyProjectStatus`。这一行只给本地 `where` 对象填入状态筛选值。函数返回该条件，`linked-project-list.ts:163–180` 将它交给 `centralProject.findMany` 和 `count`。`project-record-writer.ts:34–36` 才通过 `updateMany` 的 `data` 更新公司库的项目状态。
+
+归类出现在 `v3-128-company-status-show.log` 的字段详情中。同一已发布代码的独立静态记录 `v3-127-static.log` 为 `0 red, 10 impact`，比较基线是 `e4f2997`。证据仅用源码和现有检查日志核对。
+
+建议跟踪可解析的 Prisma 参数用途，把只进入 `where` 的字段赋值显示为查询条件，保留通向 `data` 的实际写入及其未授权写入提示。即使调用是 `updateMany`，作为 `where` 选择条件的字段仍可能与 `data` 中的写入字段不同。来源或调用无法解析时显示具体位置，以待核实状态保留。最小对照覆盖供 `findMany` 和 `count` 使用的局部条件、同字段的真实更新，以及无法确认用途的对象赋值。
