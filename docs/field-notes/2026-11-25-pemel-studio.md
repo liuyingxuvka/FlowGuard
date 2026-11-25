@@ -531,3 +531,19 @@ collect-only and deselected runs from the complete ordinary collection.
 empty for collect-only and setup-only invocations. Keep those paths
 separate. Show the recorded execution mode beside the pytest status so a
 successful collection cannot be read as a new passing test run.
+
+### Exact symbol searches during a portability repair
+
+`show model_package_bytes` identified the export function and its two
+resolved callers. `show template_guide_html` identified the single kit
+writer. Those links helped keep ZIP metadata and template text encoding
+with the existing owners. Both generated model archives were verified
+against their original bytes after the repair.
+
+The command still appended broad results after locating the exact model
+export symbol. Its summary said that 425 of the 597 additional lines only
+shared a word with `model_package_bytes`. `intent/cli.py:show` constructs
+the exact function views before assembling those word matches. Consider
+an exact-symbol mode that stops after those views, retaining signatures,
+resolved callers and registered contracts. The existing broader mode is
+still useful when the owner or exact spelling is unknown.
