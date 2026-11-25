@@ -229,3 +229,25 @@ Every claim was checked against the v5.1.0 source (`bcc57bd0`). Read-only comman
   - `show --last`, 0.13 s;
   - targeted blocks, 3.6-18 s;
   - the verifier block (70 tests), 3.6-4.3 s.
+
+## Round 2, one starting route
+
+### 18. Resolved callers guided a complete removal
+
+`show model_choices` identified the method, its signature and the one resolved
+production caller in the first four lines. `show request_identity` pointed to
+8 resolved callers, including both sides of local preparation. This distinguished
+a method that could be removed with its caller from an identity contract that had
+to remain while the setup narrowed. Inspection and targeted tests confirmed both
+paths. In pinned 5.1.0, `intent/cli.py:_node_lines` takes the reverse index of
+`structure/api.py:MapHandle.resolved_calls` and puts production callers before tests.
+
+### 19. Closing an answered item and deleting an agreement have the same label
+
+The owner approved removal of an old screen and explicitly asked to close the
+related item in `known.toml`. `show --last` recorded one `loosened` finding when
+that item was removed. The finding was helpful as a check that consent was recorded.
+`intent/sources.py:loosened` detects any deletion from `old.known`; it has no
+closure state linked to a preserved owner reply. A supported resolution entry
+linked to the archived reply could retain this review gate and display why the
+item was closed, without making an answered question linger on the live list.
