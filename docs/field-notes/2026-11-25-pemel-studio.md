@@ -514,3 +514,20 @@ A subsequent launch brief reported 49 rules and no quote problems
 after four new verbatim decisions were recorded. The round-level
 `new-task` brief correctly gave the changes between its previous
 baseline and HEAD and the command for comparing those changes once.
+
+### Distinguishing a collection check from a test run
+
+Two unchanged numerical tests passed on their reference host. A later
+`pytest --collect-only` check verified the exact two node selections for
+hosted validation. `flowguard show --last` then described that collection
+as `last run: pytest` and `pytest: exit 0, 0 failed`. It correctly kept the
+older complete intent collection and did not claim that intent items ran.
+The ordinary test mode was missing beside the exit code.
+
+In 5.1.0, `intent/plugin.py:_save_ordinary_collection` explicitly excludes
+collect-only and deselected runs from the complete ordinary collection.
+`intent/cli.py:_pytest_line` formats exit and failure counts, while
+`intent/plugin.py:ended_early` deliberately leaves the early-stop field
+empty for collect-only and setup-only invocations. Keep those paths
+separate. Show the recorded execution mode beside the pytest status so a
+successful collection cannot be read as a new passing test run.
