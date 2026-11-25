@@ -416,3 +416,28 @@ distributed agent skill from the same command and rules source so a new
 session can begin with `new-task` and use `show` directly. Include the
 skill entrypoint in release checks because upgrading the Python package
 alone can leave the agent instructions at an earlier version.
+
+### Follow-up on retiring a setting across data and the interface
+
+Removing an old data-entry question affected both Qt field writers and
+keys in persisted summary dictionaries. The static block identified the
+removed writes in two dialog constructors and called out the removed
+owner rule as `loosened`. The replacement rule cites the exact archived
+permission. This made the intended changes visible without treating
+them as unapproved changes.
+
+A targeted `show MeasuredData.new_stack_answered` still listed a read
+by dataclasses.replace after the field had been removed. A whole-record
+copy was present, but there was no exact read of that retired key.
+The implementation in `structure/api.py:field_reads` includes wildcard
+rows for any requested field outside the exception set. Label those
+rows as whole-record consumers and distinguish the case where the field
+does not appear in the known class inventory. Keep exact field reads
+first. Summaries with dynamic keys still need a source search.
+
+`show template_guide_html` identified the template-kit caller. A
+checked-in guide generated from the same function was outside the
+registered document bindings and needed a separate equality check.
+A way to record a generated standalone HTML file as an output of its
+owner would make this dependency visible without making FlowGuard
+guess from matching words.
