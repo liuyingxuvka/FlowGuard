@@ -661,3 +661,9 @@ G110 补充了字段共写候选的实际例子。`v3-110-backend-show-first.log
 v5.1.0 的 ECMAScript 读取器从显式 `catch` 采集异常处理事实。此处的 Promise 拒绝由框架接收，应用组件内没有 catch。G133 另有跨两次请求的未处理拒绝，本例只涉及一次写入及其错误状态如何到达弹窗。修复在现有提交回调中使用统一的安全错误文案。`v3-139-frontend-forwarding-focused.log` 的 5 例全过，其中新增用例确认显示安全提示、保留目标、第二次发出相同请求及成功后关闭弹窗。该轮正式 v5.1.0 报 `0 red, 4 not compared`。
 
 建议在现有界面流程中允许维护者关联提交动作、mutation 及真实失败出口。能够解析框架调用时，区分 `mutate`、`mutateAsync`、单次或钩子级 `onError`、直接呈现的 `error` 状态和应用级错误处理。回调存在只说明有进一步可查的出口，报告应单独列出具名用例核对的实际提示位置和输入是否保留。最小对照涵盖框架接收但界面静默、弹窗显示安全提示并用相同目标发起一次手动重试、以及存在并可定位的应用级提示。动态接线未解析时标记待核对，不因缺少显式 catch 自动判定失败。
+
+## G140 显示同一服务对象内的方法调用候选
+
+应用基线 `ce28f836c603` 上，正式 v5.1.0 的 `show getVisibilityOrgUnits` 定位到 `backend/src/services/project.service.ts:454`，报告 0 个已解析调用及 6,084 条普通词匹配。同一个 `projectService` 对象的 `addVisibilityOrgUnit` 和 `removeVisibilityOrgUnit` 分别在第 527、562 行执行 `return this.getVisibilityOrgUnits(projectId)`。证据见 `v3-140-old-visibility-show.log` 与该基线源码。同基线的 `show canReadProject` 解析了六个测试函数中的直接导入调用，见 `v3-140-old-readable-show.log`。本组用这些结果核对需要一起退役的方法和测试。以上证据来自静态盘点。
+
+建议在现有符号详情中识别可证明接收者绑定的同对象调用。绑定未知时单独显示候选位置及待核实的接收者。最小对照包括通过已知对象调用、提取方法后直接调用、显式换成另一接收者以及覆盖同名方法。每个对照显示实际定位结果和证据边界。
