@@ -251,3 +251,32 @@ that item was removed. The finding was helpful as a check that consent was recor
 closure state linked to a preserved owner reply. A supported resolution entry
 linked to the archived reply could retain this review gate and display why the
 item was closed, without making an answered question linger on the live list.
+
+## Round 2, current saved formats
+
+### 20. The call map helped preserve a current cache path
+
+During removal of older-file readers, `show` on the data preview owners exposed
+callers in data review, library enrollment and project synchronization. Source
+inspection confirmed that the current importer can produce a valid record without
+a derived display cache. The obsolete reader went away while the cache can still
+be prepared. The four scoped `show` calls took about 2.4 s including the wrapper.
+These are resolved call links, as built by `structure/api.py:MapHandle.resolved_calls`;
+the current-writer check itself came from reading the code.
+
+### 21. Explain why constants are unavailable in a predicate
+
+An equality check over a short tuple composed from an earlier literal constant
+passed its application tests but was marked `uses unavailable binding` in the
+contract cells and rows. `intent/anchors.py:_literal_globals` uses
+`ast.literal_eval` with a few standard-library constructors, and does not fold
+references to earlier local literals inside a tuple. `intent/runtime.py` reports
+only the unavailable identifier. Showing the assignment and its unsupported
+expression would explain the limit. A bounded fold of names already proven
+literal in the same module could cover this case without importing project code.
+
+A separate declaration tried to verify that a retired label returns `None`.
+`intent/loader.py` treats a `None` predicate result as outside the rule's domain,
+so it refused the row. The application test checks refusal directly and the rule
+covers the current labels. The error could name `None` as the out-of-domain
+result when that is what it observed.
