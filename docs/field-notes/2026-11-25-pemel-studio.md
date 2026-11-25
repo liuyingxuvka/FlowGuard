@@ -370,3 +370,32 @@ qualified inside another definition. In the former case, report that the
 baseline has no implementation of the new function. Keep the reason for
 genuine nested functions. This would make an intentionally new helper easier
 to distinguish from a source-layout problem without weakening comparison.
+
+### Follow-up on capture tooling and a fixed calibration input
+
+The full synthetic capture matrix produced 440 images across four languages
+and two themes. Before that run, the static check found a broad handler in
+the modified modal capture callback. It reported `Form cannot be registered`
+and identified `capture_review.py:165`. The callback was changed to record
+the failure, close the dialog and re-raise. The same static check then had
+zero red findings. In 5.1.0, `intent/ledger.py:_python_refusal` detects a
+broad exception type, and its fix directs the caller to re-raise on every
+path or narrow the caught types. This was useful on a GUI test harness,
+where an unnoticed callback error can leave a partially successful run.
+
+`show stage_parameters` found both the optimizer and the duration estimator
+as callers. `show JOINT_REFIT_NAMES` identified the module-level decision
+and its independent test. The parameter list and this module-level
+decision have different responsibilities: a module can still be fitted
+when one of its parameter values is fixed. The exact caller links helped
+keep the optimizer and estimator using the same free-parameter list.
+
+Four consecutive user messages were recorded using `req add -`. The
+266-byte exact-value decision and the other three archived messages matched
+their recorded byte counts and SHA-256 digests. `show rule.<id>` confirmed
+the exact quotation for the new fixed-value rule and the archive rule.
+Source check: `intent/cli.py:_input_bytes` reads the binary stdin stream and
+`map/requests.py:store_request` passes those bytes directly to the write-once
+archive. Exact capture followed by explicit source confirmation fits a
+conversation where an owner first accepts an approach and then refines a
+single value.
