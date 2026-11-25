@@ -457,3 +457,17 @@ node matches plus token overlap. The graph's label lookup is limited
 to labels the graph records. Provide an exact resource-text match or
 label the coverage gap before the shared-word matches. Symbol queries
 and the resolved-call results were useful and should stay prominent.
+
+### Finding tests for a generated field default
+
+A file-plus-field query for `ProfileDialog.name` found the one default
+writer, the profile validation read, all three editor entry points and the
+focused locale test. This was useful after actual screenshots exposed a
+missing translated default. No recorded rule covered that text.
+
+In 5.1.0, `intent/owners.py:python_field_home` asks the graph for tests
+reachable from writers and appends the test-scope reason to each row.
+Preserve the distinction between reachability and coverage. Rank direct,
+in-scope test imports first and fold transitive or excluded results into
+their own counts in the default view. Show the exact file-plus-field
+query form in the new-task help so the shorter lookup is discoverable.
