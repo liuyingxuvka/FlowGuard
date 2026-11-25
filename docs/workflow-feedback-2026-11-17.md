@@ -645,3 +645,11 @@ G110 补充了字段共写候选的实际例子。`v3-110-backend-show-first.log
 应用基线 `bd58116` 上，正式 v5.1.0 的 `show requireReadableProjectAccess` 找到了定义和唯一的时间线路由文件，帮维护者确认了本次更换权限数据来源的主要边界。普通输出将模块顶层安装的处理汇总成一个位于第 1 行的调用方，并提示还有 8,194 行，其中 8,193 行只是词匹配。随后按实际调用位置核对源码，同一工厂在这个文件的 11 个 HTTP 入口注册。这里的证据是 `v3-135-shared-project-access-show.log` 和 `backend/src/api/routes/project-timeline.routes.ts` 的注册调用，属于改动前的影响范围盘点。
 
 建议在现有符号详情中把可解析的模块级中间件注册按方法和字面路径列出，并给直接使用点独立计数。维护者可以凭这一份清单决定哪些端点需要同批的回归验证。第 122 组反馈关注从固定路径找可能抢先匹配的路由。本次从共用函数出发找它覆盖的所有入口。最小对照可用同一导入注册多个 HTTP 方法、一个本地同名方法、一次函数内普通调用和一次动态组合注册。直接注册、普通调用和待核实的动态关系各列实际位置，确认的结果不埋在词匹配后面。
+
+## G135 从符号定位已记录的决策表和场景
+
+应用基线 `bd58116` 上，正式 v5.1.0 的 `show useProjectPermissions` 找到了权限钩子、两处页面调用和部分测试调用，但摘要没有指出已经记录的 `project-lifecycle` 决策表及 `GAP-PL-07` 场景。接着执行 `show project-lifecycle`，结果为 `not on the map`，后面有 11,184 行普通词匹配。见 `v3-135-role-hook-show.log` 和 `v3-135-project-lifecycle-show.log`。该基线两份已提交的决策表 `backend/tests/fixtures/decision-tables/project-lifecycle.decision_table.json` 和 `frontend/tests/fixtures/decision-tables/project-lifecycle.decision_table.json` 都有两条 `MANAGEMENT` 无项目角色的 `GAP-PL-07` 记录，其中 `ui_overview` 为 `true`、`resourceOverviewHttp` 为 `403`。两端具名用例 `fg-project-lifecycle.routes.test.ts` 和 `fg-project-lifecycle.permissions.decision-table.test.ts` 按场景 ID 选取这些记录并分别核对路由和界面。
+
+`v3-135-frontend-resource-policy-red.log` 的前端定向测试有 4 例失败、12 例通过。其中 `MANAGEMENT` 和 `HIGHER_MANAGEMENT` 对可读项目没有项目角色，前端却都返回可以查看配员。`HIGHER_MANAGEMENT` 来自本轮新增对照，旧决策表的这两条记录只涉及 `MANAGEMENT`。另外两例失败来自各自的重试界面。该轮 FlowGuard 为 `0 red, 4 not compared`，静态入口未被筛选选中。这是应用修复前的实际失败记录，已有场景通过源码和已提交夹具核对。
+
+建议让 `show` 先按明确登记的模型名或场景 ID 查找，并在有关符号的详情中直接列出决策表路径、具名用例和可定位的记录。存在两份夹具时展示各自位置和版本，保留同一场景在两份记录中的实际字段值。最小验收可用一个符号、同名模型下的两份夹具、一条已有场景和一个普通同词匹配。用符号、模型名和场景 ID 三种方式应能定位同一批证据，历史观察及本轮用例是否执行分别显示。此前的跨端用例建议关注绑定和核对本轮结果，本条补充如何在开工时找到已经存在的证据。
