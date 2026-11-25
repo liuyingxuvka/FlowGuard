@@ -518,6 +518,10 @@ G100 用正式 v5.1.0 在应用基线 `55f0506` 复现。`v3-100-backend-first-s
 
 G110 补充了字段共写候选的实际例子。`v3-110-backend-show-first.log` 在正式 v5.1.0 下定位到经过校验的 `Employee.resourceTypeId` 写入，并提供两个同字段写者和 45 个 `Employee` 模型读取者。`v3-110-resource-writers.log` 对该字段另外显示五条 `together candidate (reference only)`，其中 `email`、`employeeStatusId`、`name`、`organizationalUnitId` 在目标迁移中已移走。候选来自现行代码中的旧写者。若维护者提供目标结构，建议为候选显示两边字段在哪个阶段同属该模型，并把移走字段的候选标明为仅适用于迁移前代码。对仍保留且独立写入的字段继续显示可供判断的写者和引用依据。此例只改变提示范围，既有已登记约定、实际测试和失败分类继续生效。
 
+G160 发现目标端准备写入时的反向冲突。应用基线 `058610b` 的 `show Project.leaderId --full` 找到模型声明及多个写入点，未列出删除影响预览和执行共用的老路由。该路由在 `backend/src/api/routes/project.routes.ts` 中用直接的 `prisma.project.findUnique` 和字面量 `select` 读取旧经理字段。独立编译只含目标 `id`、`aliasKeywords`、`probability` 的 `ProjectUncheckedCreateInput` 时，`v3-160-prisma-anchor-required-fields.log` 实际报 TS2739。生成类型仍要求 `projectNumber`、`name`、`leaderId`、`lifecycleStatusId` 和 `sourceType` 五个字段，而 A5 批准脚本已删除这些列。实验只导入生成类型，未运行 Prisma 或连接数据库。
+
+建议目标结构对照同时标出两种依赖方向。一种是现行入口仍引用目标已移除的字段，另一种是目标命令的合法输入仍被现行生成客户端拒绝。后者可直接复用维护者提供的只读类型检查结果，或从现行 Prisma 的必填、默认和忽略声明推导候选。最小验收用手写显式投影、默认标量投影、只写保留锚点字段三条对照。报告应把生成类型阻塞的字段直接连到当前 schema、目标变更及仍引用它的真实入口，帮助确定先换哪些读写方再更新客户端。
+
 ## G111 同一次提取产生两条写者影响
 
 应用基线 `37300ce` 和正式 v5.1.0 下，`v3-111-backend-final.log` 的 6,836 例通过。检查列出两条 `impact`，一条指出 `updateLinkedEmploymentProfile` 不再直接写 `Employee.resourceTypeId`，一条指出 `saveLinkedAccountSettings` 新增了同字段写入。两条均附 45 个模型读者。源码复核确认前者经 `saveConfirmedLinkedAccountSettings` 调用后者，资源类型仍由同一个应用库委托保存，普通编辑也复用该写入。单测覆盖两种编辑和所用的目录校验。
