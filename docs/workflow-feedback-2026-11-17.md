@@ -40,7 +40,9 @@ G99 在应用基线 `b66efe8` 用正式 v5.1.0 查询限定字段。`v3-99-after
 
 G145 在应用基线 `f022f539908d` 用正式 v5.1.0 复核了 Prisma 关系读取。执行 `show PspElement.elementNumber --full` 后，`v3-145-psp-number-full-show.log` 显示两处直接 `pspElement.findMany` 读取，也把只取锚点 ID 的查询和计数列为模型读取。输出没有定位到 `backend/src/services/demand.service.ts` 的共享 `DEMAND_ELEMENT_SELECT`。该常量经 `DEMAND_INCLUDE` 用于 `Demand.pspElement.elementNumber` 和 `Demand.pspArea.pspElement.elementNumber` 两条关系路径。实际读取还出现在需求列表和详情的 `prisma.demand.findMany` 与 `findUnique`。从源码复核这些路径后，才知道移除旧编号列会影响哪些入口。
 
-建议给已确认的字段读取附上 Prisma 根委托和调用位置、完整关系路径，以及叶字段所在的投影声明。最小对照使用同一个字面量 `select` 常量，经两条可解析关系路径读取同一字段。再添加只取 ID 的查询、计数查询，以及无法静态展开的选择对象。前两项只属于模型读取，动态路径需要显示待核实范围。所有对照都可用静态输入复现。
+G154 在应用基线 `67f7d3ad5929` 的 `v3-154-cost-readers-show.log` 中记录了正式 v5.1.0 的 `show Project.internalCostNumber --full`。输出找到 Prisma 声明、映射列和一处集成测试夹具写入，未列出 `backend/src/services/assignment.service.ts`。该文件的 `assignmentService.update` 在 `tx.assignment.update` 的字面量 `include` 中选取 `demand.project.internalCostNumber`，并用返回的 Project 组装预订编号。这里没有共享投影常量需要展开。只查读查询会漏掉仍读取旧列的编辑回执。核对仅使用静态输出和源码，未执行日志列出的集成测试。
+
+建议给已确认的字段读取附上 Prisma 根委托和调用位置、完整关系路径，以及叶字段所在的投影声明。最小对照使用同一个字面量 `select` 常量，经两条可解析关系路径读取同一字段。再覆盖只取 ID 的查询、计数查询、无法静态展开的选择对象，以及 `update` 同时包含无关的 `data` 更新和内联的关系返回投影。只取 ID 的查询和计数不提供该非 ID 字段的读取证据，动态路径需要显示待核实范围。`update` 的 `include` 应记录为字段读取，`data` 应按实际写入另行记录。所有对照都可用静态输入复现。
 
 ## 让两个包的验证可以独立运行
 
