@@ -280,3 +280,17 @@ A separate declaration tried to verify that a retired label returns `None`.
 so it refused the row. The application test checks refusal directly and the rule
 covers the current labels. The error could name `None` as the out-of-domain
 result when that is what it observed.
+
+## Round 2, small-effect delivery
+
+### 22. Signature checks preserved a bound rule when its caller added evidence
+
+An existing numerical decision gained two optional keyword inputs. The first run
+reported a signature mismatch for the `same` anchor before trying to reuse its old
+proof. The two inputs are now declared as context on the original bound rule;
+separate tests verify the added evidence path. `intent/anchors.py` compares the
+spelled anchor names with positional-only, positional and keyword-only source
+arguments. An explanation distinguishing new optional arguments could direct the
+reader to the context syntax when the old rule deliberately holds them fixed.
+The finite bound grid was checked, with the existing nonlinear exhaustive-proof
+limit reported separately from the passing application tests.
