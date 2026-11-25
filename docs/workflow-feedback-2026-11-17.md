@@ -533,3 +533,13 @@ G110 补充了字段共写候选的实际例子。`v3-110-backend-show-first.log
 另用 3 份合成 TypeScript 文件离线核对工具。服务端在 `/api/projects` 挂载一个路由，固定 `/status-options` 与 `/:id` 各有一个具名处理器，客户端用 `fetch` 请求固定地址。把固定路由从 `/:id` 前移到其后，正式 v5.1.0 的 `check --static` 仍为 `0 red`。`show src/projects.ts` 能找到两份函数，`show /api/projects/status-options` 只有词匹配。见 `fg-g122-route-repro-shadowed.log`、`fg-g122-route-repro-router-show.log`、`fg-g122-route-repro-url-show.log`。合成夹具只做静态解析。
 
 建议让现有查询按方法和字面量路径展开已确认的挂载前缀、注册位置、可能先匹配的参数路由和期望处理器。最小验收覆盖正确顺序、无专用处理器、已有专用处理器但排在参数路由之后三种情形。不同 HTTP 方法的处理器不产生误报，动态前缀、无法识别的参数约束或会调用 `next()` 的路径标为待核实。保留现有的行为检查和测试证据，用实际路由用例核对返回内容及授权。
+
+## G124 检查外键指向的记录属于正确目录
+
+应用基线 `effd26631eb5` 的 `v3-124-backend-red.log` 有 9 个定向用例失败。合法提案状态的更新拿到 400。创建提案时，已退役的项目状态通过了旧校验，进入项目概率写入器的权限读取，随后被替身拒绝。该例未到达零写入断言。同次正式 v5.1.0 报 `0 red, 1 not compared`，名称筛选排除了静态检查入口。两种状态在数据模型中都通过目录 ID 外键表达，区别在目标行的 `catalogType`。
+
+在独立合成夹具 `b71d9c38ca70` 中，`Proposal.statusId` 外键指向 `CatalogEntry.id`；两条不同 ID 的状态都用 `ACTIVE`，分别属于 `PROPOSAL_STATUS`、`OPPORTUNITY_STATUS`，且两类都符合表的 CHECK。正确实现先按 `statusId` 和提案类型查到行，再创建提案。两个对照分别把类型替换为商机类型和移除整个检查，三种情况的正式 v5.1.0 `check --static --all` 均退出 0、报告 `0 red`。`show` 找到外键字段的写入和 CHECK 的两个合法值，三种情况中文档引文均显示 `(holds)`。见 `with-rows-{valid,wrong,missing}-{static,status-show,type-show,rule-show}.log`。所有夹具只做静态扫描，未运行 SQL 或连接数据库。
+
+另加一条直接写入 `CatalogEntry.catalogType = 'OUTSIDE_CATALOG'` 的对照，现有同字段值域检查退出 1，报告 `1 red, 1 impact`，并定位写入。见 `invalid-literal-static.log`。
+
+建议允许维护者在已有字段契约上声明此类目标行约束，并显示输入 ID、实际校验的目标类型及通向写入的路径。可解析的直接路径区分匹配、类型错误或缺少前置校验，无法解析的辅助调用显示未验证。以上三种夹具可做对照，再加校验了另一个 ID 的反例。附上已运行的具名用例以核对 400 和零写入，文档引文检查继续说明规则来源。
