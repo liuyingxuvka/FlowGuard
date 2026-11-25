@@ -487,3 +487,30 @@ Keep both values. Add a visible count for inputs that only one source
 accepts, alongside changed results on inputs accepted by both sources.
 This would help reviewers identify a changed accepted-input set before
 they inspect a numerical or workflow result.
+
+### Tracking saved plot state during a report repair
+
+The Studio's 101 affected Qt and report tests passed. The FlowGuard
+summary showed one new field impact, and "show ExplorerPage.figure_ids"
+located the constructor write and both reads in the already-open
+Explorer's refresh method. That justified checking the settings route
+as well as the original opening route. Keep the writer and reader rows
+near the top of field searches.
+
+The same run reported "no comparable JSON result" for newly changed
+NumPy-based figure functions, including the shared sampling and loaded
+stretch decisions. The ordinary tests exercised the code and verified
+the relevant axes and missing-value separators. In 5.1.0,
+`intent/runtime.py:_checked` refuses non-JSON values and non-finite
+numbers, and `Runtime._record` retains that reason when it clears the
+sample. `intent/plugin.py:report` substitutes one generic text for
+calls with no retained sample. Surface the available refusal reason
+and distinguish an unrecordable input from an unrecordable result.
+Do not serialize arrays, private numerical traces or Qt objects to
+make this diagnostic more specific. A focused behavioral test remains
+the correct evidence for the rendered plot.
+
+A subsequent launch brief reported 49 rules and no quote problems
+after four new verbatim decisions were recorded. The round-level
+`new-task` brief correctly gave the changes between its previous
+baseline and HEAD and the command for comparing those changes once.
