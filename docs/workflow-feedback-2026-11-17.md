@@ -489,3 +489,9 @@ G110 补充了字段共写候选的实际例子。`v3-110-backend-show-first.log
 应用基线 `37300ce` 和正式 v5.1.0 下，`v3-111-backend-final.log` 的 6,836 例通过。检查列出两条 `impact`，一条指出 `updateLinkedEmploymentProfile` 不再直接写 `Employee.resourceTypeId`，一条指出 `saveLinkedAccountSettings` 新增了同字段写入。两条均附 45 个模型读者。源码复核确认前者经 `saveConfirmedLinkedAccountSettings` 调用后者，资源类型仍由同一个应用库委托保存，普通编辑也复用该写入。单测覆盖两种编辑和所用的目录校验。
 
 建议在同一差异内有唯一新增目标，且旧写者仍能经已解析的直接调用链到达新写者时，把两条 `impact` 并排展示。详情同时保留两条原始证据、调用链和新增调用者，读者列表只展开一次。静态路径只能表明两处提示关联，字段验证、条件分支、事务和行为仍分别检查。最小对照可用一个函数提取、一个确实移除写入的函数以及一个只在无关调用者中添加的写入。
+
+## G113 对象方法的文档锚点
+
+应用基线 `44e6aa2`、正式 v5.1.0 上，`v3-113-preflight-placeholder.log` 的普通 `show useGeneratedSapPlaceholder` 显示对应方法、文件和调用方。将屏幕上的短方法名写入同一文件的 `about` 标记时，前端静态测试给出 `names nothing` 的红牌，提示用一个 `object.method`。本例需要完整符号 `centralEmployeeService.useGeneratedSapPlaceholder`。这条检查正确地挡住了无效锚点。
+
+建议让 `show` 在唯一匹配处提供可复制的文档锚点值，并让静态错误在同一文件有唯一已解析的匹配方法时给出全名候选。遇到多个方法同名，请保留明确的歧义和列表。可以用一个对象方法短名、一个正确全名和两个同名对象方法验证。这项输出可以减少一次完整套件的回跑，继续以严格锚点执行原来的静态检查。
