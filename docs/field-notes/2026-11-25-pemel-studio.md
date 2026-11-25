@@ -465,7 +465,7 @@ writer, the profile validation read, all three editor entry points and the
 focused locale test. This was useful after actual screenshots exposed a
 missing translated default. No recorded rule covered that text.
 
-In 5.1.0, `intent/owners.py:python_field_home` asks the graph for tests
+In 5.1.0, `intent/owners.py:field_lines` asks the graph for tests
 reachable from writers and appends the test-scope reason to each row.
 Preserve the distinction between reachability and coverage. Rank direct,
 in-scope test imports first and fold transitive or excluded results into
