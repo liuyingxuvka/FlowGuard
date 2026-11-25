@@ -441,3 +441,19 @@ registered document bindings and needed a separate equality check.
 A way to record a generated standalone HTML file as an output of its
 owner would make this dependency visible without making FlowGuard
 guess from matching words.
+
+### Follow-up on a module identifier and its exported name
+
+`show _parameter_documents` identified both direct callers, export and
+import validation. The English parameter-table module column could be
+added at that one owner and checked identically in both routes.
+`show simulation_parts_summary` likewise resolved the screen and PDF
+callers after the required-part text was consolidated.
+
+A search for the exact new English part name produced hundreds of
+shared-word matches and did not locate the corresponding translation
+keys. The phrase-search branch in `intent/cli.py:show` ranks rule and
+node matches plus token overlap. The graph's label lookup is limited
+to labels the graph records. Provide an exact resource-text match or
+label the coverage gap before the shared-word matches. Symbol queries
+and the resolved-call results were useful and should stay prominent.
