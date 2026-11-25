@@ -471,3 +471,19 @@ Preserve the distinction between reachability and coverage. Rank direct,
 in-scope test imports first and fold transitive or excluded results into
 their own counts in the default view. Show the exact file-plus-field
 query form in the new-task help so the shorter lookup is discoverable.
+
+### A new identifier in a sealed comparison
+
+After an approved model part rename, five comparisons showed the new part
+identifier as rejected by the baseline and accepted by the new source.
+`show --last` exposed the full exceptions and the new Boolean or stage
+values. The separate full replay verified unchanged numerical output, states
+and clocks. Retaining the before exception was important because the old
+identifier is deliberately absent from current readers.
+
+In 5.1.0, `intent/signals.py:changed_line` renders the before and after
+values for the chosen input and counts all differing inputs together.
+Keep both values. Add a visible count for inputs that only one source
+accepts, alongside changed results on inputs accepted by both sources.
+This would help reviewers identify a changed accepted-input set before
+they inspect a numerical or workflow result.
