@@ -352,3 +352,21 @@ a killed Vitest run beside the earlier completed receipt. Reuse that mechanism
 for pytest. Then `show --last` can distinguish the last completed verdict
 from a later Python run that started and never reported, without treating
 process disappearance as a successful test or a verified failure.
+
+### Follow-up on startup language: name the missing baseline definition
+
+`show load_settings` identified the controller constructor as the existing
+resolved caller. That made it possible to reuse the settings reader for a
+startup error in the saved language. The targeted tests exercised all four
+languages, a malformed local catalogue and a change of language with Help
+open. The guarded scope finished with zero red.
+
+The comparison said the added catalogue validator was "not a module-level
+function." It is defined at module level in the working source and does not
+exist in the task baseline. In 5.1.0, `intent/runtime.py:register` loads the
+historical source and calls `_closed`. The latter gives the same refusal when
+the name is absent from the historical function table and when the name is
+qualified inside another definition. In the former case, report that the
+baseline has no implementation of the new function. Keep the reason for
+genuine nested functions. This would make an intentionally new helper easier
+to distinguish from a source-layout problem without weakening comparison.
