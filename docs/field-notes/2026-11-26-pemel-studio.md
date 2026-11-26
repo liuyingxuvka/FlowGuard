@@ -111,3 +111,21 @@ In 5.1.0, `intent/docs.py:module_lines` reads and reports those markers
 and supplies the exact missing-marker syntax when an owned file has
 none. The immediate source pointer worked well while the documentation
 and implementation were being prepared separately.
+
+## An occupied request number during a patch release
+
+The owner supplied a new statement with a requested number already used by an
+older approved statement. `req add FILE --id R45` returned `request_exists:
+R45 is stored; a correction from the owner is a new request`. In 5.1.0,
+`map/requests.py:_store` checks `_identifiers`, which includes protected paths.
+Moving the two local files aside did not make the number available. The check
+preserved the earlier original while the new text was stored under a distinct
+identifier. `req add` and `cmp` confirmed the new bytes, and `show` verified
+that an exact quote from the new record was cited by the updated rule.
+
+The refusal could include the current record's path and a suggested available
+suffix, or the CLI could expose a non-writing ID availability check. It would
+also help to distinguish an existing identical body from a different statement
+at the same requested ID. The repository keeps the original record and the
+new supplement with traceable references. No replacement of protected bytes
+is needed.
