@@ -508,3 +508,32 @@ site and emits an input finding with the rule ID and the correction step
 when a site has no current declaration. This let the ordinary test run
 catch an anchor missed during a source move without treating it as a
 numerical change.
+
+## A mixed selection retains superseded test names
+
+During the approved retirement of restore links, four failing test functions
+were replaced in the same file with cases covering final deletion and unrelated
+undo. The recovery run selected the whole affected file alongside one named
+node in a different file. All the replacement cases passed. FlowGuard 5.1.0
+reported zero red; `python -m flowguard show --last` still listed the four old
+IDs as failed since the earlier run. For example, it retained
+`test_status_undo_is_the_exact_delete_and_cannot_fire_twice` and showed
+“not selected by the last pytest run” while
+`test_confirmed_delete_status_has_no_restore_link_after_autosave` passed.
+This was a deliberate product change and tests were kept for the current
+behaviour.
+
+In the installed source, `intent/plugin.py:_save_ordinary_collection`
+returns early if any pytest argument contains `::`. The recording therefore
+cannot retire old IDs of a different file whose entire collection ran.
+`intent/cache.py:read` already knows to omit superseded IDs after a confirmed
+complete collection, while retaining their audit history. A normal full run
+provides that evidence. The status separates the current pytest exit from the
+retained failures, so an ordinary failing test is still visible before its
+file is next fully checked.
+
+Record completion at the individual file boundary when selection proves
+the full file ran. A focused fixture could run one whole file beside an
+individual node in a second file, then show that retired IDs disappear
+only for the whole file. Short of that, explain the mixed-selection reason
+in the detail and give the exact complete-file command.
