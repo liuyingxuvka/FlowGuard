@@ -425,3 +425,28 @@ predicate for a single literal can return `None` elsewhere. Keep the
 nonzero exit and the detailed trace. Where possible, preserve receipts for
 unrelated rules that already finished, with a clear indication that the
 overall check failed.
+
+## Runtime observation of decorated test functions
+
+Four ordinary parametrized tests ran and passed, but FlowGuard reported
+that the runtime source position did not identify an anchor. Each event
+comment sat between the pytest decorator and the function definition.
+Moving the four comments above their decorators, without changing the
+test calls or assertions, removed those observation gaps in the
+734-pass regression run. Three separate limitations on closed comparison
+remained visible.
+
+The installed 5.1.0 `intent/flow.py` and `intent/anchors.py` match this
+feedback branch. In `flow.py`, the runtime lookup requires
+`anchor.line <= frame.f_code.co_firstlineno <= anchor.target_line`.
+For a decorated function, Python supplies the first decorator line as
+`co_firstlineno`. The source map binds the comment to the intended
+function, but the later position check rejects the actual frame. The
+source binding already accepts an event comment above the decorators.
+
+When the source map binds a comment to a decorated function, retain that
+function's first decorator line as an admissible runtime start. Add a
+focused test that places the same event comment on either side of the
+decorator and observes the one actual test call. Until both placements
+work, show the detected decorator and marker locations, with the
+supported placement before the first decorator.
