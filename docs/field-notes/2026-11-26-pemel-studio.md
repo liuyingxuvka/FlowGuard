@@ -97,3 +97,17 @@ keys deserve an exact-literal lookup with each site labeled by its use.
 An indirect caller can be surfaced as a possible reference with its
 unresolved receiver, without counting it as a resolved call or marking
 the user's architecture red.
+
+## A checked documentation link during an intake change
+
+Before the data-format contract named the new parser, `show` listed its six
+source call sites and said that no text described the file. Adding one
+`about` marker next to the CSV dialect rules made the same command show
+`docs/data_input/CONTRACT.md:19` while retaining those call sites. This
+confirmed both the missing relationship and the correction before the
+tests were available to run.
+
+In 5.1.0, `intent/docs.py:module_lines` reads and reports those markers
+and supplies the exact missing-marker syntax when an owned file has
+none. The immediate source pointer worked well while the documentation
+and implementation were being prepared separately.
