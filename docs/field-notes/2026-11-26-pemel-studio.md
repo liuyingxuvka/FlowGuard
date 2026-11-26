@@ -21,3 +21,14 @@ The FlowGuard block reported `0 red` and 8.7 s. `show --last` also said
 `the last pytest run selected 0 of 24 intent items; no complete collection
 is recorded`. That line made the scope of the green result clear. The local
 FlowGuard cache occupied 39 MiB on disk after this run.
+
+## A qualified symbol name keeps the resolved caller list readable
+
+`show layout_settings` found the window-layout store but also reported
+101 more lines, 97 of which merely shared a word. The suggested
+`show pemel_studio.shell.window_layout:layout_settings --full` returned
+the six actual callers in 0.85 s. It confirmed that the main window and
+library windows use the same store, so the existing test fixture could
+be scoped without duplicating the patch. The subsequent 23-case targeted
+run reported one `not compared` call. `show --last` identified the call
+and explained that it had no comparable JSON result.
