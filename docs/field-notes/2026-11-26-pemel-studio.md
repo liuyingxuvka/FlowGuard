@@ -64,7 +64,7 @@ and `LibraryStore._load` as a reader. In `_load`, the exact target
 model comes from that cache and is copied before it reaches a caller, so
 both access points matter during ownership review.
 
-In 5.1.0, `structure/extract.py:Scope.written` recognizes direct attribute
+In 5.1.0, `structure/extract.py:Reader.written` recognizes direct attribute
 targets and subscript targets whose key is a string constant. An indexed
 assignment with a variable key keeps its expression as an assignment
 target, but it does not resolve to a write on the containing field. The
