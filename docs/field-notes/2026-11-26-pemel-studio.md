@@ -320,3 +320,31 @@ evaluator's ledger input to a scratch file while preserving the original
 source map and baseline. A read-only `--candidate-ledger` option would make
 that check available without modifying the shared tree or the baseline.
 The same rule-quote and broad-handler checks must apply to the candidate.
+
+## Intent-file collection and named scope are easy to confuse
+
+During the synthetic CSV and HDF5 verification, an ordinary pytest
+witness beside its declarations under `tests/intent/` did not run. The
+four declarative cases existed, but the witness had to move to
+`tests/tools/` to exercise both files for each case. In the installed
+5.1.0 source, `intent/plugin.py:pytest_pycollect_makemodule` hands every
+Python module in the configured intent directory to `IntentFile`.
+`IntentFile.collect` then yields the declared intent items. Add a precise
+collection message when such a file also defines a `test_*` function that
+ordinary pytest would otherwise collect. Include the path and explain
+where to put the ordinary test. This would make an absent witness visible
+even when the declaration items run successfully.
+
+An ordinary test in `tests/tools/` subsequently fed a fabricated failing
+receipt to the release-verdict helper. Its Python assertions passed, but
+FlowGuard reported two conflicts with the shipped-case rule. The rule's
+`calibrated_by` test genuinely checked the release files. In the same
+plugin, `_rule_calls` filters the named witness, while `_rule_signals`
+can check all observed calls when the dedicated field items did not cover
+the anchor. The detailed red output printed both conflicting inputs and
+made the test scope error diagnosable. The negative test now exercises the
+public ZIP verifier with an actual missing CSV or HDF5 member. This keeps
+the strict release rule and verifies that incomplete input is refused.
+Document the distinction between a named witness and the wider live
+comparison beside `calibrated_by`, and show it in a detailed rule finding
+when the conflicting call came from another test.
