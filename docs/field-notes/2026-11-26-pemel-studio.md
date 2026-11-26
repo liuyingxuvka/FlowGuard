@@ -492,3 +492,19 @@ source inspection. A focused regression should start without a map and
 check that an explicitly relocated query returns the same source facts
 while leaving the project-local cache untouched. Keep build and disk errors
 visible without presenting a partial map as current evidence.
+
+## A stale decision anchor caught during ordinary testing
+
+The Phase 5 focused run found
+`red: known.internal-recovery-scope: site .../steps.py:fixed_calibration_value names nothing`.
+The fixed-recovery decision still applies. The function had been removed and
+the fixed-value table `FIXED_CALIBRATION_PARAMETERS` is its current site.
+`python -m flowguard show --last` retained the full site name and correction.
+We updated the site reference only. The decision, quotation, open question
+and recovery coefficient are byte-for-byte unchanged.
+
+In installed 5.1.0, `intent/sources.py:known_sites` resolves each configured
+site and emits an input finding with the rule ID and the correction step
+when a site has no current declaration. This let the ordinary test run
+catch an anchor missed during a source move without treating it as a
+numerical change.
