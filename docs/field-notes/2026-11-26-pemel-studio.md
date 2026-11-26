@@ -450,3 +450,23 @@ focused test that places the same event comment on either side of the
 decorator and observes the one actual test call. Until both placements
 work, show the detected decorator and marker locations, with the
 supported placement before the first decorator.
+
+## An intent-to-add entry appears as changed owner words
+
+Three newly recorded owner requests matched their input bytes. Running
+`git add -N` on the request files exposed the new files in a source diff.
+While they had that index state, `show rules` said each owner quotation
+differed from its stored original. The bytes in the working tree still
+matched the separately captured inputs. After ordinary `git add`, all
+three exact quotations held and the catalog reported zero input problems.
+
+The installed 5.1.0 `map/records.py` and `map/requests.py` match this
+feedback branch. The request check obtains the first-write digest and
+compares both working-tree bytes and the Git index blob. Git represents
+an intent-to-add path with an empty placeholder blob, so the indexed
+comparison detects a mismatch even before content was staged.
+
+Distinguish an intent-to-add entry from a staged edit. Show that it needs
+ordinary staging and preserve the strict comparison for actual staged
+bytes, including a genuinely staged empty file. A focused regression
+should verify both Git states and keep the existing request protection.
