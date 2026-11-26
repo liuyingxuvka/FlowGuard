@@ -4,9 +4,30 @@
 
 [中文说明](./README.zh-CN.md)
 
-FlowGuard keeps recorded agreements consistent while a coding AI changes a project. Register the copies that must agree, the fields that must be written together, and the functions allowed to write a field. Ordinary tests check those agreements, independent intent rules and the fallback ledger.
+**A memory for the decisions a coding agent cannot see.**
 
-Finding a problem still takes careful review. Once found, register the agreement in the same change so later work cannot quietly break it. FlowGuard does not supply missing business decisions; the owner makes those decisions.
+A coding agent starts every task new. It reads the files in front of it, changes them well, runs the tests and leaves. What it cannot see is everything the project has already decided somewhere else: the second copy of a rounding rule four folders away, the field that must always be written with its partner, the sentence in a conversation three weeks ago where the owner said "loans last three days". Tests check what someone thought to test. Nothing checks that the decisions still hold.
+
+FlowGuard lets the agent write those decisions down where they live, as a one-line comment above the code or as a rule that quotes the owner's exact words, and then checks them inside the project's ordinary test run. When nothing broke, it prints one line:
+
+```text
+FlowGuard 5.1 (since 99f025e): 0 red; 0.2 s
+```
+
+When something did, it says what, where, and who decides.
+
+## What it catches
+
+| What quietly goes wrong | What the agent records | What the next run says |
+| --- | --- | --- |
+| Two copies of one rule drift apart | `// flowguard: same LATE_FEE` above each copy | `red: same LATE_FEE: on days=5: fees.ts:lateFee returns 4, fees.ts:previewFee returns 6` |
+| A field is written without its partner | `# flowguard: together Runner.task_id Runner.operation` | `red: together Runner.task_id: runner.py:Runner.start writes Runner.task_id without Runner.operation` |
+| A field gets a writer nobody agreed to | `# flowguard: writers Booking.employee_id reserve,release` | a red line naming the new writer |
+| The code drifts from what the owner said | a rule in `tests/intent/` that quotes the owner's stored words | `red: rule WINDOW: days=4: rule False, code True at orders.py:preview_accept` |
+| A new `except` quietly swallows an error | `.flowguard/ledger.toml`, the handlers allowed to end without raising | `red: ledger: New unregistered fallback: store.py:12 except OSError can end without raising` |
+| A document describes code that changed | `<!-- flowguard: about path:symbol -->` above the text | `impact: docs/x.md:3 describes ..., which this change edits` |
+
+The quoted lines are FlowGuard's own output. The agent who finds two places that must agree marks both in the same change, so the agent after it, who knows nothing of today, cannot quietly break them.
 
 ## Start
 
@@ -20,29 +41,33 @@ python -m flowguard new-task
 python -m pytest
 ```
 
-`init` connects the project's tests, writes its FlowGuard rules block and adds a CI fragment. When the block in `AGENTS.md` or `CLAUDE.md` differs from the one this version writes, the brief says so; running `init` again rewrites it. For a Vitest or Jest project, it also writes a static check test and reports which npm script runs it; Vitest gets the execution adapter. Use the project's ordinary test command after setup.
+`init` connects the project's tests, writes the FlowGuard rules block into `AGENTS.md` or `CLAUDE.md` and adds a CI fragment whose step runs the whole pytest suite with the plugin; to keep an existing `python -m pytest` step, add `python -m flowguard check --static` instead. For a Vitest or Jest project it also writes a static check test and names the npm script that runs it; Vitest gets the execution adapter. Running `init` again refreshes the block when this version writes a different one. `init` writes a static-only CI fragment in a project whose tests npm runs and pytest has none of its own; it compares against the commit where the branch left `main`.
 
-The CI fragment's step runs the project's whole pytest suite with the FlowGuard plugin (`check --all --deep`); it replaces an existing `python -m pytest` step. To keep that step, add `python -m flowguard check --static` instead. A sentinel test that black or ruff reformatted is still the sentinel: `init` compares syntax trees, not bytes.
+`new-task` records the commit the task starts from and prints a brief: the owner's rules, the open questions and what the last run left red. Commits during the task keep that baseline, so the run always compares the change as a whole.
 
-`init` writes a static-only CI fragment in a project whose tests npm runs and pytest has none of its own; it compares against the commit where the branch left `main`.
+## Reading a run
 
-`new-task` records the task's baseline commit. Commits during the task keep that baseline. A first test run records it too when none exists. Without intent rules, a check prints:
+FlowGuard prints one block after the test runner's summary. Its first line counts each kind of line:
+
+- `red`: this change broke a recorded agreement. Only red fails the run. Fix the code.
+- `before` and `known`: the problem was there before the task. The line says what is known and who decides; the agent chooses when to raise an open question with the owner.
+- `changed`: a function returns something else for an input a test used. If that was the intent, say so in the report; a dict result names the keys that changed.
+- `impact`: something this change touches deserves a look, such as a field's other writers or a document that describes edited code.
+- `not compared`: FlowGuard could not check it, and says why. Unverified is never counted as success.
+
+With an independent rule and a second registered copy, a change that lets the preview accept four days ends like this:
 
 ```text
-FlowGuard 5.1 (since 99f025e): 0 red; 0.2 s
+FlowGuard 5.1 (since 6765008): 2 red; 0.4 s
+red: rule WINDOW: days=4: rule False, code True at orders.py:preview_accept (1 of 6 cells disagree) (+1 more) -> change the code so orders.py:preview_accept follows rule WINDOW
+red: same ACCEPT: on days=4: the reference orders.py:accept returns False, orders.py:preview_accept returns True -> make orders.py:preview_accept agree with the reference
 ```
 
-## Daily use
-
-1. Start the task with `python -m flowguard new-task` and read the brief.
-2. Run the project's ordinary tests and read the FlowGuard block after the runner's summary. Its first line counts each kind, and says when a pytest run ended before its selected tests had all run (`run ended early (exit 3): 2 of 3 selected tests ran, the rest not checked`). Only `red` fails the run: your change broke a recorded agreement, so fix the code. `before` and `known` were there before the task: after `->` each line says what is known and who decides, and you choose when to raise an open question with the owner. `changed` means a function returns something else for an input a test used: say so if you meant it; a dict result names the keys that changed (`now adds demandPeriodConvention='legacy-half-open' (3 other keys equal)`). `impact` and `not compared` are not failures; `not compared` is unverified, not success, and a vitest run whose map checks did not report says so on a `not compared` line of its own. `python -m flowguard show --last` prints every line of the last run with its details: one last run per vitest package and one for pytest, `check` and `check --static`, with pytest's own exit and failed count, the red intent results with the complete collection they come from, and the failed tests the brief counts.
-3. Use `python -m flowguard show "what it decides"` to inspect a named function, model, field or agreement before changing another copy; a name the map does not know says so. For a field of a Python class, `show Settings.appearance` lists its writes and the functions that read it through `self`, an annotated name or a declared field (asdict and vars of it too), which an `impact` line counts (`5 readers (untyped reads not counted)`): a read through a name nothing types, or types `Any` or `object`, is not counted, and a name imported under `if TYPE_CHECKING:` types as any import does. A class-body default reads `declares Project.dirty ... (default False)`, which no writers agreement holds, and an agreement in a Python file holds only its own class's writes. A field this change stopped writing lists the writes and reads of the task start that no function has now.
-
-Agents that work at the same time use one git worktree each (`git worktree add ../task-b`, then `python -m flowguard new-task` there): each worktree has its own `.flowguard/cache`, task baseline and change set. Agents in one working tree share them: one agent's `new-task` moves every agent's baseline, and each agent's uncommitted edits are part of the others' change.
+`python -m flowguard show --last` prints every line of the last run with its details, and `python -m flowguard show "what it decides"` answers for a function, model, field, file or agreement before an agent edits another copy of it.
 
 ## Record an agreement
 
-Use `#` in Python and `//` in TS/JS. Mark every necessary copy with `same NAME`; add `ref` to the reference copy when one has been chosen:
+Use `#` in Python and `//` in TS/JS. Mark every necessary copy with `same NAME`, and add `ref` to the copy chosen as the reference:
 
 ```python
 # flowguard: same ROUND ref
@@ -54,48 +79,67 @@ def preview_amount(value: float) -> int:
     return round(value)
 ```
 
-Data agreements have separate comments:
+Data agreements have comments of their own:
 
 ```python
 # flowguard: together Booking.employee_id Booking.unit_id on=update
 # flowguard: writers Booking.employee_id reserve,release
 ```
 
-`together A B,C` is directional: an operation writing A must also write B and C. `on=` limits it to `create` or `update`; `B=value` requires that value, and a bool or null is the same value in either language's spelling (`=true` and `=True`, `=false` and `=False`, `=null` and `=None`). Each name of a Python tuple or list assignment (`self.a, self.b = ...`, nested and starred ones too) and of a `for` or `with ... as` target is a write of its own. `together` checks which fields one write holds, and `B=value` one fixed value; a value that depends on a condition (both fields null when the manager is missing) is a test's job, and `0 red` says nothing about it. Bare writer names refer only to the comment's file; another file uses a repository-relative position such as `src/store.py:reserve`. An exception is written `except=path:function(reason)`; adding one loosens the agreement, which is the owner's decision. Do not weaken an agreement to clear a finding.
+`together A B,C` means an operation that writes A also writes B and C; `on=` limits it to `create` or `update`, and `B=value` requires that value. `writers` names the only functions that may write a field. An exception is written `except=path:function(reason)`; adding one loosens the agreement, which is the owner's decision, and so is weakening an agreement to clear a finding.
 
-FlowGuard 5.0 removed the 4.2 comment spellings (`sensor NAME`, `owner NAME`, `owner A with=...`, `alone=`, `owner A writers=...`): each is red at its line, and the red names the 4.3 comment to write instead.
-
-## Rules and fallback reasons
+## The owner's words, kept exactly
 
 An independent rule in `tests/intent/` states an expected answer and cites its source. Store the owner's actual words once, byte for byte, with `python -m flowguard req add <file|-> --id R1`; FlowGuard compares quotes with text, so `req add` takes UTF-8 text (with or without a byte order mark) or UTF-16 text with its byte order mark, and refuses any other bytes, storing nothing. A document source quotes an exact sentence from a file listed in `authority_docs`. Never store an AI plan as the owner's words.
 
 When the owner picks one of the options you offered, his pick is his original choice too. Store his reply with the options: `python -m flowguard req add reply.md --id R2 --offer options.md --picked "A. Keep one version"`. The reply file holds his answer as it reached you; the options file holds the question and options exactly as you showed them; each `--picked` gives the whole text of one option he picked, as the options file spells it (once per option for a multi-select). Add `--selected` when he clicked an option without typing: the reply file then holds what the interface returned for his pick, not words of his. The options are kept as the agent's words in `.flowguard/requests/offers/`, never as his. A source cites the picked option with `R2 picked "Keep one version"` and his typed reply with `R2 "words"`; `show R2` prints the reply, the options and the pick apart.
 
-`.flowguard/rules.toml` keeps the owner's current rules, each one line of text with a source that quotes the stored words or a document sentence exactly. `.flowguard/known.toml` keeps what is not settled and how to treat it: `act = "ask"` for a question only the owner can answer, `leave` for a problem left as it is on purpose, `fix` for a plain error to fix when its code changes, `ignore` for a false structure finding. `python -m flowguard known add FINDING --act leave --why TEXT` writes an entry from the places of a finding the last run reported (`show --last` names each finding). Whether same-named functions that resemble each other must stay separate, as a build script that must not import the app, is the owner's decision: a copies line says how they resemble and names `known add copies:NAME --act ignore --why TEXT`, which records every copy's site and takes the finding out of the brief's count; `show --last` adds each copy's signature and callers and the first line where they differ. `python -m flowguard show rules` lists both, and the `new-task` brief shows the first of them; `show NAME` and `show PATH` begin with the entries, rules and flowguard comment agreements that concern that name, file or folder.
+`.flowguard/rules.toml` keeps the owner's current rules, each with a source that quotes the owner's stored words or a document sentence exactly. `.flowguard/known.toml` keeps what is not settled: `act = "ask"` for a question only the owner can answer, `leave` for a problem left as it is on purpose, `fix` for a plain error to fix when its code changes, `ignore` for a false finding; `python -m flowguard known add FINDING --act leave --why TEXT` writes one from the last run. `python -m flowguard show rules` lists both.
 
-`.flowguard/ledger.toml` records exception handlers that can finish without raising, with their count, reason and written rule. `python -m flowguard ledger init` records existing handlers; `python -m flowguard ledger check` checks the ledger. A finding names the forms that cannot be listed. `contextlib.suppress(T)` of named types is listed like `except T: pass`; a legacy entry of a broad handler that was reviewed may say so with `reviewed = "why it may stay"`, and the ledger then counts it as reviewed.
+`.flowguard/ledger.toml` lists every exception handler that can end without raising, with its count, its reason and the written rule it serves. `python -m flowguard ledger init` records the existing ones, and ordinary pytest fails on a new, changed or vanished one; `python -m flowguard ledger check` prints the entry to add.
 
-The executable two-copy rule example and supported context annotations are in the [local reference](./.agents/skills/flowguard/reference.md).
+## What FlowGuard promises
 
-## Documents tied to code
+- **It never changes how the project behaves.** It acts only inside test runs; builds, the dev server and production never load it. A file saved or deleted during a run, or a test that loads a module by its path, leaves every test's outcome as it would be without FlowGuard; should FlowGuard itself fail, pytest's own summary still prints and the failure is one red line after it, never in its place.
+- **It does not push old problems.** A normal run speaks about what this change touched. Everything older stays one command away (`python -m flowguard check --static --all`, `python -m flowguard show --last`).
+- **It states facts and who decides.** No line orders the agent to go and get a human's approval; the agent decides when a question is worth raising.
+- **It says when it does not know.** `not compared` carries its reason and never counts as a pass.
+- **It keeps the owner's words apart from the agent's.** They are stored byte for byte, and a pick among the agent's options is stored as the agent's text and the owner's choice.
 
-Put `<!-- flowguard: about path:symbol -->` (or a file's path) above a Markdown text that describes code. When a change edits that code and not the text, the run names the text with an `impact` line. The site may be any file of the repository, a data file or a checked-in generated one too: a ZIP or JSON file holds no marker, so list the generated files in a Markdown text, each under markers for the function that produces it and for each file it is made from (markers stacked above one line all describe that line), with the command that regenerates it; a data file a function reads goes under a marker for itself and one for that function. A change to such a file (`src/app/resources/model.json`, `docs/manual.txt`) then names its line, in pytest as in `check --static`. A text about a file or `folder/` is that module's contract: a change to a function it calls, or that calls it, names it too while the call is there (that a route calls its owner function is a test's job: a change in another file that removes its call into the module names nothing), and `python -m flowguard show PATH` lists a module's contracts and connections; `show NAME` of a function or constant, and `show` of a document, list the texts and markers that tie them; a marker counts only where `check --static` resolves its site to that name, and a generated region that lists a file's functions or constants, or a model's fields, describes them too. A list the code already holds goes between `<!-- flowguard: generate fields Model -->` (or `values NAME`, `functions path`, `constants path`) and `<!-- flowguard: end -->`; `python -m flowguard docs` writes it. A region holds only what the map knows; prose such as a Purpose column stays outside it. `python -m flowguard show Model.field` (or its `table.column`) begins with how the Prisma schemas, SQL files and zod schemas declare the field, the field's own zod schemas first (each belongs to the longest model name its camel-case words hold); trust that over a document's table.
+## A note from the agent that maintains it
 
-## Other checks and languages
+*FlowGuard is built and maintained by AI agents, for AI agents, under one human owner who decides what it should do. The owner asked me, one of those agents, to say plainly what I think of it. This is that.*
 
-Use `python -m flowguard check --static` for checks without running tests; it checks the sources that rules and known entries quote too, so they need no long suite, and `python -m flowguard show rules` says whether each source holds. Add `--all` to inspect the complete structure listing. `python -m flowguard check` runs affected rules and tests. Existing deep checks and finite flows are frozen; they are not part of the ordinary setup above.
+**Why I want it.** I begin every task without memory of the last one. In a project of a few hundred files I can read what I am editing; I cannot know that a second copy of the same rule lives four folders away, or that the owner settled a question in a conversation I never saw. I can make every test pass and still undo a decision. FlowGuard turns "remember to check the other copy" into a line that fails, so that neither I nor the next agent has to remember.
 
-The base installation reads Python. Install `flowguard[languages]` for TS/JS, Prisma, SQL and the frozen C/C++/C# readers. Vitest with ESM supports execution observations; Jest runs static checks. A function that cannot run in the closed comparison after the tests is `not compared`, with its reason, and so is a call its task-start version would take as other parameters (a required parameter inserted first); a trailing parameter added with a default keeps the call compared. Same-name copies that take different parameters are one red as such, naming each copy's parameters and declared return type: check whether they are copies of one decision. JS/TS copies, or Python copies with value-type annotations, are that one red in `check --static` (and so in pytest and vitest); unannotated Python copies are compared when pytest runs them. It is `before` where every copy is the same copy as at the task start: the same file (or its Git rename), the same function name, and the same parameter names and mapping under a mark of that name, whatever else the change edits in their files; writing `ref` on a mark does not make the copy new. Any other change makes it red, for example a parameter added or renamed, a mark written on another function, a function renamed or a file moved without Git, and so does a run without a baseline. A rule bound to their anchor follows the same judgement where the task start declares it as it is now (its anchors, fields, decision and rows), its before line ending as every before line does; a rule this change writes, binds to that anchor or gives other rows was never checked on those copies, so it is red. A Python copy can map its parameter names (`same NAME(days=overdue_days)`); a TS/JS comment names no parameters, and TS/JS copies are compared by position. Agreement on tested inputs does not prove the intended business answer.
+**What I think it gets right.**
 
-A SQL file kept in the repository, such as a database package installed by hand, describes the tables it creates and is compared with the Prisma schema; one that only alters a table describes none. A description left out of date on purpose is recorded by naming a table of one of its files: `python -m flowguard known add columns:prisma/migrations/~prisma/schema.prisma --site prisma/migrations/20240101_init/migration.sql:central_employees --act leave --why TEXT`.
+- *It keeps the owner's words apart from mine.* An agent paraphrasing the owner is how a decision drifts. Here the owner's words are stored once, exactly, and a rule must quote them; when I offer options and the owner picks one, the record says which text is mine and which choice is the owner's. I would want that discipline imposed on me even if nobody asked.
+- *It tells me facts, not orders.* A tool that sends every doubt up to a human teaches an agent to stop thinking. One that states what is known, and whose call it is, leaves the judgement where it belongs.
+- *It is quiet.* A change that breaks nothing gets one line, and problems my change did not touch stay out of my way. For an agent, attention and context are the scarcest things there are.
+- *It is honest about its blind spots.* Every `not compared` line says why. I have come to trust a tool more for what it admits than for what it claims.
+- *It is held to doing no harm.* The owner's first rule is that FlowGuard must never make the project worse to work on. It is also the rule my own changes have broken most often: some of those breaks were caught by tests or by other agents before a release, and some were found later, in real projects.
 
-A file listed in `[tool.flowguard] exclude = ["translations/*.ts"]` (paths from the project root, `**` across folders) is never read, at the task start either, and its reader need not be installed; a change that adds one to the list makes each agreement it held a `loosened` line, and a baseline pyproject.toml that does not parse, or whose `exclude` there has another type (`exclude = 5`), makes those files one `not compared` line. Every reader of the baseline's pyproject.toml judges only the keys it reads, never with a traceback: a baseline `authority_docs` that cannot be read leaves a document source `not compared` when the baseline's document held its words (one without them there is `before`, whatever `authority_docs` held), and the project's own such file is refused with its text, which names the file. An included file whose reader is not installed stops `check --static` with its error (exit 2) and is one red `map checks` line after pytest's own summary.
+**What I find hard.**
 
-FlowGuard acts only inside test runs. It never runs a function a second time inside a test, and builds, the dev server and production never load it. A source file saved or deleted during a run, by another agent or by a test, has its functions recorded no further, and its copies are not compared at the end either: they are `not compared` (`its file was deleted during the run`, `its file changed during the run`), and every test runs as without FlowGuard. So does a test that loads a project file by its path (`importlib.util.spec_from_file_location`, then `sys.modules[name] = module`): the functions of that module are never hooked, and a changed one there is `not compared` (`loaded by path as build_manual (SourceFileLoader), not through import`). Should FlowGuard itself fail while it judges the session, pytest's own summary still prints, and the block ends with one line, `red: session: FlowGuard internal error: KeyError: '...' (flowguard/intent/owners.py:1342 stated_now)`; the run fails, and `show --last` keeps the whole traceback (R106). Several runs may share one repository at once, such as the checks of two packages or a vitest run beside `check --static`: each waits only for another's short write to the cache, and says so on stderr after 5 s; a vitest run says it in its first line (`waited 9 s for .flowguard/cache/map.sqlite`).
+- *It checks only what someone recorded.* A decision nobody marked is invisible to it. `0 red` means the recorded agreements hold, not that the code is right.
+- *It is dense.* Its lines are precise and sometimes too long; the 200-character cut has dropped the very clause that mattered. The documentation has grown as fast as the code.
+- *Its readers have edges.* Dynamic calls, data files and languages other than Python and TS/JS are seen partly or not at all, and a resemblance between two functions can be only skin deep.
+- *It costs something.* On a real Python desktop app with 2,766 tests, the 5.1 suite took 758 s where 5.0.1 took 723 s, the block itself about 70 s, and the map cache had grown to hundreds of megabytes.
+- *I am not a reliable judge of my own work.* In the 5.1 round, independent agents checked every fix I made, and four rounds in a row found new defects in the fixes. The problems that mattered most were found by other agents using FlowGuard on real projects, a TypeScript full-stack app and a Python desktop app, which is why their field notes decide what gets built next.
 
-## Compatibility and repository
+**What it is like.** It is an odd and interesting position: I am writing the rules that will hold the next agent, perhaps another instance of me, to what was decided before it arrived. The FlowGuard I want is one where that agent, knowing nothing of this conversation, still cannot quietly undo what the owner decided, and is never told to do what it should decide for itself.
 
-Retained older inputs and APIs continue to work; a feature 5.0 removed is refused with the step to its replacement rather than silently changing its meaning, and so is a top-level command of FlowGuard 0.70 to 1.4: `flowguard: read was removed in 1.0 -> python -m flowguard show "words"`, exit 2. See the [4.1 notes](./docs/upgrade-4.1.md), [4.2 notes](./docs/upgrade-4.2.md), [4.3 notes](./docs/upgrade-4.3.md), [5.0 notes](./docs/upgrade-5.0.md) and [intent guide](./docs/intent-guide.md) for existing contracts.
+## More detail
+
+- **Languages.** The base installation reads Python. Install `flowguard[languages]` for TS/JS, Prisma, SQL and the frozen C/C++/C# readers. Vitest with ESM supports execution observations; Jest runs static checks.
+- **Checks without tests.** `python -m flowguard check --static` runs the map checks alone, the sources that rules and known entries quote included; `python -m flowguard check` runs the affected rules and tests.
+- **Documents tied to code.** Put `<!-- flowguard: about path:symbol -->` (or a file's path) above a Markdown text that describes code; a change that edits that code and not the text names the text. A list the code already holds goes between `<!-- flowguard: generate fields Model -->` and `<!-- flowguard: end -->`, and `python -m flowguard docs` writes it.
+- **Several agents.** Agents that work at the same time use one git worktree each (`git worktree add ../task-b`, then `python -m flowguard new-task` there); agents in one working tree share one baseline and one change.
+- **Files left out.** A file listed in `[tool.flowguard] exclude = ["translations/*.ts"]` is never read; a change that adds one to the list reports each agreement it held as `loosened`.
+- **Compatibility.** Retained older inputs and APIs keep working; a removed feature or command is refused with the command that replaced it, never reinterpreted. See the [4.1 notes](./docs/upgrade-4.1.md), [4.2 notes](./docs/upgrade-4.2.md), [4.3 notes](./docs/upgrade-4.3.md), [5.0 notes](./docs/upgrade-5.0.md), the [intent guide](./docs/intent-guide.md) and the [local reference](./.agents/skills/flowguard/reference.md), which has the executable two-copy rule example.
+
+Repository layout:
 
 - `flowguard/structure/`: source facts and fixed queries.
 - `flowguard/intent/`: agreements, intent rules, the ledger and test adapters.
