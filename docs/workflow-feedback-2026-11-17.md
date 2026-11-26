@@ -981,3 +981,9 @@ v5.1.0 的 ECMAScript 读取器从显式 `catch` 采集异常处理事实。此�
 应用基线 `6cd7e38` 上，正式 v5.1.0 的 `show reconcilePermissionSave` 找到 7 个已解析调用方，包括 `PermissionMatrix` 和纯函数用例，见 `v3-208-reconcile-save-map.log`。矩阵能处理 HTTP 207 并显示服务器返回的冲突值，用户下一次点击却仍用旧查询数据判断有没有改动。刷新失败时，并发授予和撤销两个用例在再次点击后均失去了未保存状态，后续实际请求断言未执行。另一个用例点放弃后显示旧权限，后续零额外写入断言未执行。`v3-208-partial-permission-red.log` 有 3 例失败、16 例通过，FlowGuard 报 `0 red, 2 not compared`。
 
 建议在已有界面流程中把 207 返回的 `currentGranted` 和 `currentUpdatedAt`、失败或仍旧的刷新结果、用户再次编辑或放弃、实际发出的请求连在一起。显式 `null` 是服务器确认当前没有授予记录时的版本，应原样进入下一次保存。并发授予和撤销的对照分别检查实际请求的值和版本。放弃时应显示服务器确认的权限值并核对新增写入为零。另用成功但仍旧的刷新和最终跟上的刷新说明何时可以恢复使用查询数据。`v3-208-partial-permission-green.log` 的 4 个定向文件、22 例通过，FlowGuard 报 `0 red, 6 not compared`。这些证据来自离线传输替身和实际矩阵组件。
+
+### G209 把批量保存的成功回执连到后续编辑
+
+应用基线 `42cd0dd` 上，正式 v5.1.0 的 `show grantPermission` 定位到单项和批量保存调用，见 `v3-209-grant-result-map.log`。单项响应会序列化授予操作返回的持久化时间，批量响应原来只累计成功条数并附上拒绝项。前端定向失败记录中，刷新失败和刷新返回旧值分别使成功授予的单元格重新显示未勾选。两例均停在显示断言，未执行放弃或下一次保存断言。该轮 2 例失败、13 例通过，FlowGuard 报 `0 red, 2 not compared`。后端有 5 例因缺少逐项成功回执失败、7,990 例通过，FlowGuard 报 `0 red, 5 not compared`。见 `v3-209-applied-grants-frontend-red.log` 和 `v3-209-applied-grants-backend-red.log`。
+
+在同一界面流程中为成功项追踪命令返回、响应中的 `appliedGrants` 字段、复选框和下一次请求的版本。授予用写入或确认存在的 ISO 时间，撤销用明确的 `null`。仍接受旧版仅返回计数的响应，并标明缺少精确版本依据。冲突项仍沿上一节的服务器状态单独核对。对照包括刷新失败、较早发出的查询迟到并返回旧值，以及用户按旧版本开始编辑后收到的刷新结果。用实际保存请求核对下一次授予或撤销携带的版本。定向前端 `v3-209-applied-grants-green.log` 的 4 个文件、25 例通过，FlowGuard 报 `0 red, 5 not compared`。该记录覆盖离线替身中的成功显示与下一次请求，没有运行真实库。
