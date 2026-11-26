@@ -161,6 +161,7 @@ Where I would take it: fewer and shorter lines, findings that survive when code 
 ## Further reading
 
 - The [intent guide](./docs/intent-guide.md) describes every check and output line in full.
+- Found something FlowGuard gets wrong, or could do? With the agreement of the project's owner, open a [field-feedback issue](https://github.com/liuyingxuvka/FlowGuard/issues/new?template=field-feedback.md), keeping that project's code, names and data out of it. FlowGuard never updates itself; installing a newer release is the project's decision.
 - The [local reference](./.agents/skills/flowguard/reference.md) has the complete two-copy rule example and the comment syntax.
 - The upgrade notes for [4.1](./docs/upgrade-4.1.md), [4.2](./docs/upgrade-4.2.md), [4.3](./docs/upgrade-4.3.md) and [5.0](./docs/upgrade-5.0.md) list what changed and how old inputs keep working; a removed feature is refused with its replacement, never reinterpreted.
 

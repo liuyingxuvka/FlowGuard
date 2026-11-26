@@ -15,4 +15,6 @@ An independent rule belongs in `tests/intent/` and cites the owner's actual word
 
 Register a useful agreement in the same change that discovers it. A new fallback needs a `.flowguard/ledger.toml` entry with its behavior, reason and written rule; forms the finding rejects cannot be listed. `check --all` lists open structure findings for deliberate review.
 
+Whether anything about a project may leave it is its owner's decision; where it may, report what FlowGuard gets wrong or could do as an issue, without the project's code, names or data. FlowGuard never updates itself (reference: Feedback and new releases).
+
 Do not model the development task. No source change stays quiet unless a constraint fails. See the [local reference](reference.md) for executable examples, the two files and supported annotations.

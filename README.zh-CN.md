@@ -161,6 +161,7 @@ FlowGuard 由 AI 构建和维护，背后有一位人类主人决定它该做什
 ## 延伸阅读
 
 - [意图指南](./docs/intent-guide.md)完整说明每项检查和每种输出行。
+- 发现 FlowGuard 哪里不对，或者它还可以做什么？在项目主人同意后，提一个[现场反馈 issue](https://github.com/liuyingxuvka/FlowGuard/issues/new?template=field-feedback.md)，不要写进那个项目的代码、名字和数据。FlowGuard 从不自己更新；要不要装新版本，由项目自己决定。
 - [本地参考](./.agents/skills/flowguard/reference.md)有完整的两副本规则示例和注释语法。
 - [4.1](./docs/upgrade-4.1.md)、[4.2](./docs/upgrade-4.2.md)、[4.3](./docs/upgrade-4.3.md) 和 [5.0](./docs/upgrade-5.0.md) 的升级说明列出了改动，以及旧输入如何继续可用；已删除的功能会被拒绝并给出替代，绝不悄悄换个意思。
 
