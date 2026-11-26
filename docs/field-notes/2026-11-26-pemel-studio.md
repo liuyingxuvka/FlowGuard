@@ -271,3 +271,27 @@ rank when its imported name or resolved target actually matches the query.
 Group the remaining import candidates with the word matches under `--full`.
 Keep the exact-site result, and retain lexical candidates for open-ended
 queries that have no exact symbol.
+
+## An empty historical signature interrupts `show` after a source move
+
+During a source-only move of the calibration declarations, an exact
+`show` query for `runtime_backend_identity` identified its three callers.
+It exposed both the setup path and the detached worker's identity check,
+which helped preserve the same admission gates during the move.
+
+In an isolated copy with the original task baseline, after applying the
+move, `python -m flowguard show src/pemel_service/calibration/parts.py:read_runtime_contract`
+printed the new two-root signature and its single caller and then returned
+exit 2 with `flowguard: max() iterable argument is empty`. A second CLI call
+reproduced the result. The corresponding backend query completed normally.
+No application, test or model ran during the reproduction.
+
+The installed 5.1.0 files match the reviewed source. `intent/cli.py:show`
+calls `structure/api.py:search_homes`, which forwards reconstructed old
+site groups to `structure/homes.py:site_homes`. The observed groups had
+signature counts `[1, 2, 0, 5, 4]`. The existing `if not groups` accepts
+the list, and `best_of` then calls `max` on the empty third group's
+signatures. Filter tokenless groups before scoring and use the existing
+empty-list result if no groups remain. Cover both mixed and all-empty
+historical groups. Mixed groups should still report any genuine former
+decision site.
