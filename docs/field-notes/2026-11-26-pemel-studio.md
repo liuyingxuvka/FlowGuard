@@ -358,3 +358,19 @@ count and the exact named witness in each finding. For multiple calls,
 suggest retaining the complete workflow test with a separate named witness
 that reaches the verdict helper once. A precise count would distinguish a
 missing test from a test of the whole workflow.
+
+## An owner's small numerical exception kept its provenance
+
+The owner approved the discrepancy reproduced in one Windows synthetic
+case. `printf '%s' … | python -m flowguard req add - --id R51` archived
+132 UTF-8 bytes with the digest prefix `1fae8d2f7d21`. A byte comparison with
+the input passed. `show R51` displayed the actual reply and the exact-quote
+source of the new narrow rule passed `show rules`. The general release
+verification requirement retained its earlier owner source.
+
+The installed code matched the reviewed `intent/cli.py` and
+`map/requests.py` files. `_input_bytes` preserves the pipe bytes and
+`store_request` adds a first-write identity. The offset test separately
+encodes the original model, platform, phase and candidate. The archive and
+the passing quote check give the reason for the exception; the exact
+Windows release check is the evidence that it applies as intended.
