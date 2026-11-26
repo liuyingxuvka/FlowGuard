@@ -401,3 +401,27 @@ that a reachable producer still sends. Mark producers with unresolved
 resolved caller hands off an untracked task payload, so the reviewer knows
 which UI-to-worker route needs a real test. Keep routine mapping-key noise
 out of the default static check.
+
+## The enum boundary needs a clear rule-specific failure
+
+A small text-size rule declared the literal domain `(14,)` and applied
+arithmetic directly to its argument. In the focused Studio regression,
+FlowGuard evaluated this rule with `value='<other>'`. The arithmetic
+raised `TypeError`. The run ended with a session-level red line that called
+this a FlowGuard internal error. `python -m flowguard show --last` retained
+the full trace. It pointed to the product-side predicate and made the input
+that caused the failure visible.
+
+The installed 5.1.0 copies of `intent/cells.py`, `intent/engine.py` and
+`intent/plugin.py` match this feedback branch byte for byte. The cells
+module deliberately adds an outside representative for enum fields.
+`eval_rule` calls it a predicate error and includes the rule and cell.
+`finish_verified` catches it during contract aggregation and labels it a
+session internal error. The guard against a passing session is valuable.
+
+Show this case as a rule authoring failure under the rule owner, with the
+declared domain and the auto-generated representative. Explain that a
+predicate for a single literal can return `None` elsewhere. Keep the
+nonzero exit and the detailed trace. Where possible, preserve receipts for
+unrelated rules that already finished, with a clear indication that the
+overall check failed.
