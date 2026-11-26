@@ -32,3 +32,26 @@ library windows use the same store, so the existing test fixture could
 be scoped without duplicating the patch. The subsequent 23-case targeted
 run reported one `not compared` call. `show --last` identified the call
 and explained that it had no comparable JSON result.
+
+## Field impacts helped review a deferred Qt commit
+
+The focused task-progress, locale and PDF batch passed 193 tests. Its
+FlowGuard report listed eight impacts, 45 comparisons without paired
+results, zero red findings and zero of 24 intent tests selected.
+Three impacts listed the same `SerialTaskObserver._commit_scheduled`
+field under its initializer, polling callback and deferred commit. The
+two readers led directly to the cancellation and ownership checks that
+needed review. An independent test delivered a replacement owner
+between scheduling and commit and asserted that the stale callback
+could not publish.
+
+FlowGuard 5.1.0's `intent/owners.py:field_impact` computes differences
+per function and repeats the field's reader and writer lists for each
+difference. A field-grouped summary for these repeated-impact cases
+could retain every function location while making a long review
+easier to scan. The complete function-level view remains useful.
+`intent/sites.py:intercepted` explicitly excludes closure targets, and
+`intent/plugin.py:report` separately derives the no-JSON-result entries
+from missing comparable readings. The reasons in `show --last` let the
+Qt test assertions and the scope of the comparisons be reviewed
+independently.
