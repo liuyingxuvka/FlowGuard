@@ -246,3 +246,28 @@ from `deps.test_scope`. The narrower wording "outside default pytest
 discovery" would describe that fact accurately; explicit invocation in a
 workflow is separate evidence. This distinction matters when deciding which
 checks a delivery candidate actually ran.
+
+## Exact symbol queries fill the first screen with partial import matches
+
+`python -m flowguard show render_manual` resolved the manual renderer and
+named its only resolved caller, `build_manuals`. It then filled the first
+screen with import bindings such as `render_message` and `render_ui_text`,
+ending with 55 more lines. The exact-site query
+`python -m flowguard show tools/model_manual/build_manual.py:render_manual`
+returned the same renderer and caller in four lines. This made it easier to
+place a shared documentation change before editing either renderer.
+
+`python -m flowguard show ModelPartStatus` produced a larger example. It
+found the class, then showed bindings such as `ModelBundle`, `model_number`
+and `runtime_literal` above the truncation notice. The notice counted 673
+additional lines, including 507 that the view identified as word matches.
+
+The installed 5.1.0 source matched the checked source bytes for both files.
+`structure/api.py:import_aliases` deliberately returns bindings whose names
+share any query token. `intent/cli.py:show` then ranks every returned alias
+at 1000, so those partial import matches appear on the exact-name side of
+the cutoff and are omitted from the word-match count. Give a binding exact
+rank when its imported name or resolved target actually matches the query.
+Group the remaining import candidates with the word matches under `--full`.
+Keep the exact-site result, and retain lexical candidates for open-ended
+queries that have no exact symbol.
