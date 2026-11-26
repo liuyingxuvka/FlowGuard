@@ -348,3 +348,13 @@ the strict release rule and verifies that incomplete input is refused.
 Document the distinction between a named witness and the wider live
 comparison beside `calibrated_by`, and show it in a detailed rule finding
 when the conflicting call came from another test.
+
+The complete archive test later called the same verdict helper four times,
+once per real case. Its ordinary assertions passed, while the rule's
+`[cells]` and `[rows]` items were unverified. The receipt said the target
+"may be absent or ambiguous". The installed `intent/calibration.py:_recorded`
+uses that wording for both zero calls and multiple calls. Give the observed
+count and the exact named witness in each finding. For multiple calls,
+suggest retaining the complete workflow test with a separate named witness
+that reaches the verdict helper once. A precise count would distinguish a
+missing test from a test of the whole workflow.
