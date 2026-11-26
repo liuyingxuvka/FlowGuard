@@ -690,6 +690,16 @@ G162 给出了上述锚点的维护实测。应用基线 `adb1db7` 的 `v3-162-s
 
 建议跟踪可解析的 Prisma 参数用途，把只进入 `where` 的字段赋值显示为查询条件，保留通向 `data` 的实际写入及其未授权写入提示。即使调用是 `updateMany`，作为 `where` 选择条件的字段仍可能与 `data` 中的写入字段不同。来源或调用无法解析时显示具体位置，以待核实状态保留。最小对照覆盖供 `findMany` 和 `count` 使用的局部条件、同字段的真实更新，以及无法确认用途的对象赋值。
 
+### G185 显示外键级联产生的字段变更及后续版本写入
+
+应用基线 `1fbc8a1a2c13` 上，正式 v5.1.0 的 `show CentralOrgUnit.managerSapNumber` 列出 7 个文件、11 处写入，其中 `reconcileCentral` 用 `updateMany` 直接改组织负责人的 SAP 号。报告另将 `ImportService.commitOrgUnits` 的两处计算写入标为字段待确认。`v3-185-manager-writers.log` 给出了这些位置，便于核对迁后哪些直接写入可以退役。
+
+迁后源码上的同一查询退出 0。`v3-185-migrated-manager-writers.log` 列出 5 个文件、9 处直接写入，并明确识别 `ImportService.commitOrgUnits` 新增和覆盖两处写入。报告没有显示从员工 SAP 变更到组织负责人 SAP 的级联关系。
+
+迁移定案 C5 和公司库 Prisma 结构声明 `CentralOrgUnit.managerSapNumber` 引用 `CentralEmployee.sapNumber`，使用 `ON UPDATE CASCADE`。公司人员改号在同一事务中用 `captureManagedUnitVersions` 按旧 SAP 读出受影响单元的 ID 和版本，再更新员工 SAP。随后 `refreshManagedUnitVersions` 用这批 ID 和新 SAP 筛选单元，显式写入 `updatedAt`。`sap-number-renumber.test.ts` 中的 `captures managed unit IDs under the old SAP before the foreign key cascades` 用内存事务替身核对调用顺序、版本变更和无关单元保持原值。真实数据库的约束、隔离和锁仍待部署验收。
+
+建议在现有字段详情和写入变更的影响信息中显示由外键声明导致的间接写入，附上源字段的写入位置、目标字段、更新动作和 schema 的来源及数据库方言。保留直接写入减少的提示，并单独链接后续版本写入的筛选条件和具名断言。缺少可定位的约束声明时显示待核对。最小对照先用同一外键比较 `Cascade` 和 `NoAction`，再分别保留级联但将后续筛选误用旧 SAP、保留级联但省略版本刷新。报告应能定位这三类差异，并区分源码推导出的字段变化与测试实际核对的结果。
+
 ## G130 表单手工输入与异步默认值写入同一字段
 
 2026-11-25。应用基线 `714f991` 的 `v3-130-frontend-red.log` 运行了 `step1-form-options-failures.test.tsx` 的五个真实 `ProjectForm` 用例，结果为 3 例失败、2 例通过、20 例被筛除。换归属单元后，新预览还在等待，编号仍显示旧建议 `TEST-000001`。手工填入 `TEST-430001` 后，当前单元的延迟响应 `TEST-000002` 到达，组件把输入框设为只读。该时点的值断言通过，只读断言失败。模拟 503 时没有找到失败提示，后续 Retry 恢复断言未执行。首次自动建议及切换归属后旧请求迟到的对照通过。正式 v5.1.0 报 `0 red, 1 not compared`，本次筛选未执行静态检查入口。
