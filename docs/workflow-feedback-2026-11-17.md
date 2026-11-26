@@ -588,6 +588,12 @@ G100 用正式 v5.1.0 在应用基线 `55f0506` 复现。`v3-100-backend-first-s
 
 该次删除通过登记表按运行时模型名选择委托，实际覆盖仍需另外核对。`employee-reference-registry.test.ts` 的一项静态断言逐项对照 39 个迁移后物理外键（迁移前 42 个，移走 9 个，新增 6 个）。独立替身会拒绝已移走的表和列，用例核对保留引用的计数和清理参数，并检查实际命令的人员删除只返回 ID。`v3-100-backend-confirmed.log` 的 6,742 例通过，FlowGuard 仍显示 `0 red, 1 before, 7 not compared`。这些是签入的结构和离线执行证据，实际库的外键行为仍待验证。
 
+### G180 在已有删除诊断里关联本轮事务改动
+
+应用基线 `e39c7c6` 的 `v3-180-final-last.log` 将 `applyOrgUnitDeletion` 中删除 `CentralOrgUnit` 的发现保留为 `before`，详情列出删除位置和发现 ID。同一函数本轮新增在公司事务内写完成回执、确认后在应用事务内关闭命令的步骤。报告把 `appendOrgUnitDeleteReceipt` 和 `completeOrgUnitDelete` 的 `impact` 分别列在各自的函数下。`v3-180-complete-backend.log` 有 7,720 例通过，报告为 `0 red, 2 before, 6 impact, 20 not compared`。其中具名离线用例模拟两库分别提交后丢失确认，核对回读同一命令及已提交的动作。
+
+可在这一 `before` 的详情保留原分类和发生位置，同时链接已定位到的本轮事务改动、相关 `impact` 和具名测试。验收可并列同一已有删除发现的两个版本，一个保持所属函数不变，另一个在同一操作内加入公司回执和应用状态更新。两者均保留 `before`，后者显示本轮关联及其证据。调用关系无法定位时保留待核对状态。
+
 ## G106 按目标结构检查仍在执行的查询
 
 `v3-106-backend-red.log` 在应用基线 `3fdcfd1` 的正式 v5.1.0 上复现了四个失败。内存 ADB 替身按已审定的迁移目标拒绝旧员工表字段。单人停用最初查询 `name` 等旧列，准备预览和执行还查询 ADB 的组织、旧状态和日期列。用例记录了模拟 `P2022`，该轮 FlowGuard 报 `0 red`，静态入口被名称筛选排除。`v3-106-backend-full.log` 修复后执行了全部 6,776 例，FlowGuard 为 `0 red, 2 impact, 14 not compared`。两个 `impact` 指向应更新的生命周期说明。没有连接数据库。现行 Prisma 声明在分批开发中仍保留旧列，部署目标来自另外审过的 SQL 文本。
