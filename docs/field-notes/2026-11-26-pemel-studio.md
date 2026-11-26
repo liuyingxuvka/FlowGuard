@@ -78,3 +78,22 @@ The same distinction mattered when a task field changed during a focused
 test run. `show --last` said that the source had changed on disk after
 import and withheld the comparison. That was a useful prompt to rerun
 the completed slice with a stable source tree.
+
+## Command identifiers and dynamically dispatched callers
+
+During removal of a library folder command, `show lib_folder` returned
+103 word matches. A literal source search located its registry row, its
+presentation entry and its availability checks directly. In the export
+naming change, `show LibraryStore.export_model_package` also missed the
+workflow call through the controller's runtime-injected library object.
+By contrast, `show file_safe_name` found the New Project caller we needed
+to preserve when moving the shared path helper.
+
+In 5.1.0, `intent/cli.py:show` builds the source map and distinguishes
+resolved nodes and agreement anchors from lexical matches.
+`structure/extract.py` records call sites when the receiver or callee can
+be resolved. Command identifiers used as registry values and dispatch
+keys deserve an exact-literal lookup with each site labeled by its use.
+An indirect caller can be surfaced as a possible reference with its
+unresolved receiver, without counting it as a resolved call or marking
+the user's architecture red.
