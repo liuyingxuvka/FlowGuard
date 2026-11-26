@@ -179,3 +179,18 @@ An explicit diagnostic for originals introduced in a merge would have made
 the problem visible before the push. Any history change here needs to identify
 the merge's actual first write without learning an original digest from the
 working copy or silently choosing between two different parent originals.
+
+An earlier, locally retired duplicate also used an identifier that the incoming
+branch legitimately stored for different words. Its temporary files were never
+committed. After the merge, `req list` still marked the legitimate incoming
+record `retired` in the original checkout. The incoming body and sidecar both
+matched their first committed blobs. Moving the worktree without changing its
+tree or the saved receipt made `req list` report the same record as `stored`.
+
+`map/records.py:protected_paths` finds original-write receipts by their
+absolute paths. `map/requests.py:_owner_row` treats a matching retirement ID
+as retired even when the state of that retirement is missing. The strong
+receipt remains useful for the deleted temporary files in the original
+checkout. The listing could show the missing or conflicting retirement
+separately from the intact incoming request, using the original body digest to
+identify which record it concerns.
