@@ -961,3 +961,11 @@ v5.1.0 的 ECMAScript 读取器从显式 `catch` 采集异常处理事实。此�
 应用基线 `ce28f836c603` 上，正式 v5.1.0 的 `show getVisibilityOrgUnits` 定位到 `backend/src/services/project.service.ts:454`，报告 0 个已解析调用及 6,084 条普通词匹配。同一个 `projectService` 对象的 `addVisibilityOrgUnit` 和 `removeVisibilityOrgUnit` 分别在第 527、562 行执行 `return this.getVisibilityOrgUnits(projectId)`。证据见 `v3-140-old-visibility-show.log` 与该基线源码。同基线的 `show canReadProject` 解析了六个测试函数中的直接导入调用，见 `v3-140-old-readable-show.log`。本组用这些结果核对需要一起退役的方法和测试。以上证据来自静态盘点。
 
 建议在现有符号详情中识别可证明接收者绑定的同对象调用。绑定未知时单独显示候选位置及待核实的接收者。最小对照包括通过已知对象调用、提取方法后直接调用、显式换成另一接收者以及覆盖同名方法。每个对照显示实际定位结果和证据边界。
+
+## G206 核对同一次登录状态刷新中的重复角色读取
+
+应用基线 `6b179ac` 上，正式 v5.1.0 的 `show resolveSessionRoles` 报告 4 个已解析调用方，包括 `authenticate` 和 `buildAuthProfile`。`show buildAuthProfile` 找到 `GET /api/auth/me` 的回调。两份摘要帮助定位源码，但没有把同一条请求路径上的两个角色读取连起来。源码显示该路由先调用 `authenticate`，后者以严格模式读取角色。成功回调随后把同一份人员快照交给 `buildAuthProfile`，该函数再次严格读取角色。见 `v3-206-session-role-map.log`、`v3-206-auth-profile-map.log` 和 `auth.routes.ts` 的 `/me` 处理器。
+
+测试先行的 `v3-206-derived-project-role-red.log` 有 9 例失败、7,971 例通过，正式 v5.1.0 报 `0 red, 5 not compared`。`step1-linked-session-admission.test.ts` 的实际 Express 路由用例先确认应用库锚点和公司库人员各读一次，随后角色查询次数断言得到 2，预期 1。另一个用例在第一次刷新缺少当前项目派生角色时失败，未走到同一 Cookie 下一次刷新的断言。模拟两种公司角色来源故障的用例当时均返回 200，预期 503，后续的权限投影和 Cookie 断言未执行。证据来自离线替身。
+
+建议在现有路由调用详情中把中间件、成功回调和其中的已解析调用串起来，按同一次请求分别列出对规范人员和权限事实的读取。标明两个调用点在同一成功路径上先后执行、属于互斥分支，还是接线尚无法解析。用具名用例核对一次 `/me` 请求只读取一次人员和当前角色。同一 Cookie 在负责人变更后的下一次请求重新读取，并按新角色投影权限。任一必要来源读取失败时返回 503，且不重新签发 Cookie 或投影权限。调用详情应保留未执行断言的状态，同时标明一次请求结束时复用范围也随之结束。
