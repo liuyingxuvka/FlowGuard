@@ -236,3 +236,13 @@ exercised result delivery. Labelling the rows as import reach would preserve
 the useful impact hint and avoid reading the list as field-level execution
 coverage. A compact field-only view could leave the import candidates for
 `--full`.
+
+The same view marked `packaging/app/test_packaging.py` as "left out of the
+test scope". Default pytest discovery really excludes the file because
+`testpaths` is `tests`. Both the source quality and native-package workflows
+explicitly pass that filename to pytest, and the latest source run passed
+3,267 tests with that command. `intent/cli.py:_test_marks` computes the mark
+from `deps.test_scope`. The narrower wording "outside default pytest
+discovery" would describe that fact accurately; explicit invocation in a
+workflow is separate evidence. This distinction matters when deciding which
+checks a delivery candidate actually ran.
