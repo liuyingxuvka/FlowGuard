@@ -374,3 +374,30 @@ The installed code matched the reviewed `intent/cli.py` and
 encodes the original model, platform, phase and candidate. The archive and
 the passing quote check give the reason for the exception; the exact
 Windows release check is the evidence that it applies as intended.
+
+## Static checks and task payload fields
+
+During a data-import format change, `python -m flowguard check --static
+--all` reported 0 red, 1 before, 2 known and 22 impact in 6.4 seconds.
+`show revise_scan_review` located the consumer and its task-runner caller.
+Following the command from the UI exposed a contract mismatch that these
+checks had not reported. The scan edit still sent the retired `mode` key.
+The task received it and rejected the request whenever that key was
+present. The same stale command still offered the former stack-facts editor.
+This finding came from the two source branches, before a new UI test ran.
+The ordinary regression should click Edit Scans and complete the task.
+
+The installed 5.1.0 `structure/extract.py` matches the reviewed checkout.
+The Python reader's `visit_Compare` records membership labels for literal
+containers and its label extraction deliberately leaves out mapping keys
+and `key in mapping` tests. The ordinary field map follows typed attribute
+paths. A dynamically routed `dict[str, Any]` task can therefore need a
+separate, explicitly named contract on allowed and removed fields.
+
+A useful next step would be an opt-in view of task message producers and
+consumers anchored to the same literal command, including retired keys
+that a reachable producer still sends. Mark producers with unresolved
+`**values` as such. A simpler starting point is to say in `show` when a
+resolved caller hands off an untracked task payload, so the reviewer knows
+which UI-to-worker route needs a real test. Keep routine mapping-key noise
+out of the default static check.
