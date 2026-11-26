@@ -1005,3 +1005,13 @@ v5.1.0 的 ECMAScript 读取器从显式 `catch` 采集异常处理事实。此�
 最终后端 478 个文件、8,032 例通过，正式 v5.1.0 报 `0 red, 6 not compared`。前端 379 个文件、3,878 例通过，报 `0 red, 8 not compared`。独立静态检查为 `0 red`，账目检查为 `0 red, 92 unverified`，两端类型检查均通过。`v3-211-final-show.log` 将 `readLinkedEmployeeDetail` 的 `EMPLOYEE_ACCOUNT_SELECT` 导入和 `EmployeeDetailPage` 的 `AbsenceForm` 导入、仅支持 JSON 参数及返回值分别列为未比较原因。后端真实服务用例核对角色字段和查询来源、安全拒绝及零写入。前端实际组件用例核对标签、负责人和代理展示、移除控件及零写入。两套用例均使用离线替身。
 
 建议在现有模型或符号详情中，分别关联账户 `roles` 的权限检查、`displayRoles` 的标签、真实负责人和代理记录支持的操作。以同一个角色码做两组对照，一组只有公司的有效职责，一组只有过时的静态代码。具名用例同时核对完整详情的来源、精简详情省略字段和相关查询、实际入口是否出现及是否发出写入，保留中途断言失败后尚未执行项目的状态。
+
+## G212 按请求条件追踪创建账号的实际写入路径
+
+应用基线 `056e49c` 上，正式 v5.1.0 的 `show createUserAsManager` 汇总了 20 个写入字段，`show reservePersonnelCreation` 单独定位到跨库命令登记。参见 `v3-212-managed-create-map.log` 和 `v3-212-reservation-map.log`。只有 `isGlobal:true` 路径调用登记。旧 `isGlobal:false` 路径先查 A4 已移除的应用库邮箱列。模拟迁后结构的 `v3-212-backend-red.log` 中，服务返回替身的 `P2022`，实际挂载的路由返回 500。两例均在预期 400 处失败，未执行零准备和零写入断言。关联账号的命令回读和主数据冻结对照通过。该轮 2 例失败、8,034 例通过，FlowGuard 报 `0 red, 5 not compared`。
+
+前端 `v3-212-frontend-red.log` 的三种准入身份仍看到旧开关，3 例失败、2 例通过，未执行后续提交断言。移除开关后的定向测试 5 例通过，见 `v3-212-frontend-focused-green.log`。首轮后端验证中，FlowGuard 的 `ledger: Code disappeared` 找到本轮退役的本地创建提交后组织查询异常处理，`impact` 还定位到 `createUserAsManager.persist` 已移除的 `Employee.passwordHash` 写入，并列出 69 个 `Employee` 读者。见 `v3-212-first-backend.log`。这两项帮助核对了实际退役处。
+
+最终后端 478 个文件、8,036 例通过，正式 v5.1.0 报 `0 red, 1 impact, 6 not compared`。前端 379 个文件、3,879 例通过，报 `0 red, 1 impact, 8 not compared`。两端类型检查通过，独立静态为 `0 red, 1 impact`。仅退役的异常处理登记被移除，账目为 229 条登记、271 处处理、`0 red, 92 unverified`。`v3-212-final-show.log` 显示行为比较只包装模块级函数，该服务对象方法未比较。`AddUserForm` 也因导入 `Alert` 及仅支持 JSON 参数和结果而未比较。实际挂载路由和表单测试分别核对 400 与零命令写入、冻结先行以及三种准入身份的实际提交。影响提示的 0 个其他写者限于当次地图能够识别的写入。源码仍见过渡更新的条件展开和种子中的 `Employee.passwordHash`。证据来自源码和离线替身。
+
+建议在 G106 的目标结构对照里，把同一方法的写入按已解析的请求条件连到提交入口。分别核对拒绝旧选项前没有查旧列或准备写入、关联路径会登记跨库命令并建立公司人员与应用关联，以及主数据冻结先于字段拒绝。记录每个分支所用字段的迁移阶段，保留无法确认的动态条件。关联账号的测试替身使用已完成命令回读。首次物理插入和退役状态目录的完整换源留给人员锚点切换。
