@@ -995,3 +995,13 @@ v5.1.0 的 ECMAScript 读取器从显式 `catch` 采集异常处理事实。此�
 `v3-210-fulfillment-red.log` 有 2 个失败文件、19 例失败、7,998 例通过，FlowGuard 报 `0 red, 5 not compared`。命令实现当时尚未存在，其服务测试文件未收集到用例。首轮实现后 `v3-210-first-backend.log` 有 478 个文件、8,023 例通过，FlowGuard 报 `0 red, 3 impact, 13 not compared`，定位到新增的 `Demand.fulfillmentStatus` 和完成回执写入。测试用离线替身核对预览零写入、应用后差异为零、重放复用原回执、失败时回滚。实际环境的人工刷新尚待执行。
 
 建议在现有影响详情中允许维护者给写入方标明一次性人工触发及其依据，链接执行说明、实际受保护路由、维护状态和共用计算函数。对这个命令，预览和应用均经 `POST /api/admin/step1/fulfillment-refresh`，须在两库步号通过且维护开关关闭后，由启用管理员模式的系统管理员发起。将同一命令可定位的启动与定时注册情况也列出来，无法解析的接线标为待核对。具名用例分别提供存储分桶和派生差异数的来源，核对预览、首次应用、重放和失败回滚。运行记录保留独立位置，等待操作者提供实际环境的完成证据。
+
+## G211 追踪角色标签和操作权限各自的来源
+
+应用基线 `9dc97ea` 上，正式 v5.1.0 的 `show readCompanyProjectResponsibilityRoles` 定位到会话角色的调用方，`show readLinkedEmployeeDetail` 定位到员工详情的调用方。两份摘要见 `v3-211-company-role-map.log` 和 `v3-211-detail-map.log`。两条路径都处理角色代码。详情还需要按读取范围裁剪数据，并保留用于账户权限校验的静态角色。
+
+`v3-211-backend-red.log` 有 6 例失败、8,026 例通过，FlowGuard 报 `0 red, 5 not compared`。完整详情缺 `displayRoles`，也没有准确传播公司职责查询故障。精简详情和未关联详情的对照通过了相关字段与查询省略的断言。`v3-211-frontend-red.log` 有 4 例失败、8 例通过，FlowGuard 报 `0 red, 3 not compared`，静态入口未选中。实际详情组件漏掉只在公司派生结果中的角色标签，也把仅存于旧账户数据的经理代码显示为“未分配单元”。两个权限决策行错误地提供了移除入口。
+
+最终后端 478 个文件、8,032 例通过，正式 v5.1.0 报 `0 red, 6 not compared`。前端 379 个文件、3,878 例通过，报 `0 red, 8 not compared`。独立静态检查为 `0 red`，账目检查为 `0 red, 92 unverified`，两端类型检查均通过。`v3-211-final-show.log` 将 `readLinkedEmployeeDetail` 的 `EMPLOYEE_ACCOUNT_SELECT` 导入和 `EmployeeDetailPage` 的 `AbsenceForm` 导入、仅支持 JSON 参数及返回值分别列为未比较原因。后端真实服务用例核对角色字段和查询来源、安全拒绝及零写入。前端实际组件用例核对标签、负责人和代理展示、移除控件及零写入。两套用例均使用离线替身。
+
+建议在现有模型或符号详情中，分别关联账户 `roles` 的权限检查、`displayRoles` 的标签、真实负责人和代理记录支持的操作。以同一个角色码做两组对照，一组只有公司的有效职责，一组只有过时的静态代码。具名用例同时核对完整详情的来源、精简详情省略字段和相关查询、实际入口是否出现及是否发出写入，保留中途断言失败后尚未执行项目的状态。
