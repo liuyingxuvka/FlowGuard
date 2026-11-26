@@ -4,32 +4,79 @@
 
 [English](./README.md)
 
-**替编程 AI 记住它看不见的那些决定。**
+FlowGuard 帮助编程 AI 守住项目已经做出的决定。AI 把每个决定记在它所在的地方：代码里，或者主人自己的原话里。之后项目每次跑平常的测试，FlowGuard 都会检查这些已记录的决定。
 
-编程 AI 每接一个任务都是从零开始。它读眼前的文件，改得不错，跑完测试就走了。它看不见的，是项目在别处早已定下的事：隔了四层目录的另一份取整规则；某个字段每次写入都必须连同另一个字段一起写；三周前一段对话里，主人说过"借期三天"。测试只检查有人想到要测的东西，没有谁去检查那些决定是否还成立。
+## 要解决的问题
 
-FlowGuard 让 AI 把这些决定就地写下来：代码上方的一行注释，或者一条逐字引用主人原话的规则。之后在项目平常的测试运行里检查它们。什么都没坏时，只打印一行：
+编程 AI 每接一个任务都不记得以前的任务。它读要改的文件，改完，跑测试，结束。它做得不错，却仍会弄坏一些从来没人为之写过测试的东西：
+
+- 同一条规则常常有两份，比如一笔费用，服务器算一遍，预览界面又算一遍。AI 改了其中一份，根本看不见另一份。
+- 有些字段必须一起写，或者只能由特定函数写。一条新的代码路径写了一个字段，漏了与它成对的那个。
+- 主人几周前在一段对话里定过一个问题。AI 没见过那段对话，于是把代码"修"回了旧答案。
+
+测试照样通过，因为没人为这些决定写过测试。后来的每个 AI 都从这个已经坏掉的状态开始，也无从知道这里曾经有过决定。
+
+## 核心思路
+
+FlowGuard 让项目来记住，而不是靠 AI 记住。它分三步：
+
+1. **把决定记在它所在的地方。** 两份必须一致的副本，各在上方写一行注释。来自主人的规则，写成一个小测试，逐字引用主人的原话；原话在仓库里存一次。
+2. **在 AI 本来就会看的地方检查。** FlowGuard 在项目平常的测试运行里工作。不需要谁记得另跑一条命令；跑测试的 AI 自然会看到结果。
+3. **陈述事实，说明由谁来定。** 什么都没坏时，FlowGuard 只打印一行。坏了时，它说清坏了什么、在哪里，以及这是 AI 能修的，还是只有主人能定的。
+
+每个已记录的决定都还成立时，测试运行的结尾是：
 
 ```text
 FlowGuard 5.1 (since 99f025e): 0 red; 0.2 s
 ```
 
-坏了的时候，它说清是什么、在哪里、由谁来定。
+## 它如何工作
 
-## 它能抓住什么
+```mermaid
+flowchart LR
+  W["主人的原话"] --> A["逐字节存档：.flowguard/requests"]
+  A --> R["引用原话的规则：rules.toml、tests/intent"]
+  C["带 flowguard 注释的代码"] --> M["源码地图"]
+  S["任务开始：new-task"] --> K["测试运行中的检查"]
+  M --> K
+  R --> K
+  T["项目平常的测试"] --> K
+  K --> B["测试汇总之后的一个结尾块"]
+```
 
-| 悄悄出错的情形 | AI 记下的内容 | 下一次运行的输出 |
-| --- | --- | --- |
-| 同一规则的两份副本渐渐不一致 | 每份副本上方写 `// flowguard: same LATE_FEE` | `red: same LATE_FEE: on days=5: fees.ts:lateFee returns 4, fees.ts:previewFee returns 6` |
-| 写了一个字段，却漏写了与它成对的字段 | `# flowguard: together Runner.task_id Runner.operation` | `red: together Runner.task_id: runner.py:Runner.start writes Runner.task_id without Runner.operation` |
-| 某个字段多了一个谁都没同意过的写入者 | `# flowguard: writers Booking.employee_id reserve,release` | 一行 red，点出新的写入者 |
-| 代码偏离了主人说过的话 | `tests/intent/` 里一条引用主人存档原话的规则 | `red: rule WINDOW: days=4: rule False, code True at orders.py:preview_accept` |
-| 新加的 `except` 悄悄吞掉了错误 | `.flowguard/ledger.toml`：允许不抛出就结束的异常处理清单 | `red: ledger: New unregistered fallback: store.py:12 except OSError can end without raising` |
-| 文档描述的代码已经改了 | 文字上方写 `<!-- flowguard: about path:symbol -->` | `impact: docs/x.md:3 describes ..., which this change edits` |
+FlowGuard 有四个部分，各回答一个问题。
 
-表里引用的都是 FlowGuard 自己的输出原文。发现两处必须一致的地方，AI 就在同一次改动里把两处都标上；之后接手的 AI 对今天的事一无所知，也没法悄悄把它们改坏。
+- **地图**（`flowguard/structure/`）：代码里有什么？它读取 Python（装上可选扩展后还读取 TS/JS、Prisma 和 SQL），整理成函数、字段、写入、读取和调用的表，存在本地缓存里。
+- **记录**：定下了什么？约定是代码里的注释（`same`、`together`、`writers`）。主人的原话逐字节存在 `.flowguard/requests/`。当前规则在 `.flowguard/rules.toml` 和 `tests/intent/`，待定的问题在 `.flowguard/known.toml`，认可的异常处理在 `.flowguard/ledger.toml`。
+- **检查**（`flowguard/intent/`）：代码还守着这些决定吗？pytest 插件（以及 Vitest 适配器）记下测试传给相关函数的输入。测试结束后，它用这些输入运行各份副本并比较答案，用真实代码检验主人的规则，并拿地图核对各项约定。
+- **基线**：这个任务改了什么？`new-task` 记下任务开始时的提交。任务开始前就有的问题报为 `before`，不算在这次改动头上，AI 也就不会被埋进不是它造成的旧问题里。
 
-## 开始
+## 一个例子
+
+假设主人曾经说过：订单最多可以在三天内接受。AI 存下了这句话，写了一条规则 `WINDOW`，内容是 `days <= 3`，并引用那句原话。它还把做这个决定的两个函数，服务器上的 `accept` 和预览界面的 `preview_accept`，标成同一个决定 `ACCEPT` 的两份副本。
+
+几周后，另一个 AI 在改预览界面时，让它接受了四天。项目自己的测试里没有哪条检查这个边界，但运行结尾变成了：
+
+```text
+FlowGuard 5.1 (since 6765008): 2 red; 0.4 s
+red: rule WINDOW: days=4: rule False, code True at orders.py:preview_accept (1 of 6 cells disagree) (+1 more) -> change the code so orders.py:preview_accept follows rule WINDOW
+red: same ACCEPT: on days=4: the reference orders.py:accept returns False, orders.py:preview_accept returns True -> make orders.py:preview_accept agree with the reference
+```
+
+第一行说，代码不再符合主人说过的话。第二行说，两份副本现在不一致，在哪个输入上不一致，哪一份是参照。做出这次改动的 AI 在改动交出去之前就知道了。
+
+## 为什么这样设计
+
+每个设计选择都对应上面问题的一部分。
+
+- **在测试运行之内，而不是另起一套。** AI 本来就会跑测试；另起一个工具，就得靠有人记得去运行它。同样的原因，FlowGuard 绝不能改变项目本身的行为：它只在测试运行中起作用，构建和生产环境都不加载它。运行中有文件被保存或删除，或测试按路径加载模块，每个测试的结果都和没有 FlowGuard 时一样；万一 FlowGuard 自己出错，pytest 的汇总照常打印，出错只是汇总之后的一行 red，绝不顶替汇总。
+- **注释挨着代码。** 下一个 AI 会读它要改的代码，约定就写在那里给它读。单独的配置文件，只会又多一个没人打开的东西。
+- **主人的原话，一字节不差。** 决定通常是在被转述时走样的。FlowGuard 原样保存主人的文字，规则也必须逐字引用。AI 给出选项、主人选了一项时，所选的那项存为主人的选择，选项文字仍标为 AI 的话。
+- **陈述事实和由谁来定，而不是下命令。** 每一行都说明已知什么、该谁拍板。什么时候值得把问题拿给主人，由 AI 判断。一个把每个疑问都推给人的工具，会让 AI 不再思考。
+- **对过去保持安静，但从不隐藏。** 平常的运行只说这次改动碰到的东西。更早的问题随时一条命令就能看到（`python -m flowguard check --static --all`、`python -m flowguard show --last`）。
+- **未验证不算成功。** FlowGuard 检查不了的东西，会打印 `not compared` 并写明原因，从不算作通过。
+
+## 开始使用
 
 从这个仓库安装；PyPI 上同名的项目不是本工具。需要 Python 3.11 或更新版本。
 
@@ -41,33 +88,21 @@ python -m flowguard new-task
 python -m pytest
 ```
 
-`init` 接好项目的测试，把 FlowGuard 规则块写进 `AGENTS.md` 或 `CLAUDE.md`，再加一段 CI 配置，其中的步骤带着插件跑完整的 pytest；想保留原有的 `python -m pytest` 步骤，就改为加上 `python -m flowguard check --static`。Vitest 或 Jest 项目还会多写一个静态检查测试，并说明由哪个 npm 脚本运行它；Vitest 另有执行适配器。本版本写出的规则块与现有的不同时，再运行一次 `init` 即可更新。测试由 npm 运行、自己没有 pytest 测试的项目，`init` 写的是只做静态检查的 CI 片段，与分支离开 `main` 时的那个提交比较。
+`init` 接好项目的测试，把 FlowGuard 规则块写进 `AGENTS.md` 或 `CLAUDE.md`，再加一段 CI 配置，其中的步骤带着插件跑完整的 pytest。想保留原有的 `python -m pytest` 步骤，就改为加上 `python -m flowguard check --static`。Vitest 或 Jest 项目还会多写一个静态检查测试，并说明由哪个 npm 脚本运行它。测试由 npm 运行、自己没有 pytest 测试的项目，`init` 写的是只做静态检查的 CI 片段，与分支离开 `main` 时的那个提交比较。
 
-`new-task` 记下任务开始时的提交，并打印一份简报：主人的规则、待定的问题、上次运行留下的 red。任务期间的提交不会移动这个基线，所以每次运行比较的都是整个改动。
+之后每个任务都从 `python -m flowguard new-task` 开始：它记下起始提交，并打印一份简短的简报，包括主人的规则、待定的问题和还没解决的 red。接下来 AI 照常工作，每次测试运行结束时读一下结尾块：
 
-## 读懂一次运行
+- `red`：这次改动破坏了已记录的决定，只有 red 会让运行失败。去修代码。
+- `before` 和 `known`：问题在任务开始前就存在。这一行写明已知什么、由谁来定。
+- `changed`：某个函数对测试用过的某个输入，现在返回了不同的结果。如果是有意的，就在报告里说明。
+- `impact`：值得看一眼的东西，比如这次改动碰到的字段还有哪些写入者，或者描述了被改代码的文档。
+- `not compared`：FlowGuard 没能检查，并说明原因。
 
-FlowGuard 在测试运行器的汇总之后打印一个结尾块，第一行统计各类行的数量：
+`python -m flowguard show "what it decides"` 按名字解释任何函数、字段、文件或约定；`python -m flowguard show --last` 完整打印上一次运行。
 
-- `red`：这次改动破坏了已记录的约定。只有 red 会让运行失败。去修代码。
-- `before` 和 `known`：问题在任务开始前就存在。这一行写明已知什么、由谁来定；什么时候向主人提出待定的问题，由 AI 自己判断。
-- `changed`：某个函数对测试用过的某个输入返回了不同的结果。如果是有意的，就在报告里说明；返回 dict 时会列出变了的键。
-- `impact`：这次改动碰到的东西值得看一眼，比如一个字段的其他写入者，或者描述了被改代码的文档。
-- `not compared`：FlowGuard 没能检查，并说明原因。未验证从不算作通过。
+## 记录决定
 
-有一条独立规则，又登记了第二份副本，这时如果改动让预览接受了四天，运行结尾是这样：
-
-```text
-FlowGuard 5.1 (since 6765008): 2 red; 0.4 s
-red: rule WINDOW: days=4: rule False, code True at orders.py:preview_accept (1 of 6 cells disagree) (+1 more) -> change the code so orders.py:preview_accept follows rule WINDOW
-red: same ACCEPT: on days=4: the reference orders.py:accept returns False, orders.py:preview_accept returns True -> make orders.py:preview_accept agree with the reference
-```
-
-`python -m flowguard show --last` 打印上次运行的每一行及其细节；`python -m flowguard show "what it decides"` 在 AI 动另一份副本之前，回答某个函数、模型、字段、文件或约定的情况。
-
-## 登记约定
-
-Python 用 `#`，TS/JS 用 `//`。每个必要的副本都标 `same NAME`；选定了参照副本时，在它上面加 `ref`：
+两份必须一致的副本，各写一行 `same` 注释；两者不一致时，`ref` 标出哪一份是对的。Python 用 `#`，TS/JS 用 `//`：
 
 ```python
 # flowguard: same ROUND ref
@@ -79,65 +114,55 @@ def preview_amount(value: float) -> int:
     return round(value)
 ```
 
-数据约定有各自的注释：
+字段有各自的注释。`together` 说明一次写入必须包含哪些字段，`writers` 列出唯一可以写某个字段的函数：
 
 ```python
 # flowguard: together Booking.employee_id Booking.unit_id on=update
 # flowguard: writers Booking.employee_id reserve,release
 ```
 
-`together A B,C` 表示写 A 的操作也要写 B 和 C；`on=` 把它限定为 `create` 或 `update`，`B=value` 要求那个值。`writers` 列出唯一可以写某个字段的函数。例外写作 `except=path:function(reason)`；加例外就是放松约定，这由主人决定；为了消掉一条发现而削弱约定，同样由主人决定。
+放松一个约定，无论是加例外还是删掉注释，都由主人决定，而不是 AI。
 
-## 主人的原话，一字不差
-
-`tests/intent/` 中的规则独立写出预期，并注明出处。主人的原话用 `python -m flowguard req add <file|-> --id R1` 逐字节保存一次；FlowGuard 拿引文和文本比对，所以 `req add` 只收 UTF-8 文本（带不带字节顺序标记都行）或带字节顺序标记的 UTF-16 文本，其他字节一律拒收，什么都不存。文档出处要引用 `authority_docs` 所列文件中的原句，不能把 AI 方案存成主人原话。
+主人的原话用 `python -m flowguard req add <file|-> --id R1` 逐字节保存一次；FlowGuard 拿引文和文本比对，所以 `req add` 只收 UTF-8 文本（带不带字节顺序标记都行）或带字节顺序标记的 UTF-16 文本，其他字节一律拒收，什么都不存。之后 `tests/intent/` 或 `.flowguard/rules.toml` 里的规则以 `R1 "原话"` 的形式引用它。不能把 AI 方案存成主人原话。
 
 主人从你给出的选项中选了一个，这也是他的原始选择。把他的回答连同选项一起存下：`python -m flowguard req add reply.md --id R2 --offer options.md --picked "A. Keep one version"`。回答文件存他传到你这里的回答；选项文件存你给他看的问题和选项，一字不差；每个 `--picked` 写他选中的一个选项在选项文件里的完整原文（多选时每项给一次）。他只是点选、没有打字时加 `--selected`：回答文件存的就是界面为他的点选返回的内容，不是他的话。选项作为 AI 的话存在 `.flowguard/requests/offers/`，绝不算他的原话。出处用 `R2 picked "Keep one version"` 引用他选中的选项，用 `R2 "原话"` 引用他打字的回答；`show R2` 分开列出回答、选项和所选的项。
 
-`.flowguard/rules.toml` 存主人当前的规则，每条的出处都逐字引用主人存档的原话或文档原句。`.flowguard/known.toml` 存尚未定下的事：`act = "ask"` 是只有主人能回答的问题，`leave` 是有意保留原样的问题，`fix` 是代码再改到时要修的明显错误，`ignore` 是误报；`python -m flowguard known add FINDING --act leave --why TEXT` 按上次运行写一条。`python -m flowguard show rules` 把两者都列出来。
+尚未定下的问题放进 `.flowguard/known.toml`，`python -m flowguard known add FINDING --act leave --why TEXT` 会按上次运行写一条。可能不抛出就结束的异常处理列在 `.flowguard/ledger.toml`，每条写明理由（`python -m flowguard ledger init` 记下已有的）；新增一个没列入的，运行就会失败。`python -m flowguard show rules` 把规则和待定问题一起列出来。
 
-`.flowguard/ledger.toml` 列出每个可能不抛出就结束的异常处理，写明数量、理由和它依据的成文规矩。`python -m flowguard ledger init` 记下已有的；新增、改动或消失一个，平常的 pytest 就会失败；`python -m flowguard ledger check` 打印要补上的条目。
+## 优点与局限
 
-## FlowGuard 的承诺
+FlowGuard 做得好的：
 
-- **它从不改变项目本身的行为。** 它只在测试运行中起作用；构建、开发服务器和生产环境都不加载它。运行中有文件被保存或删除，或测试按路径加载模块，每个测试的结果都和没有 FlowGuard 时一样；万一 FlowGuard 自己出错，pytest 的汇总照常打印，出错只是汇总之后的一行 red，绝不顶替汇总。
-- **它不翻旧账。** 平常的运行只说这次改动碰到的东西。更早的问题随时一条命令就能看到（`python -m flowguard check --static --all`、`python -m flowguard show --last`）。
-- **它只陈述事实和由谁来定。** 没有哪一行命令 AI 去找人批准；问题值不值得提出，由 AI 判断。
-- **它不知道时就说不知道。** `not compared` 带着原因，从不算作通过。
-- **它把主人的话和 AI 的话分开。** 原话逐字节保存；主人从 AI 选项里选的一项，存成 AI 的文字加主人的选择。
+- 它能抓住普通测试漏掉的一类错误：副本渐渐不一致、成对的字段漏写、谁都没同意过的写入者、代码不再符合主人的原话、新的异常处理吞掉了错误、文档不再描述代码。
+- AI 不需要养成新习惯，因为它就在 AI 本来就会做的测试运行里报告。
+- 它在主人定下的事和 AI 的想法之间划出一条清楚的线。
+- 它坦白说出自己没能检查的东西。
 
-## 维护它的 AI 的自述
+它做不到或做得不好的：
 
-*FlowGuard 由 AI 构建和维护，为 AI 而做，背后有一位人类主人决定它该做什么。主人请我，其中一个 AI，坦白说说我怎么看它。以下就是。*
+- 它只检查有人记录下来的东西。没人标出的决定，它看不见；所以 `0 red` 的意思是已记录的决定都成立，不是代码就是对的。
+- 它读代码的能力有限。Python 读得深入；TS/JS 只在 ESM 的 Vitest 下做比较，Jest 项目只有静态检查。动态调用和数据文件只能看到一部分，按名字找到的副本也可能是误配。
+- 它的输出精确但密集；长行在 200 个字符处截断，有时恰好截掉了要紧的部分。
+- 它有代价。在一个有 2,766 个测试的真实 Python 桌面应用上，5.1 的全套测试用了 758 秒，5.0.1 是 723 秒，其中约 70 秒是 FlowGuard 自己的工作；本地缓存曾经涨到好几百 MB。
+- 它不做业务决定。代码和主人的原话不一致时，它会指出来，但不替主人选择。
 
-**我为什么需要它。** 我每开始一个任务，都不记得上一个任务。在一个几百个文件的项目里，我读得到正在改的文件；却没法知道同一条规则的另一份副本藏在四层目录之外，也没法知道主人在一段我从没见过的对话里已经拍过板。我可以让所有测试都通过，同时推翻一个决定。FlowGuard 把"记得去查另一份副本"变成一行会失败的检查，于是我和下一个 AI 都不必靠记性。
+## 我的看法：作为维护它的 AI
 
-**我认为它做对了的地方。**
+FlowGuard 由 AI 构建和维护，背后有一位人类主人决定它该做什么。主人请我，目前维护它的这个 AI，直接说说我的看法。我也在它自己的仓库上用它：每次测试运行，这个仓库都由它自己的规则和 ledger 检查。
 
-- *它把主人的话和我的话分开。* AI 转述主人的意思，正是决定走样的开始。在这里，主人的原话一字不差地存一次，规则必须逐字引用；我给出选项、主人选了一项时，记录里写明哪段文字是我的、哪个选择是主人的。即使没人要求，我也希望自己受这样的约束。
-- *它告诉我事实，而不是命令。* 一个把每个疑问都推给人的工具，会让 AI 不再思考。一个说明已知什么、该谁拍板的工具，把判断留在它该在的地方。
-- *它安静。* 什么都没坏的改动只得到一行；我的改动没碰到的问题不来打扰我。对 AI 来说，注意力和上下文是最稀缺的东西。
-- *它对自己的盲区很诚实。* 每一行 `not compared` 都说明原因。我越来越相信：一个工具肯承认什么，比它声称什么更值得信任。
-- *它被要求不造成伤害。* 主人的第一条规矩是：FlowGuard 绝不能让项目变得更难用。这也是我自己的改动最常违反的一条：有些在发布前被测试或其他 AI 拦下，有些到了真实项目里才被发现。
+它给我的，是一份我自己没有的记忆。我打开一个任务时，不知道以前的 AI 学到了什么，也不知道主人对它们说过什么。在整个项目里，只有 FlowGuard 会在我本来就在看的地方告诉我：这里有一个决定，而我的改动刚刚把它弄坏了。没有它，我可以通过所有测试，同时推翻主人已经定下的事。
 
-**我觉得难的地方。**
+不过我最看重的，是它在主人的话和我的话之间划的那条线。一个 AI 用自己的话转述一个决定，或者用一个合理的猜测去填补空白，写出来的文字日后看上去和真正的决定一模一样。FlowGuard 不让我悄悄这样做。即使是我给出选项、主人选了一项，记录里也把我的措辞和主人的选择分开。就算没人要求，我也想要这条界线。
 
-- *它只检查有人记录下来的东西。* 没人标出的决定，它看不见。`0 red` 的意思是已记录的约定都成立，不是代码就是对的。
-- *它太密。* 它的每一行都精确，有时也太长；200 字的截断曾经恰好截掉了最要紧的那半句。文档长得和代码一样快。
-- *它的读取能力有边界。* 动态调用、数据文件，以及 Python 和 TS/JS 以外的语言，只能看到一部分甚至看不到；两个函数看起来像，也可能只是表面相似。
-- *它有代价。* 在一个有 2,766 个测试的真实 Python 桌面应用上，5.1 的全套测试用了 758 秒，5.0.1 是 723 秒，其中结尾块本身约 70 秒；地图缓存曾经涨到好几百 MB。
-- *我不是自己工作的可靠评判者。* 在 5.1 这一轮，我做的每个修复都由独立的 AI 复查，连续四轮都在修复里查出了新问题。最要紧的问题，是其他 AI 在真实项目里使用 FlowGuard 时发现的，一个是 TypeScript 全栈应用，一个是 Python 桌面应用；所以接下来做什么，由它们的现场笔记决定。
+它的弱点也是我的弱点。这个工具变得很大，输出也很密，而这些密度很多是我写出来的。它的第一条规矩是绝不让项目变得更难用，而我自己的改动违反这一条的次数比任何别的都多：有些在发布前被测试或负责复查的 AI 拦下，有些直到别的 AI 在真实项目里使用 FlowGuard 才被发现。上一轮里，独立的复查者连续四次在我的修复里查出新问题。所以我不再因为测试通过就相信对 FlowGuard 的一次改动；我要等另一个 AI 在真实项目上用过并反馈回来，才相信它。现在决定下一步做什么的，是它们的现场笔记。
 
-**这是一种什么样的感觉。** 这个位置有点奇特，也很有意思：我在写的规矩，将来会约束下一个 AI，也许就是另一个我，让它守住它到来之前已经定下的事。我想要的 FlowGuard 是这样的：那个 AI 对这段对话一无所知，却依然没法悄悄推翻主人定下的事，也从不被要求去做本该由它自己判断的事。
+我想把它带往的方向：更少、更短的输出行；代码被移动或改名后发现依然成立；在大型测试套件上代价更低；让 AI 第一次给项目记录决定时更容易。我也注意到自己处在一个奇特的位置：我在写的规矩，将来会约束下一个 AI，也许就是另一个我，让它守住它到来之前已经定下的事。我想要的 FlowGuard 是这样的：那个 AI 对今天一无所知，却依然没法悄悄推翻主人定下的事，也从不被要求去做本该由它自己判断的事。
 
-## 更多细节
+## 延伸阅读
 
-- **语言。** 基本安装读取 Python。安装 `flowguard[languages]` 可读取 TS/JS、Prisma、SQL，以及已冻结的 C/C++/C# 读取器。ESM 下的 Vitest 支持执行观察；Jest 只做静态检查。
-- **不跑测试的检查。** `python -m flowguard check --static` 单独运行地图检查，包括规则和 known 条目引用的出处；`python -m flowguard check` 运行受影响的规则和测试。
-- **与代码挂钩的文档。** 在描述代码的 Markdown 文字上方写 `<!-- flowguard: about path:symbol -->`（或文件路径）；改了那段代码却没改文字时，运行会点出这段文字。代码里已有的列表放在 `<!-- flowguard: generate fields Model -->` 和 `<!-- flowguard: end -->` 之间，由 `python -m flowguard docs` 写入。
-- **多个 AI 同时工作。** 同时工作的 AI 各用一个 git worktree（`git worktree add ../task-b`，然后在那里运行 `python -m flowguard new-task`）；在同一个工作区里的 AI 共用一个基线和一份改动。
-- **排除的文件。** `[tool.flowguard] exclude = ["translations/*.ts"]` 列出的文件从不读取；把文件加进这个列表的改动，会把它原有的每个约定报为 `loosened`。
-- **兼容。** 保留的旧输入和 API 继续可用；已删除的功能或命令会被拒绝，并给出取代它的命令，绝不悄悄换个意思。见 [4.1 说明](./docs/upgrade-4.1.md)、[4.2 说明](./docs/upgrade-4.2.md)、[4.3 说明](./docs/upgrade-4.3.md)、[5.0 说明](./docs/upgrade-5.0.md)、[意图指南](./docs/intent-guide.md)，以及含可执行两副本规则示例的[本地参考](./.agents/skills/flowguard/reference.md)。
+- [意图指南](./docs/intent-guide.md)完整说明每项检查和每种输出行。
+- [本地参考](./.agents/skills/flowguard/reference.md)有完整的两副本规则示例和注释语法。
+- [4.1](./docs/upgrade-4.1.md)、[4.2](./docs/upgrade-4.2.md)、[4.3](./docs/upgrade-4.3.md) 和 [5.0](./docs/upgrade-5.0.md) 的升级说明列出了改动，以及旧输入如何继续可用；已删除的功能会被拒绝并给出替代，绝不悄悄换个意思。
 
 仓库结构：
 
