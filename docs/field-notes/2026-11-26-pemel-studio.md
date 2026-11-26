@@ -295,3 +295,28 @@ signatures. Filter tokenless groups before scoring and use the existing
 empty-list result if no groups remain. Cover both mixed and all-empty
 historical groups. Mixed groups should still report any genuine former
 decision site.
+
+## The fallback ledger caught broad Qt test handlers during a migration
+
+The first focused stack-input run on an isolated checkout reported 103
+passing tests and one fixture failure. FlowGuard separately reported 27
+red findings. Two new Qt test callbacks caught `BaseException` and
+`Exception`. The ledger classified them as forms that cannot be registered.
+This prompted a source correction. The tests retain their explicit dialog
+and timeout checks and let pytest-qt capture unexpected callback exceptions.
+
+The report also emitted separate “Code disappeared” and “New unregistered
+fallback” findings for handlers moved into named model-store and import
+methods. `intent/ledger.py:evaluate` compares the exact keys from `found`
+and `entries` and requires a rule quote for each nonlegacy entry. A paired
+migration hint for handlers with matching normalized code would reduce the
+work reviewing a move. Keep the move visible as a proposal and recheck the
+actual handler and rule source before changing the ledger.
+
+For a parallel review, `python -m flowguard ledger check --help` offered
+no candidate input. `intent/cli.py:_ledger_result` reads the configured
+project ledger directly. We verified the draft by directing the installed
+evaluator's ledger input to a scratch file while preserving the original
+source map and baseline. A read-only `--candidate-ledger` option would make
+that check available without modifying the shared tree or the baseline.
+The same rule-quote and broad-handler checks must apply to the candidate.
