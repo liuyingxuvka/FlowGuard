@@ -154,3 +154,28 @@ an expandable command. The initial message for this single decision listed
 several dozen transitive dependencies. A direct suggestion to use a named
 real test for an otherwise suitable scalar edge would make the next action
 clear sooner.
+
+## Request originals first added by a merge
+
+A normal merge resolved two branches that had used the same request
+identifier for different owner statements. Both bodies were kept. The older
+body was registered with `req add` under a new identifier, checked with
+`cmp`, and first committed as part of the merge.
+
+`git log --format=%H --diff-filter=A --reverse -- <request-file>` returned
+no commit for the new body and sidecar. The same path query with
+`--full-history` showed the merge. FlowGuard 5.1.0 uses the first query in
+`map/records.py:_first_blob`. `_stored_digest` can use the original local
+write receipt, so the author checkout verifies the record. A fresh checkout
+has neither that receipt nor a result from `_first_blob`. The committed
+content on its own cannot serve as the original.
+
+Before pushing, the byte-identical record was put in an ordinary commit and
+the merge was recreated. The first-add query then returned the ordinary
+commit for both files. Checks of all seven affected body and sidecar pairs
+matched their first additions exactly. The branch content remained identical.
+
+An explicit diagnostic for originals introduced in a merge would have made
+the problem visible before the push. Any history change here needs to identify
+the merge's actual first write without learning an original digest from the
+working copy or silently choosing between two different parent originals.
