@@ -55,3 +55,26 @@ easier to scan. The complete function-level view remains useful.
 from missing comparable readings. The reasons in `show --last` let the
 Qt test assertions and the scope of the comparisons be reviewed
 independently.
+
+## A dynamic write to a mapped field reads as a field access
+
+`show LibraryStore._parsed_models` reported the constructor as its writer
+and `LibraryStore._load` as a reader. In `_load`, the exact target
+`self._parsed_models[path] = (stamp, model)` changes the cache. The shared
+model comes from that cache and is copied before it reaches a caller, so
+both access points matter during ownership review.
+
+In 5.1.0, `structure/extract.py:Scope.written` recognizes direct attribute
+targets and subscript targets whose key is a string constant. An indexed
+assignment with a variable key keeps its expression as an assignment
+target, but it does not resolve to a write on the containing field. The
+map could surface a separate "mutates entries" relationship for indexed
+assignments and deletes on a known field. That would keep assignment to
+the field itself distinct from a change to one of its members. Calls
+such as `move_to_end` can stay ordinary calls unless the receiver and
+the method's effect are known.
+
+The same distinction mattered when a task field changed during a focused
+test run. `show --last` said that the source had changed on disk after
+import and withheld the comparison. That was a useful prompt to rerun
+the completed slice with a stable source tree.
