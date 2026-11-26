@@ -470,3 +470,25 @@ Distinguish an intent-to-add entry from a staged edit. Show that it needs
 ordinary staging and preserve the strict comparison for actual staged
 bytes, including a genuinely staged empty file. A focused regression
 should verify both Git states and keep the existing request protection.
+
+## A cold symbol query allocates a full map
+
+Two `show NAME` queries in a fresh source-only copy located a shared
+presentation helper and the consumers of a field. Before any test or
+build, the copy held a 41,410,560-byte `.flowguard/cache/map.sqlite`.
+The shared volume reported no available space during the review and
+available space again after removal of that disposable map. Another job
+shared the volume, so this observation identifies the cache size and
+sequence, with no estimate of the other job's disk use.
+
+In 5.1.0, `intent/cli.py:show` calls `structure.api.build` for ordinary
+symbol queries. The API accepts `store_path`, but the CLI uses the
+project-local default from `map.common.cache_dir`. The first query can
+materialize the map from current source. `show --last` only reads existing
+run records and does not provide current symbol navigation.
+
+Document the cold-query write and expose a cache location override for
+source inspection. A focused regression should start without a map and
+check that an explicitly relocated query returns the same source facts
+while leaving the project-local cache untouched. Keep build and disk errors
+visible without presenting a partial map as current evidence.
