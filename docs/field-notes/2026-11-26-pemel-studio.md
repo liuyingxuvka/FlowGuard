@@ -194,3 +194,26 @@ receipt remains useful for the deleted temporary files in the original
 checkout. The listing could show the missing or conflicting retirement
 separately from the intact incoming request, using the original body digest to
 identify which record it concerns.
+
+## First-write provenance recovered without changing the branch tree
+
+A later integration again placed three preserved request names in a merge
+only. The local `req list` displayed `stored` for each, while the same
+path-limited `git log --format=%H --diff-filter=A --reverse -- <path>` used
+by `map/records.py:_first_blob` returned no addition for the six body and
+sidecar files. In this case the merge had already been pushed.
+
+An ordinary commit on the incoming branch's base recorded the six original
+blobs. A new merge used that ordinary commit as its first parent and kept the
+published integration as its second parent. `git merge-tree` produced the
+same tree as the published integration. The delivery branch moved by fast
+forward. The normal path-limited query then returned the ordinary commit for
+all six files. Checking every stored request body and sidecar against its
+first returned commit found no byte differences. No source or file byte was
+changed by the recovery.
+
+The command output makes the distinction between local receipt protection and
+portable Git provenance important. `req list` could state the evidence source
+for stored originals, or provide a portability view with separate counts for
+Git history and local first-write receipts. `map/records.py:_stored_digest`
+already selects between them and raises `Unverifiable` when neither exists.
