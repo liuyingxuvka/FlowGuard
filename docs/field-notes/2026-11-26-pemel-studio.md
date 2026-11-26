@@ -217,3 +217,22 @@ portable Git provenance important. `req list` could state the evidence source
 for stored originals, or provide a portability view with separate counts for
 Git history and local first-write receipts. `map/records.py:_stored_digest`
 already selects between them and raises `Unverifiable` when neither exists.
+
+## A field's import reach and a worker's actual delivery
+
+After fixing delivery of a rendered result from a worker to the GUI thread,
+78 focused tests passed. The FlowGuard block named a single new field writer
+and directed us to `show FigureRenderTask._results`. That view correctly
+located the initialization and both reader methods. It let the reviewer
+check the two consumers against the delivery test, without searching other
+queued Qt callbacks.
+
+The default output then listed many tests as "reaches a writer". Some named
+unrelated UI journeys. The output ended with 503 more lines, with 298 of
+those matching only a word. In 5.1.0 `intent/owners.py:field_lines` passes
+source filenames to `graph._tests_for`, so these links describe test-file
+import reach. The command does not know whether a test executed the write or
+exercised result delivery. Labelling the rows as import reach would preserve
+the useful impact hint and avoid reading the list as field-level execution
+coverage. A compact field-only view could leave the import candidates for
+`--full`.
