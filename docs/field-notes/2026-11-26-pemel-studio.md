@@ -129,3 +129,28 @@ also help to distinguish an existing identical body from a different statement
 at the same requested ID. The repository keeps the original record and the
 new supplement with traceable references. No replacement of protected bytes
 is needed.
+
+## Calibrating a narrow numerical rule in a larger module
+
+The calibration-range change introduced a scalar function that returns the
+amount below and above two inclusive limits. Its independent intent table
+provided three literal cases. The first focused run passed the ordinary
+assertions, while the FlowGuard rows and cells both reported `not compared`.
+`show --last` traced the refusal to the imported module's initialization,
+including NumPy, contextual data classes and unrelated imported modules.
+
+The same production function was then marked `calibrated_by` with a named
+pytest case that calls it directly with real values. The combined interface
+suite reported 309 passing tests and no unverified intent tests. The public
+input-route follow-up reported 27 passing tests. Both blocks reported zero
+red. The rule's expected results remained independent of the production
+calculation. The change used the design of `intent/calibration.py`, which
+obtains its observation inside the actual test session.
+
+The distinction between a comparison refusal and a failing agreement is
+useful. The explanation would be easier to use if it showed the closest
+blocking import or initializer first, then grouped transitive blockers under
+an expandable command. The initial message for this single decision listed
+several dozen transitive dependencies. A direct suggestion to use a named
+real test for an otherwise suitable scalar edge would make the next action
+clear sooner.
