@@ -1402,6 +1402,10 @@ v5.1.0 的 ECMAScript 读取器从显式 `catch` 采集异常处理事实。此�
 
 可在同一流程中把预期的快照标识、有序成员列表和操作者绑定连到插入结果。测试应确认事务回调返回计划前逐项核对，任何差异都会中止事务并保留原命令引用。另可加一个只互换两条原有成员顺序的对照，验证同一成员集合在需要有序映射时仍会被拒绝。报告分别关联写入返回值、错误和副作用断言。
 
+**G290 回读时按可用证据核对批次结果。** 离线替身保留原请求和计划摘要，分别替换回执插入的回显 ID、提交应答丢失后读到的记录 ID，以及用原计划重试时读到的更新数。另一例在没有原计划时把内部说明混入回执，旧函数也原样返回了结果。四例均停在预期拒绝处，联合损坏用例中的跨范围父节点对照当轮未运行。该轮 9 例通过、4 例失败，正式 v5.1.0 报 `0 red, 1 impact, 12 not compared`。修复后的定向运行 9 个文件、139 例通过，报 `0 red, 1 impact, 16 not compared`。这些用例观察的是函数返回和内存替身。
+
+可在现有回执详情中标明各回读位置的可用证据。原计划可用时，用它逐项核对有序的受影响记录和能从计划推导的计数。只有历史回执时，核对命令绑定、记录间的关系、内部计数一致性和允许返回的说明，并把需原计划才能核对的项目标为待核实。最小对照保留摘要而独立改变一项记录或计数，再分别用有原计划的应答丢失、用原计划重试和无原计划的历史读取核对实际出口。历史读取的对照可注入任意内部说明，验证拒绝时只返回当前命令的安全引用。
+
 ## 追踪导入函数作为导出对象属性的调用
 
 为 G140 的调用定位补充了一个独立的 TypeScript 对照。`command.ts` 导出 `buildArtifact` 和返回另一值的 `alternateCommand`。`service.ts` 使用 `import { alternateCommand, buildArtifact as importedBuilder } from './command'`，再导出 `const service = { create: importedBuilder, alternate: alternateCommand }`。`handlers.ts` 将 `service` 导入为 `importedService`，由 `viaService` 返回 `importedService.create()`，同时将 `buildArtifact` 直接导入为 `directBuilder` 并由 `viaDirect` 调用。
