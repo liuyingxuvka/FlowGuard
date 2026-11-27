@@ -1370,6 +1370,10 @@ v5.1.0 的 ECMAScript 读取器从显式 `catch` 采集异常处理事实。此�
 
 最小对照用同一初始关联及同一请求。关联保持原样时应只分配一次编号并完成登记。在分配期间替换关联或删除本地记录时，应在首次登记前拒绝，并核对没有再次分配。已有匹配的完成回执时，改变同一关联后仍可读回已确认的结果，无需再次分配或新增登记。改变回执的原操作者或请求绑定时，应拒绝重放。报告标出制造变化的测试步骤、实际复核的读取客户端、到达的回执断言和副作用计数。真实库的隔离行为需要独立证据。
 
+**在首次登记的事务内核对写入返回值。** 离线替身保持所有快照标识原样，只在插入返回值里替换一个非根成员标识，或替换操作者的外部标识。旧流程在两例中都返回了可用计划，停在预期拒绝的断言，后续回滚及另一端零写入断言未到达。该轮 279 例通过、2 例失败，正式 v5.1.0 报 `0 red, 1 impact, 22 not compared`。修复后的定向运行 9 个文件、281 例通过，报 `0 red, 1 impact, 23 not compared`。两个反例通过事务替身核对了拒绝和回滚。
+
+可在同一流程中把预期的快照标识、有序成员列表和操作者绑定连到插入结果。测试应确认事务回调返回计划前逐项核对，任何差异都会中止事务并保留原命令引用。另可加一个只互换两条原有成员顺序的对照，验证同一成员集合在需要有序映射时仍会被拒绝。报告分别关联写入返回值、错误和副作用断言。
+
 ## 追踪导入函数作为导出对象属性的调用
 
 为 G140 的调用定位补充了一个独立的 TypeScript 对照。`command.ts` 导出 `buildArtifact` 和返回另一值的 `alternateCommand`。`service.ts` 使用 `import { alternateCommand, buildArtifact as importedBuilder } from './command'`，再导出 `const service = { create: importedBuilder, alternate: alternateCommand }`。`handlers.ts` 将 `service` 导入为 `importedService`，由 `viaService` 返回 `importedService.create()`，同时将 `buildArtifact` 直接导入为 `directBuilder` 并由 `viaDirect` 调用。
