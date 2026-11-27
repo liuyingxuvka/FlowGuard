@@ -1321,3 +1321,11 @@ v5.1.0 的 ECMAScript 读取器从显式 `catch` 采集异常处理事实。此�
 修复前的 45 个离线登记用例中，新增 5 个对照有 4 个失败。替换操作者的关联、替换另一被选身份的关联、改变父对象归属，或让同键记录的本地标识一致但外部关联不同，旧路径均返回了登记结果。两侧关联一致的同键对照通过。四个失败用例在预期拒绝处停止，之后的副作用断言没有执行。正式 v5.1.0 为 `0 red, 1 impact, 24 not compared`，影响项指向登记写入的读取方。
 
 最小对照用同一初始关联及同一请求。关联保持原样时应只分配一次编号并完成登记。在分配期间替换关联或删除本地记录时，应在首次登记前拒绝，并核对没有再次分配。已有匹配的完成回执时，改变同一关联后仍可读回已确认的结果，无需再次分配或新增登记。改变回执的原操作者或请求绑定时，应拒绝重放。报告标出制造变化的测试步骤、实际复核的读取客户端、到达的回执断言和副作用计数。真实库的隔离行为需要独立证据。
+
+## 追踪导入函数作为导出对象属性的调用
+
+为 G140 的调用定位补充了一个独立的 TypeScript 对照。`command.ts` 导出 `buildArtifact` 和返回另一值的 `alternateCommand`。`service.ts` 使用 `import { alternateCommand, buildArtifact as importedBuilder } from './command'`，再导出 `const service = { create: importedBuilder, alternate: alternateCommand }`。`handlers.ts` 将 `service` 导入为 `importedService`，由 `viaService` 返回 `importedService.create()`，同时将 `buildArtifact` 直接导入为 `directBuilder` 并由 `viaDirect` 调用。
+
+正式 v5.1.0 在隔离目录解析了 3 个文件。`show typescript/src/command.ts:buildArtifact --full` 只列出 `viaDirect`，漏掉了 `viaService`。类型检查和五个离线运行断言通过，核对了直接调用、经对象属性调用、传入其他接收者、以动态键选中另一函数，以及只返回同名字符串。后三种均未被列为目标函数的已解析调用。
+
+建议让现有符号详情在能确认导入、对象属性初始化及调用处接收者绑定时列出这条调用，并保留中间属性位置。保持直接导入的结果。发现未知接收者、无法确定的键或无法排除的属性重写时，标明待解析边界。普通字符串匹配不计入已解析调用，静态绑定与用例实际执行分别展示。
