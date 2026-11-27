@@ -896,6 +896,8 @@ G162 给出了上述锚点的维护实测。应用基线 `adb1db7` 的 `v3-162-s
 
 建议在已有的依赖详情里展示导入链上的可执行顶层初始化，把所请求的导出、随模块求值的配置读取以及首次失败位置连起来。最小对照使用两个共享一个错误类型的入口，分别展示从纯错误模块加载的成功和通过签名模块加载的收集失败。记录用例没有开始执行，配置只显示符号和来源位置。静态无法判定的条件初始化可以标为待核实，真实收集结果由测试运行证据提供。
 
+**G235 命令参数决定何时加载数据源。** 应用基线 `07299e9d` 的 `v3-235-runPreflightCommand-map.log` 给出了 `main` 的已解析调用，`v3-235-loadSource-map.log` 给 `loadSource` 显示零个已解析调用方。在独立目录用两份命令源码和正式 v5.1.0 的精确查询复现了两项结果。见 `flowguard-g235-lazy-command-source-show.log`。`main` 在对象字面量中传入加载器，运行器在 `--help`、`employee-merge-columns` 及无效参数分支均先返回。只有接纳 `login-readiness` 的路径会调用该加载器并触发客户端模块的动态导入。可在依赖详情连接对象实参、参数分支和这个延迟加载点。现有 `preflight-command.test.ts` 通过注入替身断言前三类路径没有加载数据源。最小对照可以把加载器提前调用，验证零调用断言会失败。报告分别标明源码中可达的加载路径和用例实际观察到的调用。
+
 ## G132 区分浏览器请求字段与库字段写入
 
 应用基线 `5c99f61` 的 `v3-132-backend-full-first.log` 实际报 `1 red`。`v3-132-flowguard-last-first.log` 将 `ProjectForm.handleSubmit` 的局部对象属性赋值归到 ADB `Project.lifecycleStatusId`，要求前端调用 Prisma 写入方。应用代码在这里组装 HTTP 请求。普通 PUT 解析这个兼容字段名中的状态代码，经 `writeCompanyProjectStatus` 更新 CDB `CentralProject.lifecycleStatusCode`。两条链路都在当前源码中可核对。
