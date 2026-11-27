@@ -132,6 +132,10 @@ G80 提供了基线回放的参数错位对照。`v3-80-frontend-full.log` 的 3
 
 **G226 类型重导出对照。** 两端类型检查和全量测试通过后，`v3-226-final-ledger.log` 多列出 `absence.service.ts`，共 `0 red, 93 unverified`。实际 TypeScript 编译接受在 `export type { … }` 的右花括号与 `from` 之间换行。FlowGuard 使用的 Tree-sitter 在这一位置生成缺少分号的节点。`v3-226-reexport-parser.log` 复现了该差异。将换行移进花括号，并把 `} from` 放在同一行，等价重导出与调整后的服务文件都能完整解析。正式复跑的 `v3-226-parser-final-ledger.log` 恢复为 `0 red, 92 unverified`，未验证文件与 G225 逐项一致。该语法可以加入 G94 的最小对照，以同时核对缺失节点的精确位置和后续解析状态。
 
+**G248 标签模板类型参数对照。** 应用基线 `c0fddb92` 上，仍带显式类型参数的 PSP 领号封装通过后端 TypeScript 检查及 `v3-248-verified-backend.log` 的 8,497 个单测。独立静态检查为 `0 red`。`v3-248-verified-ledger.log` 列出 93 个未验证文件，新的一项是 `psp-id-allocator.ts`。该文件对 `$queryRaw<unknown>` 使用标签模板，语法树生成了缺失的 `!` 节点。同一文件仅删去这个类型参数后可完整解析。生成的客户端将泛型默认值声明为 `unknown`，调用结果也存入显式的 `unknown` 变量。
+
+独立夹具用默认泛型 `tag<T = unknown>` 和普通文本插值，比较 `client.tag<unknown>` 标签模板及省略类型参数的写法。TypeScript 5.9.3 编译两个文件均退出 0。正式 FlowGuard v5.1.0 使用 `tree-sitter` 0.25.2 和 `tree-sitter-typescript` 0.23.2 时，仅在显式类型参数的文件第 5 行第 35 列生成一个缺失 `!` 的节点，父节点为 `non_null_expression`。账目报告 `0 red, 1 unverified`，只列该文件。见 `flowguard-g248-generic-tagged-template-repro.log`。可以把两个模板及一个确有语法错误的模板加入现有语法回归，核对成功解析及真实未验证的边界。
+
 ## V1-14 路由恢复需要同次交互结果
 
 `v1-14-frontend-targeted-1.log` 的定向运行实际退出 1。Vitest 在 2.19 秒内跑了 9 例，8 例通过。从正常页面进入一个始终抛错的新页面时，路由边界记了两次错误，用例要求一次。FlowGuard 报 0 red、2 not compared，耗时 27.9 秒。未比较范围列出 `AppShell` 和未纳入此次运行的静态检查入口。故障由真实路由、组件生命周期和日志断言共同复现。修复后同一用例随 `v1-14-frontend-green-1.log` 的 2597 例全部通过，FlowGuard 报 0 red、5 not compared。
