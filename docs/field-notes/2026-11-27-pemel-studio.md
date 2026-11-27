@@ -15,3 +15,21 @@ During the separate path-length repair, `show src/pemel_service/project/store.py
 `show --last` reported four document impacts in the broad test run. The `ACCEPTANCE_GUIDE.md:37` entry included the concrete path from the acceptance input generator's `write_cycles` to `DataLibraryStore.export_native`. The guide could keep its existing format and choices after reviewing the call: the temporary layout changed and the exported inputs did not. The other impact paths led to the format and free-space contracts, which were unchanged. Installed FlowGuard 5.1.0's `intent/docs.py` builds these messages from documented locations and the changed direct-call endpoints. This is useful evidence for checking the contract after an internal change.
 
 The same report counted zero red findings and separately named one failing ordinary app test. The failing assertion looked at the export folder before the background reaper completed. Waiting through the existing cleanup API fixed the test, and a focused rerun passed. The warnings about unavailable runtime comparisons were read as coverage information.
+
+## Resuming a paused recovery repair
+
+`python -m flowguard new-task` named the one test whose previous run had
+failed, `test_every_command_keeps_its_recorded_availability`, after work had
+paused. The command table diff could then be checked structurally. All five
+affected rows kept the same command groups and changed only the displayed
+reason for an unverifiable ordinary background task. The selected suite
+subsequently passed its 228 tests.
+
+`python -m flowguard ledger check` reported 201 entries, 207 handlers, zero red
+and zero unverified. The new handler records distinguish a worker whose exit
+has been confirmed from temporary files that still need cleanup. The
+`show --last` impact on `docs/ARCHITECTURE.md:158` caught a sentence stating
+that an error always releases both the worker and files before reporting it.
+The revised contract describes the separately reported cleanup warning.
+`flowguard/intent/cli.py` builds the remembered failure summary and
+`flowguard/intent/ledger.py` checks the registered reasons and paths.
