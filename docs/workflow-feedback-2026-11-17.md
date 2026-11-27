@@ -126,6 +126,8 @@ G80 提供了基线回放的参数错位对照。`v3-80-frontend-full.log` 的 3
 
 **G222 实际维护对照。** 全量测试已通过时，`v3-222-before-parser-fix-ledger.log` 的未验证数由上组的 92 增至 93，新列出 `project-import-dates-path-levels.test.ts`。用同一 TypeScript Tree-sitter 语法检查，该文件的 `importOriginal<typeof import('…')>()` 在 `>()` 处产生 `ERROR` 节点。仅将类型提成独立的 `PersonnelModule` 别名，再以 `importOriginal<PersonnelModule>()` 调用，原始解析不再报错。正式复跑的 `v3-222-final-ledger.log` 恢复为 `0 red, 92 unverified`，逐项对照确认未验证文件与 `v3-221-final-ledger.log` 完全一致。这个例子可纳入 G94 的语法对照，并用来核对未验证提示能定位到触发语法的位置。
 
+**G226 类型重导出对照。** 两端类型检查和全量测试通过后，`v3-226-final-ledger.log` 多列出 `absence.service.ts`，共 `0 red, 93 unverified`。实际 TypeScript 编译接受在 `export type { … }` 的右花括号与 `from` 之间换行。FlowGuard 使用的 Tree-sitter 在这一位置生成缺少分号的节点。`v3-226-reexport-parser.log` 复现了该差异。将换行移进花括号，并把 `} from` 放在同一行，等价重导出与调整后的服务文件都能完整解析。正式复跑的 `v3-226-parser-final-ledger.log` 恢复为 `0 red, 92 unverified`，未验证文件与 G225 逐项一致。该语法可以加入 G94 的最小对照，以同时核对缺失节点的精确位置和后续解析状态。
+
 ## V1-14 路由恢复需要同次交互结果
 
 `v1-14-frontend-targeted-1.log` 的定向运行实际退出 1。Vitest 在 2.19 秒内跑了 9 例，8 例通过。从正常页面进入一个始终抛错的新页面时，路由边界记了两次错误，用例要求一次。FlowGuard 报 0 red、2 not compared，耗时 27.9 秒。未比较范围列出 `AppShell` 和未纳入此次运行的静态检查入口。故障由真实路由、组件生命周期和日志断言共同复现。修复后同一用例随 `v1-14-frontend-green-1.log` 的 2597 例全部通过，FlowGuard 报 0 red、5 not compared。
@@ -1003,6 +1005,18 @@ v5.1.0 的 ECMAScript 读取器从显式 `catch` 采集异常处理事实。此�
 应用基线 `ce28f836c603` 上，正式 v5.1.0 的 `show getVisibilityOrgUnits` 定位到 `backend/src/services/project.service.ts:454`，报告 0 个已解析调用及 6,084 条普通词匹配。同一个 `projectService` 对象的 `addVisibilityOrgUnit` 和 `removeVisibilityOrgUnit` 分别在第 527、562 行执行 `return this.getVisibilityOrgUnits(projectId)`。证据见 `v3-140-old-visibility-show.log` 与该基线源码。同基线的 `show canReadProject` 解析了六个测试函数中的直接导入调用，见 `v3-140-old-readable-show.log`。本组用这些结果核对需要一起退役的方法和测试。以上证据来自静态盘点。
 
 建议在现有符号详情中识别可证明接收者绑定的同对象调用。绑定未知时单独显示候选位置及待核实的接收者。最小对照包括通过已知对象调用、提取方法后直接调用、显式换成另一接收者以及覆盖同名方法。每个对照显示实际定位结果和证据边界。
+
+### G226 将 TypeScript 重载的调用定位到函数体
+
+应用基线 `4af3294` 的正式 v5.1.0 在 `v3-226-privacy-bridge-map.log` 将 `projectAbsenceForActor` 列为三个节点，分别对应两条重载签名和一个函数体，三个节点均报零个已解析调用。源码可以核对三处实际使用。`capacity.service.ts` 明确导入该符号，为人员日历行执行隐私投影。`absence.service.ts` 的列表和详情处理也调用同一可执行实现。两种输入分别是日历行和单条记录。
+
+建议在可定位同一 TypeScript 导出绑定时，将重载签名归入同一个实现，列出直接、导入别名和经明确重导出进入的调用，以及可核实的签名位置。以记录和日历两种参数验证同一函数体。另放同名但不同作用域的函数，保持调用归属精确。容量日历原先为了使用纯投影而导入同时包含请假写入的整个服务模块。可结合 G224 的初始化依赖详情追踪导入，区分经旧导出载入整个服务和直接载入纯投影模块的使用方，供维护者判断新增写依赖可能波及哪些读入口。图中的调用和导入关系由源码核对，运行影响需要独立证据。
+
+`v3-226-backend-red.log` 有 39 例失败、8,205 例通过，正式 v5.1.0 报 `0 red, 5 not compared`。改动把投影放进现有的 `absence-calendar-capability.ts`，容量日历直接导入该工具模块，原请假服务保留重导出。首轮实现后的 `v3-226-first-backend.log` 有 21 例执行失败、8,188 例通过，另有 2 个文件收集失败，共 7 个失败文件。FlowGuard 报 `0 red, 22 not compared`。新增的公司人员回执、当前授权和挂载路由的旧版本冲突对照在该轮通过。两个收集失败都直接导入请假服务。旧状态测试沿 `central-db-health.ts` 触发数据库配置初始化，历史容量测试的整模块替身缺少新读取所需的 `LEGACY_CENTRAL_PROFILE` 导出。用例均离线运行。
+
+`v3-226-authority-race-red.log` 运行随后追加的授权和审计对照，有 5 例失败，其余 8,243 例未选中。正式 v5.1.0 报 `0 red, 19 not compared`。会话准入后已离职的直属主管仍收到创建成功对象。授权检查后、准备回执时人员归属已移出管辖的创建、更新和取消也均收到成功对象，后续无写入断言未执行。另一条主管取消用例实际记录了正确操作者，但动作与授权归因分别是自助取消和 `SELF`，预期主管取消及 `DIRECT_REPORT`。可将现有授权流程核对延伸至回执使用的人员事实，并把最终授权类别与审计动作及操作者对应到具名断言。此结果来自离线服务和事务替身。
+
+最终后端 478 个文件、8,248 例通过，正式 v5.1.0 报 `0 red, 23 not compared`。前端在类型重导出排版调整前已通过 379 个文件、3,889 例，报 `0 red, 7 not compared`。两端类型检查通过，后端在排版调整后复跑，独立静态报 `0 red`，账目为 228 条登记、270 处处理、`0 red, 92 unverified`。比较详情仍分别列出重载节点和服务对象方法。具名离线用例已核对离职主管拒绝、归属变动后创建、修改和取消均没有写入，以及主管取消的操作者、动作和授权归因。
 
 ## G206 核对同一次登录状态刷新中的重复角色读取
 
