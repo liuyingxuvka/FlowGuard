@@ -798,6 +798,8 @@ G162 给出了上述锚点的维护实测。应用基线 `adb1db7` 的 `v3-162-s
 
 可扩展 G183 的流程详情，定位 JSX `key`、持有本地弹窗状态的组件、保存回调及其刷新共享查询的调用。同一账号下切换被编辑员工时，用具名用例核对新旧实例各自的草稿和关闭操作，并保留早先已提交请求的返回结果。源码可给出其他键分量的位置，切换账号和编辑模式的实际行为则需要相应对照。这个例子能检查迟到结果最终修改的是哪个实例的状态。
 
+补充的 `v3-238-same-employee-red.log` 实跑 14 例，1 例失败。第一次保存仍在等待，第二个员工的编辑和提交按钮已确认可用。返回第一个员工时，新实例的编辑按钮却也可用，后续保存响应和刷新断言未执行。源码随后让写入和 `useIsMutating({ mutationKey, exact: true })` 共用按当前账号及精确员工 ID 确定的键。保存成功回调仍等待详情刷新。`v3-238-same-employee-green.log` 的 14 例全部通过，确认返回第一位员工后，保存及详情刷新期间均不能打开编辑，刷新完成后重开显示新值，累计只有一次写入请求。正式 v5.1.0 报 `0 red, 4 not compared`，当次静态入口未执行。可在同一对照同时定位 React 实例的键和写入缓存的键，分别核对切换时草稿的归属，以及返回原目标时仍在等待的保存。
+
 ## G128 在写入方详情中识别 Prisma 查询条件
 
 应用提交 `fd84ea6` 上，正式 v5.1.0 的 `show CentralProject.lifecycleStatusCode` 把 `linked-project-list.ts:94` 的 `buildProjectListQuery (assign)` 列在 `outside writers`，并建议调用 `writeCompanyProjectStatus`。这一行只给本地 `where` 对象填入状态筛选值。函数返回该条件，`linked-project-list.ts:163–180` 将它交给 `centralProject.findMany` 和 `count`。`project-record-writer.ts:34–36` 才通过 `updateMany` 的 `data` 更新公司库的项目状态。
