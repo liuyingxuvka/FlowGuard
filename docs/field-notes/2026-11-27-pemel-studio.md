@@ -1,0 +1,9 @@
+# PEMEL Aging Studio field note
+
+Observed with FlowGuard 5.1.0 on 2026-11-27 during an import admission regression check. The scenario used synthetic inputs and an isolated workspace.
+
+`python -m flowguard show src/pemel_service/calibration/jobs.py:CalibrationJobStore.active` resolved the method and showed its three direct callers: `refuse_mutation`, `ScientificTaskReservation.reserve` and `workspace_activity`. This exposed the shared owner check used by both the UI and the background task before changing its behavior.
+
+The focused UI test session passed 11 tests. `python -m flowguard show --last` reported zero red findings and named four unpaired comparisons. It explicitly reported that no call to `CalibrationJobStore._job_ids` was recorded because the function is a generator. It gave the same generic explanation, “no comparable JSON result”, for `CalibrationJobStore.active`, `ScientificTaskReservation.reserve` and `ScientificTaskReservation._owner`. It also stated that the run selected zero of 57 intent items. Separate app tests asserted actual outcomes for verified exits, live workers and unreadable process identity.
+
+The installed source hashes matched the 5.1.0 checkout. In `flowguard/intent/runtime.py`, the observer creates no comparable sample when a call has a receiver or its inputs cannot be serialized, and it also clears the sample if return serialization fails. `flowguard/intent/plugin.py:Observations.report` derives the same summary line from the missing sample. The explanation could tell readers whether the call had non-comparable inputs or a receiver, or whether encoding the result actually failed. This would help users decide what their explicit tests need to cover. The generator and intent-coverage explanations already give actionable scope. The application regression itself is outside the tool finding.
