@@ -1414,6 +1414,10 @@ v5.1.0 的 ECMAScript 读取器从显式 `catch` 采集异常处理事实。此�
 
 可在回执详情中增加首次执行前的绑定证据，标明从同一份准备计划推导的范围、与摘要一起保存的完整登记，以及在复核和同键恢复时逐项核对的位置。用具名对照只改变本地范围中的一个有效成员，核对摘要仍匹配时也会拒绝。再模拟同键竞争，核对只有候选计划确实对应已确认且可执行的登记时才可随结果返回。报告分别标明已确认的范围、返回时是否附带计划，以及哪个用例实际核对了无后续调用。
 
+**G293 写入后的核验以独立的已确认范围为准。** 在离线用例中，接收写入参数的回调直接改了其中一条记录的 ID 与所属项目，保存改后的记录并返回相同计数。调用方在同一事务内按独立保留的回执投影核对实际记录，拒绝该结果，且事务替身中的已提交记录保持原样。正常写入对照按登记的顺序保存两类记录并核对结果。定向运行 5 个文件、69 例通过，正式 v5.1.0 报 `0 red, 8 not compared`。
+
+可在事务详情中把确认范围、回调参数及回读所用的预期值连起来，标明对象何时独立构造、何时仍与回调参数共享成员引用。建议用相同的改写回调做一项对照。故意从回调返回后的入参取得预期 ID 和所属项目时，应能看到核验会随入参一同改变。改用独立保留的预期范围时，具名断言应核对拒绝和回滚。第一种实现是建议验证的反例。原有回执绑定和写入回显证据仍各有其对应的检查位置。
+
 ## 追踪导入函数作为导出对象属性的调用
 
 为 G140 的调用定位补充了一个独立的 TypeScript 对照。`command.ts` 导出 `buildArtifact` 和返回另一值的 `alternateCommand`。`service.ts` 使用 `import { alternateCommand, buildArtifact as importedBuilder } from './command'`，再导出 `const service = { create: importedBuilder, alternate: alternateCommand }`。`handlers.ts` 将 `service` 导入为 `importedService`，由 `viaService` 返回 `importedService.create()`，同时将 `buildArtifact` 直接导入为 `directBuilder` 并由 `viaDirect` 调用。
