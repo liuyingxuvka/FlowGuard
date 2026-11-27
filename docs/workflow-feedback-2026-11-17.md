@@ -686,6 +686,14 @@ G162 给出了上述锚点的维护实测。应用基线 `adb1db7` 的 `v3-162-s
 
 发布源码的 Vitest 收尾分别处理单点历史差异与同名组的当前样本，并用 `agreed` 记录可确认的组。建议在完整详情中按约定名显示两种结论及其样本覆盖，尤其在新约定第一次运行时。最小验收可让两个新布尔函数在一个输入相符、另一个输入不同，再分别删掉一端观测或提供已知的旧版本。检查输出能分清当次副本相符、当次副本不同和样本缺失，历史比较继续单独报告。
 
+### G237 Vitest 同名比较丢失了对端的 `null` 结果
+
+导入邮箱规范化用 `null` 表示地址不可用于登录。核对这一返回值的比较边界时，在独立 Git 目录用安装的正式 v5.1.0 复现了同名组判定随观测位置变化的问题。基线的 `left/normalizer.ts` 和 `right/normalizer.ts` 都定义相同的 `normalize(value: string): string | null`，标记 `same NULL_PEER_EXAMPLE`，左侧加 `ref`。两份函数对 `probe` 返回 `accepted`，对 `ordinary` 返回 `same`。记录任务基线后，只把右侧的 `probe` 返回改成 `null`。
+
+用发布版 Vitest 适配器的 `prepare`、`closed_rows` 和 `judge`，分别向左侧或右侧提供相同的两条 JSON 输入观测。两次隔离回放在 `probe` 上都得到左侧 `accepted`、右侧 `null`。只提供左侧观测时，`judge` 给出 `agreed=['NULL_PEER_EXAMPLE']`，没有红项。改为只提供右侧观测时，有同名比较红项，`agreed` 为空。右侧还报告自己的历史返回变化。见 `flowguard-g237-null-peer-repro.log`。证据来自合成源文件和适配器的判定结果。
+
+发布版 `sealed.mjs` 把合法的 JavaScript `null` 交给 Python，后者以 `None` 保存。`vitest.py` 收集同名组答案时用 `theirs is not None` 筛掉了这个成功返回值。建议区分键缺失、回放的 `$missing` 标记和实际 `null` 值。修复后，上述两种观测方向都应报同一分歧。另保留双方均返回 `null` 的一致对照和一端确实无法回放的对照，核对三类结果各自得到明确判定或未比较状态。
+
 ## G116 让显式传入的 JavaScript 日期参与行为比较
 
 应用基线 `0a34ff2` 使用正式 v5.1.0。`v3-116-company-state-red.log` 先复现了已授权完整名单缺公司状态的错误。补齐共享投影后，`v3-116-backend-confirm.log` 的 6,878 例通过，FlowGuard 为 `0 red, 20 not compared`。`v3-116-backend-show-confirm.log` 将已有 `isPlannable` 列为仅支持 JSON 数据导致的未比较。该函数接受含 `Date` 的雇佣事实和调用方显式传入的参考日。共享 `projectCompanyEmployment` 还有外部绑定及新位置无基线记录两个独立限制。合同最后一天、未来入职、非在职和缺省日期由具名用例验证。
