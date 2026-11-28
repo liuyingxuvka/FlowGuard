@@ -249,3 +249,18 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
   cache versions through the same publication owner. Those format and
   four-language PDF checks were ordinary regressions and therefore were not
   expected from the recorded agreements.
+
+## Follow-up: common tree status column
+
+- The exact stored request bytes matched the request digest, and
+  `show rules` resolved the quoted text. `show project_rows` identified the
+  resolved caller `tree_snapshot`, and `show ProjectTreeDelegate` listed the
+  delegate's fields. That was sufficient to split the state projection from
+  drawing the existing status glyph.
+- All 158 targeted tests passed with 0 red, five not compared and no
+  `changed` lines. The unrecorded results were the GUI projection, aggregate
+  progress and delegate calls. Separate native Qt synthetic captures at two
+  widths validated the accessible status text and actual painted badges.
+  The rule's holding source and the report's not-compared entries correctly
+  describe different facts. No broader GUI coverage is implied by that
+  report alone.
