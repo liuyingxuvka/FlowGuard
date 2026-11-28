@@ -140,3 +140,29 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
   evaluator boundary. A path to the applicable ordinary Qt test in that
   output, if the mapping is known, would make it easier to distinguish a
   checked UI state from an uncovered one.
+
+## Follow-up: saved comparison evidence
+
+- Exact `show` on `common_curves` listed the request builder and the report
+  reader. `show` also confirmed that the superseded curve parser had no
+  remaining resolved call. The regression preserves original saved current
+  grids at matching conditions. The worker still uses an exact shared grid
+  for newly computed common-condition curves.
+- `ledger check` identified the three new non-propagating handlers by the
+  precise command or nested publication function. The reviewed entries name
+  the displayed error and the exact saved-result check that may accept an
+  uncertain write. A later check found zero red. In the separate actual
+  adapter tests, all five passed, including exact saved states at a second
+  condition without a time replay and rejection of a changed endpoint.
+- The 274-test comparison and UI suite passed with zero red and no `changed`.
+  `field_impact` named the new member error's `selection_key` as having zero
+  counted readers. The code reads `exc.selection_key` in `ComparisonDialog`
+  after `isinstance(exc, ComparisonMemberError)`. `intent/owners.py` documents
+  that the field query counts `self`, annotations and declared field types.
+  Recognizing that simple local type narrowing would add a real reader edge.
+  The ordinary Qt test checks that the refusal appears on the affected row.
+- The verbose report printed 172 `no comparable JSON result` entries. The
+  predicate in `intent/plugin.py` adds that note for a due comparison with
+  no sample to compare. It is separate from the ordinary pytest outcome. An
+  optional grouped view by reason and owner could make first-pass review
+  faster while retaining one exact location for each unchecked point.
