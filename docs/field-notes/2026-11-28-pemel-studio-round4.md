@@ -453,3 +453,17 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
   change. The path was useful to review, but separating direct owner changes
   from newly observed callers in the summary would make longer impact lists
   easier to triage.
+
+## Follow-up: default display preferences
+
+- `show Settings` returned the right owner alongside matches for the many
+  names containing the same word. Showing an exact-match-only view first,
+  with aliases and substring matches in a separate section, would make owner
+  lookup faster in large projects. `show ResponsiveFigure` also found the
+  viewport owners that use the constructor's standalone default.
+- The preference tests and Qt checks passed 46 cases, including a fresh
+  workspace, a saved non-default choice, and scaling a real figure widget.
+  Replay did not compare `load_settings` or `save_settings` because they
+  had no comparable JSON result. It did not compare the widget constructor
+  because its closure is unsupported. These three reasons were visible in
+  `show --last --full`. The ordinary tests supplied the actual coverage.
