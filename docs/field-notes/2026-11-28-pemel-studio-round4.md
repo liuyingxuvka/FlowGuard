@@ -384,3 +384,17 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
   `intent/cli.py` reports entries retained by exact node ID. A separate
   "no longer collected" state, when a complete collection is known, could
   preserve the history while making the current test state clearer.
+
+## Follow-up: the real cancellation test
+
+- A frozen acceptance run exposed a synthetic probe that requested the storage
+  for a 100,000-hour task before trying to cancel it. The actual storage guard
+  reported the capacity problem. The probe now uses the established 1,000-hour
+  fixture, waits for a real forward chunk, and verifies cooperative stop and
+  an empty results folder. This setup failure is outside FlowGuard's scope.
+- The focused packaging run reported nine passes and `0 red, 1 not compared`.
+  `show engine_cancel_worker` located the diagnostic worker and its sole caller.
+  The sole comparison reason, `main … (holds an import)`, matches the replay
+  boundary at `intent/runtime.py::UNRUN_PARTS`. The ordinary subprocess tests
+  executed the relevant CLI paths. A direct link from that reason to any observed
+  ordinary test evidence could distinguish a replay boundary from a gap in tests.
