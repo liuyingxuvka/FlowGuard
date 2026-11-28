@@ -412,3 +412,18 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
   the generic exact-collection reason and distinguish a missing witness in
   a narrow lane from an ambiguous parameterized node. This would make Qt
   process isolation less likely to look like a product regression.
+
+## Follow-up: reproducible figure evidence
+
+- `show _finish_axes` pointed directly to both `render_figure` and
+  `paginate_figure`; `show build_profile_report` identified the cycle editor,
+  project report and simulation preview readers. This helped put the repaired
+  axis presentation in one owner and check the right preview paths.
+- The final affected run had 175 passes, zero red, one impact and eight
+  comparison limits (no comparable JSON result). The sole impact named the
+  prescribed Data contract through the Data report's input column readers.
+  Review confirmed the file schema and input conversion did not change. The
+  rendered checks independently measured axis bounds and produced 42 product
+  figures in both frames. The retired mockup runner's missing figure IDs and
+  the clipped text were found by running the actual figure evidence, an
+  ordinary acceptance check outside replay coverage.
