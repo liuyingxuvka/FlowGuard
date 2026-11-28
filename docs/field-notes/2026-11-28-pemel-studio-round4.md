@@ -407,7 +407,7 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
   123 passes and 30 unverified items across its narrower selection, and
   no red or changed results. Some other measured tests were outside this
   selection and several lower contracts have independent replay limits.
-- The existing resolver in `intent/sites.py` looks up the exact collected
+- The existing resolver in `intent/calibration.py` looks up the exact collected
   witness node. The diagnostic should include the requested node ID beside
   the generic exact-collection reason and distinguish a missing witness in
   a narrow lane from an ambiguous parameterized node. This would make Qt
