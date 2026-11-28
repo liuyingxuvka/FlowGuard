@@ -279,3 +279,26 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
   `flowguard/intent/cli.py` already qualifies the claim as resolved calls.
   Showing the statically attributable protocol call with a distinct confidence
   marker would help when using the map to check an adapter boundary.
+
+## Follow-up: released model code and older project display
+
+- The first packaged-candidate group reported 483 passes, nine failures and
+  eleven unverified intent cases in a partial collection. FlowGuard reported
+  zero red. The two field impacts led to checking the fitted evidence readers
+  and the default model selection when a project is upgraded. The other
+  default writers handle explicit model selection and deletion. The new
+  writer replaces only the identity of the model converted during a project
+  open. The final 274-test retry recorded 0 red, no `changed` lines, the same
+  two reviewed impacts, and one unchanged owner-known item.
+- An actual open-and-autosave test found a broken read-only model label for
+  older projects. The code map exposed the factory lookup and installed-code
+  check as distinct operations. Test results and source review established
+  that display can recognize the exact historical record while it remains
+  excluded from current execution. The independent tests retained the package,
+  application installation and historical measurement evidence identity.
+- `show` on a model-manual JSON source explicitly says that the map reads
+  neither that file nor a Markdown document there. The existing limitation is
+  honest. A link from the generated document contract to a JSON authoring
+  path would help find the proper editing surface in projects that build
+  their documentation from catalogues. Actual generator `--check` and
+  manual tests continue to verify the files.
