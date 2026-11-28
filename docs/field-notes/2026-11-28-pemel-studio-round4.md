@@ -355,3 +355,32 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
   call hook in `intent/sites.py` deliberately refuses targets whose
   compiled code contains free variables. A UI-oriented summary could link that
   explanation and leave the ordinary tests as the executable evidence.
+
+## Follow-up: full release verification
+
+- Full Studio collection produced 4,145 distinct nodes before three additional
+  regression cases were added. A native Qt style refresh interrupted the first
+  document process. Fresh disjoint processes exercised every collected
+  document case. The ordinary one-window Settings probe also completed
+  twelve Japanese and English switches at Linux Qt 125%. No numerical or
+  owner rule was changed to make those checks pass.
+- All 61 ordinary failures and setup errors in the widget and remainder
+  checks were covered after repair. The focused 237-test rerun exited zero,
+  with zero FlowGuard red and no changed results. Its guide impact pointed
+  through the packaged H5 check to the new time-point fixture. The bounded
+  worker checks still exercise a real spawn, second-task rejection,
+  cancellation and cleanup. The original platform-style failure and
+  unsupported intent observations remain in the verification record.
+- The order in the terminal's `--collect-only` output is useful for
+  membership checks. It differs from the execution order once
+  `intent/plugin.py::_finish_collection` moves ordinary tests first and
+  executable flows after their lower contracts. Mapping an early failure
+  marker onto the raw collection initially pointed at the wrong intent
+  rule. A small machine-readable execution-order or final-node index
+  would make exact progress attribution easier in a long suite.
+- Nine previous failed node IDs changed when their test names or parameter
+  reasons were updated. The detailed last-run view kept the old IDs under
+  "not selected", while the renamed cases passed. The output in
+  `intent/cli.py` reports entries retained by exact node ID. A separate
+  "no longer collected" state, when a complete collection is known, could
+  preserve the history while making the current test state clearer.
