@@ -93,6 +93,11 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
   groups and keep the already valid locator and caller information if the
   optional copy search cannot proceed. A useful regression would seed a
   historical empty signature set and call the ordinary exact-locator CLI.
+  During the final type review, the exact locator
+  `src/pemel_service/project/store.py:_windows_project_root` also printed
+  the right function and its `ProjectDeletionIdentity.delete` caller before
+  reporting the same error. That run gives a second symptom. The current
+  map does not preserve the inputs needed to attribute it to the same trace.
 
 ## Follow-up: calibration setup and worker lifetime
 
