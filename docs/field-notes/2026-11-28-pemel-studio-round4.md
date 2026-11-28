@@ -119,3 +119,24 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
   owner. The exact stop, attach refusal and crash behavior were verified
   separately by subprocess tests. A previously decided aging-fit advisory
   remained `known`; the lifetime change did not alter that numerical choice.
+
+## Follow-up: interrupted import and source stack review
+
+- The import publication fix passed 157 targeted tests. The separate import
+  review fix passed 262. Both exited 0 with zero red findings. The C7 lookup
+  of `start_import.perform_import` located the direct caller in the existing
+  confirmation workflow. The retry tests confirm that a library item already
+  saved is kept and can be added to the project without importing it again.
+- The C6 impact result listed `_geometry_origin` writers in the initializer,
+  `_mark_geometry_edited` and `_set_geometry`, and the reader `_paint_geometry`.
+  In the actual widget review, an invalid manual edit had left the original
+  number labelled as manually entered. The fixed widget shows the validation
+  error inline, with an ordinary Qt test asserting the incorrect value is
+  absent. `intent/ledger.py:fallbacks` and `check` verify the exception's
+  scope and named written rule. The widget test supplies the visual behavior
+  evidence.
+- `show --last --full` described `_scan_time_span` as `not compared: not a
+  module-level function`. The refusal in `intent/runtime.py` is an explicit
+  evaluator boundary. A path to the applicable ordinary Qt test in that
+  output, if the mapping is known, would make it easier to distinguish a
+  checked UI state from an uncovered one.
