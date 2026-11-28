@@ -398,3 +398,17 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
   boundary at `intent/runtime.py::UNRUN_PARTS`. The ordinary subprocess tests
   executed the relevant CLI paths. A direct link from that reason to any observed
   ordinary test evidence could distinguish a replay boundary from a gap in tests.
+
+## Follow-up: replay witnesses in a separate Qt test process
+
+- Combining the existing UI witness tests and the intent definitions in the
+  same focused run removed the earlier missing-anchor reasons for the R38
+  UI, task-window-close and archived-restore flows. The run still reported
+  123 passes and 30 unverified items across its narrower selection, and
+  no red or changed results. Some other measured tests were outside this
+  selection and several lower contracts have independent replay limits.
+- The existing resolver in `intent/sites.py` looks up the exact collected
+  witness node. The diagnostic should include the requested node ID beside
+  the generic exact-collection reason and distinguish a missing witness in
+  a narrow lane from an ambiguous parameterized node. This would make Qt
+  process isolation less likely to look like a product regression.
