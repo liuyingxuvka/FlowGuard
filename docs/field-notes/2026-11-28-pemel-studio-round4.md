@@ -302,3 +302,28 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
   path would help find the proper editing surface in projects that build
   their documentation from catalogues. Actual generator `--check` and
   manual tests continue to verify the files.
+
+## Follow-up: one steady calibration range
+
+- `show RunCoverage.add` found the live simulation adapter. The owner map also
+  showed the steady selector's delayed-block and context fields. Reviewing
+  those edges helped put the assessment after each successful numerical
+  write and leave scientific results unchanged. The independent transition
+  oracle and actual synthetic calibration-to-simulation replay passed. The
+  replay and a 5 K change exercised the preview, completed run and comparison.
+- The report and dialog pass initially exposed four ordinary test
+  expectations tied to previous labels, percentages and the preview
+  signature. The focused rerun passed all nine tests. The next workflow
+  check found one older expectation of a blue icon on each entered cycle
+  point. The updated regression checks the single stable-input notice and
+  passed. FlowGuard reported zero red and no `changed` in these checks.
+  Native Qt captures and both PDF readers confirmed the placement in English
+  and Simplified Chinese. Those presentation expectations were checked by the
+  tests and captures.
+- A typo in a qualified `show` query produced related import lines while
+  the intended definition was missing. In `intent/cli.py`, the match set is
+  deliberately returned as a search aid, with word matches shown in the
+  expanded output. A one-line exact-match result before related names
+  would make an unsuccessful definition lookup easier to recognize. The
+  JSON comparison detail worked as documented: `intent/plugin.py` reports a
+  missing comparable sample separately from an ordinary test failure.
