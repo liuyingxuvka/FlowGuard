@@ -427,3 +427,29 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
   figures in both frames. The retired mockup runner's missing figure IDs and
   the clipped text were found by running the actual figure evidence, an
   ordinary acceptance check outside replay coverage.
+
+## Follow-up: measured Data and illustrated Help
+
+- `show current_page_facts` found both the report and refresh paths for the
+  same header function. The packaged click journey found that a valid
+  five-fact header failed to open after import. Keeping the four approved
+  facts fixed both paths, and the measured Data and import lane passed 66
+  checks. The diagnostic's composite post-import assertion originally hid
+  the actual UI error. The replay result for `current_page_facts` was
+  `no comparable JSON result`. The plugin groups that reason from the
+  captured point records in `intent/plugin.py`. A link to the ordinary
+  tests that observed a point would help distinguish no replay sample from
+  no application coverage.
+- The illustrated Help and distribution lane passed 73 checks, with no red
+  or changed results. After switching to the typed Qt URL method, 32 focused
+  checks passed. The 13 not-compared entries were new owners without a prior
+  version and helpers without comparable JSON results. The ordinary Qt
+  tests opened every shipped chapter in four languages, loaded 72 actual
+  PNGs and waited for completed reflow before measuring image widths.
+  FlowGuard did not claim to check those pixels.
+- The one documentation impact followed the call from the synthetic profile
+  generator to the existing H5 writer. This is the downstream call-edge
+  check in `intent/docs.py`. The documented schema and the writer did not
+  change. The path was useful to review, but separating direct owner changes
+  from newly observed callers in the summary would make longer impact lists
+  easier to triage.
