@@ -467,3 +467,24 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
   had no comparable JSON result. It did not compare the widget constructor
   because its closure is unsupported. These three reasons were visible in
   `show --last --full`. The ordinary tests supplied the actual coverage.
+
+## Follow-up: renamed tests and the full locale run
+
+- `show --last --full` correctly removed a real ordinary failure when the
+  same report locale node passed on the next run. The test now checks the
+  two localized sections in their intended order, along with selection and
+  the original figure data.
+- Nine older failed node IDs remained in the brief after a complete current
+  collection showed those IDs were absent. Their tests had been renamed or
+  reparametrized. The new scan and portable CSV cases passed and ordinary
+  receipts recorded their new names. `intent/cli.py` distinguishes the last
+  selected run by the stored outcome timestamp. It could additionally give
+  removed IDs an `absent from current full collection` label, preserving the
+  historical result without suggesting the current suite still contains it.
+  A partial collection cannot support that label.
+- The 1,062-widget suite finished even though two late locale tests spent
+  substantial time in the native Qt binding's `findDerivedType` from event
+  filters. Independent test-process timing and the normal JUnit result, not
+  the replay result, establish the outcome. A test-runtime note linked to
+  the latest completed receipt would complement replay timing on long Qt
+  lanes.
