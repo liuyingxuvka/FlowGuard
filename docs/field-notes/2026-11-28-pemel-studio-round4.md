@@ -166,3 +166,24 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
   no sample to compare. It is separate from the ordinary pytest outcome. An
   optional grouped view by reason and owner could make first-pass review
   faster while retaining one exact location for each unchecked point.
+
+## Follow-up: case labels and individual rises
+
+- `req add` preserved the UTF-8 source of both owner messages, and `show rules`
+  displayed the two named rules. The request map reads the stored request
+  bytes, and the strict source check resolves the quoted fragment at the
+  selected commit. The exact owner wording stays in the project request
+  files, with only the agreed behavior summarized here.
+- `new-task` disclosed the new baseline and explicitly named the older range
+  it would no longer compare. It also listed the count of tests that had not
+  rerun since a failure. `show --last --full` named both tests, so we included
+  them in the next suite instead of assuming the count was a current failure.
+- The first expanded check had two ordinary failures and zero red findings.
+  One was a genuine PDF continuation defect: the longer case label could wrap
+  into two words and disappear on the following page. The other was an old
+  test's unsplit activation row expectation. The revised suite passed all
+  523 tests with zero red and no `changed` lines. Its three impacts led to
+  reviewing the case-choice row, both reorder controls and the exact-state
+  adapter's existing input contract. The 92 not-compared lines remain tool
+  scope limits. The real comparison, PDF and click tests provide the evidence
+  for these visible changes.
