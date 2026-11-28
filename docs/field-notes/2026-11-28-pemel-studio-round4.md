@@ -206,3 +206,26 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
   of shared staged-file publication. The staged PDF and calibration write
   contract still holds. The impact was a prompt to inspect a real dependency,
   with no need for a duplicate architecture note.
+
+## Follow-up: time-point input and crossover documentation review
+
+- The first time-point run reported zero FlowGuard red findings and had ordinary
+  test failures. Saving a project tried to rewrite immutable, unchanged time
+  points while walking numerical references. The two walkers now retain
+  unchanged field values and continue to replace relocated references. The next
+  focused run passed 227 tests, including save and reopen, exact rebasing,
+  CSV and HDF5 agreement, and the editor's time-point rules. `show --last --full`
+  included six reviewed impacts and no `changed` lines. The larger regression
+  run is tracked independently.
+- `ledger check` identified the relocated calibration-data filter and the
+  editor's new validation handler. The first reuses the saved-record rejection
+  rule. The second continues to show the time error in the existing preview.
+  The reviewed ledger check reached zero red findings. This helped distinguish
+  an intentional, visible invalid-input check from an unreported fallback.
+- Exact `show` lookups for the model library listed their real callers before
+  the shared-word section. The library-list query had 431 extra word-only hits
+  out of 433 additional hits. `intent/cli.py` deliberately appends these below
+  resolved matches using the ranking threshold. A concise exact-query mode could
+  leave those word matches behind `--full` while preserving the caller and reader
+  context. The exact callers helped distinguish opening a saved project from
+  starting with a model library alone.
