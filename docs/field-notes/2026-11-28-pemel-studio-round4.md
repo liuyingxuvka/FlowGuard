@@ -187,3 +187,22 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
   adapter's existing input contract. The 92 not-compared lines remain tool
   scope limits. The real comparison, PDF and click tests provide the evidence
   for these visible changes.
+
+## Follow-up: managed project copies
+
+- The targeted project, Home and workflow suite passed 362 tests with zero
+  red and no `changed` lines. Project paths in these tests were temporary
+  synthetic workspaces. The app opened a managed copy, kept the external
+  original, and enforced the copy's exact deletion identity. The one-time
+  settings upgrade reset project reopening.
+- FlowGuard's field impact named the removed `Settings.recent_projects`
+  writers and distinguished two baseline readers. A source check found that
+  the remaining settings occurrences read the historical schema and remove
+  the field during upgrade. `WorkspaceIndex.recent_projects` is a separate
+  index query. Showing baseline-only and current readers separately would
+  reduce follow-up when a field is retired. The existing wording and map
+  already provided enough locations to verify the distinction manually.
+- The document impact linked the project export adjustment to a description
+  of shared staged-file publication. The staged PDF and calibration write
+  contract still holds. The impact was a prompt to inspect a real dependency,
+  with no need for a duplicate architecture note.
