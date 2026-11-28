@@ -71,3 +71,25 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
 - `show src/pemel_studio/dialogs/forms.py:ReportPdfDialog._browse` located the only remaining inference of file-replacement confirmation from file existence. The verified implementation asks once at the existing workflow and publishes an unconfirmed file exclusively. The later FlowGuard impact lines named both removed `overwrite_confirmed` writers and found zero remaining readers. This matched source review and the late-collision regression.
 - An independent check of the newly reachable stack editor found a pre-existing edit that rounded fields the user did not touch. The actual dialog edit regression now checks that an unchanged area and a default flag stay exact. FlowGuard's resulting impact line identified the new `StackDialog._original` field and its two readers. A regular pytest assertion checks the value and the flag.
 - The C2 tests ran from a frozen, detached source snapshot while another report area was still being edited. Its final annotated suite had 77 passed, no failed tests and zero red findings. The checkout copies were compared byte for byte before committing. There were three expected impact lines and 14 comparison limitations, with no unexpected `changed` result. The tool's snapshot refusal in the shared checkout was useful protection; moving this verification to a separate working directory let development continue.
+
+## Follow-up: report figures and saved evidence
+
+- The integrated report check passed 555 tests. FlowGuard reported zero red,
+  15 impact lines and 110 comparison limits in 73.6 s, with no `changed`
+  lines. The field lines named the new calibration scan and band aggregators
+  and their readers. The architecture impact led to updating the SVG cache
+  description to include the screen/page frame in its key. Ordinary tests
+  separately verified actual rendering and archival data limits.
+- An exact locator can fail **after** displaying the correct signature and
+  caller. `python -m flowguard show src/pemel_studio/documents/figure_window.py:FigureWindow._fit_to_screen`
+  printed the method and the `FigureWindow.__init__` caller, then exited 2
+  with `max() iterable argument is empty`. Calling the same `show` API without
+  the CLI's graceful exception formatting produced a traceback through
+  `intent/cli.py:1349`, `structure/api.py:1694`, and
+  `structure/homes.py:201`. The old-group path can carry an empty parsed
+  `sigs` set from `site_history`; `site_homes` assumes each group is nonempty
+  when it computes `max(weight(t) for t in g["sigs"])`. The current-site
+  collector filters empty sets. Apply the same eligibility check to historical
+  groups and keep the already valid locator and caller information if the
+  optional copy search cannot proceed. A useful regression would seed a
+  historical empty signature set and call the ordinary exact-locator CLI.
