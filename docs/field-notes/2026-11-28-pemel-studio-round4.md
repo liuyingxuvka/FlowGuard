@@ -229,3 +229,23 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
   leave those word matches behind `--full` while preserving the caller and reader
   context. The exact callers helped distinguish opening a saved project from
   starting with a model library alone.
+
+### Completed affected time-point run
+
+- The broad run executed 1,524 tests. Pytest reported 1,514 passes and 10
+  failures. The FlowGuard block reported 0 red, 6 impacts and 128 points not
+  compared. `show --last --full` reported the pytest exit code and all ten
+  failing nodes separately. The post-correction group passed 147 tests, with
+  0 red, 6 impacts, 77 not compared and no `changed` lines. This was useful
+  evidence that the agreement checks and test outcomes were separate.
+- Verified against `flowguard/intent/plugin.py:session_outcome` and
+  `flowguard/intent/cli.py:_run_lines`. The plugin records pytest's outcome,
+  and the CLI renders it above the full report. The short terminal block still
+  begins with agreement counts. A compact pointer to the failed-test count
+  when ordinary pytest fails alongside zero red would reduce misreading in
+  streamed agent logs. The full view already shows the correct information.
+- The profile and data preview changes retained the immutable original
+  source. One follow-up caught the static curve cache format and verified both
+  cache versions through the same publication owner. Those format and
+  four-language PDF checks were ordinary regressions and therefore were not
+  expected from the recorded agreements.
