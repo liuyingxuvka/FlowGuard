@@ -264,3 +264,18 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
   The rule's holding source and the report's not-compared entries correctly
   describe different facts. No broader GUI coverage is implied by that
   report alone.
+
+## Follow-up: short-pass axes and an interface call
+
+- The short-pass figure checks passed 124 tests with 0 red, no `changed`
+  lines and three report producers listed as not compared. The native Qt
+  captures independently checked the four-second jump and the 300-second
+  final point. The more informative boundary assertion came from the report
+  tests and did not rely on a JSON replay of the figure-producing call.
+- While locating the crossover owner, `show crossover_law` named the adapter
+  and its protocol but reported no resolved caller for either. The service
+  visibly calls `bindings.crossover_law` through the injected protocol; the
+  interface import is guarded by `TYPE_CHECKING`. The wording in
+  `flowguard/intent/cli.py` already qualifies the claim as resolved calls.
+  Showing the statically attributable protocol call with a distinct confidence
+  marker would help when using the map to check an adapter boundary.
