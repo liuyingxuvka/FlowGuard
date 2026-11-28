@@ -347,7 +347,6 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
 - FlowGuard identified the single new About button field and named its
   constructor, chapter-selection and retranslation readers. Matching the
   three real readers to the screenshot and locale tests was useful. The
-  closure comparison limit is documented in `intent/runtime.py`: captured
-  values that cannot be reproduced in the comparison interpreter return
-  a specific unsupported result. A UI-oriented summary could link that
+  call hook in `intent/sites.py` deliberately refuses targets whose
+  compiled code contains free variables. A UI-oriented summary could link that
   explanation and leave the ordinary tests as the executable evidence.
