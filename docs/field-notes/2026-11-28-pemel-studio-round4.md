@@ -93,3 +93,29 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
   groups and keep the already valid locator and caller information if the
   optional copy search cannot proceed. A useful regression would seed a
   historical empty signature set and call the ordinary exact-locator CLI.
+
+## Follow-up: calibration setup and worker lifetime
+
+- The setup tests verified the two activation rows, unchanged saved choices,
+  exclusive selections, and an information control exercised by click and
+  keyboard focus. All 254 ordinary assertions passed with zero red findings.
+  The Qt tests and screenshots provide the visual evidence. `show` resolved
+  `describe_prescribed_coverage` to its exact definition and `refresh_summary`
+  caller, then printed 76 approximate lines. The exact setup information
+  method also found its direct caller before listing 782 word-only matches.
+  Keeping approximate expansion out of the default exact view would preserve
+  the useful owner/caller result in a compact form.
+- The first worker-lifetime run passed all 225 ordinary tests but correctly
+  exited 1. `ledger check` pointed to two stale entries on
+  `CalibrationJobStore.launch`: `BaseException` and `suppress(OSError)`.
+  Source review showed that the new grant/reap path always raises a failed
+  launch and has no best-effort observation write. Removing just those two
+  obsolete entries made `ledger check` clean. The same 225 tests then passed
+  with exit 0 and no red. Keep showing the removed site and the exit code even
+  when the ordinary assertion count is green.
+- The final `show --last --full` reported `_desktop_worker` writers and
+  readers on `launch`, `stop_for_exit`, `has_desktop_worker` and construction.
+  These pointers helped check that the app's process handle belongs to one
+  owner. The exact stop, attach refusal and crash behavior were verified
+  separately by subprocess tests. A previously decided aging-fit advisory
+  remained `known`; the lifetime change did not alter that numerical choice.
