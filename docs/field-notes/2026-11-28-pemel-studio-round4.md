@@ -327,3 +327,27 @@ The exact baseline was checked in three serial, fresh pytest processes. The coll
   would make an unsuccessful definition lookup easier to recognize. The
   JSON comparison detail worked as documented: `intent/plugin.py` reports a
   missing comparable sample separately from an ordinary test failure.
+
+## Follow-up: recorded ranges and display diagnostics
+
+- The library and project range-refresh follow-up passed 166 tests with
+  zero red and no `changed` results. This includes real Model Library
+  selection with a matching, missing or different Data version and while
+  another task is owned. The worker accesses the requested version only.
+  A metadata update keeps the saved numeric files and model identities.
+  The 12 no-sample comparison entries are tool scope, separate from those
+  workflow checks.
+- The integrated font and About change passed 68 tests at Linux Qt 125%
+  with zero red and no `changed` results. The native capture clicked
+  Copy display diagnostics in both English and Simplified Chinese. It
+  observed Poppins Medium with 3,596 bytes of supported instructions
+  compared with zero on the earlier face. This records the on-screen
+  font resource and action. DirectWrite appearance still requires the
+  separate Windows 125% check.
+- FlowGuard identified the single new About button field and named its
+  constructor, chapter-selection and retranslation readers. Matching the
+  three real readers to the screenshot and locale tests was useful. The
+  closure comparison limit is documented in `intent/runtime.py`: captured
+  values that cannot be reproduced in the comparison interpreter return
+  a specific unsupported result. A UI-oriented summary could link that
+  explanation and leave the ordinary tests as the executable evidence.
